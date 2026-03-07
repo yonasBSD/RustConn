@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.9.9** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.9.10** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -1040,7 +1040,7 @@ For large imports (10+ connections), a preview is shown before applying. You can
 | Source | Auto-scan | File picker | Protocols | Notes |
 |--------|:---------:|:-----------:|-----------|-------|
 | SSH Config | `~/.ssh/config` | Any file | SSH | Host blocks → connections |
-| Remmina | `~/.local/share/remmina/` | — | SSH, RDP, VNC, SFTP | One `.remmina` per connection |
+| Remmina | `~/.local/share/remmina/` | — | SSH, RDP, VNC, SFTP | One `.remmina` per connection (see Flatpak note below) |
 | Asbru-CM | `~/.config/pac/` | YAML file | SSH, VNC, RDP | Variables converted to `${VAR}` |
 | Ansible | `/etc/ansible/hosts` | INI/YAML file | SSH | Groups preserved |
 | Royal TS | — | `.rtsz` file | All | Folder hierarchy → groups |
@@ -1049,6 +1049,21 @@ For large imports (10+ connections), a preview is shown before applying. You can
 | Virt-Viewer | — | `.vv` file | SPICE, VNC | From libvirt, Proxmox VE, oVirt |
 | Libvirt / GNOME Boxes | `/etc/libvirt/qemu/`, `~/.config/libvirt/qemu/` | XML file | VNC, SPICE, RDP | Domain XML `<graphics>` elements |
 | RustConn Native | — | `.rcn` file | All | Full-fidelity backup |
+
+**Remmina import in Flatpak:**
+
+In Flatpak, the sandbox redirects `~/.local/share/` to `~/.var/app/io.github.totoshko88.RustConn/data/`. RustConn checks both the sandbox path and the host path `~/.local/share/remmina/`, but the host path requires filesystem access. Grant it with:
+
+```bash
+flatpak override --user --filesystem=~/.local/share/remmina:ro io.github.totoshko88.RustConn
+```
+
+Alternatively, copy your Remmina profiles into the sandbox directory:
+
+```bash
+mkdir -p ~/.var/app/io.github.totoshko88.RustConn/data/remmina/
+cp ~/.local/share/remmina/*.remmina ~/.var/app/io.github.totoshko88.RustConn/data/remmina/
+```
 
 **Libvirt / GNOME Boxes import:**
 

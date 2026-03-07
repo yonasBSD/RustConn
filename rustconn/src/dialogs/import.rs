@@ -59,6 +59,8 @@ impl ImportDialog {
             dialog.set_transient_for(Some(p));
         }
 
+        dialog.set_size_request(350, 300);
+
         // Header bar (GNOME HIG)
         let (header, close_btn, import_button) = super::widgets::dialog_header("Close", "Import");
 

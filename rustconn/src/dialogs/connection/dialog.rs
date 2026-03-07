@@ -1381,9 +1381,9 @@ impl ConnectionDialog {
             .title(i18n("New Connection"))
             .modal(true)
             .default_width(600)
-            .default_height(500)
+            .default_height(730)
             .build();
-        window.set_size_request(350, 300);
+        window.set_size_request(350, 580);
 
         if let Some(p) = parent {
             window.set_transient_for(Some(p));
@@ -1425,18 +1425,13 @@ impl ConnectionDialog {
             .reveal(true)
             .build();
 
-        // Create scrolled window for the stack content
-        let scrolled = ScrolledWindow::builder()
-            .hscrollbar_policy(gtk4::PolicyType::Never)
-            .vscrollbar_policy(gtk4::PolicyType::Automatic)
-            .vexpand(true)
-            .child(&view_stack)
-            .build();
-
-        // Use GtkBox with HeaderBar, content, and ViewSwitcherBar at bottom
+        // Each tab provides its own ScrolledWindow, so the ViewStack sits
+        // directly in the layout — no outer ScrolledWindow that would steal
+        // height allocation from the per-tab scrollers.
         let main_box = GtkBox::new(Orientation::Vertical, 0);
         main_box.append(header);
-        main_box.append(&scrolled);
+        view_stack.set_vexpand(true);
+        main_box.append(&view_stack);
         main_box.append(&view_switcher_bar);
         window.set_content(Some(&main_box));
 

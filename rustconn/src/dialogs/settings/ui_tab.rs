@@ -40,7 +40,7 @@ pub fn create_ui_page() -> (
         .spacing(0)
         .valign(gtk4::Align::Center)
         .css_classes(["linked"])
-        .width_request(255)
+        .width_request(240)
         .build();
 
     let system_btn = ToggleButton::builder()

@@ -53,7 +53,7 @@ pub fn show_move_to_group_dialog(
         .title(i18n("Move"))
         .transient_for(window)
         .modal(true)
-        .default_width(750)
+        .default_width(450)
         .build();
 
     let header = adw::HeaderBar::new();

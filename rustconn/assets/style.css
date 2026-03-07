@@ -508,6 +508,18 @@ label.warning {
     color: @error_color;
 }
 
+/* ============================================================
+ * Settings Dialog — consistent content width across all tabs
+ * AdwPreferencesPage uses an internal AdwClamp (default max 600px).
+ * Tabs with only compact suffix widgets (Switch, CheckButton) get
+ * a narrower natural width than tabs with Entry/PasswordEntry.
+ * Force the inner GtkBox to always request the full clamp width
+ * so every page looks identical.
+ * ============================================================ */
+preferencespage clamp > box {
+    min-width: 540px;
+}
+
 /* Status icons with better visibility */
 label.success {
     color: @success_color;

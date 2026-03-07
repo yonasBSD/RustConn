@@ -179,6 +179,8 @@ impl ShortcutsDialog {
 
         window.set_size_request(320, 280);
 
+        window.set_size_request(320, 280);
+
         // Header bar
         let header = adw::HeaderBar::new();
 

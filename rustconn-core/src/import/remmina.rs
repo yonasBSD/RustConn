@@ -451,11 +451,28 @@ impl ImportSource for RemminaImporter {
         }
 
         let mut paths = Vec::new();
+        let mut scanned_dirs: Vec<PathBuf> = Vec::new();
 
         if let Some(data_dir) = dirs::data_local_dir() {
             let remmina_dir = data_dir.join("remmina");
+            scanned_dirs.push(remmina_dir);
+        }
+
+        // In Flatpak, dirs::data_local_dir() returns the sandbox path
+        // (~/.var/app/<app-id>/data). Also check the host path so users
+        // can grant access via `flatpak override --filesystem`.
+        if crate::flatpak::is_flatpak()
+            && let Some(home) = dirs::home_dir()
+        {
+            let host_remmina = home.join(".local/share/remmina");
+            if !scanned_dirs.contains(&host_remmina) {
+                scanned_dirs.push(host_remmina);
+            }
+        }
+
+        for remmina_dir in &scanned_dirs {
             if remmina_dir.is_dir()
-                && let Ok(entries) = fs::read_dir(&remmina_dir)
+                && let Ok(entries) = fs::read_dir(remmina_dir)
             {
                 for entry in entries.flatten() {
                     let path = entry.path();

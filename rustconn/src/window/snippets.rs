@@ -323,7 +323,7 @@ pub fn show_snippet_picker(window: &gtk4::Window, state: SharedAppState, noteboo
         .title(i18n("Execute Snippet"))
         .transient_for(window)
         .modal(true)
-        .default_width(400)
+        .default_width(500)
         .default_height(400)
         .build();
 
@@ -435,7 +435,7 @@ pub fn show_variable_input_dialog(
         .title(i18n("Enter Variable Values"))
         .transient_for(parent)
         .modal(true)
-        .default_width(400)
+        .default_width(450)
         .build();
 
     let header = adw::HeaderBar::new();

@@ -198,7 +198,6 @@ pub fn show_new_group_dialog_with_parent(
         .transient_for(window)
         .modal(true)
         .default_width(450)
-        .default_height(550)
         .build();
 
     // Create header bar with Close/Create buttons (GNOME HIG)
