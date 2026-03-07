@@ -79,8 +79,13 @@ pub type DocumentResult<T> = std::result::Result<T, DocumentError>;
 /// Document format version for compatibility
 pub const DOCUMENT_FORMAT_VERSION: u32 = 1;
 
-/// Magic bytes for identifying encrypted documents
+/// Magic bytes for identifying encrypted documents (V1 format)
 const ENCRYPTED_MAGIC: &[u8] = b"RCDB_ENC";
+
+/// Magic bytes for V2 encrypted format — unambiguous strength byte detection.
+/// V1 relied on heuristics to distinguish the strength byte from the first
+/// byte of a legacy salt, which had a ~1.2% collision probability.
+const ENCRYPTED_MAGIC_V2: &[u8] = b"RCDB_EN2";
 
 /// A portable document containing connections, groups, variables, and templates
 ///
@@ -425,7 +430,8 @@ impl DocumentManager {
     pub fn load(&mut self, path: &Path, password: Option<&str>) -> DocumentResult<Uuid> {
         let content = std::fs::read(path).map_err(|e| DocumentError::IoError(e.to_string()))?;
 
-        let doc = if content.starts_with(ENCRYPTED_MAGIC) {
+        let doc = if content.starts_with(ENCRYPTED_MAGIC_V2) || content.starts_with(ENCRYPTED_MAGIC)
+        {
             // Document is encrypted
             let password = password.ok_or(DocumentError::PasswordRequired)?;
             decrypt_document(&content, password)?
@@ -475,6 +481,14 @@ impl DocumentManager {
 
         std::fs::write(path, content).map_err(|e| DocumentError::IoError(e.to_string()))?;
 
+        // Restrict file permissions to owner-only (0600) — documents may
+        // contain encrypted sensitive data
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        }
+
         self.dirty_flags.insert(id, false);
         self.file_paths.insert(id, path.to_path_buf());
         Ok(())
@@ -491,7 +505,16 @@ impl DocumentManager {
         let doc = self.documents.get(&id).ok_or(DocumentError::NotFound(id))?;
 
         let json = doc.to_json()?;
-        std::fs::write(path, json).map_err(|e| DocumentError::IoError(e.to_string()))
+        std::fs::write(path, json).map_err(|e| DocumentError::IoError(e.to_string()))?;
+
+        // Restrict exported file permissions to owner-only (0600)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        }
+
+        Ok(())
     }
 
     /// Imports a document from a file
@@ -646,9 +669,9 @@ fn encrypt_document(
         .seal_in_place_append_tag(nonce, Aad::empty(), &mut ciphertext)
         .map_err(|_| DocumentError::EncryptionError("Encryption failed".to_string()))?;
 
-    // Build output: magic + strength_byte + salt + nonce + ciphertext
-    let mut output = Vec::with_capacity(ENCRYPTED_MAGIC.len() + 1 + 32 + 12 + ciphertext.len());
-    output.extend_from_slice(ENCRYPTED_MAGIC);
+    // Build output: V2 magic + strength_byte + salt + nonce + ciphertext
+    let mut output = Vec::with_capacity(ENCRYPTED_MAGIC_V2.len() + 1 + 32 + 12 + ciphertext.len());
+    output.extend_from_slice(ENCRYPTED_MAGIC_V2);
     output.push(strength.to_byte());
     output.extend_from_slice(&salt);
     output.extend_from_slice(&nonce_bytes);
@@ -664,14 +687,21 @@ fn encrypt_document(
 fn decrypt_document(data: &[u8], password: &str) -> DocumentResult<Document> {
     use ring::aead::{AES_256_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
 
-    // Verify magic bytes
-    if !data.starts_with(ENCRYPTED_MAGIC) {
+    // Determine format version from magic header
+    let is_v2 = data.starts_with(ENCRYPTED_MAGIC_V2);
+    let is_v1 = data.starts_with(ENCRYPTED_MAGIC);
+
+    if !is_v2 && !is_v1 {
         return Err(DocumentError::InvalidFormat(
             "Not an encrypted document".to_string(),
         ));
     }
 
-    let header_len = ENCRYPTED_MAGIC.len();
+    let header_len = if is_v2 {
+        ENCRYPTED_MAGIC_V2.len()
+    } else {
+        ENCRYPTED_MAGIC.len()
+    };
 
     // Try new format first: magic + strength_byte + salt(32) + nonce(12) + tag(16)
     let new_min_len = header_len + 1 + 32 + 12 + 16;
@@ -684,19 +714,20 @@ fn decrypt_document(data: &[u8], password: &str) -> DocumentResult<Document> {
         ));
     }
 
-    // NOTE: Format detection relies on the byte after the magic header.
-    // If the first byte of a legacy salt happens to be 0, 1, or 2, it could be
-    // misinterpreted as a strength byte of the new format. This is a known
-    // limitation. A future format version should use a distinct magic header
-    // (e.g., "RCDB_EN2") to eliminate ambiguity.
+    // V2 format always has: magic_v2 + strength_byte + salt(32) + nonce(12) + ciphertext
+    // V1 new format: magic_v1 + strength_byte + salt(32) + nonce(12) + ciphertext
+    // V1 legacy format: magic_v1 + salt(32) + nonce(12) + ciphertext
     //
-    // Determine format: peek at the byte after magic. If it is a valid
-    // strength byte (0, 1, or 2) AND the data is long enough for the new
-    // format, treat it as new format. Otherwise fall back to legacy.
+    // For V2, the strength byte is always present — no ambiguity.
+    // For V1, we use heuristics (the byte after magic could be salt[0]).
     let strength_byte = data[header_len];
-    let (strength, salt_offset) = if data.len() >= new_min_len
-        && EncryptionStrength::from_byte(strength_byte).is_some()
-    {
+    let (strength, salt_offset) = if is_v2 {
+        // V2: strength byte is always present
+        (
+            EncryptionStrength::from_byte(strength_byte).unwrap_or(EncryptionStrength::Standard),
+            header_len + 1,
+        )
+    } else if data.len() >= new_min_len && EncryptionStrength::from_byte(strength_byte).is_some() {
         // New format — strength byte present
         (
             EncryptionStrength::from_byte(strength_byte).unwrap_or(EncryptionStrength::Standard),

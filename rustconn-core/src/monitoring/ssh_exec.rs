@@ -6,6 +6,8 @@
 //! interactive shell.
 
 use std::time::Duration;
+
+use secrecy::{ExposeSecret, SecretString};
 use tokio::process::Command;
 
 /// Default timeout for SSH monitoring commands (seconds)
@@ -22,14 +24,14 @@ const SSH_EXEC_TIMEOUT_SECS: u64 = 10;
 /// * `port` - SSH port
 /// * `username` - Optional SSH username
 /// * `identity_file` - Optional path to SSH private key
-/// * `password` - Optional password for `sshpass` authentication
+/// * `password` - Optional password for `sshpass` authentication (as `SecretString`)
 /// * `jump_host` - Optional jump host chain for `-J` flag (e.g. `"user@bastion:22"`)
 pub fn ssh_exec_factory(
     host: String,
     port: u16,
     username: Option<String>,
     identity_file: Option<String>,
-    password: Option<String>,
+    password: Option<SecretString>,
     jump_host: Option<String>,
 ) -> impl Fn(
     String,
@@ -62,7 +64,7 @@ pub fn ssh_exec_factory(
                 cmd.arg("-e").arg("ssh");
                 // Set SSHPASS env var (sshpass reads it with -e flag)
                 if let Some(ref pw) = password {
-                    cmd.env("SSHPASS", pw);
+                    cmd.env("SSHPASS", pw.expose_secret());
                 }
             } else {
                 cmd = Command::new("ssh");
@@ -70,8 +72,11 @@ pub fn ssh_exec_factory(
                 cmd.arg("-o").arg("BatchMode=yes");
             }
 
-            // Suppress known_hosts warnings
-            cmd.arg("-o").arg("StrictHostKeyChecking=no");
+            // Accept new host keys but reject changed ones (OpenSSH 7.6+).
+            // Using `accept-new` instead of `no` prevents MITM attacks on
+            // hosts whose key has changed while still allowing first-time
+            // connections without manual intervention.
+            cmd.arg("-o").arg("StrictHostKeyChecking=accept-new");
 
             // In Flatpak, ~/.ssh is read-only — use writable known_hosts path
             if let Some(kh_path) = crate::flatpak::get_flatpak_known_hosts_path() {

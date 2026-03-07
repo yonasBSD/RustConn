@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.9.10** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.9.11** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -1574,26 +1574,95 @@ Leave the field empty to use the default icon (folder for groups, protocol-based
 
 ## Remote Monitoring
 
-MobaXterm-style monitoring bar below SSH, Telnet, and Kubernetes terminals showing real-time system metrics from remote Linux hosts. Agentless — collects data by parsing `/proc/*` and `df` output over the existing session.
+MobaXterm-style monitoring bar below SSH, Telnet, and Kubernetes terminals showing real-time system metrics from remote Linux hosts. Completely agentless — no software needs to be installed on the remote host. RustConn collects data by parsing `/proc/*` and `df` output over a separate SSH connection.
+
+### How It Works
+
+Monitoring runs in a **separate SSH process** alongside your interactive terminal session. This means:
+
+- Your terminal is never interrupted by monitoring commands
+- Monitoring uses the same credentials (password, key, jump host) as the main connection
+- Data is collected at a configurable polling interval (default: every 3 seconds)
+- A one-time system info command runs on the first tick to gather static host details
+
+The monitoring collector sends two shell commands to the remote host:
+
+1. **Metrics command** (every tick) — reads `/proc/stat`, `/proc/meminfo`, `/proc/loadavg`, `/proc/net/dev`, and `df -Pk /` in a single invocation
+2. **System info command** (once) — reads `uname -r`, `/etc/os-release`, `/proc/uptime`, `/proc/cpuinfo`, `/proc/meminfo`, `hostname -f`, and `hostname -I`
+
+All output is delimited by marker lines (`---RUSTCONN_*---`) so the parser can reliably extract each section even if individual commands produce unexpected output.
 
 ### Monitoring Bar
 
-When enabled, a compact bar appears below the terminal:
+When enabled, a compact 28px bar appears below the terminal:
 
 ```
-[CPU: ████░░ 45%] [RAM: ██░░ 62%] [Disk: ██░░ 78%] [1.23 0.98 0.76] [↓ 1.2 MB/s ↑ 0.3 MB/s] [Ubuntu 24.04 (6.8.0) · x86_64 · 15.6 GiB · 8C/16T]
+[CPU: ████░░ 45%] [RAM: ██░░ 62%] [Disk: ██░░ 78%] [1.23 0.98 0.76] [↓ 1.2 MB/s ↑ 0.3 MB/s] [Ubuntu 24.04 (6.8.0) · x86_64 · 15.6 GiB · 8C/16T · 10.0.1.5]
 ```
+
+Each section can be individually toggled on or off in Settings.
 
 ### Displayed Metrics
 
 | Metric | Source | Details |
 |--------|--------|---------|
-| CPU usage | `/proc/stat` | Percentage with level bar |
-| Memory usage | `/proc/meminfo` | Percentage with level bar; swap shown in tooltip |
-| Disk usage | `df /` | Root filesystem percentage with level bar |
-| Load average | `/proc/loadavg` | 1, 5, 15 min values; process count in tooltip |
-| Network throughput | `/proc/net/dev` | Download/upload rates (auto-scaled: B/s, KB/s, MB/s) |
-| System info | One-time collection | Distro, kernel, architecture, total RAM, CPU cores/threads; uptime in tooltip |
+| CPU usage | `/proc/stat` | Percentage with level bar; delta-based calculation between two snapshots |
+| Memory usage | `/proc/meminfo` | Percentage with level bar; swap usage shown in tooltip when swap is present |
+| Disk usage | `df -Pk` | Root filesystem percentage with level bar; all mount points shown in tooltip |
+| Load average | `/proc/loadavg` | 1, 5, 15 minute values; running/total process count in tooltip |
+| Network throughput | `/proc/net/dev` | Download/upload rates (auto-scaled: B/s, KB/s, MB/s, GB/s); sums all non-loopback interfaces |
+| System info | One-time collection | See below |
+
+### System Info Section
+
+The rightmost section of the monitoring bar shows static host information collected once when monitoring starts:
+
+**Bar label:** `Ubuntu 24.04 (6.8.0) · x86_64 · 15.6 GiB · 8C/16T · 10.0.1.5`
+
+Components (separated by `·`):
+- Distribution name and kernel version
+- CPU architecture (x86_64, aarch64, etc.)
+- Total physical RAM
+- CPU cores/threads (e.g. `8C/16T` for 8 cores with hyperthreading, or `4C` when cores = threads)
+- Primary private IP address (first address from `hostname -I`)
+
+**Tooltip** (hover over the system info section):
+- **Uptime** — live counter that updates on every polling tick (e.g. `3d 5h 12m`), not just when system info was first collected
+- **Hostname** — FQDN if available (from `hostname -f`), otherwise short hostname
+- **IPv4 addresses** — all IPv4 addresses grouped together
+- **IPv6 addresses** — all IPv6 addresses grouped together
+
+This is useful when you connect to a host by its public IP or DNS name but need to know its private network addresses for internal routing, firewall rules, or documentation.
+
+### Disk Tooltip (Multiple Mount Points)
+
+The disk level bar in the monitoring bar always shows the root filesystem (`/`). When the remote host has multiple mounted filesystems, hovering over the disk section shows a tooltip with all of them:
+
+```
+/: 48.8 GiB/97.7 GiB (50%)
+/home: 9.8 GiB/195.3 GiB (5%)
+/var: 39.1 GiB/48.8 GiB (80%)
+```
+
+Each line shows: mount point, used/total size, and usage percentage.
+
+The following filesystem types are automatically filtered out:
+- `tmpfs`, `devtmpfs` (RAM-based virtual filesystems)
+- `squashfs`, `overlay` (read-only image mounts)
+- Snap loop mounts (`/snap/*`, `/var/snap/*`)
+
+If only the root filesystem is present, no tooltip is shown on the disk section.
+
+### Stopped Indication
+
+If the monitoring collector encounters 3 consecutive errors (SSH timeout, parse failure, or unsupported OS), it stops automatically. When this happens:
+
+- A **⚠ warning icon** appears in the monitoring bar
+- The entire bar **dims to 50% opacity** to indicate stale data
+- The system info tooltip shows **"⚠ Monitoring stopped — metrics may be stale"**
+- The last received metrics remain visible (not cleared)
+
+This prevents log spam from broken connections while still showing the last known state.
 
 ### Enable Monitoring
 
@@ -1602,6 +1671,8 @@ When enabled, a compact bar appears below the terminal:
 3. Configure polling interval (1–60 seconds, default: 3)
 4. Select which metrics to display (CPU, Memory, Disk, Network, Load, System Info)
 
+All settings take effect immediately for new sessions. Existing sessions keep their current configuration until reconnected.
+
 ### Per-Connection Override
 
 Each connection can override the global monitoring setting:
@@ -1609,11 +1680,37 @@ Each connection can override the global monitoring setting:
 2. Set monitoring to **Enabled**, **Disabled**, or **Use global setting**
 3. Optionally override the polling interval
 
+### Authentication
+
+Monitoring uses the same authentication method as the main connection:
+
+| Auth Method | How Monitoring Connects |
+|-------------|------------------------|
+| SSH key | `ssh -i <key> -o BatchMode=yes` |
+| Password | `sshpass -e ssh` (reads password from `SSHPASS` env var) |
+| Jump host | `-J user@bastion:port` flag added to SSH command |
+| Flatpak | Uses writable `known_hosts` path inside the sandbox |
+
+Host key verification uses `StrictHostKeyChecking=accept-new` — new host keys are accepted on first connection, but changed keys are rejected (protection against MITM attacks).
+
 ### Requirements
 
-- Remote host must be Linux (reads `/proc/*`)
-- No agent installation needed — uses the existing terminal session
-- Works with SSH, Telnet, and Kubernetes connections
+- Remote host must be **Linux** (reads `/proc/*` and standard GNU coreutils)
+- **No agent installation** needed on the remote host
+- Works with **SSH**, **Telnet**, and **Kubernetes** connections
+- For password authentication: `sshpass` must be available on the local system (auto-detected)
+- SSH connection timeout: 5 seconds; command timeout: 10 seconds
+
+### Troubleshooting
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Bar doesn't appear | Monitoring disabled globally or for this connection | Check Settings → Monitoring and connection Advanced tab |
+| Bar appears but shows "—" | First tick hasn't completed yet | Wait for the polling interval (default 3s) |
+| Bar dims with ⚠ icon | 3 consecutive collection errors | Check SSH connectivity; reconnect the session |
+| No private IP shown | `hostname -I` not available on remote host | Install `inetutils` or `hostname` package on the remote host |
+| Monitoring fails with password auth | `sshpass` not installed | Install `sshpass` (included in Flatpak builds) |
+| High CPU on remote host | Polling interval too low | Increase interval to 5–10 seconds in Settings |
 
 ---
 

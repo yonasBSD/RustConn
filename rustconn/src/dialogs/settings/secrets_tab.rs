@@ -10,6 +10,7 @@ use gtk4::{
 use libadwaita as adw;
 use rustconn_core::config::{SecretBackendType, SecretSettings};
 use rustconn_core::secret::set_session_key;
+use secrecy::SecretString;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -648,7 +649,7 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
                     session_key_len = session_key.len(),
                     "Bitwarden GUI: unlock succeeded"
                 );
-                set_session_key(&session_key);
+                set_session_key(SecretString::from(session_key));
                 update_status_label(&status_label, &i18n("Unlocked"), "success");
                 // Don't clear password_entry — it's a PasswordEntry (hidden),
                 // and clearing it causes the encrypted settings to keep a stale
@@ -2180,7 +2181,7 @@ pub fn load_secret_settings(widgets: &SecretsPageWidgets, settings: &SecretSetti
 
                 if let Some((text, css, session_key)) = result {
                     if let Some(key) = session_key {
-                        set_session_key(&key);
+                        set_session_key(SecretString::from(key));
                         tracing::info!("Bitwarden auto-unlocked from keyring");
                     }
                     update_status_label(&status_label, &text, css);

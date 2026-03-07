@@ -714,7 +714,6 @@ fn sanitize_filename(name: &str) -> String {
 }
 
 /// Patterns that indicate sensitive data in terminal output
-#[allow(dead_code)]
 const SENSITIVE_PATTERNS: &[&str] = &[
     "password:",
     "Password:",
@@ -749,7 +748,6 @@ const SENSITIVE_PATTERNS: &[&str] = &[
 
 /// Regex patterns for detecting sensitive data values
 /// These match common password/key formats that follow a prompt
-#[allow(dead_code)]
 const SENSITIVE_VALUE_PATTERNS: &[&str] = &[
     // Password prompts followed by input (masked in most terminals but may leak)
     r"(?i)password[:\s]+\S+",
@@ -787,7 +785,7 @@ impl Default for SanitizeConfig {
             enabled: true,
             replacement: String::from("[REDACTED]"),
             custom_patterns: Vec::new(),
-            sanitize_full_lines: false,
+            sanitize_full_lines: true,
         }
     }
 }

@@ -7,7 +7,9 @@ use chrono::Utc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-use super::metrics::{CpuSnapshot, NetworkMetrics, NetworkSnapshot, RemoteMetrics, SystemInfo};
+use super::metrics::{
+    CpuSnapshot, DiskMetrics, NetworkMetrics, NetworkSnapshot, RemoteMetrics, SystemInfo,
+};
 use super::parser::{MetricsParser, MonitoringError, ParsedMetrics};
 use super::settings::MonitoringSettings;
 
@@ -104,7 +106,17 @@ impl MetricsComputer {
         RemoteMetrics {
             cpu_percent,
             memory: parsed.memory,
-            disk: parsed.disk,
+            disk: parsed
+                .disks
+                .first()
+                .cloned()
+                .unwrap_or_else(|| DiskMetrics {
+                    total_kib: 0,
+                    used_kib: 0,
+                    available_kib: 0,
+                    mount_point: String::from("/"),
+                }),
+            disks: parsed.disks.clone(),
             network,
             timestamp: Utc::now(),
             os_type: parsed.os_type,
@@ -284,11 +296,12 @@ mod tests {
                 rx_bytes: 1_000_000,
                 tx_bytes: 500_000,
             },
-            disk: DiskMetrics {
+            disks: vec![DiskMetrics {
                 total_kib: 100_000_000,
                 used_kib: 50_000_000,
                 available_kib: 50_000_000,
-            },
+                mount_point: String::from("/"),
+            }],
             load_average: LoadAverage::default(),
             os_type: RemoteOsType::Linux,
         };
@@ -300,6 +313,8 @@ mod tests {
         // Memory and disk are absolute, not delta
         assert!((metrics.memory.percent() - 50.0).abs() < 0.1);
         assert!((metrics.disk.percent() - 50.0).abs() < 0.1);
+        assert_eq!(metrics.disks.len(), 1);
+        assert_eq!(metrics.disks[0].mount_point, "/");
     }
 
     #[test]
@@ -328,11 +343,12 @@ mod tests {
                 rx_bytes: 1_000_000,
                 tx_bytes: 500_000,
             },
-            disk: DiskMetrics {
+            disks: vec![DiskMetrics {
                 total_kib: 100_000,
                 used_kib: 50_000,
                 available_kib: 50_000,
-            },
+                mount_point: String::from("/"),
+            }],
             load_average: LoadAverage::default(),
             os_type: RemoteOsType::Linux,
         };
@@ -363,11 +379,12 @@ mod tests {
                 rx_bytes: 2_000_000,
                 tx_bytes: 1_000_000,
             },
-            disk: DiskMetrics {
+            disks: vec![DiskMetrics {
                 total_kib: 100_000,
                 used_kib: 75_000,
                 available_kib: 25_000,
-            },
+                mount_point: String::from("/"),
+            }],
             load_average: LoadAverage::default(),
             os_type: RemoteOsType::Linux,
         };
@@ -401,11 +418,12 @@ mod tests {
                 rx_bytes: 1000,
                 tx_bytes: 500,
             },
-            disk: DiskMetrics {
+            disks: vec![DiskMetrics {
                 total_kib: 1000,
                 used_kib: 500,
                 available_kib: 500,
-            },
+                mount_point: String::from("/"),
+            }],
             load_average: LoadAverage::default(),
             os_type: RemoteOsType::Linux,
         };

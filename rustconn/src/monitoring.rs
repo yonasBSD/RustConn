@@ -6,6 +6,7 @@
 use gtk4::prelude::*;
 use gtk4::{self, Align, Orientation};
 use rustconn_core::monitoring::{MonitoringSettings, RemoteMetrics, SystemInfo};
+use std::cell::{Cell, RefCell};
 
 use crate::i18n::i18n;
 
@@ -48,6 +49,16 @@ pub struct MonitoringBar {
     load_section: gtk4::Box,
     /// System info section box
     info_section: gtk4::Box,
+    /// Base uptime (seconds) received from SystemInfoReady
+    base_uptime_secs: Cell<u64>,
+    /// Instant when SystemInfoReady was received (for live uptime calculation)
+    sysinfo_received_at: Cell<Option<std::time::Instant>>,
+    /// Cached system info for tooltip refresh
+    cached_sysinfo: RefCell<Option<SystemInfo>>,
+    /// Whether the collector has stopped (stale metrics)
+    collector_stopped: Cell<bool>,
+    /// Status icon shown when collector stops
+    status_icon: gtk4::Image,
 }
 
 impl Default for MonitoringBar {
@@ -122,11 +133,18 @@ impl MonitoringBar {
         info_section.append(&info_label);
         info_section.set_visible(false);
 
+        // Status icon — shown when collector stops (stale metrics indicator)
+        let status_icon = gtk4::Image::from_icon_name("dialog-warning-symbolic");
+        status_icon.set_pixel_size(14);
+        status_icon.set_tooltip_text(Some(&i18n("Monitoring stopped")));
+        status_icon.set_visible(false);
+
         container.append(&cpu_section);
         container.append(&mem_section);
         container.append(&disk_section);
         container.append(&load_section);
         container.append(&net_section);
+        container.append(&status_icon);
         container.append(&info_section);
 
         // Initially hidden until first metrics arrive
@@ -149,6 +167,11 @@ impl MonitoringBar {
             net_section,
             load_section,
             info_section,
+            base_uptime_secs: Cell::new(0),
+            sysinfo_received_at: Cell::new(None),
+            cached_sysinfo: RefCell::new(None),
+            collector_stopped: Cell::new(false),
+            status_icon,
         }
     }
 
@@ -214,10 +237,24 @@ impl MonitoringBar {
             )));
         }
 
-        // Disk
-        let disk = metrics.disk.percent().clamp(0.0, 100.0);
-        self.disk_bar.set_value(f64::from(disk));
-        self.disk_label.set_label(&format!("{disk:.0}%"));
+        // Disk — bar shows root, tooltip shows all mount points
+        let root_disk_pct = metrics.disk.percent().clamp(0.0, 100.0);
+        self.disk_bar.set_value(f64::from(root_disk_pct));
+        self.disk_label.set_label(&format!("{root_disk_pct:.0}%"));
+
+        if metrics.disks.len() > 1 {
+            let mut tooltip_lines: Vec<String> = Vec::new();
+            for d in &metrics.disks {
+                let pct = d.percent();
+                let used = format_kib(d.used_kib);
+                let total = format_kib(d.total_kib);
+                tooltip_lines.push(format!("{}: {used}/{total} ({pct:.0}%)", d.mount_point));
+            }
+            self.disk_section
+                .set_tooltip_text(Some(&tooltip_lines.join("\n")));
+        } else {
+            self.disk_section.set_tooltip_text(None);
+        }
 
         // Network
         let rx = format_throughput(metrics.network.rx_bytes_per_sec);
@@ -235,6 +272,9 @@ impl MonitoringBar {
             la.total_procs
         )));
 
+        // Refresh system info tooltip with live uptime
+        self.refresh_info_tooltip();
+
         // Show the bar once we have data
         if !self.container.is_visible() {
             self.container.set_visible(true);
@@ -243,7 +283,11 @@ impl MonitoringBar {
 
     /// Updates the system info display (called once when info is received)
     pub fn update_system_info(&self, info: &SystemInfo) {
-        let uptime = format_uptime(info.uptime_secs);
+        // Store base uptime and timestamp for live calculation
+        self.base_uptime_secs.set(info.uptime_secs);
+        self.sysinfo_received_at
+            .set(Some(std::time::Instant::now()));
+        *self.cached_sysinfo.borrow_mut() = Some(info.clone());
 
         // Build base: "Ubuntu 24.04 (6.8.0)" or just kernel/distro
         let mut parts: Vec<String> = Vec::new();
@@ -275,11 +319,78 @@ impl MonitoringBar {
             }
         }
 
+        // Show primary private IP if available
+        if let Some(primary_ip) = info.ip_addresses.first() {
+            parts.push(primary_ip.clone());
+        }
+
         let text = parts.join(" · ");
         self.info_label.set_label(&text);
-        self.info_section
-            .set_tooltip_text(Some(&format!("{}: {}", i18n("Uptime"), uptime)));
+
+        // Refresh tooltip (uses cached sysinfo + live uptime)
+        self.refresh_info_tooltip();
         self.info_section.set_visible(true);
+    }
+
+    /// Refreshes the system info tooltip with live uptime calculation.
+    ///
+    /// Called on every metrics update to keep the uptime counter current.
+    fn refresh_info_tooltip(&self) {
+        let sysinfo = self.cached_sysinfo.borrow();
+        let Some(info) = sysinfo.as_ref() else {
+            return;
+        };
+
+        // Calculate live uptime: base + elapsed since sysinfo was received
+        let live_uptime = if let Some(received_at) = self.sysinfo_received_at.get() {
+            let elapsed = received_at.elapsed().as_secs();
+            self.base_uptime_secs.get() + elapsed
+        } else {
+            self.base_uptime_secs.get()
+        };
+        let uptime = format_uptime(live_uptime);
+
+        // Build tooltip with uptime, hostname, and all IP addresses
+        let mut tooltip_parts: Vec<String> = Vec::new();
+        tooltip_parts.push(format!("{}: {}", i18n("Uptime"), uptime));
+        if !info.hostname.is_empty() {
+            tooltip_parts.push(format!("{}: {}", i18n("Hostname"), info.hostname));
+        }
+        if !info.ip_addresses.is_empty() {
+            let ipv4: Vec<&str> = info
+                .ip_addresses
+                .iter()
+                .filter(|ip| !ip.contains(':'))
+                .map(String::as_str)
+                .collect();
+            let ipv6: Vec<&str> = info
+                .ip_addresses
+                .iter()
+                .filter(|ip| ip.contains(':'))
+                .map(String::as_str)
+                .collect();
+            if !ipv4.is_empty() {
+                tooltip_parts.push(format!("IPv4: {}", ipv4.join(", ")));
+            }
+            if !ipv6.is_empty() {
+                tooltip_parts.push(format!("IPv6: {}", ipv6.join(", ")));
+            }
+        }
+        if self.collector_stopped.get() {
+            tooltip_parts.push(i18n("⚠ Monitoring stopped — metrics may be stale"));
+        }
+        self.info_section
+            .set_tooltip_text(Some(&tooltip_parts.join("\n")));
+    }
+
+    /// Marks the monitoring bar as stopped (collector is no longer running).
+    ///
+    /// Shows a warning icon and dims the bar to indicate stale metrics.
+    pub fn mark_stopped(&self) {
+        self.collector_stopped.set(true);
+        self.status_icon.set_visible(true);
+        self.container.add_css_class("monitoring-stale");
+        self.refresh_info_tooltip();
     }
 
     /// Applies visibility settings from global monitoring config
@@ -369,7 +480,6 @@ pub struct MonitoringCoordinator {
     handles: RefCell<HashMap<Uuid, rustconn_core::monitoring::CollectorHandle>>,
 }
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use uuid::Uuid;
@@ -409,7 +519,7 @@ impl MonitoringCoordinator {
         port: u16,
         username: Option<&str>,
         identity_file: Option<&str>,
-        password: Option<&str>,
+        password: Option<secrecy::SecretString>,
         jump_host: Option<&str>,
     ) {
         // Don't start if monitoring is disabled
@@ -432,7 +542,7 @@ impl MonitoringCoordinator {
             port,
             username.map(String::from),
             identity_file.map(String::from),
-            password.map(String::from),
+            password,
             jump_host.map(String::from),
         );
 
@@ -468,6 +578,10 @@ impl MonitoringCoordinator {
                             session_id = %session_id,
                             "Monitoring collector stopped"
                         );
+                        let bar_ref = bar_clone.clone();
+                        gtk4::glib::idle_add_local_once(move || {
+                            bar_ref.mark_stopped();
+                        });
                         break;
                     }
                 }

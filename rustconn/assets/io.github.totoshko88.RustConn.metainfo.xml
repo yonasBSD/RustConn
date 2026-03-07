@@ -90,6 +90,22 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.9.11" date="2026-03-07">
+      <description>
+        <p>Security hardening and monitoring improvements:</p>
+        <ul>
+          <li>Bitwarden session key and monitoring password use SecretString</li>
+          <li>Config files written with restrictive permissions (0600/0700)</li>
+          <li>SSH monitoring uses StrictHostKeyChecking=accept-new</li>
+          <li>Session log sanitization active by default</li>
+          <li>Flatpak device permissions scoped to serial only</li>
+          <li>RDP TLS certificate policy documented</li>
+          <li>Monitoring: remote host private IP with full address tooltip</li>
+          <li>Monitoring: live uptime counter and stopped indication</li>
+          <li>Monitoring: all mount points in disk tooltip</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.9.10" date="2026-03-07">
       <description>
         <p>Flatpak Remmina import fix, dialog sizing, and dependency updates.</p>

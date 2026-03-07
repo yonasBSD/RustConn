@@ -572,8 +572,12 @@ fn start_ssh_connection_internal(
                 .get_cached_credentials(connection_id)
                 .and_then(|c| {
                     use secrecy::ExposeSecret;
-                    let pw = c.password.expose_secret().to_string();
-                    if pw.is_empty() { None } else { Some(pw) }
+                    let pw = c.password.expose_secret();
+                    if pw.is_empty() {
+                        None
+                    } else {
+                        Some(c.password.clone())
+                    }
                 });
 
             let monitoring_clone = Rc::clone(monitoring);
@@ -605,7 +609,7 @@ fn start_ssh_connection_internal(
                         mon_port,
                         mon_username.as_deref(),
                         identity_file_mon.as_deref(),
-                        cached_pw.as_deref(),
+                        cached_pw.clone(),
                         mon_jump_host.as_deref(),
                     );
                 }

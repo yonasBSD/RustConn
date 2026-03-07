@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.9.10
+Version:        0.9.11
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -201,6 +201,21 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Sat Mar 07 2026 Anton Isaiev <totoshko88@gmail.com> - 0.9.11-0
+- Security: Bitwarden session key uses SecretString with zeroization
+- Security: Config files written with 0600 permissions, config dir 0700
+- Security: SSH monitoring uses StrictHostKeyChecking=accept-new
+- Security: Session log sanitization active by default
+- Security: Flatpak device permissions scoped to --device=serial
+- Security: Monitoring password uses SecretString with zeroization
+- Security: RDP TLS certificate policy documented with tracing::warn
+- Fixed encrypted document format ambiguity with V2 magic header RCDB_EN2
+- Added monitoring: remote host private IP with IPv4/IPv6 tooltip
+- Added monitoring: live uptime counter updates on every polling tick
+- Added monitoring: stopped indication with warning icon and dimmed bar
+- Added monitoring: all mount points in disk tooltip (snap/tmpfs filtered)
+- Removed dead read_import_file_async from import traits
+
 * Sat Mar 07 2026 Anton Isaiev <totoshko88@gmail.com> - 0.9.10-0
 - Version bump to 0.9.10
 

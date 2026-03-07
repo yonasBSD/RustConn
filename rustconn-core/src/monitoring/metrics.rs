@@ -25,6 +25,8 @@ pub struct RemoteMetrics {
     pub memory: MemoryMetrics,
     /// Root filesystem disk metrics
     pub disk: DiskMetrics,
+    /// All mounted filesystems (includes root)
+    pub disks: Vec<DiskMetrics>,
     /// Network throughput metrics
     pub network: NetworkMetrics,
     /// When these metrics were collected
@@ -70,8 +72,8 @@ impl MemoryMetrics {
     }
 }
 
-/// Disk usage metrics for the root filesystem
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Disk usage metrics for a single filesystem
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiskMetrics {
     /// Total disk space (KiB)
     pub total_kib: u64,
@@ -79,6 +81,8 @@ pub struct DiskMetrics {
     pub used_kib: u64,
     /// Available disk space (KiB)
     pub available_kib: u64,
+    /// Mount point path (e.g. `/`, `/home`, `/var`)
+    pub mount_point: String,
 }
 
 impl DiskMetrics {
@@ -199,4 +203,8 @@ pub struct SystemInfo {
     pub cpu_threads: u16,
     /// CPU architecture (e.g. "x86_64", "aarch64")
     pub arch: String,
+    /// Hostname (FQDN if available)
+    pub hostname: String,
+    /// All IP addresses on the host (from `hostname -I`)
+    pub ip_addresses: Vec<String>,
 }

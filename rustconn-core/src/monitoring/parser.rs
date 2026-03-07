@@ -1,7 +1,7 @@
 //! Parser for remote host metrics output
 //!
 //! Parses the combined output of the monitoring shell command that reads
-//! `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, and `df -Pk /`.
+//! `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, and `df -Pk`.
 
 use super::metrics::{
     CpuSnapshot, DiskMetrics, LoadAverage, MemoryMetrics, NetworkSnapshot, RemoteOsType, SystemInfo,
@@ -35,7 +35,7 @@ pub const METRICS_COMMAND: &str = concat!(
     "echo '---RUSTCONN_NET_DEV---';",
     "tail -n +3 /proc/net/dev;",
     "echo '---RUSTCONN_DF---';",
-    "df -Pk / 2>/dev/null | tail -1;",
+    "df -Pk -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null | tail -n +2;",
     "echo '---RUSTCONN_END---'",
 );
 
@@ -55,6 +55,10 @@ pub const SYSTEM_INFO_COMMAND: &str = concat!(
     "echo 'CPUTHREADS='$(grep -c '^processor' /proc/cpuinfo);",
     "echo 'CPUCORES='$(grep '^cpu cores' /proc/cpuinfo | head -1 | awk '{print $NF}');",
     "echo 'ARCH='$(uname -m);",
+    "echo '---RUSTCONN_NETWORK_ID---';",
+    "hostname -f 2>/dev/null || hostname;",
+    "echo '---RUSTCONN_IPS---';",
+    "hostname -I 2>/dev/null;",
     "echo '---RUSTCONN_SYSINFO_END---'",
 );
 
@@ -67,8 +71,8 @@ pub struct ParsedMetrics {
     pub memory: MemoryMetrics,
     /// Network counters (for delta calculation)
     pub network: NetworkSnapshot,
-    /// Disk metrics (absolute, no delta needed)
-    pub disk: DiskMetrics,
+    /// Disk metrics for all mounted real filesystems
+    pub disks: Vec<DiskMetrics>,
     /// Load average from `/proc/loadavg`
     pub load_average: LoadAverage,
     /// Detected OS type
@@ -90,17 +94,13 @@ impl MetricsParser {
         let memory = Self::parse_meminfo(output)?;
         let load_average = Self::parse_loadavg(output).unwrap_or_default();
         let network = Self::parse_net_dev(output)?;
-        let disk = Self::parse_df(output).unwrap_or(DiskMetrics {
-            total_kib: 0,
-            used_kib: 0,
-            available_kib: 0,
-        });
+        let disks = Self::parse_df(output).unwrap_or_default();
 
         Ok(ParsedMetrics {
             cpu,
             memory,
             network,
-            disk,
+            disks,
             load_average,
             os_type: RemoteOsType::Linux,
         })
@@ -221,34 +221,65 @@ impl MetricsParser {
         Ok(NetworkSnapshot { rx_bytes, tx_bytes })
     }
 
-    /// Parses `df -Pk /` output for root filesystem metrics.
+    /// Parses `df -Pk` output for all real filesystem metrics.
     ///
-    /// Format: `Filesystem  1024-blocks  Used  Available  Capacity  Mounted`
-    fn parse_df(output: &str) -> MonitoringResult<DiskMetrics> {
+    /// Format per line: `Filesystem  1024-blocks  Used  Available  Capacity  Mounted`
+    ///
+    /// Virtual filesystems (tmpfs, devtmpfs, squashfs, overlay) are excluded
+    /// by the `df` flags. Snap loop devices (`/snap/`) are also filtered out.
+    fn parse_df(output: &str) -> MonitoringResult<Vec<DiskMetrics>> {
         let section = Self::section(output, "---RUSTCONN_DF---", "---RUSTCONN_END---")
             .ok_or_else(|| MonitoringError::ParseError("Missing df section".into()))?;
 
-        let line = section
-            .lines()
-            .next()
-            .ok_or_else(|| MonitoringError::ParseError("Empty df output".into()))?;
+        let mut disks = Vec::new();
 
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 4 {
-            return Err(MonitoringError::ParseError(
-                "Too few fields in df output".into(),
-            ));
+        for line in section.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 6 {
+                continue;
+            }
+
+            let mount_point = parts[5];
+
+            // Skip snap mounts (loop devices mounted at /snap/*)
+            if mount_point.starts_with("/snap/") || mount_point.starts_with("/var/snap/") {
+                continue;
+            }
+
+            let total_kib = parts[1].parse::<u64>().unwrap_or(0);
+            let used_kib = parts[2].parse::<u64>().unwrap_or(0);
+            let available_kib = parts[3].parse::<u64>().unwrap_or(0);
+
+            // Skip zero-size filesystems
+            if total_kib == 0 {
+                continue;
+            }
+
+            disks.push(DiskMetrics {
+                total_kib,
+                used_kib,
+                available_kib,
+                mount_point: mount_point.to_string(),
+            });
         }
 
-        let total_kib = parts[1].parse::<u64>().unwrap_or(0);
-        let used_kib = parts[2].parse::<u64>().unwrap_or(0);
-        let available_kib = parts[3].parse::<u64>().unwrap_or(0);
+        // Sort: root `/` first, then alphabetically by mount point
+        disks.sort_by(|a, b| {
+            if a.mount_point == "/" {
+                std::cmp::Ordering::Less
+            } else if b.mount_point == "/" {
+                std::cmp::Ordering::Greater
+            } else {
+                a.mount_point.cmp(&b.mount_point)
+            }
+        });
 
-        Ok(DiskMetrics {
-            total_kib,
-            used_kib,
-            available_kib,
-        })
+        Ok(disks)
     }
 
     /// Parses `/proc/loadavg` for load averages and process counts.
@@ -335,6 +366,15 @@ impl MetricsParser {
             .trim()
             .to_string();
 
+        let hostname = Self::section(output, "---RUSTCONN_NETWORK_ID---", "---RUSTCONN_IPS---")
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+
+        let ip_addresses =
+            Self::section(output, "---RUSTCONN_IPS---", "---RUSTCONN_SYSINFO_END---")
+                .map(|s| s.split_whitespace().map(String::from).collect::<Vec<_>>())
+                .unwrap_or_default();
+
         Ok(SystemInfo {
             kernel_version,
             distro_name,
@@ -343,6 +383,8 @@ impl MetricsParser {
             cpu_cores,
             cpu_threads,
             arch,
+            hostname,
+            ip_addresses,
         })
     }
 
@@ -412,8 +454,10 @@ SwapFree:        3072000 kB
         assert_eq!(result.memory.swap_used_kib, 1_024_000);
         assert_eq!(result.network.rx_bytes, 1_000_000); // eth0 only, not lo
         assert_eq!(result.network.tx_bytes, 500_000);
-        assert_eq!(result.disk.total_kib, 102_400_000);
-        assert_eq!(result.disk.used_kib, 51_200_000);
+        assert_eq!(result.disks.len(), 1);
+        assert_eq!(result.disks[0].total_kib, 102_400_000);
+        assert_eq!(result.disks[0].used_kib, 51_200_000);
+        assert_eq!(result.disks[0].mount_point, "/");
         assert_eq!(result.os_type, RemoteOsType::Linux);
         assert!((result.load_average.one - 0.52).abs() < 0.01);
         assert!((result.load_average.five - 0.34).abs() < 0.01);
@@ -468,6 +512,7 @@ SwapFree:        3072000 kB
             total_kib: 100_000,
             used_kib: 75_000,
             available_kib: 25_000,
+            mount_point: String::from("/"),
         };
         assert!((disk.percent() - 75.0).abs() < 0.1);
     }
@@ -494,8 +539,40 @@ MemAvailable:    8192000 kB
 ---RUSTCONN_END---
 ";
         let result = MetricsParser::parse(output).unwrap();
-        // df failed gracefully — disk metrics are zero
-        assert_eq!(result.disk.total_kib, 0);
+        // df failed gracefully — no disk metrics
+        assert!(result.disks.is_empty());
+    }
+
+    #[test]
+    fn test_parse_multiple_mount_points() {
+        let output = "\
+---RUSTCONN_PROC_STAT---
+cpu  100 0 50 800 50 0 0 0 0 0
+---RUSTCONN_MEMINFO---
+MemTotal:       16384000 kB
+MemAvailable:    8192000 kB
+---RUSTCONN_LOADAVG---
+0.00 0.00 0.00 1/100 1234
+---RUSTCONN_NET_DEV---
+  eth0: 1000 10 0 0 0 0 0 0 500 8 0 0 0 0 0 0
+---RUSTCONN_DF---
+/dev/sda1     102400000 51200000 46080000  53% /
+/dev/sdb1     204800000 10240000 184320000   5% /home
+/dev/sdc1      51200000 40960000  5120000  89% /var
+/dev/loop0       131072   131072        0 100% /snap/core/12345
+---RUSTCONN_END---
+";
+        let result = MetricsParser::parse(output).unwrap();
+        // 3 real mounts (snap filtered out)
+        assert_eq!(result.disks.len(), 3);
+        // Root comes first
+        assert_eq!(result.disks[0].mount_point, "/");
+        assert_eq!(result.disks[0].total_kib, 102_400_000);
+        // Then alphabetical
+        assert_eq!(result.disks[1].mount_point, "/home");
+        assert_eq!(result.disks[1].total_kib, 204_800_000);
+        assert_eq!(result.disks[2].mount_point, "/var");
+        assert_eq!(result.disks[2].used_kib, 40_960_000);
     }
 
     #[test]
@@ -515,6 +592,10 @@ MemTotal:       16384000 kB
 CPUTHREADS=16
 CPUCORES=8
 ARCH=x86_64
+---RUSTCONN_NETWORK_ID---
+server01.example.com
+---RUSTCONN_IPS---
+10.0.1.5 192.168.1.100 fd12::1
 ---RUSTCONN_SYSINFO_END---
 ";
         let info = MetricsParser::parse_system_info(output).unwrap();
@@ -525,6 +606,11 @@ ARCH=x86_64
         assert_eq!(info.cpu_cores, 8);
         assert_eq!(info.cpu_threads, 16);
         assert_eq!(info.arch, "x86_64");
+        assert_eq!(info.hostname, "server01.example.com");
+        assert_eq!(
+            info.ip_addresses,
+            vec!["10.0.1.5", "192.168.1.100", "fd12::1"]
+        );
     }
 
     #[test]
@@ -542,6 +628,10 @@ MemTotal:        8192000 kB
 CPUTHREADS=4
 CPUCORES=
 ARCH=aarch64
+---RUSTCONN_NETWORK_ID---
+archbox
+---RUSTCONN_IPS---
+172.16.0.10
 ---RUSTCONN_SYSINFO_END---
 ";
         let info = MetricsParser::parse_system_info(output).unwrap();
@@ -552,5 +642,30 @@ ARCH=aarch64
         assert_eq!(info.cpu_cores, 4);
         assert_eq!(info.cpu_threads, 4);
         assert_eq!(info.arch, "aarch64");
+        assert_eq!(info.hostname, "archbox");
+        assert_eq!(info.ip_addresses, vec!["172.16.0.10"]);
+    }
+
+    #[test]
+    fn test_parse_system_info_no_network_sections() {
+        // Legacy output without network sections — should gracefully default
+        let output = "\
+---RUSTCONN_UNAME---
+6.1.0
+---RUSTCONN_OSRELEASE---
+PRETTY_NAME=\"Debian 12\"
+---RUSTCONN_UPTIME---
+600.00 1200.00
+---RUSTCONN_HWINFO---
+MemTotal:        4096000 kB
+CPUTHREADS=2
+CPUCORES=2
+ARCH=x86_64
+---RUSTCONN_SYSINFO_END---
+";
+        let info = MetricsParser::parse_system_info(output).unwrap();
+        assert_eq!(info.kernel_version, "6.1.0");
+        assert_eq!(info.hostname, "");
+        assert!(info.ip_addresses.is_empty());
     }
 }

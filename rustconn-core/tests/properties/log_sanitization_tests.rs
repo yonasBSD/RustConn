@@ -216,7 +216,7 @@ fn test_sanitize_config_default() {
     assert!(config.enabled);
     assert_eq!(config.replacement, "[REDACTED]");
     assert!(config.custom_patterns.is_empty());
-    assert!(!config.sanitize_full_lines);
+    assert!(config.sanitize_full_lines);
 }
 
 #[test]

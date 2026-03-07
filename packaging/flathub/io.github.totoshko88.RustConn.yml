@@ -28,7 +28,7 @@ finish-args:
   # System tray (StatusNotifierItem)
   - --talk-name=org.kde.StatusNotifierWatcher
   # Serial device access for picocom
-  - --device=all
+  - --device=serial
   # Downloads directory for SFTP file transfers via mc
   - --filesystem=xdg-download:create
 
@@ -163,7 +163,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/totoshko88/RustConn.git
-        tag: v0.9.10
+        tag: v0.9.11
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$

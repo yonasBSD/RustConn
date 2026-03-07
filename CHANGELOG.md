@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.11] - 2026-03-08
+
+### Security
+- **Bitwarden session key now uses SecretString** — session key was stored as plain `String` in memory without zeroization; migrated to `SecretString` with `expose_secret()` only at CLI invocation point
+- **Config files written with 0600 permissions** — connection data (hostnames, usernames, port forwards) was world-readable on multi-user systems; config directory now created with 0700
+- **SSH monitoring host key verification** — removed unconditional `StrictHostKeyChecking=no`; now uses `accept-new` by default (accepts first-seen keys, rejects changed keys)
+- **Session log sanitization active by default** — built-in sensitive patterns (password prompts, API keys, tokens) were defined but never wired into the sanitizer; now active in `SanitizeConfig::default()`
+- **Flatpak device permissions scoped** — replaced `--device=all` with `--device=serial` in both Flatpak manifests; previously granted access to all device nodes when only serial ports are needed
+- **Monitoring password uses SecretString** — `ssh_exec_factory` password parameter migrated from plain `String` to `SecretString` with zeroization; `expose_secret()` used only at `SSHPASS` env var injection point
+- **RDP TLS certificate policy documented** — `establish_connection` now documents that IronRDP does not validate server certificates (standard for RDP self-signed certs); added `tracing::warn!` on each connection
+
+### Fixed
+- **Encrypted document format ambiguity** — legacy salt byte could be misinterpreted as encryption strength byte (~1.2% chance); introduced V2 magic header `RCDB_EN2` for unambiguous format detection
+
+### Added
+- **Monitoring: remote host private IP** — monitoring bar now shows the primary private IP address in the system info section; hovering shows hostname, all IPv4 and IPv6 addresses grouped separately
+- **Monitoring: live uptime counter** — uptime in the system info tooltip now updates on every metrics polling tick instead of remaining static until the next full system info refresh
+- **Monitoring: stopped indication** — when the metrics collector stops (3 consecutive failures), the monitoring bar dims to 50% opacity, shows a warning icon, and the tooltip displays "⚠ Monitoring stopped"
+- **Monitoring: all mount points** — disk section now shows root filesystem in the level bar and all mounted real filesystems in the tooltip (mount point, used/total, percentage); virtual filesystems (tmpfs, devtmpfs, squashfs, overlay) and snap loop mounts are filtered out
+
+### Removed
+- **Dead `read_import_file_async`** — unused async import helper removed from `rustconn-core/src/import/traits.rs`
+
 ## [0.9.10] - 2026-03-07
 
 ### Fixed

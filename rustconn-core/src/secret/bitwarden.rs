@@ -57,7 +57,7 @@ use super::backend::SecretBackend;
 /// The session key is passed to `bw` commands via `--session` CLI arg
 /// in [`BitwardenBackend::build_command`], so child processes do not
 /// need the environment variable.
-static BW_SESSION_STORE: RwLock<Option<String>> = RwLock::new(None);
+static BW_SESSION_STORE: RwLock<Option<SecretString>> = RwLock::new(None);
 
 /// Thread-safe in-process storage for the resolved `bw` CLI command path.
 ///
@@ -109,9 +109,9 @@ fn clear_verified() {
 /// Call this instead of `std::env::set_var("BW_SESSION", ...)`.
 /// The key is used by [`get_session_key`] and passed to `bw` commands
 /// via `--session` argument.
-pub fn set_session_key(key: &str) {
+pub fn set_session_key(key: SecretString) {
     if let Ok(mut guard) = BW_SESSION_STORE.write() {
-        *guard = Some(key.to_string());
+        *guard = Some(key);
     }
 }
 
@@ -119,7 +119,7 @@ pub fn set_session_key(key: &str) {
 ///
 /// Returns `None` if no session key has been stored or if the lock is poisoned.
 #[must_use]
-pub fn get_session_key() -> Option<String> {
+pub fn get_session_key() -> Option<SecretString> {
     BW_SESSION_STORE.read().ok().and_then(|guard| guard.clone())
 }
 
@@ -351,8 +351,8 @@ impl BitwardenBackend {
 
         if let Some(ref session) = self.session_key {
             cmd.arg("--session").arg(session.expose_secret());
-        } else if let Some(global_session) = get_session_key() {
-            cmd.arg("--session").arg(global_session);
+        } else if let Some(ref global_session) = get_session_key() {
+            cmd.arg("--session").arg(global_session.expose_secret());
         }
 
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -1184,7 +1184,7 @@ async fn try_relogin_and_unlock(
         )
     })?;
 
-    set_session_key(session_key.expose_secret());
+    set_session_key(session_key);
     tracing::info!("Bitwarden: re-login + unlock successful");
     Ok(())
 }
@@ -1200,26 +1200,31 @@ async fn try_relogin_and_unlock(
 ///
 /// # Errors
 /// Returns `SecretError::BackendUnavailable` if all strategies fail.
+#[allow(clippy::too_many_lines)] // multi-strategy unlock with ordered fallbacks
 pub async fn auto_unlock(
     settings: &crate::config::SecretSettings,
 ) -> SecretResult<BitwardenBackend> {
     // 0. Fast path: if session key exists and was recently verified, skip
     //    all CLI calls entirely. This makes reconnect near-instant.
-    let stored_session =
-        get_session_key().or_else(|| std::env::var("BW_SESSION").ok().filter(|s| !s.is_empty()));
+    let stored_session = get_session_key().or_else(|| {
+        std::env::var("BW_SESSION")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .map(SecretString::from)
+    });
     if let Some(ref session) = stored_session
         && is_recently_verified()
     {
         tracing::debug!("Bitwarden: using cached session key (recently verified)");
         return Ok(BitwardenBackend::with_session(SecretString::from(
-            session.clone(),
+            session.expose_secret().to_owned(),
         )));
     }
 
     // 1. Check in-process session store, then fall back to BW_SESSION env var
     //    (supports externally unlocked vaults, e.g. `export BW_SESSION=...` in shell)
     if let Some(session) = stored_session {
-        let backend = BitwardenBackend::with_session(SecretString::from(session));
+        let backend = BitwardenBackend::with_session(session);
         if backend.is_unlocked().await {
             tracing::debug!("Bitwarden: using existing session key");
             // Sync once per verified session to pick up remote changes
@@ -1265,7 +1270,7 @@ pub async fn auto_unlock(
         tracing::debug!("Bitwarden: attempting unlock with keyring password");
         match unlock_vault(&password).await {
             Ok(session_key) => {
-                set_session_key(session_key.expose_secret());
+                set_session_key(SecretString::from(session_key.expose_secret().to_owned()));
                 let backend = BitwardenBackend::with_session(session_key);
                 let _ = backend.sync().await;
                 return Ok(backend);
@@ -1274,10 +1279,11 @@ pub async fn auto_unlock(
                 let is_key_type_error = e.to_string().contains("key type mismatch");
                 tracing::warn!("Bitwarden: keyring password unlock failed: {e}");
                 // If key type mismatch, try re-login before giving up
-                if is_key_type_error && try_relogin_and_unlock(settings, &password).await.is_ok() {
-                    return Ok(BitwardenBackend::with_session(SecretString::from(
-                        get_session_key().unwrap_or_default(),
-                    )));
+                if is_key_type_error
+                    && try_relogin_and_unlock(settings, &password).await.is_ok()
+                    && let Some(key) = get_session_key()
+                {
+                    return Ok(BitwardenBackend::with_session(key));
                 }
             }
         }
@@ -1295,7 +1301,7 @@ pub async fn auto_unlock(
             tracing::debug!("Bitwarden: attempting unlock with saved password");
             match unlock_vault(password).await {
                 Ok(session_key) => {
-                    set_session_key(session_key.expose_secret());
+                    set_session_key(SecretString::from(session_key.expose_secret().to_owned()));
                     let backend = BitwardenBackend::with_session(session_key);
                     let _ = backend.sync().await;
                     return Ok(backend);
@@ -1304,11 +1310,11 @@ pub async fn auto_unlock(
                     let is_key_type_error = e.to_string().contains("key type mismatch");
                     tracing::warn!("Bitwarden: saved password unlock failed: {e}");
                     // If key type mismatch, try re-login before giving up
-                    if is_key_type_error && try_relogin_and_unlock(settings, password).await.is_ok()
+                    if is_key_type_error
+                        && try_relogin_and_unlock(settings, password).await.is_ok()
+                        && let Some(key) = get_session_key()
                     {
-                        return Ok(BitwardenBackend::with_session(SecretString::from(
-                            get_session_key().unwrap_or_default(),
-                        )));
+                        return Ok(BitwardenBackend::with_session(key));
                     }
                 }
             }

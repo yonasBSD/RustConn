@@ -598,3 +598,12 @@ label.error {
 .tab-in-split:hover {
     background-color: alpha(@accent_color, 0.3);
 }
+
+/* ============================================================
+ * Monitoring Bar Styles
+ * ============================================================ */
+
+/* Stale monitoring indicator — collector stopped, metrics are outdated */
+.monitoring-stale {
+    opacity: 0.5;
+}

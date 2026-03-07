@@ -22,6 +22,17 @@ use tokio::net::TcpStream;
 pub type UpgradedFramed = TokioFramed<ironrdp_tls::TlsStream<TcpStream>>;
 
 /// Establishes the RDP connection and returns the framed stream and connection result.
+///
+/// # TLS Certificate Policy
+///
+/// IronRDP performs a TLS handshake but does not validate the server certificate
+/// against a trusted CA store. This is standard practice for RDP — most RDP
+/// servers use self-signed certificates. The behavior is equivalent to
+/// `xfreerdp /cert:ignore`.
+///
+/// A future improvement could implement TOFU (Trust On First Use) by storing
+/// the server certificate fingerprint on first connection and rejecting
+/// changed certificates on subsequent connections.
 // The future is not Send because IronRDP's AsyncNetworkClient is not Send.
 // This is fine because we run on a single-threaded Tokio runtime.
 #[allow(clippy::future_not_send)]
@@ -128,13 +139,24 @@ pub async fn establish_connection(
         .await
         .map_err(|e| RdpClientError::ConnectionFailed(format!("Connection begin failed: {e}")))?;
 
-    // TLS upgrade - returns stream and server certificate
+    // TLS upgrade - returns stream and server certificate.
+    // Note: IronRDP does not validate the server certificate against a CA
+    // store. This is equivalent to xfreerdp /cert:ignore and is standard
+    // for RDP where most servers use self-signed certificates.
     let initial_stream = framed.into_inner_no_leftover();
 
     let (upgraded_stream, server_cert) =
         ironrdp_tls::upgrade(initial_stream, &config.host)
             .await
             .map_err(|e| RdpClientError::ConnectionFailed(format!("TLS upgrade failed: {e}")))?;
+
+    tracing::warn!(
+        protocol = "rdp",
+        host = %config.host,
+        port = %config.port,
+        "TLS certificate not validated (no CA verification). \
+         This is standard for RDP self-signed certificates."
+    );
 
     // Extract server public key from certificate
     let server_public_key = ironrdp_tls::extract_tls_server_public_key(&server_cert)

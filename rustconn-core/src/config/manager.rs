@@ -133,6 +133,22 @@ impl ConfigManager {
                 ))
             })?;
         }
+
+        // Restrict directory permissions to owner-only (0700)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&self.config_dir, fs::Permissions::from_mode(0o700)).map_err(
+                |e| {
+                    ConfigError::Write(format!(
+                        "Failed to set permissions on {}: {}",
+                        self.config_dir.display(),
+                        e
+                    ))
+                },
+            )?;
+        }
+
         Ok(())
     }
 
@@ -497,8 +513,25 @@ impl ConfigManager {
         let content = toml::to_string_pretty(data)
             .map_err(|e| ConfigError::Serialize(format!("Failed to serialize: {e}")))?;
 
-        fs::write(path, content)
-            .map_err(|e| ConfigError::Write(format!("Failed to write {}: {}", path.display(), e)))
+        fs::write(path, content).map_err(|e| {
+            ConfigError::Write(format!("Failed to write {}: {}", path.display(), e))
+        })?;
+
+        // Restrict file permissions to owner-only (0600) — config files contain
+        // hostnames, usernames, port forwards, SSH key paths.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|e| {
+                ConfigError::Write(format!(
+                    "Failed to set permissions on {}: {}",
+                    path.display(),
+                    e
+                ))
+            })?;
+        }
+
+        Ok(())
     }
 
     /// Saves data to a TOML file asynchronously with atomic write.
@@ -552,6 +585,21 @@ impl ConfigManager {
 
         // Drop the file handle before rename
         drop(file);
+
+        // Restrict file permissions to owner-only (0600) before rename
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            tokio::fs::set_permissions(&temp_path, fs::Permissions::from_mode(0o600))
+                .await
+                .map_err(|e| {
+                    ConfigError::Write(format!(
+                        "Failed to set permissions on {}: {}",
+                        temp_path.display(),
+                        e
+                    ))
+                })?;
+        }
 
         // Atomic rename (on POSIX systems, rename is atomic)
         tokio::fs::rename(&temp_path, path).await.map_err(|e| {
