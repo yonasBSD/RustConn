@@ -10,7 +10,7 @@ use adw::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{
     Box as GtkBox, Button, DropDown, Entry, FileDialog, Label, Orientation, ProgressBar,
-    ScrolledWindow, Separator, Spinner, Stack, StringList,
+    ScrolledWindow, Separator, Stack, StringList,
 };
 use libadwaita as adw;
 use rustconn_core::export::{
@@ -42,7 +42,10 @@ pub struct ExportDialog {
     // Progress
     progress_bar: ProgressBar,
     progress_label: Label,
-    progress_spinner: Spinner,
+    #[cfg(feature = "adw-1-6")]
+    progress_spinner: adw::Spinner,
+    #[cfg(not(feature = "adw-1-6"))]
+    progress_spinner: gtk4::Spinner,
     // Result
     result_label: Label,
     result_details: Label,
@@ -108,8 +111,25 @@ impl ExportDialog {
         stack.add_named(&options_page, Some("options"));
 
         // === Progress Page ===
-        let (progress_page, progress_bar, progress_label, progress_spinner) =
-            Self::create_progress_page();
+        let (progress_page, progress_bar, progress_label) = Self::create_progress_page();
+        // Create spinner with cfg guard — adw::Spinner always spins (visibility-controlled),
+        // gtk4::Spinner uses set_spinning()
+        #[cfg(feature = "adw-1-6")]
+        let progress_spinner = {
+            let s = adw::Spinner::builder()
+                .width_request(48)
+                .height_request(48)
+                .build();
+            s
+        };
+        #[cfg(not(feature = "adw-1-6"))]
+        let progress_spinner = gtk4::Spinner::builder()
+            .spinning(true)
+            .width_request(48)
+            .height_request(48)
+            .build();
+        // Prepend spinner before the "Exporting..." label
+        progress_page.prepend(&progress_spinner);
         stack.add_named(&progress_page, Some("progress"));
 
         // === Result Page ===
@@ -261,17 +281,10 @@ impl ExportDialog {
     }
 
     /// Creates the progress page
-    fn create_progress_page() -> (GtkBox, ProgressBar, Label, Spinner) {
+    fn create_progress_page() -> (GtkBox, ProgressBar, Label) {
         let vbox = GtkBox::new(Orientation::Vertical, 12);
         vbox.set_valign(gtk4::Align::Center);
         vbox.set_halign(gtk4::Align::Center);
-
-        let spinner = Spinner::builder()
-            .spinning(true)
-            .width_request(48)
-            .height_request(48)
-            .build();
-        vbox.append(&spinner);
 
         let header = Label::builder()
             .label(i18n("Exporting..."))
@@ -293,7 +306,7 @@ impl ExportDialog {
             .build();
         vbox.append(&progress_label);
 
-        (vbox, progress_bar, progress_label, spinner)
+        (vbox, progress_bar, progress_label)
     }
 
     /// Creates the result page
@@ -738,6 +751,7 @@ impl ExportDialog {
             stack.set_visible_child_name("progress");
             btn.set_sensitive(false);
             progress_bar.set_fraction(0.0);
+            #[cfg(not(feature = "adw-1-6"))]
             progress_spinner.set_spinning(true);
             progress_label.set_text(&i18n_f("Exporting to {}...", &[format.display_name()]));
 
@@ -752,6 +766,7 @@ impl ExportDialog {
             let export_result = Self::do_export(&conns, &grps, &snips, &options);
 
             progress_bar.set_fraction(1.0);
+            #[cfg(not(feature = "adw-1-6"))]
             progress_spinner.set_spinning(false);
 
             match export_result {

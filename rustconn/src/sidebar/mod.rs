@@ -76,6 +76,9 @@ pub struct ConnectionSidebar {
     /// Debouncer for rate-limiting search operations (100ms delay)
     search_debouncer: Rc<Debouncer>,
     /// Spinner widget to show search is pending during debounce
+    #[cfg(feature = "adw-1-6")]
+    search_spinner: adw::Spinner,
+    #[cfg(not(feature = "adw-1-6"))]
     search_spinner: gtk4::Spinner,
     /// Pending search query during debounce period
     pending_search_query: Rc<RefCell<Option<String>>>,
@@ -115,9 +118,20 @@ impl ConnectionSidebar {
         search_box.append(&search_entry);
 
         // Search pending spinner (hidden by default)
-        let search_spinner = gtk4::Spinner::new();
-        search_spinner.set_visible(false);
-        search_spinner.set_tooltip_text(Some(&i18n("Search pending...")));
+        #[cfg(feature = "adw-1-6")]
+        let search_spinner = {
+            let s = adw::Spinner::new();
+            s.set_visible(false);
+            s.set_tooltip_text(Some(&i18n("Search pending...")));
+            s
+        };
+        #[cfg(not(feature = "adw-1-6"))]
+        let search_spinner = {
+            let s = gtk4::Spinner::new();
+            s.set_visible(false);
+            s.set_tooltip_text(Some(&i18n("Search pending...")));
+            s
+        };
         search_box.append(&search_spinner);
 
         // Help button with popover
@@ -760,11 +774,13 @@ impl ConnectionSidebar {
     /// Shows the search pending indicator
     pub fn show_search_pending(&self) {
         self.search_spinner.set_visible(true);
+        #[cfg(not(feature = "adw-1-6"))]
         self.search_spinner.start();
     }
 
     /// Hides the search pending indicator
     pub fn hide_search_pending(&self) {
+        #[cfg(not(feature = "adw-1-6"))]
         self.search_spinner.stop();
         self.search_spinner.set_visible(false);
     }

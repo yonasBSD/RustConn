@@ -541,7 +541,7 @@ fn setup_app_actions(
     shortcuts_action.connect_activate(move |_, _| {
         if let Some(window) = window_weak.upgrade() {
             let dialog = crate::dialogs::ShortcutsDialog::new(Some(&window));
-            dialog.show();
+            dialog.show(Some(&window));
         }
     });
     app.add_action(&shortcuts_action);

@@ -26,8 +26,7 @@ pub use ui_tab::*;
 use adw::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{
-    Box as GtkBox, Button, CheckButton, DropDown, Entry, Label, PasswordEntry, SpinButton, Spinner,
-    Switch,
+    Box as GtkBox, Button, CheckButton, DropDown, Entry, Label, PasswordEntry, SpinButton, Switch,
 };
 use libadwaita as adw;
 use rustconn_core::config::AppSettings;
@@ -117,7 +116,7 @@ pub struct SettingsDialog {
     ssh_agent_start_button: Button,
     ssh_agent_keys_list: gtk4::ListBox,
     ssh_agent_add_key_button: Button,
-    ssh_agent_loading_spinner: Spinner,
+    ssh_agent_loading_spinner: gtk4::Widget,
     ssh_agent_error_label: Label,
     ssh_agent_refresh_button: Button,
     ssh_agent_available_keys_list: gtk4::ListBox,

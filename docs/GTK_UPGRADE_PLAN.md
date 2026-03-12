@@ -346,14 +346,14 @@ versions at runtime — use `#[cfg]` or runtime checks if needed for Ubuntu 24.0
 
 ## 10. Recommended Commit Sequence
 
-1. `chore: bump MSRV to 1.92`
-2. `chore: upgrade gtk4 0.11, libadwaita 0.9, vte4 0.10, gdk4-wayland 0.11`
+1. ~~`chore: bump MSRV to 1.92`~~ ✅
+2. ~~`chore: upgrade gtk4 0.11, libadwaita 0.9, vte4 0.10, gdk4-wayland 0.11`~~ ✅
    - Fix all compile errors
    - Zero clippy warnings
    - All tests pass
-3. `refactor: replace GtkSpinner with AdwSpinner` (3 files)
-4. `refactor: migrate CSS to libadwaita 1.6 variables` (style.css)
-5. `feat: use AdwShortcutsDialog for keyboard shortcuts` (shortcuts.rs)
+3. ~~`refactor: replace GtkSpinner with AdwSpinner`~~ ✅ (cfg-gated `adw-1-6`)
+4. `refactor: migrate CSS to libadwaita 1.6 variables` ⏳ (deferred — requires Flatpak runtime 50; `@named_color` syntax works on all versions)
+5. ~~`feat: use AdwShortcutsDialog for keyboard shortcuts`~~ ✅ (cfg-gated `adw-1-8`)
 6. `chore: bump Flatpak runtime to GNOME 50`
    - Update `runtime-version: '50'` in both manifests
    - Update or remove VTE source module (depends on runtime 50 bundling)

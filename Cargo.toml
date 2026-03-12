@@ -11,7 +11,7 @@ version = "0.9.15"
 edition = "2024"
 authors = ["Anton Isaiev <totoshko88@gmail.com>"]
 license = "GPL-3.0-or-later"
-rust-version = "1.88"
+rust-version = "1.92"
 
 [workspace.dependencies]
 # Async runtime
@@ -27,9 +27,9 @@ serde_yaml = { version = "0.10", package = "serde_yaml_ng" }
 toml = "1.0"
 
 # GTK4 and VTE
-gtk4 = "0.10"
-vte4 = "0.9"
-libadwaita = { version = "0.8", features = ["v1_5"] }
+gtk4 = "0.11"
+vte4 = "0.10"
+libadwaita = { version = "0.9", features = ["v1_5"] }
 
 # Utilities
 uuid = { version = "1.22", features = ["v4", "serde"] }
