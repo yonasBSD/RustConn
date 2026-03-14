@@ -133,6 +133,20 @@ impl super::EmbeddedRdpWidget {
     pub(super) fn connect_ironrdp(&self, config: &RdpConfig) -> Result<(), EmbeddedRdpError> {
         use rustconn_core::rdp_client::{RdpClient, RdpClientConfig};
 
+        // IronRDP 0.14 does not support RD Gateway (MS-TSGU). If gateway is
+        // configured, bail out early so the caller falls back to external
+        // xfreerdp which does support gateway connections.
+        if config.gateway_hostname.as_ref().is_some_and(|h| !h.is_empty()) {
+            tracing::warn!(
+                protocol = "rdp",
+                host = %config.host,
+                gateway = ?config.gateway_hostname,
+                "RD Gateway configured — IronRDP does not support gateway yet, \
+                 falling back to external client"
+            );
+            return Err(EmbeddedRdpError::GatewayNotSupported);
+        }
+
         // Increment connection generation to invalidate any stale polling loops
         let generation = {
             let mut counter = self.connection_generation.borrow_mut();

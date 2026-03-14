@@ -191,6 +191,18 @@ impl SafeFreeRdpLauncher {
             cmd.arg(arg);
         }
 
+        // Add gateway configuration for RD Gateway connections
+        if let Some(ref gw_host) = config.gateway_hostname
+            && !gw_host.is_empty()
+        {
+            cmd.arg(format!("/g:{gw_host}:{}", config.gateway_port));
+            if let Some(ref gw_user) = config.gateway_username
+                && !gw_user.is_empty()
+            {
+                cmd.arg(format!("/gu:{gw_user}"));
+            }
+        }
+
         if config.port == 3389 {
             cmd.arg(format!("/v:{}", config.host));
         } else {

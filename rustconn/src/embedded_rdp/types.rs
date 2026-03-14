@@ -47,6 +47,10 @@ pub enum EmbeddedRdpError {
     #[error("Falling back to external mode: {0}")]
     FallbackToExternal(String),
 
+    /// RD Gateway configured but not supported by embedded IronRDP client
+    #[error("RD Gateway requires external RDP client (IronRDP does not support gateway yet)")]
+    GatewayNotSupported,
+
     /// Thread communication error
     #[error("Thread communication error: {0}")]
     ThreadError(String),
@@ -125,6 +129,12 @@ pub struct RdpConfig {
     pub scale_override: rustconn_core::models::ScaleOverride,
     /// Show local mouse cursor over embedded viewer (disable to avoid double cursor)
     pub show_local_cursor: bool,
+    /// Gateway hostname (if set, IronRDP will fall back to external xfreerdp)
+    pub gateway_hostname: Option<String>,
+    /// Gateway port (default: 443)
+    pub gateway_port: u16,
+    /// Gateway username (if different from connection username)
+    pub gateway_username: Option<String>,
 }
 
 impl Default for RdpConfig {
@@ -147,6 +157,9 @@ impl Default for RdpConfig {
             keyboard_layout: None,
             scale_override: rustconn_core::models::ScaleOverride::default(),
             show_local_cursor: true,
+            gateway_hostname: None,
+            gateway_port: 443,
+            gateway_username: None,
         }
     }
 }

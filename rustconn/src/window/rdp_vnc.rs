@@ -368,6 +368,14 @@ fn start_embedded_rdp_session(
     // Pass local cursor visibility preference
     embedded_config.show_local_cursor = rdp_config.show_local_cursor;
 
+    // Pass gateway configuration so IronRDP can detect it and fall back
+    // to external xfreerdp (IronRDP 0.14 does not support RD Gateway)
+    if let Some(ref gateway) = rdp_config.gateway {
+        embedded_config.gateway_hostname = Some(gateway.hostname.clone());
+        embedded_config.gateway_port = gateway.port;
+        embedded_config.gateway_username = gateway.username.clone();
+    }
+
     // Wrap in Rc to keep widget alive in notebook
     let embedded_widget = Rc::new(embedded_widget);
 

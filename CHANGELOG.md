@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.10.0] - 2026-03-14
 
+### Added
+- **RDP file association** — RustConn now registers as a handler for `.rdp` files; double-clicking an `.rdp` file in the file manager opens RustConn and connects automatically; supports `full address`, `username`, `domain`, `gatewayhostname`, resolution, audio, and clipboard fields ([#54](https://github.com/totoshko88/RustConn/issues/54))
+
 ### Fixed
+- **Default window size on first start too small** — increased minimum window size from 360×294 to 800×500 so the welcome screen and header bar controls are always fully visible; welcome screen now switches from 3-column to single-column layout on narrow windows ([#55](https://github.com/totoshko88/RustConn/issues/55))
+- **RDP gateway parameters ignored in embedded mode** — IronRDP 0.14 does not support RD Gateway (MS-TSGU); connections with a gateway configured now automatically fall back to external xfreerdp which supports gateway, with a toast notification; gateway parameters are also passed correctly to the FreeRDP launcher ([#53](https://github.com/totoshko88/RustConn/issues/53))
 - **Flatpak: mc wrapper not found** — host distros (e.g. openSUSE) export a bash function `mc()` via `BASH_FUNC_mc%%` that sources `/usr/share/mc/mc-wrapper.sh`, absent in the sandbox; fixed with `--unset-env=BASH_FUNC_mc%%` in finish-args to strip the inherited function, plus a post-install wrapper that redirects to `/app/libexec/mc/mc-wrapper.sh` for correct directory-change-on-exit behavior
 - **Split view: text selection broken** — `GestureClick` handler on panel container claimed all left-click events in Capture phase, preventing VTE terminals from receiving clicks for text selection; now detects clicks on `VteTerminal` widgets and lets them propagate while still switching panel focus
 

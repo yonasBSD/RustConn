@@ -1,11 +1,12 @@
 [Desktop Entry]
 Name=RustConn
 Comment=Manage remote connections easily
-Exec=rustconn
+Exec=rustconn %f
 Icon=io.github.totoshko88.RustConn
 Terminal=false
 Type=Application
 Categories=Network;RemoteAccess;
+MimeType=application/x-rdp;
 Keywords=ssh;rdp;vnc;spice;telnet;zerotrust;connection;terminal;remote;
 StartupWMClass=io.github.totoshko88.RustConn
 SingleMainWindow=true

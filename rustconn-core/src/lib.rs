@@ -127,8 +127,8 @@ pub use flatpak::{get_flatpak_known_hosts_path, get_flatpak_ssh_dir, is_flatpak}
 pub use import::{
     AnsibleInventoryImporter, AsbruImporter, BATCH_IMPORT_THRESHOLD, BatchCancelHandle,
     BatchImportResult, BatchImporter, DEFAULT_IMPORT_BATCH_SIZE, ImportResult, ImportSource,
-    LibvirtXmlImporter, RemminaImporter, RoyalTsImporter, SkippedEntry, SshConfigImporter,
-    VirtViewerImporter,
+    LibvirtXmlImporter, RdpFileImporter, RemminaImporter, RoyalTsImporter, SkippedEntry,
+    SshConfigImporter, VirtViewerImporter,
 };
 pub use models::{
     Connection, ConnectionGroup, ConnectionHistoryEntry, ConnectionStatistics, ConnectionTemplate,

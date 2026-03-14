@@ -48,6 +48,7 @@ mod normalize;
 mod preview;
 mod rdm;
 mod remmina;
+mod rdp_file;
 mod royalts;
 mod ssh_config;
 mod traits;
@@ -68,6 +69,7 @@ pub use normalize::{
 pub use preview::{DuplicateAction, ImportPreview, MergeStrategy, PreviewConnection, PreviewGroup};
 pub use rdm::RdmImporter;
 pub use remmina::RemminaImporter;
+pub use rdp_file::RdpFileImporter;
 pub use royalts::RoyalTsImporter;
 pub use ssh_config::SshConfigImporter;
 pub use traits::{

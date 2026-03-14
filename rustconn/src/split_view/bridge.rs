@@ -1704,17 +1704,87 @@ impl SplitViewBridge {
 
         content.append(&actions);
 
-        // Three-column layout
+        // Build the three column groups
+        let col1 = Self::build_welcome_features_column();
+        let col2 = Self::build_welcome_shortcuts_column();
+        let col3 = Self::build_welcome_extras_column();
+
+        // Three-column layout (wide mode)
         let columns = GtkBox::new(Orientation::Horizontal, 18);
         columns.set_halign(gtk4::Align::Fill);
         columns.set_hexpand(true);
         columns.set_homogeneous(true);
         columns.set_margin_top(12);
+        columns.append(&col1);
+        columns.append(&col2);
+        columns.append(&col3);
 
-        // Column 1 - Features
-        let col1 = GtkBox::new(Orientation::Vertical, 6);
-        col1.set_valign(gtk4::Align::Start);
-        col1.set_hexpand(true);
+        // Single-column layout (narrow mode)
+        let narrow = GtkBox::new(Orientation::Vertical, 12);
+        narrow.set_halign(gtk4::Align::Fill);
+        narrow.set_hexpand(true);
+        narrow.set_margin_top(12);
+        narrow.set_visible(false);
+
+        let narrow_col1 = Self::build_welcome_features_column();
+        let narrow_col2 = Self::build_welcome_shortcuts_column();
+        let narrow_col3 = Self::build_welcome_extras_column();
+        narrow.append(&narrow_col1);
+        narrow.append(&narrow_col2);
+        narrow.append(&narrow_col3);
+
+        content.append(&columns);
+        content.append(&narrow);
+
+        // Switch between wide/narrow based on available width
+        let columns_ref = columns.clone();
+        let narrow_ref = narrow.clone();
+        content.connect_map(move |widget| {
+            let columns_inner = columns_ref.clone();
+            let narrow_inner = narrow_ref.clone();
+            widget.connect_notify_local(Some("width-request"), move |w, _| {
+                let width = w.width();
+                let use_narrow = width > 0 && width < 600;
+                columns_inner.set_visible(!use_narrow);
+                narrow_inner.set_visible(use_narrow);
+            });
+        });
+
+        // Also check on size-allocate for responsive switching
+        let columns_ref2 = columns;
+        let narrow_ref2 = narrow;
+        content.connect_realize(move |widget| {
+            let columns_inner = columns_ref2.clone();
+            let narrow_inner = narrow_ref2.clone();
+            let surface = widget.native().and_then(|n| n.surface());
+            if let Some(surface) = surface {
+                surface.connect_layout(move |_, w, _| {
+                    let use_narrow = w > 0 && w < 700;
+                    columns_inner.set_visible(!use_narrow);
+                    narrow_inner.set_visible(use_narrow);
+                });
+            }
+        });
+
+        // Hint at the bottom
+        let hint = gtk4::Label::builder()
+            .label(&i18n(
+                "Double-click a connection in the sidebar to get started",
+            ))
+            .css_classes(["dim-label"])
+            .margin_top(12)
+            .build();
+        content.append(&hint);
+
+        status_page.set_child(Some(&content));
+        status_page
+    }
+
+    /// Builds the Features column for the welcome screen
+    fn build_welcome_features_column() -> GtkBox {
+        let col = GtkBox::new(Orientation::Vertical, 6);
+        col.set_valign(gtk4::Align::Start);
+        col.set_hexpand(true);
 
         let features_group = adw::PreferencesGroup::builder()
             .title(&i18n("Features"))
@@ -1740,13 +1810,15 @@ impl SplitViewBridge {
             row.add_prefix(&gtk4::Image::from_icon_name(icon));
             features_group.add(&row);
         }
-        col1.append(&features_group);
-        columns.append(&col1);
+        col.append(&features_group);
+        col
+    }
 
-        // Column 2 - Keyboard shortcuts
-        let col2 = GtkBox::new(Orientation::Vertical, 6);
-        col2.set_valign(gtk4::Align::Start);
-        col2.set_hexpand(true);
+    /// Builds the Keyboard Shortcuts column for the welcome screen
+    fn build_welcome_shortcuts_column() -> GtkBox {
+        let col = GtkBox::new(Orientation::Vertical, 6);
+        col.set_valign(gtk4::Align::Start);
+        col.set_hexpand(true);
 
         let shortcuts_group = adw::PreferencesGroup::builder()
             .title(&i18n("Keyboard Shortcuts"))
@@ -1773,13 +1845,15 @@ impl SplitViewBridge {
             row.add_suffix(&label);
             shortcuts_group.add(&row);
         }
-        col2.append(&shortcuts_group);
-        columns.append(&col2);
+        col.append(&shortcuts_group);
+        col
+    }
 
-        // Column 3 - Performance & Import
-        let col3 = GtkBox::new(Orientation::Vertical, 6);
-        col3.set_valign(gtk4::Align::Start);
-        col3.set_hexpand(true);
+    /// Builds the Performance & Import column for the welcome screen
+    fn build_welcome_extras_column() -> GtkBox {
+        let col = GtkBox::new(Orientation::Vertical, 6);
+        col.set_valign(gtk4::Align::Start);
+        col.set_hexpand(true);
 
         let perf_group = adw::PreferencesGroup::builder()
             .title(&i18n("Performance"))
@@ -1800,7 +1874,7 @@ impl SplitViewBridge {
             row.add_prefix(&gtk4::Image::from_icon_name(icon));
             perf_group.add(&row);
         }
-        col3.append(&perf_group);
+        col.append(&perf_group);
 
         // Import formats
         let formats_group = adw::PreferencesGroup::builder()
@@ -1820,23 +1894,8 @@ impl SplitViewBridge {
             row.add_prefix(&gtk4::Image::from_icon_name("document-open-symbolic"));
             formats_group.add(&row);
         }
-        col3.append(&formats_group);
-        columns.append(&col3);
-
-        content.append(&columns);
-
-        // Hint at the bottom
-        let hint = gtk4::Label::builder()
-            .label(&i18n(
-                "Double-click a connection in the sidebar to get started",
-            ))
-            .css_classes(["dim-label"])
-            .margin_top(12)
-            .build();
-        content.append(&hint);
-
-        status_page.set_child(Some(&content));
-        status_page
+        col.append(&formats_group);
+        col
     }
 
     /// Sets up the "Select Tab" callback for empty panel placeholders.

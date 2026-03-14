@@ -384,6 +384,8 @@ pub enum StartupAction {
     LocalShell,
     /// Connect to a specific saved connection by UUID
     Connection(uuid::Uuid),
+    /// Open and connect from an `.rdp` file
+    RdpFile(std::path::PathBuf),
 }
 
 /// Maximum number of search history entries to persist
