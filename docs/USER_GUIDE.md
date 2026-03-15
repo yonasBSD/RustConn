@@ -389,7 +389,7 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 ### Tab Management
 
 - **Switch** — Click tab or Ctrl+Tab / Ctrl+Shift+Tab
-- **Close** — Click X or Ctrl+W
+- **Close** — Click X or Ctrl+Shift+W
 - **Reorder** — Drag tabs
 
 ### Split View
@@ -398,7 +398,7 @@ Split view works with terminal-based sessions: SSH, Telnet, Serial, Kubernetes, 
 
 - **Horizontal Split** — Ctrl+Shift+H
 - **Vertical Split** — Ctrl+Shift+S
-- **Close Pane** — Ctrl+Shift+W
+- **Close Pane** — Ctrl+Shift+X
 - **Focus Next Pane** — Ctrl+`
 
 ### Status Indicators
@@ -422,7 +422,7 @@ When a terminal session disconnects (SSH, Telnet, Serial, Kubernetes), a "Reconn
 - The banner appears automatically when the VTE child process exits
 - Reconnect uses the same connection settings (host, credentials, protocol options)
 - If the connection fails again, the banner reappears
-- Close the tab normally with Ctrl+W to dismiss
+- Close the tab normally with Ctrl+Shift+W to dismiss
 
 ### Session Logging
 
@@ -2085,7 +2085,7 @@ Note: Sidebar-scoped shortcuts (F2, Delete, Ctrl+E, Ctrl+D, Ctrl+C, Ctrl+V, Ctrl
 | Ctrl+Shift+C | Copy |
 | Ctrl+Shift+V | Paste |
 | Ctrl+Shift+F | Terminal Search |
-| Ctrl+W | Close Tab |
+| Ctrl+Shift+W | Close Tab |
 | Ctrl+Tab | Next Tab |
 | Ctrl+Shift+Tab | Previous Tab |
 
@@ -2107,7 +2107,7 @@ These settings apply to all terminal sessions (SSH, Telnet, Serial, Kubernetes, 
 |----------|--------|
 | Ctrl+Shift+H | Split Horizontal |
 | Ctrl+Shift+S | Split Vertical |
-| Ctrl+Shift+W | Close Pane |
+| Ctrl+Shift+X | Close Pane |
 | Ctrl+` | Focus Next Pane |
 
 ### Application
