@@ -30,10 +30,6 @@
     </ul>
   </description>
   <launchable type="desktop-id">io.github.totoshko88.RustConn.desktop</launchable>
-  <supports>
-    <control>keyboard</control>
-    <control>pointing</control>
-  </supports>
   <provides>
     <mediatype>application/x-rdp</mediatype>
   </provides>
@@ -97,16 +93,24 @@
     <control>touch</control>
   </supports>
   <releases>
-    <release version="0.10.0" date="2026-03-13">
+    <release version="0.10.0" date="2026-03-14">
       <description>
-        <p>GTK4/libadwaita/VTE crate upgrade and tiered distro support:</p>
+        <p>GTK4/libadwaita/VTE upgrade, RDP file association, FreeRDP in Flatpak, and Flatpak fixes:</p>
         <ul>
+          <li>RDP file association — double-click .rdp files to open and connect automatically</li>
+          <li>FreeRDP 3.24.0 bundled in Flatpak — external RDP works out of the box on Wayland</li>
+          <li>sdl-freerdp3 and unversioned FreeRDP binary detection for distro and Flatpak builds</li>
           <li>GTK-rs bindings upgraded: gtk4 0.11, libadwaita 0.9, vte4 0.10, gdk4-wayland 0.11</li>
           <li>MSRV bumped to Rust 1.92 across all crates, CI, and packaging</li>
           <li>Flatpak runtime bumped to GNOME 50 with VTE 0.80</li>
-          <li>AdwSpinner replaces gtk::Spinner (cfg-gated behind adw-1-6 feature)</li>
-          <li>AdwShortcutsDialog replaces deprecated gtk::ShortcutsWindow (cfg-gated behind adw-1-8 feature)</li>
-          <li>Tiered distro feature flags: adw-1-8 for Tumbleweed/Fedora 43+, adw-1-6 for Leap 16.0/Fedora 42</li>
+          <li>AdwSpinner, AdwShortcutsDialog, AdwSwitchRow, AdwWrapBox migrations (cfg-gated)</li>
+          <li>CSS prefers-reduced-motion support for accessibility</li>
+          <li>Tiered distro feature flags: adw-1-8 for Tumbleweed/Fedora 43+, adw-1-6 for Leap/Fedora 42</li>
+          <li>Fixed default window size too small on first start</li>
+          <li>Fixed RDP gateway parameters ignored in embedded mode — auto-fallback to FreeRDP</li>
+          <li>Fixed SSH jump host connections broken in Flatpak (interactive and monitoring)</li>
+          <li>Fixed mc wrapper not found in Flatpak on openSUSE</li>
+          <li>Fixed split view text selection broken by GestureClick handler</li>
         </ul>
       </description>
     </release>
@@ -582,5 +586,7 @@
     <keyword>zerotrust</keyword>
     <keyword>serial</keyword>
     <keyword>sftp</keyword>
+    <keyword>kubernetes</keyword>
+    <keyword>k8s</keyword>
   </keywords>
 </component>

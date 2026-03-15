@@ -315,6 +315,12 @@ impl EmbeddedSessionTab {
     pub fn set_process(&self, child: Child) {
         *self.process.borrow_mut() = Some(child);
     }
+
+    /// Returns a clone of the process handle for external cleanup
+    #[must_use]
+    pub fn process_handle(&self) -> Rc<RefCell<Option<Child>>> {
+        self.process.clone()
+    }
 }
 
 /// RDP session launcher for embedded and external sessions

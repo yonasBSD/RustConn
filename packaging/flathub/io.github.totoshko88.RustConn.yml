@@ -19,6 +19,11 @@ finish-args:
   - --share=network
   # Home directory access for SSH keys
   - --filesystem=home/.ssh:ro
+  # AWS/GCP/Azure CLI config directories for ZeroTrust connections
+  - --filesystem=home/.aws
+  - --filesystem=home/.config/gcloud:ro
+  - --filesystem=home/.azure:ro
+  - --filesystem=home/.kube:ro
   # SSH agent socket
   - --socket=ssh-auth
   # D-Bus access for secret service (GNOME Keyring, KWallet)
@@ -29,6 +34,9 @@ finish-args:
   - --talk-name=org.keepassxc.KeePassXC.BrowserServer
   # System tray (StatusNotifierItem)
   - --talk-name=org.kde.StatusNotifierWatcher
+  # Host command execution for ZeroTrust (aws, gcloud, az) and Kubernetes (kubectl)
+  # These CLI tools are installed on the host, not in the sandbox
+  - --talk-name=org.freedesktop.Flatpak
   # Device access (serial ports for picocom require --device=all; no granular option exists)
   - --device=all
   # Downloads directory for SFTP file transfers via mc

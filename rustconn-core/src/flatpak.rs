@@ -1,12 +1,15 @@
-//! Flatpak sandbox detection
+//! Flatpak sandbox detection and host command helpers
 //!
 //! This module provides utilities for detecting if the application is running
-//! inside a Flatpak sandbox.
+//! inside a Flatpak sandbox and for executing host commands via
+//! `flatpak-spawn --host`.
 //!
-//! **Note:** As of version 0.7.7, the `--talk-name=org.freedesktop.Flatpak`
-//! permission was removed from the Flatpak manifest per Flathub reviewer feedback.
-//! The deprecated `flatpak-spawn --host` wrapper functions were removed in 0.9.0.
-//! Use embedded clients (IronRDP, vnc-rs) instead of external host commands.
+//! Host command execution requires `--talk-name=org.freedesktop.Flatpak`
+//! in the Flatpak manifest. This permission is included in the local build
+//! manifest but may not be present in Flathub builds. Users can add it via:
+//! ```text
+//! flatpak override --user --talk-name=org.freedesktop.Flatpak io.github.totoshko88.RustConn
+//! ```
 
 use std::sync::OnceLock;
 
@@ -81,6 +84,74 @@ pub fn is_flatpak() -> bool {
     })
 }
 
+/// Checks whether a CLI tool is available, accounting for Flatpak sandbox.
+///
+/// - Outside Flatpak: runs `which <cli>` directly.
+/// - Inside Flatpak: runs `flatpak-spawn --host which <cli>` to check the host.
+///
+/// Returns `false` if the tool is not found or if `flatpak-spawn --host` is
+/// not permitted (missing `--talk-name=org.freedesktop.Flatpak`).
+#[must_use]
+pub fn is_host_command_available(cli: &str) -> bool {
+    use std::process::Command;
+
+    if !is_flatpak() {
+        return Command::new("which")
+            .arg(cli)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success());
+    }
+
+    let result = Command::new("flatpak-spawn")
+        .arg("--host")
+        .arg("which")
+        .arg(cli)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+
+    match result {
+        Ok(status) if status.success() => true,
+        Ok(_) => {
+            tracing::debug!(cli, "Host command not found via flatpak-spawn");
+            false
+        }
+        Err(e) => {
+            tracing::warn!(
+                cli,
+                ?e,
+                "flatpak-spawn --host failed; grant permission with: \
+                 flatpak override --user --talk-name=org.freedesktop.Flatpak \
+                 io.github.totoshko88.RustConn"
+            );
+            false
+        }
+    }
+}
+
+/// Wraps a shell command string for host execution when inside Flatpak.
+///
+/// - Outside Flatpak: returns the command unchanged.
+/// - Inside Flatpak: prepends `flatpak-spawn --host` so the shell runs on the host.
+///
+/// The returned string is suitable for `bash -c "<command>"` or direct VTE spawn.
+#[must_use]
+pub fn wrap_host_command(command: &str) -> String {
+    if is_flatpak() {
+        format!("flatpak-spawn --host bash -c {}", shell_escape(command))
+    } else {
+        command.to_string()
+    }
+}
+
+/// Shell-escapes a string by wrapping it in single quotes.
+fn shell_escape(s: &str) -> String {
+    // Replace single quotes with '\'' (end quote, escaped quote, start quote)
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,5 +164,24 @@ mod tests {
         // Just verify it doesn't panic and returns a boolean
         // The result depends on the environment
         let _ = result;
+    }
+
+    #[test]
+    fn test_shell_escape_simple() {
+        assert_eq!(shell_escape("hello world"), "'hello world'");
+    }
+
+    #[test]
+    fn test_shell_escape_with_quotes() {
+        assert_eq!(shell_escape("it's"), "'it'\\''s'");
+    }
+
+    #[test]
+    fn test_wrap_host_command_outside_flatpak() {
+        // Outside Flatpak, command is returned unchanged
+        if !is_flatpak() {
+            let cmd = "aws ssm start-session --target i-123";
+            assert_eq!(wrap_host_command(cmd), cmd);
+        }
     }
 }

@@ -590,8 +590,15 @@ fn start_external_rdp_session(
         return;
     }
 
-    // Add tab widget to notebook
-    notebook.add_embedded_session_tab(session_id, conn_name, "rdp", tab.widget());
+    // Add tab widget to notebook with connection_id and process handle
+    notebook.add_embedded_session_tab(
+        session_id,
+        connection_id,
+        conn_name,
+        "rdp",
+        tab.widget(),
+        Some(tab.process_handle()),
+    );
 
     // Add to split_view
     if let Some(info) = notebook.get_session_info(session_id) {

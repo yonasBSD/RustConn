@@ -10,27 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.10.0] - 2026-03-14
 
 ### Added
-- **RDP file association** — RustConn now registers as a handler for `.rdp` files; double-clicking an `.rdp` file in the file manager opens RustConn and connects automatically; supports `full address`, `username`, `domain`, `gatewayhostname`, resolution, audio, and clipboard fields ([#54](https://github.com/totoshko88/RustConn/issues/54))
-- **FreeRDP bundled in Flatpak** — FreeRDP 3.24.0 SDL3 client is now built and bundled in the Flatpak manifest as `sdl-freerdp` and `wlfreerdp` (upstream installs unversioned names without the `3` suffix); external RDP connections work out of the box on Wayland without requiring `DISPLAY`; X11 client (`xfreerdp`) was not viable in Flatpak's Wayland-only sandbox
-- **`sdl-freerdp3` detection** — FreeRDP binary detection now includes `sdl-freerdp3` and `sdl-freerdp` (SDL3 client) alongside `wlfreerdp3`, `wlfreerdp`, `xfreerdp`, and legacy variants; unversioned names (`sdl-freerdp`, `wlfreerdp`) are used by Flatpak/upstream builds, versioned names (`sdl-freerdp3`, `wlfreerdp3`) by distro packages; on Wayland sessions, priority is `wlfreerdp3` > `wlfreerdp` > `sdl-freerdp3` > `sdl-freerdp` > `xfreerdp3`; `RdpBackend` enum gains `SdlFreeRdp3` variant
+- **RDP file association** — double-clicking an `.rdp` file opens RustConn and connects automatically; supports address, credentials, gateway, resolution, audio, and clipboard fields ([#54](https://github.com/totoshko88/RustConn/issues/54))
+- **FreeRDP bundled in Flatpak** — FreeRDP 3.24.0 SDL3 client built into the Flatpak; external RDP works out of the box on Wayland without `DISPLAY`
+- **`sdl-freerdp3` detection** — FreeRDP detection now includes SDL3 variants (`sdl-freerdp3`, `sdl-freerdp`); Wayland priority: `wlfreerdp3` > `wlfreerdp` > `sdl-freerdp3` > `sdl-freerdp` > `xfreerdp3`
 
 ### Fixed
-- **Default window size on first start too small** — increased minimum window size from 360×294 to 800×500 so the welcome screen and header bar controls are always fully visible; welcome screen now switches from 3-column to single-column layout on narrow windows ([#55](https://github.com/totoshko88/RustConn/issues/55))
-- **RDP gateway parameters ignored in embedded mode** — IronRDP 0.14 does not support RD Gateway (MS-TSGU); connections with a gateway configured now automatically fall back to external xfreerdp which supports gateway, with a toast notification; gateway parameters are also passed correctly to the FreeRDP launcher ([#53](https://github.com/totoshko88/RustConn/issues/53))
-- **Flatpak: SSH jump host connections broken** — `-J` (ProxyJump) spawns a nested SSH process that does not inherit `-o` flags from the outer command; in Flatpak the jump host SSH tried to write to read-only `~/.ssh/known_hosts` and could not find identity files, causing host key verification prompts and `Permission denied` errors; fixed by replacing `-J` with `-o ProxyCommand=ssh -W %h:%p ...` that passes `StrictHostKeyChecking=accept-new`, `UserKnownHostsFile`, and identity file to the jump host SSH process; applies to both interactive SSH and monitoring SSH
-- **Flatpak: mc wrapper not found** — host distros (e.g. openSUSE) export a bash function `mc()` via `BASH_FUNC_mc%%` that sources `/usr/share/mc/mc-wrapper.sh`, absent in the sandbox; fixed with `--unset-env=BASH_FUNC_mc%%` in finish-args to strip the inherited function, plus a post-install wrapper that redirects to `/app/libexec/mc/mc-wrapper.sh` for correct directory-change-on-exit behavior
-- **Split view: text selection broken** — `GestureClick` handler on panel container claimed all left-click events in Capture phase, preventing VTE terminals from receiving clicks for text selection; now detects clicks on `VteTerminal` widgets and lets them propagate while still switching panel focus
+- **Default window size too small on first start** — minimum size increased to 800×500; welcome screen adapts to narrow windows ([#55](https://github.com/totoshko88/RustConn/issues/55))
+- **RDP gateway ignored in embedded mode** — IronRDP doesn't support RD Gateway; now falls back to external xfreerdp with a toast ([#53](https://github.com/totoshko88/RustConn/issues/53))
+- **External RDP sidebar icon stays green after tab close** — fixed session ID / connection ID mismatch in `add_embedded_session_tab`; external xfreerdp process is now killed on tab close
+- **Flatpak: SSH jump host broken** — replaced `-J` with `-o ProxyCommand=ssh -W %h:%p ...` that passes `StrictHostKeyChecking`, `UserKnownHostsFile`, and identity file to the jump host process
+- **Flatpak: mc wrapper not found** — stripped host-exported `mc()` bash function via `--unset-env=BASH_FUNC_mc%%`; installed sandbox wrapper for correct directory-change-on-exit
+- **Flatpak: ZeroTrust and Kubernetes connections broken** — CLI tools (`aws`, `gcloud`, `az`, `kubectl`) now detected and executed via `flatpak-spawn --host`; cloud CLI config dirs (`~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`) mounted into sandbox so credentials are shared between sandbox and host
+- **Split view: text selection broken** — `GestureClick` handler no longer claims clicks on `VteTerminal` widgets
+- **Untranslated protocol display names** — wrapped `display_name()` call sites with `i18n()` and added translations for 15 strings across all 15 languages
 
 ### Changed
-- **GTK4/libadwaita/VTE crate upgrade** — gtk4 0.10→0.11, libadwaita 0.8→0.9, vte4 0.9→0.10, gdk4-wayland 0.10→0.11; unlocks GNOME 48–50 widget APIs
-- **MSRV bumped to 1.92** — required by updated GTK-rs bindings across all crates, CI, and packaging
-- **Flatpak runtime bumped to GNOME 50** — all three Flatpak manifests (local, release, Flathub) now build on `org.gnome.Platform` 50 with VTE 0.80
-- **AdwSpinner migration** — `adw::Spinner` replaces `gtk::Spinner` in export dialog progress indicator; cfg-gated behind `adw-1-6` feature for backward compatibility with libadwaita < 1.6
-- **AdwShortcutsDialog migration** — `adw::ShortcutsDialog` replaces deprecated `gtk::ShortcutsWindow`; cfg-gated behind `adw-1-8` feature for backward compatibility with libadwaita < 1.8
-- **Tiered distro feature flags in OBS packaging** — `adw-1-8` for Tumbleweed/Slowroll/Fedora 43+, `adw-1-6` for Leap 16.0/Fedora 42, baseline `v1_5` for older distros; Flatpak always builds with `adw-1-8`
-- **AdwSwitchRow migration in Settings** — replaced manual `ActionRow` + `Switch` + `add_suffix` patterns with single `adw::SwitchRow` widget in monitoring, logging, and secrets (KDBX) settings tabs; simplifies code and aligns with GNOME HIG
-- **CSS `prefers-reduced-motion` support** — floating control buttons, status icons, and drop target highlights now disable CSS transitions when the user has requested reduced motion
-- **AdwWrapBox for protocol filters** — sidebar protocol filter buttons now use `adw::WrapBox` to wrap onto multiple lines on narrow sidebars instead of hiding less common protocols; cfg-gated behind `adw-1-7` feature with `GtkBox` fallback for libadwaita < 1.7
+- **GTK4/libadwaita/VTE crate upgrade** — gtk4 0.10→0.11, libadwaita 0.8→0.9, vte4 0.9→0.10; unlocks GNOME 48–50 APIs
+- **MSRV bumped to 1.92** — required by updated GTK-rs bindings
+- **Flatpak runtime bumped to GNOME 50** — all three manifests now use `org.gnome.Platform` 50 with VTE 0.80
+- **AdwSpinner migration** — replaces `gtk::Spinner` in export dialog; cfg-gated `adw-1-6`
+- **AdwShortcutsDialog migration** — replaces deprecated `gtk::ShortcutsWindow`; cfg-gated `adw-1-8`
+- **AdwSwitchRow migration** — replaces manual `ActionRow` + `Switch` in monitoring, logging, and secrets settings tabs
+- **AdwWrapBox for protocol filters** — sidebar filters wrap on narrow sidebars; cfg-gated `adw-1-7` with `GtkBox` fallback
+- **CSS `prefers-reduced-motion`** — transitions disabled when reduced motion is requested
+- **Tiered distro feature flags** — `adw-1-8` for Tumbleweed/Fedora 43+, `adw-1-6` for Leap 16.0/Fedora 42, baseline for older distros
+- **Codebase cleanup** — removed 25+ unused CSS classes, consolidated `futures-util` into `futures`, fixed metainfo.xml duplicates, added k8s keywords, removed dead code
 
 ### Dependencies
 - clap 4.5.60→4.6.0, gtk4 0.11.0→0.11.1, gdk4 0.11.0→0.11.1, gsk4 0.11.0→0.11.1, glib 0.22.2→0.22.3, openssl 0.10.75→0.10.76, tracing-subscriber 0.3.22→0.3.23

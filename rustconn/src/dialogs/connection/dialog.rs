@@ -2159,11 +2159,12 @@ impl ConnectionDialog {
         display_group.add(&color_row);
 
         // Scale override dropdown (for embedded mode)
-        let scale_items: Vec<&str> = ScaleOverride::all()
+        let scale_items: Vec<String> = ScaleOverride::all()
             .iter()
-            .map(|s| s.display_name())
+            .map(|s| i18n(s.display_name()))
             .collect();
-        let scale_list = StringList::new(&scale_items);
+        let scale_strs: Vec<&str> = scale_items.iter().map(String::as_str).collect();
+        let scale_list = StringList::new(&scale_strs);
         let scale_override_dropdown = DropDown::builder()
             .model(&scale_list)
             .valign(gtk4::Align::Center)
@@ -2651,11 +2652,12 @@ impl ConnectionDialog {
         display_group.add(&encoding_row);
 
         // Scale override dropdown (for embedded mode)
-        let scale_items: Vec<&str> = ScaleOverride::all()
+        let scale_items: Vec<String> = ScaleOverride::all()
             .iter()
-            .map(|s| s.display_name())
+            .map(|s| i18n(s.display_name()))
             .collect();
-        let scale_list = StringList::new(&scale_items);
+        let scale_strs: Vec<&str> = scale_items.iter().map(String::as_str).collect();
+        let scale_list = StringList::new(&scale_strs);
         let scale_override_dropdown = DropDown::builder()
             .model(&scale_list)
             .valign(gtk4::Align::Center)

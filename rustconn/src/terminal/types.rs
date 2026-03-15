@@ -2,7 +2,9 @@
 //!
 //! This module contains type definitions for terminal sessions.
 
+use std::cell::RefCell;
 use std::path::PathBuf;
+use std::process::Child;
 use std::rc::Rc;
 use uuid::Uuid;
 
@@ -64,4 +66,6 @@ pub enum SessionWidgetStorage {
     EmbeddedRdp(Rc<EmbeddedRdpWidget>),
     /// Embedded SPICE widget (native spice-client)
     EmbeddedSpice(Rc<EmbeddedSpiceWidget>),
+    /// External process (xfreerdp, vncviewer, etc.) — killed on tab close
+    ExternalProcess(Rc<RefCell<Option<Child>>>),
 }

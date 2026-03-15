@@ -60,7 +60,10 @@ pub fn create_telnet_options() -> TelnetOptionsWidgets {
     let backspace_model = StringList::new(
         &TelnetBackspaceSends::all()
             .iter()
-            .map(|m| m.display_name())
+            .map(|m| i18n(m.display_name()))
+            .collect::<Vec<_>>()
+            .iter()
+            .map(String::as_str)
             .collect::<Vec<_>>(),
     );
     let backspace_dropdown = DropDown::builder()
@@ -79,7 +82,10 @@ pub fn create_telnet_options() -> TelnetOptionsWidgets {
     let delete_model = StringList::new(
         &TelnetDeleteSends::all()
             .iter()
-            .map(|m| m.display_name())
+            .map(|m| i18n(m.display_name()))
+            .collect::<Vec<_>>()
+            .iter()
+            .map(String::as_str)
             .collect::<Vec<_>>(),
     );
     let delete_dropdown = DropDown::builder().model(&delete_model).selected(0).build();

@@ -613,7 +613,7 @@ impl SessionLogger {
         self.bytes_written = 0;
 
         // Clean up old rotated files based on retention policy
-        self.cleanup_old_logs()?;
+        self.cleanup_old_logs();
 
         Ok(())
     }
@@ -637,21 +637,20 @@ impl SessionLogger {
     }
 
     /// Cleans up old log files based on retention policy
-    #[allow(clippy::unnecessary_wraps)]
-    fn cleanup_old_logs(&self) -> LogResult<()> {
+    fn cleanup_old_logs(&self) {
         if self.config.retention_days == 0 {
-            return Ok(()); // No retention limit
+            return; // No retention limit
         }
 
         let Some(parent) = self.log_path.parent() else {
-            return Ok(());
+            return;
         };
 
         let cutoff = std::time::SystemTime::now()
             - std::time::Duration::from_secs(u64::from(self.config.retention_days) * 24 * 60 * 60);
 
         let Ok(entries) = fs::read_dir(parent) else {
-            return Ok(()); // Directory might not exist yet
+            return; // Directory might not exist yet
         };
 
         for entry in entries.filter_map(Result::ok) {
@@ -666,8 +665,6 @@ impl SessionLogger {
                 let _ = fs::remove_file(&path);
             }
         }
-
-        Ok(())
     }
 
     /// Closes the log file, flushing any buffered data

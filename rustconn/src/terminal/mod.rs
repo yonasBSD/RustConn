@@ -214,6 +214,16 @@ impl TerminalNotebook {
                         SessionWidgetStorage::EmbeddedRdp(widget) => widget.disconnect(),
                         SessionWidgetStorage::EmbeddedSpice(widget) => widget.disconnect(),
                         SessionWidgetStorage::Vnc(widget) => widget.disconnect(),
+                        SessionWidgetStorage::ExternalProcess(process) => {
+                            if let Some(mut child) = process.borrow_mut().take() {
+                                let _ = child.kill();
+                                let _ = child.wait();
+                                tracing::debug!(
+                                    session = %session_id,
+                                    "Killed external process on tab close"
+                                );
+                            }
+                        }
                     }
                 }
 
@@ -788,9 +798,11 @@ impl TerminalNotebook {
     pub fn add_embedded_session_tab(
         &self,
         session_id: Uuid,
+        connection_id: Uuid,
         title: &str,
         protocol: &str,
         widget: &GtkBox,
+        process: Option<Rc<RefCell<Option<std::process::Child>>>>,
     ) {
         self.remove_welcome_page();
 
@@ -803,11 +815,18 @@ impl TerminalNotebook {
 
         self.sessions.borrow_mut().insert(session_id, page.clone());
 
+        // Store external process for cleanup on tab close
+        if let Some(proc) = process {
+            self.session_widgets
+                .borrow_mut()
+                .insert(session_id, SessionWidgetStorage::ExternalProcess(proc));
+        }
+
         self.session_info.borrow_mut().insert(
             session_id,
             TerminalSession {
                 id: session_id,
-                connection_id: session_id,
+                connection_id,
                 name: title.to_string(),
                 protocol: protocol.to_string(),
                 is_embedded: false,
@@ -892,6 +911,7 @@ impl TerminalNotebook {
                 SessionWidgetStorage::EmbeddedSpice(widget) => {
                     Some(widget.widget().clone().upcast())
                 }
+                SessionWidgetStorage::ExternalProcess(_) => None,
             };
         }
         drop(widgets);

@@ -278,7 +278,7 @@ struct BitwardenFolder {
 pub struct BitwardenStatus {
     status: String,
     #[serde(rename = "userEmail")]
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Deserialized from `bw status` JSON but not used directly
     user_email: Option<String>,
 }
 

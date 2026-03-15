@@ -893,7 +893,7 @@ async fn download_with_progress(
     progress_callback: &ProgressCallback,
     cancel_token: &DownloadCancellation,
 ) -> CliDownloadResult<Vec<u8>> {
-    use futures_util::StreamExt;
+    use futures::StreamExt;
 
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::limited(10))

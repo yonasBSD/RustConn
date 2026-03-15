@@ -59,55 +59,9 @@
 
 /* Tab header color indicators by ColorId index (0-5) */
 /* Requirement 6.2: Color_ID displayed as indicator in tab header */
-/* These are small colored dots/badges shown in tab headers */
-
-.split-tab-indicator-0 {
-    background-color: #3584e4;
-    border-radius: 50%;
-    min-width: 8px;
-    min-height: 8px;
-    margin-right: 6px;
-}
-
-.split-tab-indicator-1 {
-    background-color: #2ec27e;
-    border-radius: 50%;
-    min-width: 8px;
-    min-height: 8px;
-    margin-right: 6px;
-}
-
-.split-tab-indicator-2 {
-    background-color: #ff7800;
-    border-radius: 50%;
-    min-width: 8px;
-    min-height: 8px;
-    margin-right: 6px;
-}
-
-.split-tab-indicator-3 {
-    background-color: #9141ac;
-    border-radius: 50%;
-    min-width: 8px;
-    min-height: 8px;
-    margin-right: 6px;
-}
-
-.split-tab-indicator-4 {
-    background-color: #00b4d8;
-    border-radius: 50%;
-    min-width: 8px;
-    min-height: 8px;
-    margin-right: 6px;
-}
-
-.split-tab-indicator-5 {
-    background-color: #e01b24;
-    border-radius: 50%;
-    min-width: 8px;
-    min-height: 8px;
-    margin-right: 6px;
-}
+/* NOTE: These classes are not currently applied from Rust code. */
+/* The split view redesign uses split-panel-color-* instead. */
+/* Kept as reference for potential future tab header indicators. */
 
 /* Empty panel placeholder styling */
 /* Requirement 4.1: Empty panel displays placeholder with Select Tab button */
@@ -208,16 +162,7 @@
     opacity: 0.6;
 }
 
-/* Session tab styles - adaptive tabs */
-.session-tab {
-    padding: 4px 6px;
-    border-radius: 4px;
-    min-height: 24px;
-}
-
-.session-tab:hover {
-    background-color: alpha(@theme_fg_color, 0.08);
-}
+/* Session tab styles removed — not applied from Rust code */
 
 .tab-icon {
     opacity: 0.8;
@@ -291,64 +236,14 @@ notebook > header > tabs > tab label {
     box-shadow: 0 0 0 2px alpha(@accent_color, 0.4);
 }
 
-/* Floating controls styles - Requirement 5.2 */
-.floating-controls {
-    background-color: alpha(@window_bg_color, 0.85);
-    border-radius: 8px;
-    padding: 6px 12px;
-    box-shadow: 0 2px 8px alpha(black, 0.3);
-    border: 1px solid alpha(@borders, 0.5);
-}
-
-.floating-control-button {
-    min-width: 36px;
-    min-height: 36px;
-    padding: 8px;
-    border-radius: 6px;
-    background-color: transparent;
-    transition: background-color 150ms ease-in-out,
-                transform 100ms ease-in-out;
-}
-
-.floating-control-button:hover {
-    background-color: alpha(@accent_color, 0.15);
-    transform: scale(1.05);
-}
-
-.floating-control-button:active {
-    background-color: alpha(@accent_color, 0.25);
-    transform: scale(0.95);
-}
-
-.floating-control-button.destructive-action {
-    color: @error_color;
-}
-
-.floating-control-button.destructive-action:hover {
-    background-color: alpha(@error_color, 0.15);
-}
-
-.floating-control-button.destructive-action:active {
-    background-color: alpha(@error_color, 0.25);
-}
+/* Floating controls removed — not applied from Rust code */
 
 /* VNC display placeholder */
 .vnc-display {
     background-color: @view_bg_color;
 }
 
-/* Toast notification styles */
-.toast-container {
-    background-color: alpha(@window_bg_color, 0.95);
-    border-radius: 8px;
-    padding: 12px 16px;
-    box-shadow: 0 2px 8px alpha(black, 0.3);
-    border: 1px solid alpha(@borders, 0.5);
-}
-
-.toast-label {
-    font-weight: 500;
-}
+/* Toast notification styles removed — RustConn uses adw::Toast directly */
 
 .toast-info {
     border-left: 4px solid @accent_bg_color;
@@ -411,31 +306,7 @@ label.warning {
     min-width: 24px;
 }
 
-/* Empty state styles */
-.empty-state {
-    padding: 48px;
-}
-
-.empty-state-icon {
-    opacity: 0.3;
-}
-
-.empty-state-title {
-    font-size: 1.4em;
-    font-weight: bold;
-    margin-top: 12px;
-}
-
-.empty-state-description {
-    opacity: 0.7;
-    margin-top: 6px;
-}
-
-/* Loading spinner styles */
-.loading-spinner {
-    min-width: 32px;
-    min-height: 32px;
-}
+/* Empty state styles removed — not applied from Rust code */
 
 /* ============================================================
  * Connection Status Styles
@@ -465,34 +336,7 @@ label.warning {
     opacity: 1.0;
 }
 
-/* Enhanced drag-drop visual feedback */
-.drag-source-active {
-    opacity: 0.6;
-    transform: scale(0.98);
-}
-
-.drop-zone-active {
-    background-color: alpha(@accent_bg_color, 0.1);
-    border: 2px dashed @accent_bg_color;
-    border-radius: 6px;
-}
-
-/* Form field hint styles */
-.field-hint {
-    font-size: 0.85em;
-    opacity: 0.7;
-    margin-top: 2px;
-}
-
-/* Theme toggle button group */
-.theme-toggle-group button {
-    min-width: 70px;
-}
-
-.theme-toggle-group button:checked {
-    background-color: @accent_bg_color;
-    color: @accent_fg_color;
-}
+/* Enhanced drag-drop visual feedback — applied via sidebar/view.rs */
 
 /* Status indicator styles for settings dialog */
 .success {
@@ -588,15 +432,7 @@ label.error {
     border-radius: 4px;
 }
 
-/* Tab styles for sessions in split view - distinct color */
-.tab-in-split {
-    background-color: alpha(@accent_color, 0.2);
-    border-radius: 4px;
-}
-
-.tab-in-split:hover {
-    background-color: alpha(@accent_color, 0.3);
-}
+/* Tab styles for sessions in split view removed — not applied from Rust code */
 
 /* ============================================================
  * Monitoring Bar Styles
@@ -612,7 +448,6 @@ label.error {
  * Respects user preference for reduced motion (GNOME/GTK setting)
  * ============================================================ */
 @media (prefers-reduced-motion) {
-    .floating-control-button,
     .status-icon,
     .drop-target-highlight {
         transition: none;
