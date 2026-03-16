@@ -378,9 +378,17 @@ impl MainWindow {
                     &terminal_settings,
                 );
 
-                let argv: Vec<&str> = mc_args.iter().map(String::as_str).collect();
                 let downloads = rustconn_core::sftp::get_downloads_dir();
-                notebook_clone.spawn_command(session_id, &argv, None, Some(&downloads));
+
+                // Delay mc spawn slightly so GTK allocates the VTE widget's
+                // final size before mc reads terminal dimensions at startup.
+                let nb = notebook_clone.clone();
+                let mc_clone = mc_args.clone();
+                let dl = downloads.clone();
+                glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+                    let argv: Vec<&str> = mc_clone.iter().map(String::as_str).collect();
+                    nb.spawn_command(session_id, &argv, None, Some(&dl));
+                });
 
                 if let Some(info) = notebook_clone.get_session_info(session_id) {
                     split_view_clone.add_session(info, None);
@@ -576,9 +584,17 @@ impl MainWindow {
                 &terminal_settings,
             );
 
-            let argv: Vec<&str> = mc_args.iter().map(String::as_str).collect();
             let downloads = rustconn_core::sftp::get_downloads_dir();
-            notebook.spawn_command(session_id, &argv, None, Some(&downloads));
+
+            // Delay mc spawn slightly so GTK allocates the VTE widget's
+            // final size before mc reads terminal dimensions at startup.
+            let notebook_clone = notebook.clone();
+            let mc_args_clone = mc_args.clone();
+            let downloads_clone = downloads.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+                let argv: Vec<&str> = mc_args_clone.iter().map(String::as_str).collect();
+                notebook_clone.spawn_command(session_id, &argv, None, Some(&downloads_clone));
+            });
 
             // Mark as connected and increment session count
             if let Some(sb) = sidebar {

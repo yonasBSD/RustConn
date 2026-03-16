@@ -9,7 +9,7 @@ author: "Anton Isaiev"
 # RustConn Development Power
 
 Linux connection manager для SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust.
-GTK4/libadwaita GUI, Wayland-first. Rust 2024 edition, MSRV 1.88, three-crate Cargo workspace.
+GTK4/libadwaita GUI, Wayland-first. Rust 2024 edition, MSRV 1.92, three-crate Cargo workspace.
 
 ## Available Steering Files
 
@@ -194,12 +194,12 @@ Pinned CLI versions для Flatpak sandbox:
 | Component | ID | Current Version |
 |-----------|----|-----------------|
 | TigerVNC | `vncviewer` | 1.16.0 |
-| Teleport | `tsh` | 18.7.1 |
+| Teleport | `tsh` | 18.7.2 |
 | Tailscale | `tailscale` | 1.94.2 |
 | Boundary | `boundary` | 0.21.1 |
-| Bitwarden CLI | `bw` | 2026.1.0 |
+| Bitwarden CLI | `bw` | 2026.2.0 |
 | 1Password CLI | `op` | 2.32.1 |
-| kubectl | `kubectl` | 1.35.1 |
+| kubectl | `kubectl` | 1.35.2 |
 
 "Latest" URL (без pinned version): AWS CLI, SSM Plugin, gcloud, Azure CLI, OCI CLI, cloudflared.
 

@@ -7,11 +7,12 @@ proptest! {
     /// Property: All backends have non-empty command names
     #[test]
     fn all_backends_have_command_names(
-        backend_idx in 0usize..5,
+        backend_idx in 0usize..6,
     ) {
         let backends = [
             RdpBackend::IronRdp,
             RdpBackend::WlFreeRdp,
+            RdpBackend::SdlFreeRdp3,
             RdpBackend::XFreeRdp3,
             RdpBackend::XFreeRdp,
             RdpBackend::FreeRdp,
@@ -23,11 +24,12 @@ proptest! {
     /// Property: All backends have non-empty display names
     #[test]
     fn all_backends_have_display_names(
-        backend_idx in 0usize..5,
+        backend_idx in 0usize..6,
     ) {
         let backends = [
             RdpBackend::IronRdp,
             RdpBackend::WlFreeRdp,
+            RdpBackend::SdlFreeRdp3,
             RdpBackend::XFreeRdp3,
             RdpBackend::XFreeRdp,
             RdpBackend::FreeRdp,
@@ -39,11 +41,12 @@ proptest! {
     /// Property: Display trait matches display_name
     #[test]
     fn display_matches_display_name(
-        backend_idx in 0usize..5,
+        backend_idx in 0usize..6,
     ) {
         let backends = [
             RdpBackend::IronRdp,
             RdpBackend::WlFreeRdp,
+            RdpBackend::SdlFreeRdp3,
             RdpBackend::XFreeRdp3,
             RdpBackend::XFreeRdp,
             RdpBackend::FreeRdp,
@@ -55,11 +58,12 @@ proptest! {
     /// Property: Only IronRdp is native
     #[test]
     fn only_ironrdp_is_native(
-        backend_idx in 0usize..5,
+        backend_idx in 0usize..6,
     ) {
         let backends = [
             RdpBackend::IronRdp,
             RdpBackend::WlFreeRdp,
+            RdpBackend::SdlFreeRdp3,
             RdpBackend::XFreeRdp3,
             RdpBackend::XFreeRdp,
             RdpBackend::FreeRdp,
@@ -73,11 +77,12 @@ proptest! {
     /// Property: Embedded support only for IronRdp and WlFreeRdp
     #[test]
     fn embedded_support_correct(
-        backend_idx in 0usize..5,
+        backend_idx in 0usize..6,
     ) {
         let backends = [
             RdpBackend::IronRdp,
             RdpBackend::WlFreeRdp,
+            RdpBackend::SdlFreeRdp3,
             RdpBackend::XFreeRdp3,
             RdpBackend::XFreeRdp,
             RdpBackend::FreeRdp,
@@ -124,14 +129,14 @@ fn test_selector_cache_behavior() {
     let count2 = results2.len();
 
     assert_eq!(count1, count2);
-    assert_eq!(count1, 5); // All 5 backends checked
+    assert_eq!(count1, 6); // All 6 backends checked
 
     // Clear cache
     selector.clear_cache();
 
     // Third call repopulates cache
     let results3 = selector.detect_all();
-    assert_eq!(results3.len(), 5);
+    assert_eq!(results3.len(), 6);
 }
 
 #[test]
@@ -151,6 +156,7 @@ fn test_backend_command_names_unique() {
     let backends = [
         RdpBackend::IronRdp,
         RdpBackend::WlFreeRdp,
+        RdpBackend::SdlFreeRdp3,
         RdpBackend::XFreeRdp3,
         RdpBackend::XFreeRdp,
         RdpBackend::FreeRdp,
@@ -169,6 +175,7 @@ fn test_backend_equality() {
     assert_eq!(RdpBackend::IronRdp, RdpBackend::IronRdp);
     assert_ne!(RdpBackend::IronRdp, RdpBackend::WlFreeRdp);
     assert_ne!(RdpBackend::XFreeRdp, RdpBackend::XFreeRdp3);
+    assert_ne!(RdpBackend::SdlFreeRdp3, RdpBackend::XFreeRdp3);
 }
 
 #[test]

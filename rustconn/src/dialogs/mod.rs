@@ -42,7 +42,7 @@ pub use password::{PasswordDialog, PasswordDialogResult};
 pub use password_generator::show_password_generator_dialog;
 pub use progress::ProgressDialog;
 pub use settings::SettingsDialog;
-pub use shortcuts::{SHORTCUTS_CSS, ShortcutsDialog};
+pub use shortcuts::ShortcutsDialog;
 pub use snippet::SnippetDialog;
 pub use statistics::{StatisticsDialog, empty_statistics};
 pub use template::{TemplateCallback, TemplateDialog, TemplateManagerDialog};

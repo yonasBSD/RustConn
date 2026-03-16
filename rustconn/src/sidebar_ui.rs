@@ -272,40 +272,42 @@ pub fn create_bulk_actions_bar() -> GtkBox {
     new_group_button.set_tooltip_text(Some(&i18n("Create a new group")));
     new_group_button.set_action_name(Some("win.new-group"));
     new_group_button.add_css_class("suggested-action");
-    new_group_button.update_property(&[gtk4::accessible::Property::Label("Create new group")]);
+    new_group_button
+        .update_property(&[gtk4::accessible::Property::Label(&i18n("Create new group"))]);
     bar.append(&new_group_button);
 
     // Move to Group button
     let move_button = Button::with_label(&i18n("Move to Group..."));
     move_button.set_tooltip_text(Some(&i18n("Move selected items to a group")));
     move_button.set_action_name(Some("win.move-selected-to-group"));
-    move_button.update_property(&[gtk4::accessible::Property::Label(
+    move_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Move selected connections to group",
-    )]);
+    ))]);
     bar.append(&move_button);
 
     // Create Cluster button
     let cluster_button = Button::with_label(&i18n("Create Cluster"));
     cluster_button.set_tooltip_text(Some(&i18n("Create a cluster from selected connections")));
     cluster_button.set_action_name(Some("win.cluster-from-selection"));
-    cluster_button.update_property(&[gtk4::accessible::Property::Label(
+    cluster_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Create cluster from selected connections",
-    )]);
+    ))]);
     bar.append(&cluster_button);
 
     // Select All button
     let select_all_button = Button::with_label(&i18n("Select All"));
     select_all_button.set_tooltip_text(Some(&i18n("Select all items (Ctrl+A)")));
     select_all_button.set_action_name(Some("win.select-all"));
-    select_all_button
-        .update_property(&[gtk4::accessible::Property::Label("Select all connections")]);
+    select_all_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Select all connections",
+    ))]);
     bar.append(&select_all_button);
 
     // Clear Selection button
     let clear_button = Button::with_label(&i18n("Clear"));
     clear_button.set_tooltip_text(Some(&i18n("Clear selection (Escape)")));
     clear_button.set_action_name(Some("win.clear-selection"));
-    clear_button.update_property(&[gtk4::accessible::Property::Label("Clear selection")]);
+    clear_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Clear selection"))]);
     bar.append(&clear_button);
 
     // Delete button (rightmost, destructive)
@@ -313,9 +315,9 @@ pub fn create_bulk_actions_bar() -> GtkBox {
     delete_button.set_tooltip_text(Some(&i18n("Delete all selected items")));
     delete_button.set_action_name(Some("win.delete-selected"));
     delete_button.add_css_class("destructive-action");
-    delete_button.update_property(&[gtk4::accessible::Property::Label(
+    delete_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Delete selected connections",
-    )]);
+    ))]);
     bar.append(&delete_button);
 
     bar
@@ -337,52 +339,54 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     let group_ops_button = Button::from_icon_name("view-list-symbolic");
     group_ops_button.set_tooltip_text(Some(&i18n("Group Operations Mode")));
     group_ops_button.set_action_name(Some("win.group-operations"));
-    group_ops_button.update_property(&[gtk4::accessible::Property::Label(
+    group_ops_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Enable group operations mode for multi-select",
-    )]);
+    ))]);
     toolbar.append(&group_ops_button);
 
     // Connection History button
     let history_button = Button::from_icon_name("document-open-recent-symbolic");
     history_button.set_tooltip_text(Some(&i18n("Connection History")));
     history_button.set_action_name(Some("win.show-history"));
-    history_button.update_property(&[gtk4::accessible::Property::Label("View connection history")]);
+    history_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "View connection history",
+    ))]);
     toolbar.append(&history_button);
 
     // Sort alphabetically button
     let sort_button = Button::from_icon_name("view-sort-ascending-symbolic");
     sort_button.set_tooltip_text(Some(&i18n("Sort Alphabetically")));
     sort_button.set_action_name(Some("win.sort-connections"));
-    sort_button.update_property(&[gtk4::accessible::Property::Label(
+    sort_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Sort connections alphabetically",
-    )]);
+    ))]);
     toolbar.append(&sort_button);
 
     // Sort by recent usage button
     let sort_recent_button = Button::from_icon_name("document-open-recent-symbolic");
     sort_recent_button.set_tooltip_text(Some(&i18n("Sort by Recent Usage")));
     sort_recent_button.set_action_name(Some("win.sort-recent"));
-    sort_recent_button.update_property(&[gtk4::accessible::Property::Label(
+    sort_recent_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Sort connections by recent usage",
-    )]);
+    ))]);
     toolbar.append(&sort_recent_button);
 
     // Import button
     let import_button = Button::from_icon_name("document-open-symbolic");
     import_button.set_tooltip_text(Some(&i18n("Import Connections (Ctrl+I)")));
     import_button.set_action_name(Some("win.import"));
-    import_button.update_property(&[gtk4::accessible::Property::Label(
+    import_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Import connections from external sources",
-    )]);
+    ))]);
     toolbar.append(&import_button);
 
     // Export button
     let export_button = Button::from_icon_name("document-save-symbolic");
     export_button.set_tooltip_text(Some(&i18n("Export Connections")));
     export_button.set_action_name(Some("win.export"));
-    export_button.update_property(&[gtk4::accessible::Property::Label(
+    export_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Export connections to file",
-    )]);
+    ))]);
     toolbar.append(&export_button);
 
     // Password vault button - shows integration status
@@ -390,9 +394,9 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     keepass_button.set_tooltip_text(Some(&i18n("Open Password Vault")));
     keepass_button.set_action_name(Some("win.open-keepass"));
     keepass_button.add_css_class("keepass-button");
-    keepass_button.update_property(&[gtk4::accessible::Property::Label(
+    keepass_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Open password vault for credential management",
-    )]);
+    ))]);
     toolbar.append(&keepass_button);
 
     (toolbar, keepass_button)

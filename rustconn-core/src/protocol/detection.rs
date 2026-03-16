@@ -207,14 +207,23 @@ pub fn detect_ssh_client() -> ClientInfo {
 /// Detects the RDP client on the system
 ///
 /// Checks for FreeRDP 3.x, FreeRDP 2.x, or rdesktop binaries and extracts version information.
-/// Priority: xfreerdp3/wlfreerdp3 (FreeRDP 3.x) > xfreerdp/wlfreerdp (FreeRDP 2.x) > rdesktop
+/// Priority: wlfreerdp3 > sdl-freerdp3 > xfreerdp3 > wlfreerdp > xfreerdp > rdesktop
 #[must_use]
 pub fn detect_rdp_client() -> ClientInfo {
     // Try FreeRDP 3.x first (preferred)
-    // wlfreerdp3 for Wayland, xfreerdp3 for X11
+    // wlfreerdp3 for Wayland-native
     if let Some(info) = try_detect_client("FreeRDP 3", "wlfreerdp3", &["--version"]) {
         return info.with_min_version("3.0.0");
     }
+    // sdl-freerdp3 — SDL3 client, versioned (distro packages)
+    if let Some(info) = try_detect_client("FreeRDP 3", "sdl-freerdp3", &["--version"]) {
+        return info.with_min_version("3.0.0");
+    }
+    // sdl-freerdp — SDL3 client, unversioned (Flatpak / upstream build)
+    if let Some(info) = try_detect_client("FreeRDP 3", "sdl-freerdp", &["--version"]) {
+        return info.with_min_version("3.0.0");
+    }
+    // xfreerdp3 for X11
     if let Some(info) = try_detect_client("FreeRDP 3", "xfreerdp3", &["--version"]) {
         return info.with_min_version("3.0.0");
     }
@@ -442,7 +451,13 @@ pub fn detect_picocom() -> ClientInfo {
 /// Waypipe forwards Wayland clients over SSH, similar to `ssh -X` for X11.
 /// It wraps the SSH command: `waypipe ssh user@host`.
 pub fn detect_waypipe() -> ClientInfo {
+    // Try "waypipe" first (standard name, also symlinked in Flatpak)
     if let Some(info) = try_detect_client("waypipe", "waypipe", &["--version"]) {
+        return info;
+    }
+    // C-only build of waypipe installs as "waypipe-c"
+    if let Some(mut info) = try_detect_client("waypipe", "waypipe-c", &["--version"]) {
+        info.name = "waypipe-c".to_string();
         return info;
     }
     ClientInfo::not_installed("waypipe", "Install waypipe package")
@@ -477,6 +492,14 @@ fn detect_client(
 
 /// Finds a binary in PATH
 fn which_binary(binary: &str) -> Option<PathBuf> {
+    // In Flatpak environment, check /app/bin first for bundled clients
+    if crate::flatpak::is_flatpak() {
+        let app_path = PathBuf::from(format!("/app/bin/{binary}"));
+        if app_path.exists() && app_path.is_file() {
+            return Some(app_path);
+        }
+    }
+
     // In snap environment, check SNAP directory first for bundled clients
     if let Ok(snap_dir) = std::env::var("SNAP") {
         // Check common snap binary locations

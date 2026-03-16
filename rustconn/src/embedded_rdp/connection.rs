@@ -133,6 +133,24 @@ impl super::EmbeddedRdpWidget {
     pub(super) fn connect_ironrdp(&self, config: &RdpConfig) -> Result<(), EmbeddedRdpError> {
         use rustconn_core::rdp_client::{RdpClient, RdpClientConfig};
 
+        // IronRDP 0.14 does not support RD Gateway (MS-TSGU). If gateway is
+        // configured, bail out early so the caller falls back to external
+        // xfreerdp which does support gateway connections.
+        if config
+            .gateway_hostname
+            .as_ref()
+            .is_some_and(|h| !h.is_empty())
+        {
+            tracing::warn!(
+                protocol = "rdp",
+                host = %config.host,
+                gateway = ?config.gateway_hostname,
+                "RD Gateway configured — IronRDP does not support gateway yet, \
+                 falling back to external client"
+            );
+            return Err(EmbeddedRdpError::GatewayNotSupported);
+        }
+
         // Increment connection generation to invalidate any stale polling loops
         let generation = {
             let mut counter = self.connection_generation.borrow_mut();
@@ -425,6 +443,10 @@ impl super::EmbeddedRdpWidget {
                 // Track if we need to redraw
                 let mut needs_redraw = false;
                 let mut should_break = false;
+                // Deferred error message — handle_ironrdp_error needs
+                // client_ref.borrow_mut() which conflicts with the immutable
+                // borrow held by the event polling loop (#57)
+                let mut deferred_error: Option<String> = None;
 
                 // Poll for events from IronRDP client
                 if let Some(ref client) = *client_ref.borrow() {
@@ -524,24 +546,13 @@ impl super::EmbeddedRdpWidget {
                                 }
                             }
                             RdpClientEvent::Error(msg) => {
-                                Self::handle_ironrdp_error(
-                                    &msg,
-                                    &state,
-                                    &drawing_area,
-                                    &toolbar,
-                                    &on_state_changed,
-                                    &on_error,
-                                    &on_fallback,
-                                    &is_embedded,
-                                    &is_ironrdp,
-                                    &ironrdp_tx,
-                                    &client_ref,
-                                    &fallback_config,
-                                    &fallback_process,
-                                    &clipboard_handler_id,
-                                );
+                                // Defer error handling — handle_ironrdp_error calls
+                                // client_ref.borrow_mut().take() which would panic
+                                // while client_ref.borrow() is held by this loop
+                                deferred_error = Some(msg);
                                 needs_redraw = true;
                                 should_break = true;
+                                break;
                             }
                             RdpClientEvent::FrameUpdate { rect, data } => {
                                 // Update pixel buffer with framebuffer data
@@ -933,6 +944,27 @@ impl super::EmbeddedRdpWidget {
                     drawing_area.queue_draw();
                 }
 
+                // Handle deferred error AFTER the client_ref.borrow() is dropped,
+                // so handle_ironrdp_error can safely call client_ref.borrow_mut()
+                if let Some(ref error_msg) = deferred_error {
+                    Self::handle_ironrdp_error(
+                        error_msg,
+                        &state,
+                        &drawing_area,
+                        &toolbar,
+                        &on_state_changed,
+                        &on_error,
+                        &on_fallback,
+                        &is_embedded,
+                        &is_ironrdp,
+                        &ironrdp_tx,
+                        &client_ref,
+                        &fallback_config,
+                        &fallback_process,
+                        &clipboard_handler_id,
+                    );
+                }
+
                 if should_break {
                     return glib::ControlFlow::Break;
                 }
@@ -1184,7 +1216,7 @@ impl super::EmbeddedRdpWidget {
         let freerdp_thread = FreeRdpThread::spawn(config)?;
 
         // Send connect command to the thread
-        freerdp_thread.send_command(RdpCommand::Connect(config.clone()))?;
+        freerdp_thread.send_command(RdpCommand::Connect(Box::new(config.clone())))?;
 
         // Store the thread handle
         *self.freerdp_thread.borrow_mut() = Some(freerdp_thread);

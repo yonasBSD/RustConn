@@ -25,10 +25,7 @@ pub use ui_tab::*;
 
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{
-    Box as GtkBox, Button, CheckButton, DropDown, Entry, Label, PasswordEntry, SpinButton, Spinner,
-    Switch,
-};
+use gtk4::{Box as GtkBox, Button, CheckButton, DropDown, Entry, Label, PasswordEntry, SpinButton};
 use libadwaita as adw;
 use rustconn_core::config::AppSettings;
 use rustconn_core::models::Connection;
@@ -88,7 +85,7 @@ pub struct SettingsDialog {
     audible_bell_check: CheckButton,
     sftp_use_mc_check: CheckButton,
     // Logging settings
-    logging_enabled_switch: Switch,
+    logging_enabled_row: adw::SwitchRow,
     log_dir_entry: Entry,
     retention_spin: SpinButton,
     log_activity_check: CheckButton,
@@ -117,7 +114,7 @@ pub struct SettingsDialog {
     ssh_agent_start_button: Button,
     ssh_agent_keys_list: gtk4::ListBox,
     ssh_agent_add_key_button: Button,
-    ssh_agent_loading_spinner: Spinner,
+    ssh_agent_loading_spinner: gtk4::Widget,
     ssh_agent_error_label: Label,
     ssh_agent_refresh_button: Button,
     ssh_agent_available_keys_list: gtk4::ListBox,
@@ -163,7 +160,7 @@ impl SettingsDialog {
 
         let (
             logging_page,
-            logging_enabled_switch,
+            logging_enabled_row,
             log_dir_entry,
             retention_spin,
             log_activity_check,
@@ -418,7 +415,7 @@ impl SettingsDialog {
             mouse_autohide_check,
             audible_bell_check,
             sftp_use_mc_check,
-            logging_enabled_switch,
+            logging_enabled_row,
             log_dir_entry,
             retention_spin,
             log_activity_check,
@@ -605,7 +602,7 @@ impl SettingsDialog {
 
         // Load logging settings
         load_logging_settings(
-            &self.logging_enabled_switch,
+            &self.logging_enabled_row,
             &self.log_dir_entry,
             &self.retention_spin,
             &self.log_activity_check,
@@ -686,7 +683,7 @@ impl SettingsDialog {
         let sftp_use_mc_check_clone = self.sftp_use_mc_check.clone();
 
         // Logging controls
-        let logging_enabled_switch_clone = self.logging_enabled_switch.clone();
+        let logging_enabled_row_clone = self.logging_enabled_row.clone();
         let log_dir_entry_clone = self.log_dir_entry.clone();
         let retention_spin_clone = self.retention_spin.clone();
         let log_activity_check_clone = self.log_activity_check.clone();
@@ -698,7 +695,7 @@ impl SettingsDialog {
         let secret_backend_dropdown_clone = self.secrets_widgets.secret_backend_dropdown.clone();
         let enable_fallback_clone = self.secrets_widgets.enable_fallback.clone();
         let kdbx_path_entry_clone = self.secrets_widgets.kdbx_path_entry.clone();
-        let kdbx_enabled_switch_clone = self.secrets_widgets.kdbx_enabled_switch.clone();
+        let kdbx_enabled_row_clone = self.secrets_widgets.kdbx_enabled_row.clone();
         let kdbx_password_entry_clone = self.secrets_widgets.kdbx_password_entry.clone();
         let kdbx_save_password_check_clone = self.secrets_widgets.kdbx_save_password_check.clone();
         let kdbx_key_file_entry_clone = self.secrets_widgets.kdbx_key_file_entry.clone();
@@ -757,7 +754,7 @@ impl SettingsDialog {
 
             // Collect logging settings
             let logging = collect_logging_settings(
-                &logging_enabled_switch_clone,
+                &logging_enabled_row_clone,
                 &log_dir_entry_clone,
                 &retention_spin_clone,
                 &log_activity_check_clone,
@@ -772,7 +769,7 @@ impl SettingsDialog {
                 enable_fallback: enable_fallback_clone.clone(),
                 kdbx_path_entry: kdbx_path_entry_clone.clone(),
                 kdbx_password_entry: kdbx_password_entry_clone.clone(),
-                kdbx_enabled_switch: kdbx_enabled_switch_clone.clone(),
+                kdbx_enabled_row: kdbx_enabled_row_clone.clone(),
                 kdbx_save_password_check: kdbx_save_password_check_clone.clone(),
                 kdbx_status_label: Label::new(None), // dummy, not used in collect
                 kdbx_browse_button: Button::new(),   // dummy, not used in collect

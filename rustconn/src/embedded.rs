@@ -1,7 +1,7 @@
 //! Embedded session support for RDP/VNC connections
 //!
 //! This module provides support for embedding RDP and VNC sessions
-//! within the main application window using X11 embedding (`GtkSocket`).
+//! within the main application window using native protocol clients.
 //! On Wayland, sessions fall back to external windows.
 
 use gtk4::prelude::*;
@@ -68,15 +68,17 @@ impl SessionControls {
         let fullscreen_button = Button::from_icon_name("view-fullscreen-symbolic");
         fullscreen_button.set_tooltip_text(Some(&i18n("Toggle Fullscreen")));
         fullscreen_button.add_css_class("flat");
-        fullscreen_button
-            .update_property(&[gtk4::accessible::Property::Label("Toggle Fullscreen")]);
+        fullscreen_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Toggle Fullscreen",
+        ))]);
         container.append(&fullscreen_button);
 
         let disconnect_button = Button::from_icon_name("process-stop-symbolic");
         disconnect_button.set_tooltip_text(Some(&i18n("Disconnect")));
         disconnect_button.add_css_class("flat");
         disconnect_button.add_css_class("destructive-action");
-        disconnect_button.update_property(&[gtk4::accessible::Property::Label("Disconnect")]);
+        disconnect_button
+            .update_property(&[gtk4::accessible::Property::Label(&i18n("Disconnect"))]);
         container.append(&disconnect_button);
 
         Self {
@@ -315,6 +317,12 @@ impl EmbeddedSessionTab {
     pub fn set_process(&self, child: Child) {
         *self.process.borrow_mut() = Some(child);
     }
+
+    /// Returns a clone of the process handle for external cleanup
+    #[must_use]
+    pub fn process_handle(&self) -> Rc<RefCell<Option<Child>>> {
+        self.process.clone()
+    }
 }
 
 /// RDP session launcher for embedded and external sessions
@@ -322,7 +330,13 @@ pub struct RdpLauncher;
 
 impl RdpLauncher {
     fn find_freerdp_binary() -> Option<String> {
-        let candidates = ["xfreerdp3", "xfreerdp", "freerdp"];
+        let candidates = [
+            "sdl-freerdp3", // FreeRDP 3.x SDL3 — versioned (distro packages)
+            "sdl-freerdp",  // FreeRDP 3.x SDL3 — unversioned (Flatpak / upstream)
+            "xfreerdp3",    // FreeRDP 3.x X11
+            "xfreerdp",     // FreeRDP 2.x X11
+            "freerdp",      // Generic
+        ];
         for candidate in candidates {
             if std::process::Command::new("which")
                 .arg(candidate)
@@ -401,7 +415,8 @@ impl RdpLauncher {
 
         let binary = Self::find_freerdp_binary().ok_or_else(|| {
             EmbeddingError::ProcessStartFailed(
-                "FreeRDP client not found. Install xfreerdp or xfreerdp3.".to_string(),
+                "FreeRDP client not found. Install xfreerdp, sdl-freerdp3, sdl-freerdp, or xfreerdp3."
+                    .to_string(),
             )
         })?;
 

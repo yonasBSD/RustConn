@@ -51,16 +51,7 @@ pub fn cmd_add(config_path: Option<&Path>, params: AddParams<'_>) -> Result<(), 
             connection.protocol_config
         && let Some(baud) = params.baud_rate
     {
-        config.baud_rate = match baud {
-            9600 => rustconn_core::models::SerialBaudRate::B9600,
-            19_200 => rustconn_core::models::SerialBaudRate::B19200,
-            38_400 => rustconn_core::models::SerialBaudRate::B38400,
-            57_600 => rustconn_core::models::SerialBaudRate::B57600,
-            230_400 => rustconn_core::models::SerialBaudRate::B230400,
-            460_800 => rustconn_core::models::SerialBaudRate::B460800,
-            921_600 => rustconn_core::models::SerialBaudRate::B921600,
-            _ => rustconn_core::models::SerialBaudRate::B115200,
-        };
+        config.baud_rate = crate::util::parse_baud_rate(baud)?;
     }
 
     if let Some(username) = params.user {

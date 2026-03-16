@@ -35,6 +35,8 @@ use gtk4::{
     Orientation, PolicyType, ScrolledWindow, SearchEntry, SignalListItemFactory, TreeExpander,
     TreeListModel, TreeListRow, Widget, gdk, gio, glib,
 };
+#[cfg(feature = "adw-1-6")]
+use libadwaita as adw;
 use rustconn_core::Debouncer;
 use rustconn_core::connection::{LazyGroupLoader, SelectionState as CoreSelectionState};
 use std::cell::RefCell;
@@ -76,6 +78,9 @@ pub struct ConnectionSidebar {
     /// Debouncer for rate-limiting search operations (100ms delay)
     search_debouncer: Rc<Debouncer>,
     /// Spinner widget to show search is pending during debounce
+    #[cfg(feature = "adw-1-6")]
+    search_spinner: adw::Spinner,
+    #[cfg(not(feature = "adw-1-6"))]
     search_spinner: gtk4::Spinner,
     /// Pending search query during debounce period
     pending_search_query: Rc<RefCell<Option<String>>>,
@@ -115,9 +120,20 @@ impl ConnectionSidebar {
         search_box.append(&search_entry);
 
         // Search pending spinner (hidden by default)
-        let search_spinner = gtk4::Spinner::new();
-        search_spinner.set_visible(false);
-        search_spinner.set_tooltip_text(Some(&i18n("Search pending...")));
+        #[cfg(feature = "adw-1-6")]
+        let search_spinner = {
+            let s = adw::Spinner::new();
+            s.set_visible(false);
+            s.set_tooltip_text(Some(&i18n("Search pending...")));
+            s
+        };
+        #[cfg(not(feature = "adw-1-6"))]
+        let search_spinner = {
+            let s = gtk4::Spinner::new();
+            s.set_visible(false);
+            s.set_tooltip_text(Some(&i18n("Search pending...")));
+            s
+        };
         search_box.append(&search_spinner);
 
         // Help button with popover
@@ -143,11 +159,24 @@ impl ConnectionSidebar {
         filter_box.set_margin_end(4);
         filter_box.set_margin_bottom(2);
 
-        // Protocol filter group — linked buttons that expand evenly
-        let protocol_group = GtkBox::new(Orientation::Horizontal, 0);
-        protocol_group.add_css_class("linked");
-        protocol_group.set_hexpand(true);
-        protocol_group.set_halign(gtk4::Align::Fill);
+        // Protocol filter group — wrapping layout on adw-1-7+, linked buttons fallback
+        #[cfg(feature = "adw-1-7")]
+        let protocol_group = {
+            let wrap_box = adw::WrapBox::new();
+            wrap_box.set_child_spacing(2);
+            wrap_box.set_line_spacing(2);
+            wrap_box.set_hexpand(true);
+            wrap_box.set_halign(gtk4::Align::Fill);
+            wrap_box
+        };
+        #[cfg(not(feature = "adw-1-7"))]
+        let protocol_group = {
+            let group = GtkBox::new(Orientation::Horizontal, 0);
+            group.add_css_class("linked");
+            group.set_hexpand(true);
+            group.set_halign(gtk4::Align::Fill);
+            group
+        };
 
         // Protocol filter buttons with icons — aligned with icons.rs
         use rustconn_core::models::ProtocolType;
@@ -156,36 +185,42 @@ impl ConnectionSidebar {
             rustconn_core::get_protocol_icon(ProtocolType::Ssh),
             "Filter SSH connections",
         );
+        #[cfg(not(feature = "adw-1-7"))]
         ssh_filter.set_hexpand(true);
         let rdp_filter = filter::create_filter_button(
             "RDP",
             rustconn_core::get_protocol_icon(ProtocolType::Rdp),
             "Filter RDP connections",
         );
+        #[cfg(not(feature = "adw-1-7"))]
         rdp_filter.set_hexpand(true);
         let vnc_filter = filter::create_filter_button(
             "VNC",
             rustconn_core::get_protocol_icon(ProtocolType::Vnc),
             "Filter VNC connections",
         );
+        #[cfg(not(feature = "adw-1-7"))]
         vnc_filter.set_hexpand(true);
         let spice_filter = filter::create_filter_button(
             "SPICE",
             rustconn_core::get_protocol_icon(ProtocolType::Spice),
             "Filter SPICE connections",
         );
+        #[cfg(not(feature = "adw-1-7"))]
         spice_filter.set_hexpand(true);
         let telnet_filter = filter::create_filter_button(
             "Telnet",
             rustconn_core::get_protocol_icon(ProtocolType::Telnet),
             "Filter Telnet connections",
         );
+        #[cfg(not(feature = "adw-1-7"))]
         telnet_filter.set_hexpand(true);
         let serial_filter = filter::create_filter_button(
             "Serial",
             rustconn_core::get_protocol_icon(ProtocolType::Serial),
             "Filter Serial connections",
         );
+        #[cfg(not(feature = "adw-1-7"))]
         serial_filter.set_hexpand(true);
         let zerotrust_filter = filter::create_filter_button(
             "ZeroTrust",
@@ -193,12 +228,14 @@ impl ConnectionSidebar {
             "Filter ZeroTrust connections",
         );
         zerotrust_filter.add_css_class("filter-button");
+        #[cfg(not(feature = "adw-1-7"))]
         zerotrust_filter.set_hexpand(true);
         let kubernetes_filter = filter::create_filter_button(
             "K8s",
             rustconn_core::get_protocol_icon(ProtocolType::Kubernetes),
             "Filter Kubernetes connections",
         );
+        #[cfg(not(feature = "adw-1-7"))]
         kubernetes_filter.set_hexpand(true);
 
         protocol_group.append(&ssh_filter);
@@ -365,6 +402,8 @@ impl ConnectionSidebar {
         container.append(&search_box);
 
         // Responsive: hide less common protocol filters on narrow sidebar
+        // Only needed without AdwWrapBox — WrapBox wraps automatically
+        #[cfg(not(feature = "adw-1-7"))]
         {
             let telnet_c = telnet_filter.clone();
             let serial_c = serial_filter.clone();
@@ -545,6 +584,13 @@ impl ConnectionSidebar {
                     }
                     glib::Propagation::Stop
                 }
+                gdk::Key::F2 => {
+                    // F2: Rename selected connection/group
+                    if let Some(lv) = list_view_weak.upgrade() {
+                        let _ = lv.activate_action("win.rename-item", None);
+                    }
+                    glib::Propagation::Stop
+                }
                 gdk::Key::e | gdk::Key::E if ctrl => {
                     // Ctrl+E: Edit selected connection
                     if let Some(lv) = list_view_weak.upgrade() {
@@ -556,6 +602,27 @@ impl ConnectionSidebar {
                     // Ctrl+D: Duplicate selected connection
                     if let Some(lv) = list_view_weak.upgrade() {
                         let _ = lv.activate_action("win.duplicate-connection", None);
+                    }
+                    glib::Propagation::Stop
+                }
+                gdk::Key::c | gdk::Key::C if ctrl => {
+                    // Ctrl+C: Copy selected connection
+                    if let Some(lv) = list_view_weak.upgrade() {
+                        let _ = lv.activate_action("win.copy-connection", None);
+                    }
+                    glib::Propagation::Stop
+                }
+                gdk::Key::v | gdk::Key::V if ctrl => {
+                    // Ctrl+V: Paste connection
+                    if let Some(lv) = list_view_weak.upgrade() {
+                        let _ = lv.activate_action("win.paste-connection", None);
+                    }
+                    glib::Propagation::Stop
+                }
+                gdk::Key::m | gdk::Key::M if ctrl => {
+                    // Ctrl+M: Move to group
+                    if let Some(lv) = list_view_weak.upgrade() {
+                        let _ = lv.activate_action("win.move-to-group", None);
                     }
                     glib::Propagation::Stop
                 }
@@ -760,11 +827,13 @@ impl ConnectionSidebar {
     /// Shows the search pending indicator
     pub fn show_search_pending(&self) {
         self.search_spinner.set_visible(true);
+        #[cfg(not(feature = "adw-1-6"))]
         self.search_spinner.start();
     }
 
     /// Hides the search pending indicator
     pub fn hide_search_pending(&self) {
+        #[cfg(not(feature = "adw-1-6"))]
         self.search_spinner.stop();
         self.search_spinner.set_visible(false);
     }

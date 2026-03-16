@@ -2,6 +2,7 @@
   "enabled": true,
   "name": "Sync Package Versions",
   "description": "When Cargo.toml version is updated, automatically sync the version to debian/changelog, rustconn.spec (RPM), AppImageBuilder.yml, flatpak manifests, snapcraft.yaml, and OBS packaging files",
+  "shortName": "sync-package-versions",
   "version": "1",
   "when": {
     "type": "fileEdited",

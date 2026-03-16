@@ -213,8 +213,26 @@ pub fn ensure_ssh_agent() -> Option<SshAgentInfo> {
 
     tracing::info!("SSH_AUTH_SOCK not set or socket missing; starting ssh-agent");
 
-    let output = match std::process::Command::new("ssh-agent")
-        .arg("-s")
+    // In Flatpak, ~/.ssh is mounted read-only so ssh-agent cannot create its
+    // socket there. Use `-a <path>` to place the socket in a writable directory.
+    let explicit_socket = if crate::flatpak::is_flatpak() {
+        let dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
+        let path = format!("{dir}/rustconn-ssh-agent.sock");
+        // Remove stale socket from a previous run
+        let _ = std::fs::remove_file(&path);
+        tracing::debug!(%path, "Using explicit ssh-agent socket path (Flatpak)");
+        Some(path)
+    } else {
+        None
+    };
+
+    let mut cmd = std::process::Command::new("ssh-agent");
+    if let Some(ref sock_path) = explicit_socket {
+        cmd.arg("-a").arg(sock_path);
+    }
+    cmd.arg("-s");
+
+    let output = match cmd
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -384,16 +402,34 @@ pub fn build_mc_sftp_command(connection: &Connection) -> Option<Vec<String>> {
 
     let local_dir = get_downloads_dir();
 
-    // Wrap in a shell invocation so that VTE's PTY correctly
-    // propagates terminal dimensions to mc (SIGWINCH handling).
-    let mc_cmd = format!("mc {} {}", shell_escape(&local_dir), shell_escape(&target),);
-    Some(vec!["sh".to_string(), "-c".to_string(), mc_cmd])
+    // In Flatpak, /app/bin/mc is a shell wrapper script that sources
+    // mc-wrapper.sh for directory-change-on-exit. Use mc.bin (the real
+    // binary) directly to avoid the extra shell layer — the wrapper's
+    // directory-change-on-exit feature is irrelevant since mc runs in
+    // a dedicated VTE tab, not the user's interactive shell.
+    let mc_binary = if crate::flatpak::is_flatpak() {
+        "/app/bin/mc.bin".to_string()
+    } else {
+        "mc".to_string()
+    };
+
+    // Return mc arguments directly (no sh -c wrapper) so VTE spawns
+    // mc as the direct child of the PTY. This ensures mc receives
+    // mouse events from VTE without a shell intercepting them.
+    //
+    // `-g` (--oldmouse) forces "normal tracking" mouse mode (X10/1000)
+    // instead of SGR mode (1006). VTE 0.80 negotiates SGR mouse
+    // encoding which mc's ncurses may not parse correctly, causing
+    // raw escape sequences to leak as text artifacts. Normal tracking
+    // mode is simpler and universally supported.
+    Some(vec![mc_binary, "-g".to_string(), local_dir, target])
 }
 
 /// Wraps a string in single quotes for safe use in `sh -c` commands.
 ///
 /// Single quotes inside the value are escaped as `'\''` (end quote,
 /// escaped literal quote, start quote).
+#[cfg(test)]
 fn shell_escape(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
@@ -468,20 +504,11 @@ mod tests {
         conn.username = Some("admin".to_string());
 
         let cmd = build_mc_sftp_command(&conn).unwrap();
-        assert_eq!(cmd.len(), 3);
-        assert_eq!(cmd[0], "sh");
-        assert_eq!(cmd[1], "-c");
-        // The third arg is the full mc command with shell-escaped paths
-        assert!(
-            cmd[2].contains("sh://admin@server.example.com/~"),
-            "should contain remote URI with /~: {}",
-            cmd[2]
-        );
-        assert!(
-            cmd[2].starts_with("mc "),
-            "should start with 'mc ': {}",
-            cmd[2]
-        );
+        // Direct argv: ["mc", "-g", <downloads>, "sh://user@host/~"]
+        assert_eq!(cmd.len(), 4);
+        assert_eq!(cmd[0], "mc");
+        assert_eq!(cmd[1], "-g");
+        assert_eq!(cmd[3], "sh://admin@server.example.com/~");
     }
 
     #[test]
@@ -490,14 +517,10 @@ mod tests {
         conn.username = Some("root".to_string());
 
         let cmd = build_mc_sftp_command(&conn).unwrap();
-        assert_eq!(cmd.len(), 3);
-        assert_eq!(cmd[0], "sh");
-        assert_eq!(cmd[1], "-c");
-        assert!(
-            cmd[2].contains("sh://root@host.local:2222/~"),
-            "should contain remote URI with port and /~: {}",
-            cmd[2]
-        );
+        assert_eq!(cmd.len(), 4);
+        assert_eq!(cmd[0], "mc");
+        assert_eq!(cmd[1], "-g");
+        assert_eq!(cmd[3], "sh://root@host.local:2222/~");
     }
 
     #[test]

@@ -103,7 +103,6 @@ pub async fn establish_connection(
             .iter()
             .enumerate()
             .map(|(idx, folder)| {
-                // #[allow(clippy::cast_possible_truncation)]
                 let device_id = idx as u32 + 1;
                 tracing::debug!(
                     "RDPDR: registering drive {} '{}' -> {:?}",

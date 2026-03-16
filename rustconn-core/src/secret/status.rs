@@ -121,7 +121,13 @@ impl KeePassStatus {
     /// Finds the `keepassxc-cli` binary
     ///
     /// Searches in PATH and common installation locations.
+    /// In Flatpak, checks the host system via `flatpak-spawn --host`.
     fn find_keepassxc_cli() -> Option<std::path::PathBuf> {
+        // In Flatpak, check the host system
+        if crate::flatpak::is_flatpak() {
+            return Self::find_keepassxc_cli_on_host();
+        }
+
         // First, try to find in PATH using `which`
         if let Ok(output) = Command::new("which").arg("keepassxc-cli").output()
             && output.status.success()
@@ -151,12 +157,57 @@ impl KeePassStatus {
         None
     }
 
+    /// Finds `keepassxc-cli` on the host system from inside a Flatpak sandbox.
+    ///
+    /// Uses `flatpak-spawn --host which keepassxc-cli` to locate the binary.
+    /// The returned path is a host path (not accessible directly in the sandbox)
+    /// and must be executed via [`Self::keepassxc_command`].
+    fn find_keepassxc_cli_on_host() -> Option<std::path::PathBuf> {
+        let output = Command::new("flatpak-spawn")
+            .arg("--host")
+            .arg("which")
+            .arg("keepassxc-cli")
+            .output()
+            .ok()?;
+
+        if output.status.success() {
+            let path_str = String::from_utf8_lossy(&output.stdout);
+            let path = std::path::PathBuf::from(path_str.trim());
+            if !path.as_os_str().is_empty() {
+                tracing::debug!(path = %path.display(), "Found keepassxc-cli on host");
+                return Some(path);
+            }
+        }
+
+        tracing::debug!("keepassxc-cli not found on host via flatpak-spawn");
+        None
+    }
+
+    /// Builds a [`Command`] for running `keepassxc-cli`, accounting for Flatpak sandbox.
+    ///
+    /// - Outside Flatpak: returns `Command::new(cli_path)`
+    /// - Inside Flatpak: returns `Command::new("flatpak-spawn")` with `--host` prefix
+    ///
+    /// The returned command has no arguments yet — callers append `.arg(...)` as needed.
+    fn keepassxc_command(cli_path: &Path) -> Command {
+        if crate::flatpak::is_flatpak() {
+            let mut cmd = Command::new("flatpak-spawn");
+            cmd.arg("--host").arg(cli_path);
+            cmd
+        } else {
+            Command::new(cli_path)
+        }
+    }
+
     /// Gets the `KeePassXC` version from the CLI
     ///
     /// # Arguments
     /// * `cli_path` - Path to the `keepassxc-cli` binary
     fn get_keepassxc_version(cli_path: &Path) -> Option<String> {
-        let output = Command::new(cli_path).arg("--version").output().ok()?;
+        let output = Self::keepassxc_command(cli_path)
+            .arg("--version")
+            .output()
+            .ok()?;
 
         if output.status.success() {
             let version_output = String::from_utf8_lossy(&output.stdout);
@@ -203,7 +254,7 @@ impl KeePassStatus {
 
         // Use keepassxc-cli show command to get the password
         // Format: keepassxc-cli show -s <database> <entry>
-        let mut child = Command::new(&cli_path)
+        let mut child = Self::keepassxc_command(&cli_path)
             .arg("show")
             .arg("-s") // Show password attribute
             .arg("-a")
@@ -352,7 +403,7 @@ impl KeePassStatus {
 
         tracing::debug!("Running keepassxc-cli with args: {args:?}");
 
-        let mut child = Command::new(&cli_path)
+        let mut child = Self::keepassxc_command(&cli_path)
             .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -468,7 +519,7 @@ impl KeePassStatus {
         args.push(kdbx_path.display().to_string());
         args.push("RustConn".to_string());
 
-        let mut child = Command::new(cli_path)
+        let mut child = Self::keepassxc_command(cli_path)
             .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -518,7 +569,7 @@ impl KeePassStatus {
         args.push(kdbx_path.display().to_string());
         args.push("RustConn".to_string());
 
-        let mut child = Command::new(cli_path)
+        let mut child = Self::keepassxc_command(cli_path)
             .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -613,7 +664,7 @@ impl KeePassStatus {
             args.push(kdbx_path.display().to_string());
             args.push(current_path.clone());
 
-            let mut child = Command::new(cli_path)
+            let mut child = Self::keepassxc_command(cli_path)
                 .args(&args)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
@@ -673,7 +724,7 @@ impl KeePassStatus {
         args.push(kdbx_path.display().to_string());
         args.push(entry_path.to_string());
 
-        let mut child = Command::new(&cli_path)
+        let mut child = Self::keepassxc_command(&cli_path)
             .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -814,7 +865,7 @@ impl KeePassStatus {
 
             tracing::debug!("get_password: trying path '{entry_path}'");
 
-            let mut child = Command::new(&cli_path)
+            let mut child = Self::keepassxc_command(&cli_path)
                 .args(&args)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
@@ -994,7 +1045,7 @@ impl KeePassStatus {
         args.push(kdbx_path.display().to_string());
         args.push(entry_path.to_string());
 
-        let mut child = Command::new(cli_path)
+        let mut child = Self::keepassxc_command(cli_path)
             .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -1053,7 +1104,7 @@ impl KeePassStatus {
         args.push(kdbx_path.display().to_string());
         args.push(entry_path.to_string());
 
-        let mut child = Command::new(cli_path)
+        let mut child = Self::keepassxc_command(cli_path)
             .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -1139,7 +1190,7 @@ impl KeePassStatus {
 
         args.push(kdbx_path.display().to_string());
 
-        let mut child = Command::new(&cli_path)
+        let mut child = Self::keepassxc_command(&cli_path)
             .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

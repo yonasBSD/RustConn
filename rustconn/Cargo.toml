@@ -16,8 +16,8 @@ rustconn-core = { path = "../rustconn-core" }
 tokio = { workspace = true }
 gtk4 = { workspace = true, features = ["v4_14"] }
 libadwaita = { workspace = true }
-gdk4-wayland = { version = "0.10", optional = true }
-vte4 = { workspace = true, features = ["v0_72"] }
+gdk4-wayland = { version = "0.11", optional = true }
+vte4 = { workspace = true, features = ["v0_76"] }
 uuid = { workspace = true }
 regex = { workspace = true }
 chrono = { workspace = true }
@@ -48,6 +48,15 @@ rdp-embedded = ["rustconn-core/rdp-embedded"]
 rdp-audio = ["rdp-embedded", "dep:cpal"]
 spice-embedded = ["rustconn-core/spice-embedded"]
 wayland-native = ["dep:gdk4-wayland"]
+# Enable libadwaita 1.6+ widgets (AdwSpinner, CSS variables, accent colors)
+# Requires libadwaita >= 1.6 at build time (GNOME 50 Flatpak runtime or Fedora 44+)
+adw-1-6 = ["libadwaita/v1_6"]
+# Enable libadwaita 1.7+ widgets (AdwWrapBox, AdwToggleGroup)
+# Requires libadwaita >= 1.7 at build time (GNOME 48+ / Fedora 42+)
+adw-1-7 = ["adw-1-6", "libadwaita/v1_7"]
+# Enable libadwaita 1.8+ widgets (AdwShortcutsDialog, AdwShortcutLabel)
+# Requires libadwaita >= 1.8 at build time (GNOME 49+ Flatpak runtime or Fedora 42+)
+adw-1-8 = ["adw-1-7", "libadwaita/v1_8"]
 
 [lints]
 workspace = true

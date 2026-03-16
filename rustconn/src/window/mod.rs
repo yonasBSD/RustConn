@@ -90,8 +90,8 @@ impl MainWindow {
             .title("RustConn")
             .default_width(1200)
             .default_height(800)
-            .width_request(360)
-            .height_request(294)
+            .width_request(800)
+            .height_request(500)
             .icon_name("io.github.totoshko88.RustConn")
             .build();
 
@@ -3484,6 +3484,42 @@ impl MainWindow {
                     tracing::warn!(%id, "Startup action: connection not found, skipping");
                     self.toast_overlay
                         .show_warning(&crate::i18n::i18n("Startup connection not found"));
+                }
+            }
+            StartupAction::RdpFile(path) => {
+                tracing::info!(path = %path.display(), "Startup action: opening .rdp file");
+                match rustconn_core::import::RdpFileImporter::parse_rdp_file(path) {
+                    Ok(connection) => {
+                        // Add the imported connection to state and connect
+                        let conn_id = connection.id;
+                        if let Ok(mut state_mut) = self.state.try_borrow_mut()
+                            && let Err(e) = state_mut.create_connection(connection)
+                        {
+                            tracing::error!(%e, "Failed to add imported .rdp connection");
+                        }
+                        Self::start_connection_with_split(
+                            &self.state,
+                            &self.terminal_notebook,
+                            &self.split_view,
+                            &self.sidebar,
+                            &self.monitoring,
+                            conn_id,
+                        );
+                        let state_clone = self.state.clone();
+                        let sidebar_clone = Rc::clone(&self.sidebar);
+                        glib::idle_add_local_once(move || {
+                            Self::reload_sidebar_preserving_state(&state_clone, &sidebar_clone);
+                        });
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            ?e,
+                            path = %path.display(),
+                            "Failed to parse .rdp file"
+                        );
+                        self.toast_overlay
+                            .show_warning(&crate::i18n::i18n("Failed to open .rdp file"));
+                    }
                 }
             }
         }

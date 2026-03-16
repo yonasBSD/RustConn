@@ -7,6 +7,7 @@ use gtk4::{
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::i18n::i18n;
 use crate::sidebar::ConnectionItem;
 use crate::sidebar_ui;
 
@@ -48,7 +49,7 @@ pub fn setup_list_item(
     pin_icon.set_pixel_size(12);
     pin_icon.set_visible(false);
     pin_icon.add_css_class("pin-icon");
-    pin_icon.set_tooltip_text(Some("Pinned"));
+    pin_icon.set_tooltip_text(Some(&i18n("Pinned")));
     content_box.append(&pin_icon);
 
     expander.set_child(Some(&content_box));

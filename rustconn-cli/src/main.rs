@@ -5,6 +5,7 @@
 //! and Wake-on-LAN functionality.
 
 mod cli;
+mod color;
 mod commands;
 mod error;
 mod format;
@@ -17,6 +18,7 @@ fn main() {
     let cli = Cli::parse();
     let config_path = cli.config.as_deref();
 
+    color::init(cli.no_color);
     setup_logging(cli.verbose, cli.quiet);
 
     let result = commands::dispatch(config_path, cli.command);

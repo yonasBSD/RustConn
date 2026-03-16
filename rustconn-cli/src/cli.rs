@@ -294,6 +294,25 @@ pub enum Commands {
     /// Generate man page
     #[command(about = "Generate man page and write to stdout")]
     ManPage,
+
+    /// Sync connections from an external inventory file
+    #[command(about = "Sync connections from a dynamic inventory source (JSON/YAML)")]
+    Sync {
+        /// Path to inventory file (JSON or YAML)
+        file: PathBuf,
+
+        /// Source identifier for tagging (e.g. "netbox", "ansible")
+        #[arg(short, long)]
+        source: String,
+
+        /// Remove connections from this source that are no longer in the inventory
+        #[arg(long)]
+        remove_stale: bool,
+
+        /// Dry run — show what would change without modifying anything
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 /// Output format for the list command
@@ -358,6 +377,18 @@ pub enum ImportFormatArg {
     RoyalTs,
     /// MobaXterm session format (.mxtsessions)
     MobaXterm,
+    /// Microsoft RDP file (.rdp)
+    #[value(name = "rdp", alias = "rdp-file")]
+    Rdp,
+    /// Remote Desktop Manager JSON export
+    #[value(name = "rdm", alias = "remote-desktop-manager")]
+    Rdm,
+    /// Virt-Viewer connection file (.vv)
+    #[value(name = "virt-viewer", alias = "vv")]
+    VirtViewer,
+    /// Libvirt domain XML / GNOME Boxes
+    #[value(name = "libvirt", alias = "gnome-boxes")]
+    Libvirt,
 }
 
 /// Snippet subcommands

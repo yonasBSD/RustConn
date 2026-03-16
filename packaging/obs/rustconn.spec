@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.9.15
+Version:        0.10.0
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -14,20 +14,20 @@ URL:            https://github.com/totoshko88/RustConn
 Source0:        %{name}-%{version}.tar.xz
 Source1:        vendor.tar.zst
 
-# Rust 1.88+ required (MSRV)
-# openSUSE: use devel:languages:rust repo for Rust 1.88+
+# Rust 1.92+ required (MSRV)
+# openSUSE: use devel:languages:rust repo for Rust 1.92+
 # Fedora 42+: system Rust 1.93 is sufficient
-# Fedora <42/RHEL: use rustup fallback since system Rust < 1.88
+# Fedora <42/RHEL: use rustup fallback since system Rust < 1.92
 %if 0%{?suse_version}
-BuildRequires:  cargo >= 1.88
-BuildRequires:  rust >= 1.88
+BuildRequires:  cargo >= 1.92
+BuildRequires:  rust >= 1.92
 BuildRequires:  cargo-packaging
 BuildRequires:  alsa-devel
 %endif
 
 %if 0%{?fedora} >= 42
-BuildRequires:  cargo >= 1.88
-BuildRequires:  rust >= 1.88
+BuildRequires:  cargo >= 1.92
+BuildRequires:  rust >= 1.92
 BuildRequires:  alsa-lib-devel
 %endif
 
@@ -123,14 +123,14 @@ Productivity:
 %prep
 %autosetup -a1 -n %{name}-%{version}
 
-# Install rustup for older Fedora/RHEL (system Rust < 1.88)
+# Install rustup for older Fedora/RHEL (system Rust < 1.92)
 %if 0%{?fedora} && 0%{?fedora} < 42
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 --profile minimal
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0 --profile minimal
 export PATH="$HOME/.cargo/bin:$PATH"
 %endif
 
 %if 0%{?rhel}
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 --profile minimal
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0 --profile minimal
 export PATH="$HOME/.cargo/bin:$PATH"
 %endif
 
@@ -153,10 +153,34 @@ EOF
 export PATH="$HOME/.cargo/bin:$PATH"
 %endif
 
-%if 0%{?suse_version}
-%{cargo_build} -p rustconn -p rustconn-cli
+# Determine libadwaita feature flags based on distro version:
+#   adw-1-8: libadwaita >= 1.8 (Tumbleweed/Slowroll, Fedora 43+)
+#   adw-1-7: libadwaita >= 1.7 (Leap 16.0, Fedora 42)
+#   (none):  libadwaita 1.5 baseline (older distros)
+%if 0%{?suse_version} > 1600
+# Tumbleweed / Slowroll — libadwaita 1.8+ (1.9 with GNOME 50)
+%define adw_features --features adw-1-8
 %else
-cargo build --release -p rustconn -p rustconn-cli
+%if 0%{?suse_version} == 1600
+# Leap 16.0 — GNOME 48, libadwaita 1.7
+%define adw_features --features adw-1-7
+%endif
+%endif
+
+%if 0%{?fedora} >= 43
+# Fedora 43+ — GNOME 49+, libadwaita 1.8+
+%define adw_features --features adw-1-8
+%else
+%if 0%{?fedora} == 42
+# Fedora 42 — GNOME 48, libadwaita 1.7
+%define adw_features --features adw-1-7
+%endif
+%endif
+
+%if 0%{?suse_version}
+%{cargo_build} -p rustconn %{?adw_features} -p rustconn-cli
+%else
+cargo build --release -p rustconn %{?adw_features} -p rustconn-cli
 %endif
 
 %install
@@ -199,6 +223,40 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Mon Mar 16 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.0-0
+- Note: Flatpak release will follow after March 18, 2026, when
+  GNOME 50 runtime is published on Flathub
+- RDP file import in GUI — .rdp files can now be imported via Import dialog
+- CLI import: 4 new formats — rdp, rdm, virt-viewer, libvirt
+- Split view for Telnet, Serial, Kubernetes — all VTE-based protocols
+- Statistics: Most Used connections and Protocol Distribution with progress bars
+- 5 new customizable keybindings (31 total): Toggle Sidebar, Connection
+  History, Statistics, Password Generator, Wake On LAN
+- Secret backend default changed from KeePassXc to LibSecret
+- RDP file association — double-click .rdp files to open and connect
+- FreeRDP 3.24.0 bundled in Flatpak — external RDP works out of the box
+- sdl-freerdp3 and unversioned FreeRDP binary detection
+- GTK4/libadwaita/VTE crate upgrade: gtk4 0.11, libadwaita 0.9,
+  vte4 0.10, gdk4-wayland 0.11 — unlocks GNOME 48–50 widget APIs
+- MSRV bumped to 1.92 across all crates, CI, and packaging
+- Flatpak runtime bumped to GNOME 50 with VTE 0.80
+- AdwSpinner, AdwShortcutsDialog, AdwSwitchRow, AdwWrapBox migrations (cfg-gated)
+- CSS prefers-reduced-motion support for accessibility
+- Tiered distro feature flags in OBS packaging: adw-1-8 for
+  Tumbleweed/Slowroll/Fedora 43+, adw-1-6 for Leap 16.0/Fedora 42
+- Fixed default window size too small on first start
+- Fixed RDP gateway ignored in embedded mode — auto-fallback to FreeRDP
+- Fixed external RDP sidebar icon stays green after tab close
+- Fixed SSH jump host broken in Flatpak
+- Fixed mc wrapper not found in Flatpak on openSUSE
+- Fixed ZeroTrust and Kubernetes connections broken in Flatpak —
+  CLI tools detected and executed via flatpak-spawn --host;
+  cloud CLI config dirs mounted into sandbox
+- Fixed split view text selection broken by GestureClick handler
+- Fixed untranslated protocol display names across all 15 languages
+- Codebase cleanup: removed unused CSS classes, consolidated futures-util,
+  fixed metainfo.xml, removed dead code
+
 * Wed Mar 11 2026 Anton Isaiev <totoshko88@gmail.com> - 0.9.15-0
 - Added "Show Local Cursor" option for embedded RDP, VNC, and SPICE
   viewers — hides local OS cursor to eliminate double cursor (#51)

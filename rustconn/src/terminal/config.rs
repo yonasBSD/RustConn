@@ -48,8 +48,10 @@ pub fn configure_terminal_with_settings(terminal: &Terminal, settings: &Terminal
     // Keyboard shortcuts (Copy/Paste)
     setup_keyboard_shortcuts(terminal);
 
-    // Context menu (Right click)
-    setup_context_menu(terminal);
+    // Context menu (Right click) — attached to the container, NOT the
+    // terminal, to avoid interfering with VTE's internal mouse handling.
+    // The container is set up separately after the terminal is placed
+    // in the widget tree (see `setup_context_menu_on_container`).
 
     // Colors and font
     setup_colors_with_theme(terminal, &settings.color_theme);
@@ -80,8 +82,13 @@ fn setup_keyboard_shortcuts(terminal: &Terminal) {
     terminal.add_controller(controller);
 }
 
-/// Sets up context menu for right-click
-fn setup_context_menu(terminal: &Terminal) {
+/// Sets up context menu for right-click on a container widget.
+///
+/// The `GestureClick` is attached to `container` (not the VTE terminal)
+/// to avoid interfering with VTE's internal mouse event handling.
+/// Adding gesture controllers directly to the VTE widget can cause
+/// mouse escape sequences to leak as text artifacts in ncurses apps.
+pub fn setup_context_menu_on_container(container: &impl IsA<gtk4::Widget>, terminal: &Terminal) {
     use gtk4::PopoverMenu;
     use gtk4::gio;
 
@@ -135,7 +142,7 @@ fn setup_context_menu(terminal: &Terminal) {
         // Claim the gesture to prevent pane context menu from also showing
         gesture.set_state(gtk4::EventSequenceState::Claimed);
     });
-    terminal.add_controller(click_controller);
+    container.add_controller(click_controller);
 }
 
 /// Converts Color to gdk::RGBA

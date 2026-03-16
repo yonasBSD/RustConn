@@ -5,7 +5,7 @@
 - **OS:** Linux (Wayland-first, X11 supported)
 - **GTK:** 4.14+
 - **libadwaita:** 1.5+
-- **Rust:** 1.88+ (for building from source)
+- **Rust:** 1.92+ (for building from source)
 
 ## Flatpak (Recommended)
 
@@ -30,14 +30,41 @@ RustConn requests the following permissions for full functionality:
 | Permission | Purpose |
 |------------|---------|
 | `--share=network` | SSH/RDP/VNC/SPICE/Telnet connections |
-| `--filesystem=home/.ssh:ro` | Read SSH keys |
+| `--socket=wayland` / `--socket=fallback-x11` | Display access |
+| `--socket=pulseaudio` | RDP session audio playback |
 | `--socket=ssh-auth` | SSH agent access |
+| `--device=all` | Serial port access (picocom requires `--device=all`; no granular option exists) |
+| `--filesystem=home/.ssh:ro` | Read SSH keys and config |
+| `--filesystem=home/.aws` | AWS CLI credentials (read-write for SSO token cache) |
+| `--filesystem=home/.config/gcloud:ro` | GCP CLI credentials |
+| `--filesystem=home/.azure:ro` | Azure CLI credentials |
+| `--filesystem=home/.kube:ro` | Kubernetes config |
+| `--filesystem=xdg-download:create` | SFTP file transfers via Midnight Commander |
 | `--talk-name=org.freedesktop.secrets` | GNOME Keyring access |
 | `--talk-name=org.kde.kwalletd5/6` | KWallet access |
 | `--talk-name=org.keepassxc.KeePassXC.BrowserServer` | KeePassXC proxy |
 | `--talk-name=org.kde.StatusNotifierWatcher` | System tray support |
+| `--talk-name=org.freedesktop.Flatpak` | Host command execution (Zero Trust CLIs, kubectl) |
 
-**Note:** SSH client is included in the Flatpak runtime. For RDP/VNC/SPICE connections, RustConn uses embedded clients (IronRDP, vnc-rs). Telnet requires the `telnet` client on the host. External clients (xfreerdp, vncviewer, remote-viewer) and cloud CLIs (aws, gcloud, az) should be installed on the host system if needed for fallback.
+### Bundled Components
+
+The Flatpak includes all core protocol clients — no separate installation needed:
+
+| Component | Purpose |
+|-----------|---------|
+| VTE 0.80 | Terminal emulation (SSH, Telnet, Serial, Kubernetes) |
+| IronRDP | Embedded RDP client |
+| vnc-rs | Embedded VNC client |
+| spice-client | Embedded SPICE client |
+| inetutils | Telnet client |
+| picocom | Serial console (RS-232/USB) |
+| Midnight Commander | SFTP file browser |
+| waypipe | Wayland application forwarding over SSH |
+| libsecret | GNOME Keyring / KWallet integration |
+| openssh | SSH client |
+
+External CLIs (Zero Trust providers, password managers, kubectl) are executed on the host
+via `flatpak-spawn --host`. Install them on the host system if needed.
 
 ### Install from CI Bundle
 
@@ -49,17 +76,17 @@ The bundle is available in two places:
 
 #### Prerequisites
 
-The bundle requires GNOME Platform runtime 49. Install it once:
+The bundle requires GNOME Platform runtime 50. Install it once:
 
 ```bash
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install flathub org.gnome.Platform//49
+flatpak install flathub org.gnome.Platform//50
 ```
 
 #### Install
 
 ```bash
-flatpak install --user RustConn-0.9.0.flatpak
+flatpak install --user RustConn-0.10.0.flatpak
 ```
 
 Confirm runtime dependency installation if prompted.
@@ -79,31 +106,60 @@ flatpak override --user --filesystem=/path/to/dir io.github.totoshko88.RustConn
 
 ## Snap (Strict Confinement)
 
-**Important:** This snap uses strict confinement for security. Some features require manual interface connections.
+RustConn snap uses strict confinement with embedded protocol clients. Both `rustconn` (GUI)
+and `rustconn-cli` are included.
 
 ```bash
 # Install
 sudo snap install rustconn
+```
 
-# Connect SSH interface (required for SSH connections)
+### Required Interface Connections
+
+```bash
+# SSH keys (required for SSH connections)
 sudo snap connect rustconn:ssh-keys
-sudo snap connect rustconn:ssh-public-keys
+```
 
-# Optional: Connect cloud credentials
+### Optional Interface Connections
+
+```bash
+# Serial port access (for serial console connections)
+sudo snap connect rustconn:serial-port
+
+# Cloud provider credentials
 sudo snap connect rustconn:aws-credentials
 sudo snap connect rustconn:gcloud-credentials
 sudo snap connect rustconn:azure-credentials
 sudo snap connect rustconn:oci-credentials
 
-# Optional: Connect KeePass databases
-sudo snap connect rustconn:keepass-databases
+# Kubernetes config
+sudo snap connect rustconn:kube-credentials
 
-# Optional: Connect password manager CLIs
-sudo snap connect rustconn:bitwarden-session
-sudo snap connect rustconn:onepassword-session
+# Host CLI access (Zero Trust, password managers, kubectl, FreeRDP, VNC viewer)
+sudo snap connect rustconn:host-usr-bin
 ```
 
-**All protocol clients and Zero Trust CLIs are bundled** — no separate installation needed!
+### Bundled in Snap
+
+| Component | Purpose |
+|-----------|---------|
+| openssh-client | SSH client |
+| inetutils-telnet | Telnet client |
+| picocom | Serial console |
+| Midnight Commander | SFTP file browser |
+| waypipe | Wayland forwarding |
+
+External CLIs (Zero Trust providers, password managers, kubectl, FreeRDP, VNC viewer)
+must be installed on the host and accessed via the `host-usr-bin` interface.
+
+### CLI in Snap
+
+```bash
+# The CLI is available as a separate snap app
+rustconn.rustconn-cli --help
+rustconn.rustconn-cli list
+```
 
 See [docs/SNAP.md](SNAP.md) for detailed snap documentation.
 
@@ -141,34 +197,15 @@ sudo zypper ref
 sudo zypper in rustconn
 ```
 
+OBS packages use tiered feature flags: `adw-1-8` for Tumbleweed/Fedora 43+, `adw-1-7` for Leap 16.0/Fedora 42, baseline for older distros.
+
 ## From Source
 
-### Prerequisites
+Requires Rust 1.92+, GTK4 4.14+, libadwaita 1.5+, VTE4, and system libraries
+(OpenSSL, ALSA, D-Bus, clang, cmake, gettext).
 
-**Ubuntu/Debian:**
-```bash
-sudo apt install build-essential libgtk-4-dev libvte-2.91-gtk4-dev \
-    libadwaita-1-dev libdbus-1-dev pkg-config libasound2-dev
-```
-
-**Fedora:**
-```bash
-sudo dnf install gcc gtk4-devel vte291-gtk4-devel libadwaita-devel \
-    dbus-devel alsa-lib-devel
-```
-
-**openSUSE:**
-```bash
-sudo zypper install gcc gtk4-devel vte-devel libadwaita-devel \
-    dbus-1-devel alsa-devel
-```
-
-**Arch Linux:**
-```bash
-sudo pacman -S base-devel gtk4 vte4 libadwaita dbus alsa-lib
-```
-
-### Build
+See [docs/BUILD.md](BUILD.md) for per-distro prerequisite packages, feature flags,
+testing, debugging, and local Flatpak builds.
 
 ```bash
 git clone https://github.com/totoshko88/RustConn.git
@@ -176,15 +213,15 @@ cd RustConn
 cargo build --release
 ```
 
-The binary will be at `target/release/rustconn`.
+The binaries will be at `target/release/rustconn` and `target/release/rustconn-cli`.
 
-### Install (optional)
+To enable newer libadwaita widgets for your distro, add `--features adw-1-8` (GNOME 49+)
+or `--features adw-1-7` (GNOME 48). See [BUILD.md — Feature Flags](BUILD.md#feature-flags)
+for the full list.
 
 ```bash
-./install-desktop.sh
+./install-desktop.sh   # optional: installs .desktop file, icon, and locales
 ```
-
-This installs the desktop file and icon for application menu integration.
 
 ## Dependencies
 
@@ -193,15 +230,25 @@ This installs the desktop file and icon for application menu integration.
 - VTE4 (terminal emulation)
 - libadwaita (1.5+)
 - D-Bus
+- OpenSSL
 
 ### Optional Protocol Clients
 
+RustConn uses embedded Rust implementations for RDP, VNC, and SPICE by default.
+External clients serve as fallbacks when the embedded client fails (e.g., RD Gateway).
+
+FreeRDP detection priority: `wlfreerdp3` > `wlfreerdp` > `sdl-freerdp3` > `sdl-freerdp` > `xfreerdp3` > `xfreerdp`
+
 | Protocol | Client | Package |
 |----------|--------|---------|
-| RDP | FreeRDP | `freerdp2-x11` or `freerdp3` |
-| VNC | TigerVNC | `tigervnc-viewer` |
-| SPICE | remote-viewer | `virt-viewer` |
+| RDP (fallback) | FreeRDP 3 (Wayland) | `freerdp3` or `freerdp2` |
+| VNC (fallback) | TigerVNC | `tigervnc-viewer` |
+| SPICE (fallback) | remote-viewer | `virt-viewer` |
 | Telnet | telnet | `telnet` or `inetutils-telnet` |
+| Serial | picocom | `picocom` |
+| SFTP | Midnight Commander | `mc` |
+| Wayland forwarding | waypipe | `waypipe` |
+| Kubernetes | kubectl | `kubectl` |
 
 ### Optional Password Managers
 
@@ -210,6 +257,7 @@ This installs the desktop file and icon for application menu integration.
 | Bitwarden | `bw` | `npm install -g @bitwarden/cli` or [bitwarden.com](https://bitwarden.com/help/cli/) |
 | 1Password | `op` | [1password.com/downloads/command-line](https://1password.com/downloads/command-line/) |
 | KeePassXC | `keepassxc-cli` | `keepassxc` package |
+| Passbolt | `go-passbolt-cli` | [passbolt.com](https://www.passbolt.com/) |
 | Pass | `pass` | `pass` package ([passwordstore.org](https://www.passwordstore.org/)) |
 
 ### Zero Trust CLI Tools
@@ -227,28 +275,8 @@ This installs the desktop file and icon for application menu integration.
 
 ## Rust Installation
 
-RustConn requires Rust 1.88+ (MSRV). Install via [rustup](https://rustup.rs/):
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source ~/.cargo/env
-rustup update
-```
-
-## Optional Features
-
-Build with specific features:
-
-```bash
-# With RDP audio support (requires libasound2-dev)
-cargo build --release --features rdp-audio
-
-# With native SPICE embedding
-cargo build --release --features spice-embedded
-
-# With system tray icon
-cargo build --release --features tray-icon
-```
+RustConn requires Rust 1.92+. See [docs/BUILD.md — Prerequisites](BUILD.md#prerequisites)
+for installation instructions.
 
 ## Verification
 
@@ -268,6 +296,11 @@ rustconn-cli --help
 flatpak uninstall io.github.totoshko88.RustConn
 ```
 
+**Snap:**
+```bash
+sudo snap remove rustconn
+```
+
 **Debian/Ubuntu:**
 ```bash
 sudo apt remove rustconn
@@ -278,6 +311,7 @@ sudo apt remove rustconn
 rm -rf ~/.local/share/applications/rustconn.desktop
 rm -rf ~/.local/share/icons/hicolor/*/apps/rustconn.*
 rm -f ~/.local/bin/rustconn
+rm -f ~/.local/bin/rustconn-cli
 ```
 
 Configuration is stored in `~/.config/rustconn/` — remove manually if needed.

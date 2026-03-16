@@ -8,20 +8,25 @@ use std::process::{Command, Stdio};
 
 /// Ordered candidate list for FreeRDP detection.
 ///
-/// Wayland-native variants come first, followed by X11 fallbacks.
+/// Wayland-native variants come first, then SDL3 (works on both Wayland and X11
+/// via SDL3's native windowing), followed by X11 fallbacks.
 const WAYLAND_FIRST_CANDIDATES: &[&str] = &[
-    "wlfreerdp3", // FreeRDP 3.x Wayland
-    "wlfreerdp",  // FreeRDP 2.x Wayland
-    "xfreerdp3",  // FreeRDP 3.x X11
-    "xfreerdp",   // FreeRDP 2.x X11
+    "wlfreerdp3",   // FreeRDP 3.x Wayland-native (versioned)
+    "wlfreerdp",    // FreeRDP Wayland-native (unversioned, e.g. Flatpak)
+    "sdl-freerdp3", // FreeRDP 3.x SDL3 (versioned)
+    "sdl-freerdp",  // FreeRDP SDL3 (unversioned, e.g. Flatpak)
+    "xfreerdp3",    // FreeRDP 3.x X11
+    "xfreerdp",     // FreeRDP 2.x X11
 ];
 
 /// X11-first candidate order (used when not running under Wayland).
 const X11_FIRST_CANDIDATES: &[&str] = &[
-    "xfreerdp3",  // FreeRDP 3.x X11
-    "xfreerdp",   // FreeRDP 2.x X11
-    "wlfreerdp3", // FreeRDP 3.x Wayland (still usable as fallback)
-    "wlfreerdp",  // FreeRDP 2.x Wayland
+    "xfreerdp3",    // FreeRDP 3.x X11
+    "xfreerdp",     // FreeRDP 2.x X11
+    "sdl-freerdp3", // FreeRDP 3.x SDL3 (versioned)
+    "sdl-freerdp",  // FreeRDP SDL3 (unversioned, e.g. Flatpak)
+    "wlfreerdp3",   // FreeRDP 3.x Wayland (still usable as fallback)
+    "wlfreerdp",    // FreeRDP Wayland (unversioned)
 ];
 
 /// Returns `true` if the current session is Wayland.
@@ -93,16 +98,23 @@ mod tests {
     fn test_wayland_candidates_include_wlfreerdp() {
         assert!(WAYLAND_FIRST_CANDIDATES.contains(&"wlfreerdp3"));
         assert!(WAYLAND_FIRST_CANDIDATES.contains(&"wlfreerdp"));
-        // Wayland variants should come before X11 variants
+        assert!(WAYLAND_FIRST_CANDIDATES.contains(&"sdl-freerdp3"));
+        assert!(WAYLAND_FIRST_CANDIDATES.contains(&"sdl-freerdp"));
+        // Wayland variants should come before SDL3, SDL3 before X11
         let wl_pos = WAYLAND_FIRST_CANDIDATES
             .iter()
             .position(|c| *c == "wlfreerdp3")
+            .unwrap();
+        let sdl_pos = WAYLAND_FIRST_CANDIDATES
+            .iter()
+            .position(|c| *c == "sdl-freerdp3")
             .unwrap();
         let x11_pos = WAYLAND_FIRST_CANDIDATES
             .iter()
             .position(|c| *c == "xfreerdp3")
             .unwrap();
-        assert!(wl_pos < x11_pos);
+        assert!(wl_pos < sdl_pos);
+        assert!(sdl_pos < x11_pos);
     }
 
     #[test]
@@ -111,11 +123,16 @@ mod tests {
             .iter()
             .position(|c| *c == "xfreerdp3")
             .unwrap();
+        let sdl_pos = X11_FIRST_CANDIDATES
+            .iter()
+            .position(|c| *c == "sdl-freerdp3")
+            .unwrap();
         let wl_pos = X11_FIRST_CANDIDATES
             .iter()
             .position(|c| *c == "wlfreerdp3")
             .unwrap();
-        assert!(x11_pos < wl_pos);
+        assert!(x11_pos < sdl_pos);
+        assert!(sdl_pos < wl_pos);
     }
 
     #[test]

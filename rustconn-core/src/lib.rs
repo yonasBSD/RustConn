@@ -54,6 +54,7 @@ pub mod snippet;
 pub mod spice_client;
 pub mod split;
 pub mod ssh_agent;
+pub mod sync;
 pub mod template;
 pub mod terminal_themes;
 pub mod testing;
@@ -127,8 +128,8 @@ pub use flatpak::{get_flatpak_known_hosts_path, get_flatpak_ssh_dir, is_flatpak}
 pub use import::{
     AnsibleInventoryImporter, AsbruImporter, BATCH_IMPORT_THRESHOLD, BatchCancelHandle,
     BatchImportResult, BatchImporter, DEFAULT_IMPORT_BATCH_SIZE, ImportResult, ImportSource,
-    LibvirtXmlImporter, RemminaImporter, RoyalTsImporter, SkippedEntry, SshConfigImporter,
-    VirtViewerImporter,
+    LibvirtXmlImporter, RdpFileImporter, RemminaImporter, RoyalTsImporter, SkippedEntry,
+    SshConfigImporter, VirtViewerImporter,
 };
 pub use models::{
     Connection, ConnectionGroup, ConnectionHistoryEntry, ConnectionStatistics, ConnectionTemplate,
@@ -235,6 +236,10 @@ pub use spice_client::{
     SpiceClientCommand, SpiceClientConfig, SpiceClientError, SpiceClientEvent, SpiceCompression,
     SpiceRect, SpiceSecurityProtocol, SpiceSharedFolder, SpiceViewerLaunchResult,
     build_spice_viewer_args, detect_spice_viewer, is_embedded_spice_available, launch_spice_viewer,
+};
+pub use sync::{
+    Inventory, InventoryEntry, SYNC_TAG_PREFIX, SyncResult, default_port_for_protocol,
+    load_inventory, parse_inventory_json, parse_inventory_yaml, sync_inventory, sync_tag,
 };
 pub use template::TemplateManager;
 // Split view types (tab-scoped layouts)

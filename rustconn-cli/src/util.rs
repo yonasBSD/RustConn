@@ -37,6 +37,29 @@ pub fn create_template_manager(
         .map_err(|e| CliError::Template(format!("Failed to initialize template manager: {e}")))
 }
 
+/// Parse a baud rate integer into the corresponding `SerialBaudRate` enum.
+///
+/// Returns an error for unsupported values instead of silently falling back.
+pub fn parse_baud_rate(
+    baud: u32,
+) -> Result<rustconn_core::models::SerialBaudRate, crate::error::CliError> {
+    use rustconn_core::models::SerialBaudRate;
+    match baud {
+        9600 => Ok(SerialBaudRate::B9600),
+        19_200 => Ok(SerialBaudRate::B19200),
+        38_400 => Ok(SerialBaudRate::B38400),
+        57_600 => Ok(SerialBaudRate::B57600),
+        115_200 => Ok(SerialBaudRate::B115200),
+        230_400 => Ok(SerialBaudRate::B230400),
+        460_800 => Ok(SerialBaudRate::B460800),
+        921_600 => Ok(SerialBaudRate::B921600),
+        _ => Err(crate::error::CliError::Config(format!(
+            "Unsupported baud rate: {baud}. \
+             Supported: 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600"
+        ))),
+    }
+}
+
 /// Parse a key=value pair for variable substitution
 pub fn parse_key_val(s: &str) -> Result<(String, String), String> {
     let pos = s

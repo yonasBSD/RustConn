@@ -6,6 +6,7 @@
 
 use super::types::RdpConfig;
 use super::types::RdpConnectionState;
+use crate::i18n::i18n;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -143,42 +144,45 @@ pub fn draw_status_overlay(
     let (status_text, status_color) = match current_state {
         RdpConnectionState::Disconnected => {
             if config_ref.is_some() {
-                ("Session ended", (0.8, 0.4, 0.4))
+                (i18n("Session ended"), (0.8, 0.4, 0.4))
             } else {
-                ("No connection configured", (0.5, 0.5, 0.5))
+                (i18n("No connection configured"), (0.5, 0.5, 0.5))
             }
         }
         RdpConnectionState::Connecting => {
             if embedded {
-                ("Connecting via IronRDP...", (0.8, 0.8, 0.6))
+                (i18n("Connecting via IronRDP..."), (0.8, 0.8, 0.6))
             } else {
-                ("Starting FreeRDP...", (0.8, 0.8, 0.6))
+                (i18n("Starting FreeRDP..."), (0.8, 0.8, 0.6))
             }
         }
         RdpConnectionState::Connected => {
             if embedded {
-                ("✓ Connected - waiting for display", (0.6, 0.8, 0.6))
+                (i18n("Connected"), (0.6, 0.8, 0.6))
             } else {
-                ("✓ RDP session running in FreeRDP window", (0.6, 0.8, 0.6))
+                (
+                    i18n("RDP session running in FreeRDP window"),
+                    (0.6, 0.8, 0.6),
+                )
             }
         }
-        RdpConnectionState::Error => ("Connection failed", (0.8, 0.4, 0.4)),
+        RdpConnectionState::Error => (i18n("Connection failed"), (0.8, 0.4, 0.4)),
     };
 
     cr.set_source_rgb(status_color.0, status_color.1, status_color.2);
-    if let Ok(extents) = cr.text_extents(status_text) {
+    if let Ok(extents) = cr.text_extents(&status_text) {
         cr.move_to((f64::from(width) - extents.width()) / 2.0, center_y + 100.0);
-        let _ = cr.show_text(status_text);
+        let _ = cr.show_text(&status_text);
     }
 
     // Hint for external mode
     if current_state == RdpConnectionState::Connected && !embedded {
         cr.set_source_rgb(0.6, 0.6, 0.6);
         cr.set_font_size(11.0);
-        let hint = "Switch to the FreeRDP window to interact with the session";
-        if let Ok(extents) = cr.text_extents(hint) {
+        let hint = i18n("Switch to the FreeRDP window to interact with the session");
+        if let Ok(extents) = cr.text_extents(&hint) {
             cr.move_to((f64::from(width) - extents.width()) / 2.0, center_y + 125.0);
-            let _ = cr.show_text(hint);
+            let _ = cr.show_text(&hint);
         }
     }
 }

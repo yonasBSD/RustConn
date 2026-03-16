@@ -175,7 +175,10 @@ pub fn create_serial_options() -> SerialOptionsWidgets {
     let parity_model = StringList::new(
         &SerialParity::all()
             .iter()
-            .map(|p| p.display_name())
+            .map(|p| i18n(p.display_name()))
+            .collect::<Vec<_>>()
+            .iter()
+            .map(String::as_str)
             .collect::<Vec<_>>(),
     );
     let parity_dropdown = DropDown::builder()
@@ -194,7 +197,10 @@ pub fn create_serial_options() -> SerialOptionsWidgets {
     let flow_model = StringList::new(
         &SerialFlowControl::all()
             .iter()
-            .map(|f| f.display_name())
+            .map(|f| i18n(f.display_name()))
+            .collect::<Vec<_>>()
+            .iter()
+            .map(String::as_str)
             .collect::<Vec<_>>(),
     );
     let flow_dropdown = DropDown::builder()

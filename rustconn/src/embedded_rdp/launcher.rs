@@ -100,7 +100,8 @@ impl SafeFreeRdpLauncher {
     pub fn launch(&self, config: &RdpConfig) -> Result<Child, EmbeddedRdpError> {
         let binary = Self::detect_freerdp().ok_or_else(|| {
             EmbeddedRdpError::FreeRdpInit(
-                "No FreeRDP client found. Install xfreerdp or wlfreerdp.".to_string(),
+                "No FreeRDP client found. Install sdl-freerdp3, xfreerdp, or wlfreerdp."
+                    .to_string(),
             )
         })?;
 
@@ -189,6 +190,18 @@ impl SafeFreeRdpLauncher {
 
         for arg in &config.extra_args {
             cmd.arg(arg);
+        }
+
+        // Add gateway configuration for RD Gateway connections
+        if let Some(ref gw_host) = config.gateway_hostname
+            && !gw_host.is_empty()
+        {
+            cmd.arg(format!("/g:{gw_host}:{}", config.gateway_port));
+            if let Some(ref gw_user) = config.gateway_username
+                && !gw_user.is_empty()
+            {
+                cmd.arg(format!("/gu:{gw_user}"));
+            }
         }
 
         if config.port == 3389 {

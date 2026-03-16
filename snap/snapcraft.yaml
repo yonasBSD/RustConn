@@ -1,6 +1,6 @@
 name: rustconn
 base: core24
-version: '0.9.15'
+version: '0.10.0'
 summary: Manage remote connections easily
 description: |
   RustConn is a modern connection manager for Linux with a GTK4/Wayland-native
@@ -12,7 +12,8 @@ description: |
   - RDP via IronRDP (embedded)
   - VNC via vnc-rs (embedded)
   - SPICE via external remote-viewer (install on host)
-  - Telnet via external telnet client
+  - Telnet via bundled inetutils telnet client
+  - Waypipe for Wayland application forwarding over SSH
 
   Zero Trust (install CLIs on host):
   - AWS SSM, GCP IAP, Azure Bastion, OCI Bastion
@@ -93,9 +94,10 @@ plugs:
     interface: serial-port
 
   # Cloud provider credentials
+  # .aws needs read-write: AWS CLI v2 SSO writes session tokens to ~/.aws/sso/cache/
   aws-credentials:
     interface: personal-files
-    read:
+    write:
       - $HOME/.aws
   gcloud-credentials:
     interface: personal-files
@@ -109,6 +111,11 @@ plugs:
     interface: personal-files
     read:
       - $HOME/.oci
+  # Kubernetes config
+  kube-credentials:
+    interface: personal-files
+    read:
+      - $HOME/.kube
 
   # Host CLI access for Zero Trust and password managers
   host-usr-bin:
@@ -129,6 +136,8 @@ plugs:
       - /usr/bin/remote-viewer
       - /usr/bin/xfreerdp
       - /usr/bin/vncviewer
+      - /usr/bin/kubectl
+      - /usr/local/bin/kubectl
 
 apps:
   rustconn:
@@ -156,6 +165,7 @@ apps:
       - gcloud-credentials
       - azure-credentials
       - oci-credentials
+      - kube-credentials
       - host-usr-bin
     environment:
       GTK_USE_PORTAL: "1"
@@ -178,13 +188,14 @@ apps:
       - gcloud-credentials
       - azure-credentials
       - oci-credentials
+      - kube-credentials
       - host-usr-bin
 
 parts:
   rustconn:
     plugin: rust
     source: .
-    rust-channel: "1.88"
+    rust-channel: "1.92"
     rust-path: [rustconn, rustconn-cli]
     rust-use-global-lto: true
     build-packages:
@@ -196,6 +207,7 @@ parts:
       - pkg-config
       - clang
       - cmake
+      - gettext
     stage-packages:
       - libgtk-4-1
       - libadwaita-1-0
@@ -219,6 +231,8 @@ parts:
       - fonts-dejavu-core
       - mc
       - picocom
+      - inetutils-telnet
+      - waypipe
     organize:
       bin/rustconn: usr/bin/rustconn
       bin/rustconn-cli: usr/bin/rustconn-cli
@@ -230,6 +244,13 @@ parts:
       cp rustconn/assets/io.github.totoshko88.RustConn.desktop $CRAFT_PART_INSTALL/usr/share/applications/
       cp rustconn/assets/io.github.totoshko88.RustConn.metainfo.xml $CRAFT_PART_INSTALL/usr/share/metainfo/
       cp -r rustconn/assets/icons/hicolor $CRAFT_PART_INSTALL/usr/share/icons/
+      # Compile locale files (.po -> .mo)
+      for po_file in po/*.po; do
+        [ -f "$po_file" ] || continue
+        lang=$(basename "$po_file" .po)
+        mkdir -p "$CRAFT_PART_INSTALL/usr/share/locale/$lang/LC_MESSAGES"
+        msgfmt -o "$CRAFT_PART_INSTALL/usr/share/locale/$lang/LC_MESSAGES/rustconn.mo" "$po_file"
+      done
     override-prime: |
       craftctl default
       # Update gdk-pixbuf loaders cache

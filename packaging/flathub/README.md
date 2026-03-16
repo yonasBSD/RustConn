@@ -47,7 +47,7 @@ python3 flatpak-cargo-generator.py Cargo.lock -o cargo-sources.json
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
 # Install SDK
-flatpak install flathub org.gnome.Sdk//49 org.gnome.Platform//49
+flatpak install flathub org.gnome.Sdk//50 org.gnome.Platform//50
 flatpak install flathub org.freedesktop.Sdk.Extension.rust-stable//24.08
 
 # Build

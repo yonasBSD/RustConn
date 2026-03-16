@@ -412,13 +412,13 @@ impl EmbeddedSpiceWidget {
                 cr.set_font_size(13.0);
 
                 let status_text = match current_state {
-                    SpiceConnectionState::Disconnected => "Session ended",
-                    SpiceConnectionState::Connecting => "Connecting...",
+                    SpiceConnectionState::Disconnected => i18n("Session ended"),
+                    SpiceConnectionState::Connecting => i18n("Connecting..."),
                     SpiceConnectionState::Connected if !embedded => {
-                        "Session running in external window"
+                        i18n("Session running in external window")
                     }
-                    SpiceConnectionState::Connected => "Connected",
-                    SpiceConnectionState::Error => "Connection error",
+                    SpiceConnectionState::Connected => i18n("Connected"),
+                    SpiceConnectionState::Error => i18n("Connection error"),
                 };
 
                 let color = match current_state {
@@ -429,11 +429,11 @@ impl EmbeddedSpiceWidget {
                 };
                 cr.set_source_rgb(color.0, color.1, color.2);
 
-                if let Ok(extents) = cr.text_extents(status_text) {
+                if let Ok(extents) = cr.text_extents(&status_text) {
                     let x = (f64::from(w) - extents.width()) / 2.0;
                     let y = f64::midpoint(f64::from(h), extents.height());
                     cr.move_to(x, y);
-                    let _ = cr.show_text(status_text);
+                    let _ = cr.show_text(&status_text);
                 }
             }
         });
@@ -663,7 +663,7 @@ impl EmbeddedSpiceWidget {
                             if let Ok(Some(text)) = result {
                                 let _ = sender_clone
                                     .send(SpiceClientCommand::ClipboardText(text.to_string()));
-                                status_clone.set_text("Pasted to remote");
+                                status_clone.set_text(&i18n("Pasted to remote"));
                                 status_clone.set_visible(true);
                                 glib::timeout_add_seconds_local_once(2, move || {
                                     status_clone.set_visible(false);
@@ -676,7 +676,7 @@ impl EmbeddedSpiceWidget {
 
             // Copy button - request clipboard from remote (handled via events)
             copy_btn.connect_clicked(move |_| {
-                status_label.set_text("Copy requested");
+                status_label.set_text(&i18n("Copy requested"));
                 status_label.set_visible(true);
                 let status_clone = status_label.clone();
                 glib::timeout_add_seconds_local_once(2, move || {

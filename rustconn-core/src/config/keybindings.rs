@@ -219,7 +219,7 @@ pub fn default_keybindings() -> Vec<KeybindingDef> {
             "Find in Terminal",
             Terminal,
         ),
-        KeybindingDef::new("win.close-tab", "<Control>w", "Close Tab", Terminal),
+        KeybindingDef::new("win.close-tab", "<Control><Shift>w", "Close Tab", Terminal),
         KeybindingDef::new(
             "win.next-tab",
             "<Control>Tab|<Control>Page_Down",
@@ -247,7 +247,7 @@ pub fn default_keybindings() -> Vec<KeybindingDef> {
         ),
         KeybindingDef::new(
             "win.close-pane",
-            "<Control><Shift>w",
+            "<Control><Shift>x",
             "Close Pane",
             SplitView,
         ),
@@ -259,6 +259,37 @@ pub fn default_keybindings() -> Vec<KeybindingDef> {
         ),
         // View
         KeybindingDef::new("win.toggle-fullscreen", "F11", "Toggle Fullscreen", View),
+        KeybindingDef::new(
+            "win.toggle-sidebar",
+            "F9",
+            "Toggle Sidebar",
+            View,
+        ),
+        // Application (additional)
+        KeybindingDef::new(
+            "win.show-history",
+            "<Control>h",
+            "Connection History",
+            Application,
+        ),
+        KeybindingDef::new(
+            "win.show-statistics",
+            "<Control><Shift>i",
+            "Statistics",
+            Application,
+        ),
+        KeybindingDef::new(
+            "win.password-generator",
+            "<Control>g",
+            "Password Generator",
+            Application,
+        ),
+        KeybindingDef::new(
+            "win.wake-on-lan",
+            "<Control><Shift>l",
+            "Wake On LAN",
+            Application,
+        ),
     ]
 }
 

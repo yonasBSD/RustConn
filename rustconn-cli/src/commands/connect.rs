@@ -17,8 +17,8 @@ pub fn cmd_connect(config_path: Option<&Path>, name: &str, dry_run: bool) -> Res
         .map_err(|e| CliError::Config(format!("Failed to load connections: {e}")))?;
 
     if connections.is_empty() {
-        return Err(CliError::ConnectionNotFound(
-            "No connections configured".to_string(),
+        return Err(CliError::Config(
+            "No connections configured. Use 'rustconn-cli add' to create one.".to_string(),
         ));
     }
 

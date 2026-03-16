@@ -201,11 +201,17 @@ pub fn create_embedded_toolbar() -> (
     // Copy button
     let copy_button = gtk4::Button::with_label(&i18n("Copy"));
     copy_button.set_tooltip_text(Some(&i18n("Copy from remote session to local clipboard")));
+    copy_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Copy from remote session",
+    ))]);
     toolbar.append(&copy_button);
 
     // Paste button
     let paste_button = gtk4::Button::with_label(&i18n("Paste"));
     paste_button.set_tooltip_text(Some(&i18n("Paste from local clipboard to remote session")));
+    paste_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Paste to remote session",
+    ))]);
     toolbar.append(&paste_button);
 
     // Separator
@@ -218,12 +224,18 @@ pub fn create_embedded_toolbar() -> (
     let ctrl_alt_del_button = gtk4::Button::with_label("Ctrl+Alt+Del");
     ctrl_alt_del_button.add_css_class("suggested-action");
     ctrl_alt_del_button.set_tooltip_text(Some(&i18n("Send Ctrl+Alt+Del to remote session")));
+    ctrl_alt_del_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Send Ctrl+Alt+Del to remote session",
+    ))]);
     toolbar.append(&ctrl_alt_del_button);
 
     // Reconnect button (hidden by default)
     let reconnect_button = gtk4::Button::with_label(&i18n("Reconnect"));
     reconnect_button.add_css_class("suggested-action");
     reconnect_button.set_tooltip_text(Some(&i18n("Reconnect to the remote session")));
+    reconnect_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Reconnect to the remote session",
+    ))]);
     reconnect_button.set_visible(false);
     toolbar.append(&reconnect_button);
 
@@ -298,11 +310,13 @@ pub fn draw_status_overlay(
     // Status message
     cr.set_font_size(13.0);
     let status_text = match state {
-        EmbeddedConnectionState::Disconnected => "Disconnected",
-        EmbeddedConnectionState::Connecting => "Connecting...",
-        EmbeddedConnectionState::Connected if !is_embedded => "Session running in external window",
-        EmbeddedConnectionState::Connected => "Connected",
-        EmbeddedConnectionState::Error => "Connection error",
+        EmbeddedConnectionState::Disconnected => i18n("Disconnected"),
+        EmbeddedConnectionState::Connecting => i18n("Connecting..."),
+        EmbeddedConnectionState::Connected if !is_embedded => {
+            i18n("Session running in external window")
+        }
+        EmbeddedConnectionState::Connected => i18n("Connected"),
+        EmbeddedConnectionState::Error => i18n("Connection error"),
     };
 
     let color = match state {
@@ -313,9 +327,9 @@ pub fn draw_status_overlay(
     };
     cr.set_source_rgb(color.0, color.1, color.2);
 
-    if let Ok(extents) = cr.text_extents(status_text) {
+    if let Ok(extents) = cr.text_extents(&status_text) {
         cr.move_to((f64::from(width) - extents.width()) / 2.0, center_y + 100.0);
-        let _ = cr.show_text(status_text);
+        let _ = cr.show_text(&status_text);
     }
 }
 

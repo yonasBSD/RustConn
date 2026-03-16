@@ -319,7 +319,7 @@ impl FreeRdpThread {
             match cmd_rx.recv() {
                 Ok(RdpCommand::Connect(config)) => {
                     lock_or_recover(&shared).state = FreeRdpThreadState::Connecting;
-                    current_config = Some(config.clone());
+                    current_config = Some(*config.clone());
 
                     match Self::launch_freerdp(&config, &shared) {
                         Ok(()) => {

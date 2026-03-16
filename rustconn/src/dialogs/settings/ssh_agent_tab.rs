@@ -5,7 +5,7 @@
 use adw::prelude::*;
 use gtk4::glib;
 use gtk4::prelude::*;
-use gtk4::{Box as GtkBox, Button, Label, ListBox, Orientation, Spinner};
+use gtk4::{Box as GtkBox, Button, Label, ListBox, Orientation};
 use libadwaita as adw;
 use rustconn_core::ssh_agent::SshAgentManager;
 use std::cell::RefCell;
@@ -23,7 +23,7 @@ pub fn create_ssh_agent_page() -> (
     Button,
     ListBox,
     Button,
-    Spinner,
+    gtk4::Widget,
     Label,
     Button,
     ListBox, // available_keys_list
@@ -97,7 +97,10 @@ pub fn create_ssh_agent_page() -> (
         .build();
     keys_group.add(&ssh_agent_keys_list);
 
-    let ssh_agent_loading_spinner = Spinner::new();
+    #[cfg(feature = "adw-1-6")]
+    let ssh_agent_loading_spinner = adw::Spinner::new();
+    #[cfg(not(feature = "adw-1-6"))]
+    let ssh_agent_loading_spinner = gtk4::Spinner::new();
     let ssh_agent_error_label = Label::builder()
         .label("")
         .halign(gtk4::Align::Start)
@@ -141,7 +144,7 @@ pub fn create_ssh_agent_page() -> (
         ssh_agent_start_button,
         ssh_agent_keys_list,
         ssh_agent_add_key_button,
-        ssh_agent_loading_spinner,
+        ssh_agent_loading_spinner.upcast(),
         ssh_agent_error_label,
         ssh_agent_refresh_button,
         available_keys_list,
@@ -169,7 +172,10 @@ pub fn load_ssh_agent_settings(
     let loading_row = adw::ActionRow::builder()
         .title(i18n("Loading keys..."))
         .build();
-    let spinner = Spinner::builder().spinning(true).build();
+    #[cfg(feature = "adw-1-6")]
+    let spinner = adw::Spinner::new();
+    #[cfg(not(feature = "adw-1-6"))]
+    let spinner = gtk4::Spinner::builder().spinning(true).build();
     loading_row.add_prefix(&spinner);
     ssh_agent_keys_list.append(&loading_row);
 
@@ -282,7 +288,10 @@ pub fn populate_available_keys_list(
     let loading_row = adw::ActionRow::builder()
         .title(i18n("Scanning ~/.ssh/..."))
         .build();
-    let spinner = Spinner::builder().spinning(true).build();
+    #[cfg(feature = "adw-1-6")]
+    let spinner = adw::Spinner::new();
+    #[cfg(not(feature = "adw-1-6"))]
+    let spinner = gtk4::Spinner::builder().spinning(true).build();
     loading_row.add_prefix(&spinner);
     available_keys_list.append(&loading_row);
 

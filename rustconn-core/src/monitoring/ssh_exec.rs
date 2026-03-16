@@ -72,6 +72,49 @@ fn create_askpass_script() -> Result<std::path::PathBuf, String> {
     Ok(path)
 }
 
+/// Builds jump host arguments for the SSH monitoring command.
+///
+/// In Flatpak, `-J` (ProxyJump) spawns a nested SSH process that does NOT
+/// inherit `-o` flags from the outer command. The jump host SSH tries to
+/// write to `~/.ssh/known_hosts` (read-only in Flatpak) and prompts for
+/// host key verification. This function replaces `-J` with a `ProxyCommand`
+/// that passes `StrictHostKeyChecking` and `UserKnownHostsFile` to the
+/// jump host SSH process.
+///
+/// Outside Flatpak, standard `-J` is used.
+fn build_jump_host_args(cmd: &mut Command, jump_host: &str, identity_file: Option<&str>) {
+    let flatpak_kh = crate::flatpak::get_flatpak_known_hosts_path();
+    if flatpak_kh.is_some() {
+        let mut proxy_parts = vec![
+            "ssh".to_string(),
+            "-W".to_string(),
+            "%h:%p".to_string(),
+            "-o".to_string(),
+            "StrictHostKeyChecking=accept-new".to_string(),
+        ];
+        if let Some(ref kh_path) = flatpak_kh {
+            proxy_parts.push("-o".to_string());
+            proxy_parts.push(format!("UserKnownHostsFile={}", kh_path.display()));
+        }
+        if let Some(key) = identity_file {
+            proxy_parts.push("-i".to_string());
+            proxy_parts.push(key.to_string());
+            proxy_parts.push("-o".to_string());
+            proxy_parts.push("IdentitiesOnly=yes".to_string());
+        }
+        proxy_parts.push(jump_host.to_string());
+        let proxy_cmd = proxy_parts.join(" ");
+        tracing::debug!(
+            protocol = "ssh",
+            proxy_command = %proxy_cmd,
+            "Monitoring: using ProxyCommand instead of -J for Flatpak compatibility"
+        );
+        cmd.arg("-o").arg(format!("ProxyCommand={proxy_cmd}"));
+    } else {
+        cmd.arg("-J").arg(jump_host);
+    }
+}
+
 /// Builds an SSH exec closure for use with [`super::start_collector`].
 ///
 /// The returned closure spawns `ssh` with the given host/port/user and
@@ -164,7 +207,7 @@ pub fn ssh_exec_factory(
 
             // Jump host chain for tunneled connections
             if let Some(ref jh) = jump_host {
-                cmd.arg("-J").arg(jh);
+                build_jump_host_args(&mut cmd, jh, identity_file.as_deref());
             }
 
             if port != 22 {

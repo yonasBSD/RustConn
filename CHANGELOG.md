@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-03-16
+
+> **Note:** Flatpak release will follow after March 18, 2026, when GNOME 50 runtime is published on Flathub.
+
+### Added
+- **RDP file import in GUI** — `.rdp` files can now be imported via the Import dialog (Ctrl+I); previously only available through file association and CLI
+- **CLI import: 4 new formats** — `rustconn-cli import` now supports `--format rdp`, `rdm`, `virt-viewer`, and `libvirt` in addition to the existing 7 formats
+- **Split view for Telnet, Serial, Kubernetes** — split view now works with all VTE terminal-based protocols, not just SSH/SFTP/Local Shell
+- **Statistics: Most Used & Protocol Distribution** — statistics dialog now shows top-3 most used connections and protocol usage breakdown with progress bars
+- **5 new customizable keybindings** — Toggle Sidebar (F9), Connection History (Ctrl+H), Statistics (Ctrl+Shift+I), Password Generator (Ctrl+G), Wake On LAN (Ctrl+Shift+L); total now 31 actions
+- **Sidebar keyboard shortcuts** — F2 renames selected connection/group, Ctrl+C/Ctrl+V copies/pastes connections, Ctrl+M moves to group; all scoped to sidebar focus so they don't intercept VTE terminal or embedded viewer input
+- **Dynamic inventory sync** — new `rustconn-cli sync` command synchronizes connections from external JSON/YAML inventory files; matches by source tag + name + host; supports `--remove-stale` to clean absent connections and `--dry-run` for preview ([#56](https://github.com/totoshko88/RustConn/issues/56))
+- **RDP file association** — double-clicking an `.rdp` file opens RustConn and connects automatically; supports address, credentials, gateway, resolution, audio, and clipboard fields ([#54](https://github.com/totoshko88/RustConn/issues/54))
+- **FreeRDP bundled in Flatpak** — FreeRDP 3.24.0 SDL3 client built into the Flatpak; external RDP works out of the box on Wayland without `DISPLAY`
+- **`sdl-freerdp3` detection** — FreeRDP detection now includes SDL3 variants (`sdl-freerdp3`, `sdl-freerdp`); Wayland priority: `wlfreerdp3` > `wlfreerdp` > `sdl-freerdp3` > `sdl-freerdp` > `xfreerdp3`
+
+### Improved
+- **i18n: hardcoded English strings wrapped** — ~40 user-visible strings across sidebar, embedded viewers (RDP, VNC, SPICE), session status overlays, and toolbar buttons now use `i18n()` for translation
+- **i18n: accessible labels translatable** — ~25 `update_property` accessible labels in sidebar, window UI, embedded toolbar, and viewer controls wrapped with `i18n()`
+- **i18n: protocol display names** — wrapped `display_name()` call sites with `i18n()` and added translations for 15 strings across all 15 languages
+- **User-friendly VNC error messages** — raw error variants in VNC session toasts replaced with actionable messages ("Authentication failed. Check your credentials.", "Connection error")
+- **VTE context menu moved off terminal widget** — `GestureClick` controller for the right-click context menu moved from the VTE terminal to its container widget; prevents interference with VTE's internal mouse event processing in ncurses/slang applications
+- **VTE terminal no longer wrapped in ScrolledWindow** — redundant `ScrolledWindow` wrappers removed since VTE implements `GtkScrollable` natively
+- **Monitoring module property tests** — 12 new tests covering `MonitoringSettings`, `MonitoringConfig`, `MetricsParser`, and `MetricsComputer`
+- **Stale X11 comment removed** — `embedded.rs` comment referencing `GtkSocket` / X11 embedding updated to reflect native protocol clients
+
+### Fixed
+- **Secret backend default mismatch** — `SecretBackendType` default changed from `KeePassXc` to `LibSecret` to match User Guide and provide a universal out-of-the-box experience on all Linux desktops
+
+#### Flatpak sandbox
+- **waypipe not detected** — C-only build installs as `waypipe-c`, not `waypipe`; added `post-install` symlink in Flatpak manifest; `detect_waypipe()` now also tries `waypipe-c` as fallback; `which_binary()` checks `/app/bin/` directly in sandbox
+- **SFTP file manager ignores SSH key** — external file managers (Dolphin, Nautilus) launched via `xdg-open` run outside the sandbox and cannot access the sandbox's SSH agent; `sftp_use_mc` now defaults to `true` in Flatpak so Midnight Commander (bundled) is used instead
+- **ssh-agent socket in read-only `~/.ssh`** — `ensure_ssh_agent()` now uses `-a $XDG_RUNTIME_DIR/rustconn-ssh-agent.sock` inside Flatpak so the agent socket is created in a writable directory
+- **KeePassXC not detected** — `keepassxc-cli` on the host system is now detected and executed via `flatpak-spawn --host`; all KDBX operations work transparently inside the sandbox; "Open Password Manager" button launches KeePassXC on the host
+- **SSH jump host broken** — replaced `-J` with `-o ProxyCommand=ssh -W %h:%p ...` that passes `StrictHostKeyChecking`, `UserKnownHostsFile`, and identity file to the jump host process
+- **mc wrapper not found** — stripped host-exported `mc()` bash function via `--unset-env=BASH_FUNC_mc%%`; installed sandbox wrapper for correct directory-change-on-exit
+- **ZeroTrust and Kubernetes connections broken** — CLI tools (`aws`, `gcloud`, `az`, `kubectl`) now detected and executed via `flatpak-spawn --host`; cloud CLI config dirs mounted into sandbox so credentials are shared between sandbox and host
+- **mc mouse clicks produce artifacts** — the `xterm-256color` terminfo entry's `XM` extended capability tells ncurses/slang to negotiate SGR mouse mode (1006) with VTE 0.80; mc cannot parse SGR-encoded mouse events, causing raw escape fragments like `7;6M7;6m` on every click; fix: compiled a custom `rustconn-256color` terminfo entry (identical to `xterm-256color` but without `XM`); VTE child processes in Flatpak use `TERM=rustconn-256color` to prevent the negotiation; additionally switched mc build from ncurses to slang and mc SFTP uses `-g` (`--oldmouse`) flag as defense-in-depth
+
+#### Terminal / mc
+- **mc SFTP: initial window not fullscreen** — mc read terminal dimensions before VTE widget received its GTK size allocation; added 150ms delay before spawning mc
+- **Split view: text selection broken** — `GestureClick` handler no longer claims clicks on `VteTerminal` widgets
+
+#### RDP
+- **Crash on RDP connect (RefCell already borrowed)** — the IronRDP event polling loop held an immutable `client_ref.borrow()` while `handle_ironrdp_error` attempted `client_ref.borrow_mut().take()`, causing a double-borrow panic; error handling is now deferred until after the borrow is dropped ([#57](https://github.com/totoshko88/RustConn/issues/57))
+- **RDP gateway ignored in embedded mode** — IronRDP doesn't support RD Gateway; now falls back to external xfreerdp with a toast ([#53](https://github.com/totoshko88/RustConn/issues/53))
+- **External RDP sidebar icon stays green after tab close** — fixed session ID / connection ID mismatch in `add_embedded_session_tab`; external xfreerdp process is now killed on tab close
+
+#### SSH
+- **Custom options format unclear** — subtitle now reads "Key=Value, comma-separated" with an example placeholder so users don't have to guess the format ([#58](https://github.com/totoshko88/RustConn/issues/58))
+- **`UserKnownHostsFile` defaults to Flatpak path on native build** — `is_flatpak()` now requires `FLATPAK_ID` to match our app ID, preventing false positives when the env var leaks from another Flatpak process ([#59](https://github.com/totoshko88/RustConn/issues/59))
+
+#### Terminal
+- **Ctrl+W closes tab instead of deleting word** — changed close-tab shortcut from Ctrl+W to Ctrl+Shift+W (GNOME standard); Ctrl+W now passes through to the shell for backward-kill-word; close-pane moved to Ctrl+Shift+X ([#60](https://github.com/totoshko88/RustConn/issues/60))
+
+#### UI / Clippy
+- **Default window size too small on first start** — minimum size increased to 800×500; welcome screen adapts to narrow windows ([#55](https://github.com/totoshko88/RustConn/issues/55))
+- **CSS parser warning: `@media (prefers-reduced-motion)`** — GTK4 CSS parser requires explicit value; changed to `@media (prefers-reduced-motion: reduce)`
+- **Clippy: `RdpCommand::Connect` large enum variant** — boxed `RdpConfig` payload to reduce enum size from 240 to 16 bytes
+- **Clippy: case-sensitive `.rdp` extension check** — now uses `Path::extension()` with `eq_ignore_ascii_case`
+- **Clippy: collapsible `if` and `if-not-else`** — cleaned up nested conditionals in protocols, window, and main modules
+
+### Changed
+- **GTK4/libadwaita/VTE crate upgrade** — gtk4 0.10→0.11, libadwaita 0.8→0.9, vte4 0.9→0.10; unlocks GNOME 48–50 APIs
+- **MSRV bumped to 1.92** — required by updated GTK-rs bindings
+- **Flatpak runtime bumped to GNOME 50** — all three manifests now use `org.gnome.Platform` 50 with VTE 0.80
+- **AdwSpinner migration** — replaces `gtk::Spinner` in export dialog; cfg-gated `adw-1-6`
+- **AdwShortcutsDialog migration** — replaces deprecated `gtk::ShortcutsWindow`; cfg-gated `adw-1-8`
+- **AdwSwitchRow migration** — replaces manual `ActionRow` + `Switch` in monitoring, logging, and secrets settings tabs
+- **AdwWrapBox for protocol filters** — sidebar filters wrap on narrow sidebars; cfg-gated `adw-1-7` with `GtkBox` fallback
+- **Welcome screen refreshed** — updated feature highlights, replaced performance internals with Quick Access tips, added Command Palette / Import / Settings shortcuts
+- **CSS `prefers-reduced-motion`** — transitions disabled when reduced motion is requested
+- **Tiered distro feature flags** — `adw-1-8` for Tumbleweed/Fedora 43+, `adw-1-6` for Leap 16.0/Fedora 42, baseline for older distros
+- **Codebase cleanup** — removed 25+ unused CSS classes, consolidated `futures-util` into `futures`, fixed metainfo.xml duplicates, added k8s keywords, removed dead code
+
+### Dependencies
+- clap 4.5.60→4.6.0, gtk4 0.11.0→0.11.1, gdk4 0.11.0→0.11.1, gsk4 0.11.0→0.11.1, glib 0.22.2→0.22.3, openssl 0.10.75→0.10.76, tracing-subscriber 0.3.22→0.3.23
+- Transitive: anstream 0.6.21→1.0.0, anstyle 1.0.13→1.0.14, anstyle-parse 0.2.7→1.0.0, cc 1.2.56→1.2.57, clap_complete 4.5.66→4.6.0, clap_mangen 0.2.31→0.2.33, colorchoice 1.0.4→1.0.5, glib-sys 0.22.0→0.22.3, once_cell 1.21.3→1.21.4, roff 0.2.2→1.1.0, tinyvec 1.10.0→1.11.0, uds_windows 1.2.0→1.2.1
+
 ## [0.9.15] - 2026-03-11
 
 ### Added

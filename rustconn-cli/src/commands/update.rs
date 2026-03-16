@@ -80,16 +80,7 @@ pub fn cmd_update(config_path: Option<&Path>, params: UpdateParams<'_>) -> Resul
                 cfg.device = dev.to_string();
             }
             if let Some(baud) = params.baud_rate {
-                cfg.baud_rate = match baud {
-                    9600 => rustconn_core::models::SerialBaudRate::B9600,
-                    19_200 => rustconn_core::models::SerialBaudRate::B19200,
-                    38_400 => rustconn_core::models::SerialBaudRate::B38400,
-                    57_600 => rustconn_core::models::SerialBaudRate::B57600,
-                    230_400 => rustconn_core::models::SerialBaudRate::B230400,
-                    460_800 => rustconn_core::models::SerialBaudRate::B460800,
-                    921_600 => rustconn_core::models::SerialBaudRate::B921600,
-                    _ => rustconn_core::models::SerialBaudRate::B115200,
-                };
+                cfg.baud_rate = crate::util::parse_baud_rate(baud)?;
             }
         } else {
             if params.device.is_some() {

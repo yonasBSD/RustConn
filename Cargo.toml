@@ -7,17 +7,16 @@ members = [
 ]
 
 [workspace.package]
-version = "0.9.15"
+version = "0.10.0"
 edition = "2024"
 authors = ["Anton Isaiev <totoshko88@gmail.com>"]
 license = "GPL-3.0-or-later"
-rust-version = "1.88"
+rust-version = "1.92"
 
 [workspace.dependencies]
 # Async runtime
 tokio = { version = "1.50", features = ["full"] }
 futures = "0.3"
-futures-util = "0.3"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -27,9 +26,9 @@ serde_yaml = { version = "0.10", package = "serde_yaml_ng" }
 toml = "1.0"
 
 # GTK4 and VTE
-gtk4 = "0.10"
-vte4 = "0.9"
-libadwaita = { version = "0.8", features = ["v1_5"] }
+gtk4 = "0.11"
+vte4 = "0.10"
+libadwaita = { version = "0.9", features = ["v1_5"] }
 
 # Utilities
 uuid = { version = "1.22", features = ["v4", "serde"] }
@@ -48,7 +47,9 @@ argon2 = "0.5"
 hex = "0.4"
 
 # HTTP client and archive handling (for CLI download in Flatpak)
-reqwest = { version = "0.12", features = ["rustls-tls", "stream"], default-features = false }
+# native-tls instead of rustls-tls: avoids aws-lc-sys which fails to compile
+# with GCC 15 in GNOME 50 Flatpak SDK (-pedantic + new warnings = build error)
+reqwest = { version = "0.12", features = ["native-tls", "stream"], default-features = false }
 zip = "8.2"
 flate2 = "1.1"
 tar = "0.4"

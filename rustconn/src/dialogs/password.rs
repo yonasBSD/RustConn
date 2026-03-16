@@ -6,9 +6,7 @@
 use crate::i18n::{i18n, i18n_f};
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{
-    Box as GtkBox, Button, CheckButton, Entry, Grid, Label, Orientation, PasswordEntry, Spinner,
-};
+use gtk4::{Box as GtkBox, Button, CheckButton, Entry, Grid, Label, Orientation, PasswordEntry};
 use libadwaita as adw;
 use rustconn_core::secret::CancellationToken;
 use secrecy::SecretString;
@@ -40,7 +38,10 @@ pub struct PasswordDialog {
     save_check: CheckButton,
     migrate_button: Button,
     connect_button: Button,
-    spinner: Spinner,
+    #[cfg(feature = "adw-1-6")]
+    spinner: adw::Spinner,
+    #[cfg(not(feature = "adw-1-6"))]
+    spinner: gtk4::Spinner,
     spinner_label: Label,
     spinner_box: GtkBox,
     result: Rc<RefCell<Option<PasswordDialogResult>>>,
@@ -92,7 +93,10 @@ impl PasswordDialog {
         spinner_box.set_halign(gtk4::Align::Center);
         spinner_box.set_visible(false);
 
-        let spinner = Spinner::builder().spinning(false).build();
+        #[cfg(feature = "adw-1-6")]
+        let spinner = adw::Spinner::new();
+        #[cfg(not(feature = "adw-1-6"))]
+        let spinner = gtk4::Spinner::builder().spinning(false).build();
         let spinner_label = Label::builder()
             .label(i18n("Resolving credentials..."))
             .css_classes(["dim-label"])
@@ -370,6 +374,7 @@ impl PasswordDialog {
         let default_msg = i18n("Resolving credentials...");
         let msg = message.unwrap_or(&default_msg);
         self.spinner_label.set_text(msg);
+        #[cfg(not(feature = "adw-1-6"))]
         self.spinner.set_spinning(true);
         self.spinner_box.set_visible(true);
         self.connect_button.set_sensitive(false);
@@ -383,6 +388,7 @@ impl PasswordDialog {
     /// # Requirements Coverage
     /// - Requirement 9.3: Hide loading indicator when resolution completes
     pub fn hide_loading(&self) {
+        #[cfg(not(feature = "adw-1-6"))]
         self.spinner.set_spinning(false);
         self.spinner_box.set_visible(false);
         self.connect_button.set_sensitive(true);
@@ -396,6 +402,7 @@ impl PasswordDialog {
     /// # Requirements Coverage
     /// - Requirement 9.4: Display error message without freezing UI
     pub fn show_error(&self, message: &str) {
+        #[cfg(not(feature = "adw-1-6"))]
         self.spinner.set_spinning(false);
         self.spinner_label.set_text(message);
         self.spinner_label.add_css_class("error");

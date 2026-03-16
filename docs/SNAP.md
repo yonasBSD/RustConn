@@ -1,6 +1,7 @@
 # RustConn Snap Package
 
 RustConn is available as a Snap package with **strict confinement** for enhanced security.
+Both `rustconn` (GUI) and `rustconn-cli` are included.
 
 ## Installation
 
@@ -8,60 +9,106 @@ RustConn is available as a Snap package with **strict confinement** for enhanced
 sudo snap install rustconn
 ```
 
+## Apps
+
+| App | Command | Description |
+|-----|---------|-------------|
+| GUI | `rustconn` | GTK4 connection manager |
+| CLI | `rustconn.rustconn-cli` | Command-line interface |
+
+```bash
+# GUI
+rustconn
+
+# CLI
+rustconn.rustconn-cli --help
+rustconn.rustconn-cli list
+rustconn.rustconn-cli add --name myserver --protocol ssh --host 192.168.1.10
+```
+
 ## Strict Confinement
 
-This snap uses strict confinement with embedded Rust protocol implementations. External CLIs (Zero Trust, password managers, SPICE) must be installed on the host system.
+This snap uses strict confinement with embedded Rust protocol implementations.
+External CLIs (Zero Trust, password managers, kubectl) must be installed on the
+host system and accessed via the `host-usr-bin` interface.
 
 ### Automatic Interfaces
 
 These interfaces are connected automatically:
 
-- `network` - Network access for connections
-- `network-bind` - Listening on network ports
-- `audio-playback` - RDP audio playback
-- `desktop`, `wayland`, `x11` - GUI access
-- `gsettings` - GNOME settings
-- `home` - Access to your home directory
+| Interface | Purpose |
+|-----------|---------|
+| `network` | Network access for connections |
+| `network-bind` | Listening on network ports |
+| `audio-playback` | RDP audio playback |
+| `desktop`, `wayland`, `x11` | GUI access |
+| `gsettings` | GNOME settings |
+| `home` | Access to home directory |
+| `opengl` | GPU rendering |
+| `password-manager-service` | D-Bus secret service (GNOME Keyring, KWallet) |
 
-### SSH Access
+### Manual Interface Connections
 
-SSH functionality requires the `ssh-keys` interface:
+These interfaces require manual connection after installation:
 
 ```bash
+# SSH keys (required for SSH connections)
 sudo snap connect rustconn:ssh-keys
-sudo snap connect rustconn:ssh-public-keys
+
+# Serial port access (for serial console connections)
+sudo snap connect rustconn:serial-port
+
+# Cloud provider credentials
+sudo snap connect rustconn:aws-credentials       # ~/.aws (read-write for SSO token cache)
+sudo snap connect rustconn:gcloud-credentials     # ~/.config/gcloud (read-only)
+sudo snap connect rustconn:azure-credentials      # ~/.azure (read-only)
+sudo snap connect rustconn:oci-credentials        # ~/.oci (read-only)
+
+# Kubernetes config
+sudo snap connect rustconn:kube-credentials       # ~/.kube (read-only)
+
+# Host CLI access (Zero Trust, password managers, kubectl, FreeRDP, VNC viewer)
+sudo snap connect rustconn:host-usr-bin
 ```
 
-This grants access to:
-- `~/.ssh/` directory (read/write)
-- `~/.ssh/config` (read)
-- `~/.ssh/known_hosts` (read/write)
-- SSH agent socket via `SSH_AUTH_SOCK`
+## Bundled Components
+
+The snap includes all core protocol clients — no separate installation needed:
+
+| Component | Purpose |
+|-----------|---------|
+| openssh-client | SSH client |
+| IronRDP | Embedded RDP client |
+| vnc-rs | Embedded VNC client |
+| spice-client | Embedded SPICE client |
+| inetutils-telnet | Telnet client |
+| picocom | Serial console (RS-232/USB) |
+| Midnight Commander | SFTP file browser |
+| waypipe | Wayland application forwarding over SSH |
 
 ## Embedded Protocol Clients
-
-RustConn uses embedded Rust implementations for protocols:
 
 | Protocol | Implementation | Notes |
 |----------|----------------|-------|
 | SSH | VTE terminal | Always embedded |
-| RDP | IronRDP | Embedded Rust client |
-| VNC | vnc-rs | Embedded Rust client |
-| Telnet | External `telnet` | VTE terminal session |
-| Serial | External `picocom` | VTE terminal session, requires `serial-port` interface |
-| SPICE | — | External only (see below) |
-
-No external protocol clients (xfreerdp, vncviewer) are needed for SSH, RDP, and VNC. Telnet requires the `telnet` client on the host. Serial requires the `serial-port` interface to be connected.
+| RDP | IronRDP | Embedded; FreeRDP fallback via `host-usr-bin` |
+| VNC | vnc-rs | Embedded; TigerVNC fallback via `host-usr-bin` |
+| SPICE | spice-client | Embedded; remote-viewer fallback via `host-usr-bin` |
+| Telnet | Bundled inetutils | VTE terminal session |
+| Serial | Bundled picocom | VTE terminal session; requires `serial-port` interface |
+| Kubernetes | Host kubectl | Requires `host-usr-bin` + `kube-credentials` |
+| SFTP | Bundled mc | Midnight Commander FISH VFS |
+| Waypipe | Bundled waypipe | Wayland forwarding over SSH |
 
 ### Serial Console
 
-Serial connections use the bundled `picocom` client. Connect the `serial-port` interface to grant access to serial devices:
+Serial connections use the bundled `picocom` client. Connect the `serial-port` interface:
 
 ```bash
 sudo snap connect rustconn:serial-port
 ```
 
-Note: Your user must also be in the `dialout` group for serial device access:
+Your user must also be in the `dialout` group for serial device access:
 ```bash
 sudo usermod -aG dialout $USER
 # Log out and back in for the change to take effect
@@ -69,145 +116,76 @@ sudo usermod -aG dialout $USER
 
 ## External CLIs (Host-Installed)
 
-For Zero Trust connections, SPICE, and password managers, install CLIs on your host system and connect the appropriate interfaces.
-
-### SPICE Client
-
-SPICE requires external `remote-viewer`:
+For Zero Trust connections, password managers, and Kubernetes, install CLIs on your
+host system and connect the `host-usr-bin` interface:
 
 ```bash
-# Install on host
-sudo apt install virt-viewer  # Debian/Ubuntu
-sudo dnf install virt-viewer  # Fedora
-
-# Connect interface
-sudo snap connect rustconn:host-spice-client
+sudo snap connect rustconn:host-usr-bin
 ```
+
+The `host-usr-bin` interface grants read access to these specific binaries:
+
+| Binary | Purpose |
+|--------|---------|
+| `/usr/bin/aws` | AWS SSM connections |
+| `/usr/bin/gcloud` | GCP IAP connections |
+| `/usr/bin/az` | Azure Bastion connections |
+| `/usr/bin/oci` | OCI Bastion connections |
+| `/usr/bin/cloudflared` | Cloudflare Tunnel |
+| `/usr/bin/tsh` | Teleport |
+| `/usr/bin/tailscale` | Tailscale |
+| `/usr/bin/boundary` | HashiCorp Boundary |
+| `/usr/bin/kubectl`, `/usr/local/bin/kubectl` | Kubernetes |
+| `/usr/bin/bw` | Bitwarden CLI |
+| `/usr/bin/op` | 1Password CLI |
+| `/usr/bin/passbolt` | Passbolt CLI |
+| `/usr/bin/keepassxc-proxy` | KeePassXC proxy |
+| `/usr/bin/remote-viewer` | SPICE fallback |
+| `/usr/bin/xfreerdp` | RDP fallback |
+| `/usr/bin/vncviewer` | VNC fallback |
 
 ### Zero Trust CLIs
 
-Install the CLIs you need on your host, then connect interfaces:
+Install the CLIs you need on your host, then connect both the CLI and credentials interfaces:
 
-#### AWS CLI (for AWS SSM)
 ```bash
-# Install: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip && sudo ./aws/install
-
-# Connect interfaces
-sudo snap connect rustconn:host-aws-cli
+# AWS SSM
+sudo snap connect rustconn:host-usr-bin
 sudo snap connect rustconn:aws-credentials
-```
 
-#### Google Cloud CLI (for GCP IAP)
-```bash
-# Install: https://cloud.google.com/sdk/docs/install
-sudo snap install google-cloud-cli --classic
-# Or: https://cloud.google.com/sdk/docs/install#deb
-
-# Connect interfaces
-sudo snap connect rustconn:host-gcloud-cli
+# GCP IAP
+sudo snap connect rustconn:host-usr-bin
 sudo snap connect rustconn:gcloud-credentials
-```
 
-#### Azure CLI (for Azure Bastion)
-```bash
-# Install: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-linux
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-
-# Connect interfaces
-sudo snap connect rustconn:host-az-cli
+# Azure Bastion
+sudo snap connect rustconn:host-usr-bin
 sudo snap connect rustconn:azure-credentials
-```
 
-#### OCI CLI (for OCI Bastion)
-```bash
-# Install: https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm
-bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)"
-
-# Connect interfaces
-sudo snap connect rustconn:host-oci-cli
+# OCI Bastion
+sudo snap connect rustconn:host-usr-bin
 sudo snap connect rustconn:oci-credentials
+
+# Kubernetes
+sudo snap connect rustconn:host-usr-bin
+sudo snap connect rustconn:kube-credentials
 ```
 
-#### Teleport (tsh)
-```bash
-# Install: https://goteleport.com/docs/installation/
-curl https://goteleport.com/static/install.sh | bash -s
-
-# Connect interface
-sudo snap connect rustconn:host-tsh-cli
-```
-
-#### Tailscale
-```bash
-# Install: https://tailscale.com/download/linux
-curl -fsSL https://tailscale.com/install.sh | sh
-
-# Connect interface
-sudo snap connect rustconn:host-tailscale-cli
-```
-
-#### Cloudflare Tunnel
-```bash
-# Install: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
-wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared-linux-amd64.deb
-
-# Connect interface
-sudo snap connect rustconn:host-cloudflared-cli
-```
-
-#### HashiCorp Boundary
-```bash
-# Install: https://developer.hashicorp.com/boundary/tutorials/oss-getting-started/oss-getting-started-install
-wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-sudo apt update && sudo apt install boundary
-
-# Connect interface
-sudo snap connect rustconn:host-boundary-cli
-```
+For CLI installation instructions, see [INSTALL.md — Zero Trust CLI Tools](INSTALL.md#zero-trust-cli-tools).
 
 ### Password Manager CLIs
 
-#### Bitwarden CLI
-```bash
-# Install: https://bitwarden.com/help/cli/
-sudo snap install bw
-# Or: npm install -g @bitwarden/cli
-
-# Connect interfaces
-sudo snap connect rustconn:host-bw-cli
-sudo snap connect rustconn:bitwarden-config
-```
-
-#### 1Password CLI
-```bash
-# Install: https://developer.1password.com/docs/cli/get-started/
-curl -sS https://downloads.1password.com/linux/keys/1password.asc | sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
-echo "deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main" | sudo tee /etc/apt/sources.list.d/1password.list
-sudo apt update && sudo apt install 1password-cli
-
-# Connect interfaces
-sudo snap connect rustconn:host-op-cli
-sudo snap connect rustconn:onepassword-config
-```
-
-### KeePass Databases
-
-To access KeePass databases stored in common locations:
+Install the CLI on your host, then connect `host-usr-bin`:
 
 ```bash
-sudo snap connect rustconn:keepass-databases
+sudo snap connect rustconn:host-usr-bin
 ```
 
-This grants read access to:
-- `~/Documents/`
-- `~/Dropbox/`
-- `~/OneDrive/`
-
-**Alternative:** Store your KeePass database in `~/snap/rustconn/current/` which is always accessible.
+| Manager | Host package | Notes |
+|---------|-------------|-------|
+| Bitwarden | `bw` | `npm install -g @bitwarden/cli` or snap: `sudo snap install bw` |
+| 1Password | `op` | [1password.com/downloads/command-line](https://1password.com/downloads/command-line/) |
+| Passbolt | `go-passbolt-cli` | [passbolt.com](https://www.passbolt.com/) |
+| KeePassXC | `keepassxc-proxy` | `keepassxc` package |
 
 ## Quick Setup
 
@@ -216,79 +194,71 @@ Connect all commonly used interfaces at once:
 ```bash
 # Essential
 sudo snap connect rustconn:ssh-keys
-sudo snap connect rustconn:ssh-public-keys
 
 # Serial console
 sudo snap connect rustconn:serial-port
 
-# Zero Trust (connect only what you use)
-sudo snap connect rustconn:host-aws-cli
+# Host CLIs + cloud credentials (connect only what you use)
+sudo snap connect rustconn:host-usr-bin
 sudo snap connect rustconn:aws-credentials
-sudo snap connect rustconn:host-gcloud-cli
 sudo snap connect rustconn:gcloud-credentials
-
-# SPICE
-sudo snap connect rustconn:host-spice-client
-
-# Password managers
-sudo snap connect rustconn:keepass-databases
+sudo snap connect rustconn:azure-credentials
+sudo snap connect rustconn:oci-credentials
+sudo snap connect rustconn:kube-credentials
 ```
 
 ## Data Locations
 
 Due to snap confinement, RustConn stores data in snap-specific locations:
 
-- **Connections:** `~/snap/rustconn/current/.local/share/rustconn/`
-- **Config:** `~/snap/rustconn/current/.config/rustconn/`
-- **SSH keys:** `~/snap/rustconn/current/.ssh/` (managed by snap)
-- **Logs:** `~/snap/rustconn/current/.local/share/rustconn/logs/`
+| Data | Path |
+|------|------|
+| Connections | `~/snap/rustconn/current/.local/share/rustconn/` |
+| Config | `~/snap/rustconn/current/.config/rustconn/` |
+| Session logs | `~/snap/rustconn/current/.local/share/rustconn/logs/` |
 
 ## Troubleshooting
 
 ### SSH connections fail
-- Ensure `ssh-keys` interface is connected
-- Check that SSH keys are in `~/.ssh/` or `~/snap/rustconn/current/.ssh/`
+- Ensure `ssh-keys` interface is connected: `sudo snap connect rustconn:ssh-keys`
+- Check that SSH keys are in `~/.ssh/`
 - Verify SSH agent is running: `echo $SSH_AUTH_SOCK`
 
-### Zero Trust CLI not found
-- Install the CLI on your host system (see instructions above)
-- Connect the appropriate `host-*-cli` interface
-- Verify CLI is in `/usr/bin/` or `/usr/local/bin/`
+### Zero Trust / kubectl CLI not found
+- Install the CLI on your host system (must be in `/usr/bin/` or `/usr/local/bin/`)
+- Connect the interface: `sudo snap connect rustconn:host-usr-bin`
+- Connect credentials: e.g. `sudo snap connect rustconn:aws-credentials`
 
-### SPICE connection fails
-- Install `virt-viewer` package on host
-- Connect `host-spice-client` interface
+### Serial port permission denied
+- Connect interface: `sudo snap connect rustconn:serial-port`
+- Add user to dialout group: `sudo usermod -aG dialout $USER`
+- Log out and back in
 
-### Permission denied errors
-- Check which interfaces are connected: `snap connections rustconn`
-- Connect missing interfaces as needed
+### Check connected interfaces
+```bash
+snap connections rustconn
+```
 
 ## Comparison with Other Packages
 
 | Feature | Snap (strict) | Flatpak | Native (.deb/.rpm) |
 |---------|---------------|---------|-------------------|
-| Security | High | High | Medium |
+| Security | High (strict) | High (sandbox) | Medium |
 | Setup | Manual interfaces | Automatic | None needed |
-| SSH/RDP/VNC | ✅ Embedded | ✅ Embedded | ✅ Embedded |
-| Telnet | Host CLI | ✅ Bundled (inetutils) | ✅ Host CLI |
-| Serial | ✅ Bundled (picocom) | ✅ Bundled (picocom) | ✅ Host CLI |
-| SPICE | Host CLI | ✅ Via Flatpak Components | ✅ Host CLI |
-| Zero Trust | Host CLIs | ✅ Via Flatpak Components | ✅ Host CLIs |
-| Password CLIs | Host CLIs | ✅ Via Flatpak Components | ✅ Host CLIs |
-| Package Size | ~50 MB | ~50 MB | ~30 MB |
+| SSH/RDP/VNC/SPICE | Embedded | Embedded | Embedded |
+| Telnet | Bundled | Bundled | Host CLI |
+| Serial | Bundled | Bundled | Host CLI |
+| Waypipe | Bundled | Bundled | Host CLI |
+| Kubernetes | Host kubectl | Host kubectl (flatpak-spawn) | Host kubectl |
+| Zero Trust | Host CLIs | Host CLIs (flatpak-spawn) | Host CLIs |
+| Password CLIs | Host CLIs | Host CLIs (flatpak-spawn) | Host CLIs |
+| CLI downloads | — | Flatpak Components dialog | — |
 
-**Flatpak Components** — Flatpak users can download and install additional CLI tools (Zero Trust, password managers, TigerVNC) directly within the sandbox via Menu → Flatpak Components. See [User Guide — Flatpak Components](USER_GUIDE.md#flatpak-components) for details.
+**Flatpak Components** — Flatpak users can download additional CLI tools (Zero Trust,
+password managers, TigerVNC) directly within the sandbox via Menu → Flatpak Components.
+See [User Guide — Flatpak Components](USER_GUIDE.md#flatpak-components) for details.
 
 **Recommendation:**
-- **Flatpak:** Recommended. Full functionality with embedded clients and on-demand CLI downloads via Flatpak Components
-- **Snap:** Good for users who prefer strict confinement; requires manual interface connections and host-installed CLIs
-- **Native:** Full functionality with all host CLIs, no sandboxing overhead
-
-## Support
-
-- **Issues:** https://github.com/totoshko88/RustConn/issues
-- **Discussions:** https://github.com/totoshko88/RustConn/discussions
-
-## License
-
-GPL-3.0+ - See LICENSE file for details
+- **Flatpak:** Recommended for most users. Full functionality with on-demand CLI downloads.
+- **Snap:** Good for users who prefer strict confinement; requires manual interface connections.
+- **Native:** Full functionality with all host CLIs, no sandboxing overhead.

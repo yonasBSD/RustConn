@@ -133,6 +133,18 @@ fn parse_cli_args() -> Option<rustconn_core::config::StartupAction> {
                 std::process::exit(0);
             }
             _ => {
+                // Check if argument is an .rdp file path
+                if std::path::Path::new(&args[i])
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("rdp"))
+                {
+                    let path = std::path::PathBuf::from(&args[i]);
+                    if path.exists() {
+                        return Some(StartupAction::RdpFile(path));
+                    }
+                    eprintln!("Error: RDP file not found: {}", args[i]);
+                    std::process::exit(1);
+                }
                 // Ignore unknown args (GTK may pass its own)
             }
         }
@@ -161,12 +173,14 @@ pub fn take_cli_connect_name() -> Option<String> {
 
 fn print_usage() {
     println!(
-        "Usage: rustconn [OPTIONS]\n\n\
+        "Usage: rustconn [OPTIONS] [FILE.rdp]\n\n\
          Options:\n  \
            --shell              Open a local shell on startup\n  \
            --connect <NAME|UUID> Connect to a saved connection\n  \
            -h, --help           Print this help message\n  \
-           -V, --version        Print version"
+           -V, --version        Print version\n\n\
+         Arguments:\n  \
+           FILE.rdp             Open and connect from an .rdp file"
     );
 }
 

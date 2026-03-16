@@ -82,7 +82,10 @@ pub struct TerminalSettings {
     #[serde(default)]
     pub log_timestamps: bool,
     /// Open SFTP via Midnight Commander in local shell
-    #[serde(default)]
+    ///
+    /// Defaults to `true` in Flatpak builds (mc is bundled and avoids
+    /// the sandbox/host SSH-agent mismatch with external file managers).
+    #[serde(default = "default_sftp_use_mc")]
     pub sftp_use_mc: bool,
 }
 
@@ -130,6 +133,15 @@ const fn default_audible_bell() -> bool {
     false
 }
 
+/// Returns `true` when running inside a Flatpak sandbox.
+///
+/// In Flatpak, external file managers (Dolphin, Nautilus) cannot access
+/// the sandbox's SSH agent, so mc is a better default — it runs inside
+/// the sandbox and inherits `SSH_AUTH_SOCK` directly.
+fn default_sftp_use_mc() -> bool {
+    crate::flatpak::is_flatpak()
+}
+
 impl Default for TerminalSettings {
     fn default() -> Self {
         Self {
@@ -145,7 +157,7 @@ impl Default for TerminalSettings {
             mouse_autohide: default_mouse_autohide(),
             audible_bell: default_audible_bell(),
             log_timestamps: false,
-            sftp_use_mc: false,
+            sftp_use_mc: default_sftp_use_mc(),
         }
     }
 }
@@ -344,11 +356,11 @@ impl Eq for SecretSettings {}
 #[serde(rename_all = "snake_case")]
 pub enum SecretBackendType {
     /// `KeePassXC` browser integration
-    #[default]
     KeePassXc,
     /// Direct KDBX file access (GNOME Secrets, `OneKeePass`, KeePass compatible)
     KdbxFile,
     /// libsecret (GNOME Keyring/KDE Wallet)
+    #[default]
     LibSecret,
     /// Bitwarden CLI
     Bitwarden,
@@ -384,6 +396,8 @@ pub enum StartupAction {
     LocalShell,
     /// Connect to a specific saved connection by UUID
     Connection(uuid::Uuid),
+    /// Open and connect from an `.rdp` file
+    RdpFile(std::path::PathBuf),
 }
 
 /// Maximum number of search history entries to persist

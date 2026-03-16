@@ -66,19 +66,14 @@ pub fn cmd_test(config_path: Option<&Path>, name: &str, timeout: u64) -> Result<
 
 /// Print a single test result with colors
 fn print_test_result(result: &rustconn_core::testing::TestResult) {
-    const GREEN: &str = "\x1b[32m";
-    const RED: &str = "\x1b[31m";
-    const YELLOW: &str = "\x1b[33m";
-    const CYAN: &str = "\x1b[36m";
-    const RESET: &str = "\x1b[0m";
-    const BOLD: &str = "\x1b[1m";
+    use crate::color;
 
     if result.success {
-        print!("{GREEN}{BOLD}✓{RESET} ");
+        print!("{}{}✓{} ", color::green(), color::bold(), color::reset());
         print!("{}", result.connection_name);
 
         if let Some(latency) = result.latency_ms {
-            print!(" {CYAN}({latency}ms){RESET}");
+            print!(" {}({latency}ms){}", color::cyan(), color::reset());
         }
 
         if let Some(protocol) = result.details.get("protocol") {
@@ -87,11 +82,11 @@ fn print_test_result(result: &rustconn_core::testing::TestResult) {
 
         println!();
     } else {
-        print!("{RED}{BOLD}✗{RESET} ");
+        print!("{}{}✗{} ", color::red(), color::bold(), color::reset());
         print!("{}", result.connection_name);
 
         if let Some(ref error) = result.error {
-            print!(" {YELLOW}- {error}{RESET}");
+            print!(" {}- {error}{}", color::yellow(), color::reset());
         }
 
         println!();
@@ -106,32 +101,47 @@ fn print_test_result(result: &rustconn_core::testing::TestResult) {
 
 /// Print the test summary with colors
 fn print_test_summary(summary: &rustconn_core::testing::TestSummary) {
-    const GREEN: &str = "\x1b[32m";
-    const RED: &str = "\x1b[31m";
-    const RESET: &str = "\x1b[0m";
-    const BOLD: &str = "\x1b[1m";
+    use crate::color;
 
-    println!("{BOLD}Test Summary:{RESET}");
+    println!("{}Test Summary:{}", color::bold(), color::reset());
     println!("  Total:  {}", summary.total);
 
     if summary.passed > 0 {
-        println!("  {GREEN}Passed: {}{RESET}", summary.passed);
+        println!(
+            "  {}Passed: {}{}",
+            color::green(),
+            summary.passed,
+            color::reset()
+        );
     } else {
         println!("  Passed: {}", summary.passed);
     }
 
     if summary.failed > 0 {
-        println!("  {RED}Failed: {}{RESET}", summary.failed);
+        println!(
+            "  {}Failed: {}{}",
+            color::red(),
+            summary.failed,
+            color::reset()
+        );
     } else {
         println!("  Failed: {}", summary.failed);
     }
 
     let pass_rate = summary.pass_rate();
     if pass_rate >= 100.0 {
-        println!("  {GREEN}Pass rate: {pass_rate:.1}%{RESET}");
+        println!(
+            "  {}Pass rate: {pass_rate:.1}%{}",
+            color::green(),
+            color::reset()
+        );
     } else if pass_rate >= 50.0 {
         println!("  Pass rate: {pass_rate:.1}%");
     } else {
-        println!("  {RED}Pass rate: {pass_rate:.1}%{RESET}");
+        println!(
+            "  {}Pass rate: {pass_rate:.1}%{}",
+            color::red(),
+            color::reset()
+        );
     }
 }

@@ -2,7 +2,7 @@
 
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{Button, CheckButton, Entry, SpinButton, Switch};
+use gtk4::{Button, CheckButton, Entry, SpinButton};
 use libadwaita as adw;
 use rustconn_core::config::LoggingSettings;
 use std::path::PathBuf;
@@ -13,7 +13,7 @@ use crate::i18n::i18n;
 #[allow(clippy::type_complexity)]
 pub fn create_logging_page() -> (
     adw::PreferencesPage,
-    Switch,
+    adw::SwitchRow,
     Entry,
     SpinButton,
     CheckButton,
@@ -33,14 +33,11 @@ pub fn create_logging_page() -> (
         .build();
 
     // Enable logging switch
-    let logging_enabled_switch = Switch::builder().valign(gtk4::Align::Center).build();
-    let enable_row = adw::ActionRow::builder()
+    let logging_enabled_row = adw::SwitchRow::builder()
         .title(i18n("Persist logs"))
         .subtitle(i18n("Save session logs to disk"))
         .build();
-    enable_row.add_suffix(&logging_enabled_switch);
-    enable_row.set_activatable_widget(Some(&logging_enabled_switch));
-    general_group.add(&enable_row);
+    general_group.add(&logging_enabled_row);
 
     // Log directory
     let log_dir_entry = Entry::builder()
@@ -170,19 +167,19 @@ pub fn create_logging_page() -> (
     let log_activity_clone = log_activity_check.clone();
     let log_input_clone = log_input_check.clone();
     let log_output_clone = log_output_check.clone();
-    logging_enabled_switch.connect_state_set(move |_, state| {
+    logging_enabled_row.connect_active_notify(move |row| {
+        let state = row.is_active();
         log_dir_entry_clone.set_sensitive(state);
         retention_clone.set_sensitive(state);
         open_logs_btn_clone.set_sensitive(state);
         log_activity_clone.set_sensitive(state);
         log_input_clone.set_sensitive(state);
         log_output_clone.set_sensitive(state);
-        gtk4::glib::Propagation::Proceed
     });
 
     (
         page,
-        logging_enabled_switch,
+        logging_enabled_row,
         log_dir_entry,
         retention_spin,
         log_activity_check,
@@ -195,7 +192,7 @@ pub fn create_logging_page() -> (
 /// Loads logging settings into UI controls
 #[allow(clippy::too_many_arguments)]
 pub fn load_logging_settings(
-    logging_enabled_switch: &Switch,
+    logging_enabled_row: &adw::SwitchRow,
     log_dir_entry: &Entry,
     retention_spin: &SpinButton,
     log_activity_check: &CheckButton,
@@ -205,7 +202,7 @@ pub fn load_logging_settings(
     settings: &LoggingSettings,
     log_timestamps: bool,
 ) {
-    logging_enabled_switch.set_active(settings.enabled);
+    logging_enabled_row.set_active(settings.enabled);
     log_dir_entry.set_text(&settings.log_directory.display().to_string());
     retention_spin.set_value(f64::from(settings.retention_days));
     log_activity_check.set_active(settings.log_activity);
@@ -225,7 +222,7 @@ pub fn load_logging_settings(
 /// Collects logging settings from UI controls
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn collect_logging_settings(
-    logging_enabled_switch: &Switch,
+    logging_enabled_row: &adw::SwitchRow,
     log_dir_entry: &Entry,
     retention_spin: &SpinButton,
     log_activity_check: &CheckButton,
@@ -233,7 +230,7 @@ pub fn collect_logging_settings(
     log_output_check: &CheckButton,
 ) -> LoggingSettings {
     LoggingSettings {
-        enabled: logging_enabled_switch.is_active(),
+        enabled: logging_enabled_row.is_active(),
         log_directory: std::path::PathBuf::from(log_dir_entry.text().as_str()),
         retention_days: retention_spin.value() as u32,
         log_activity: log_activity_check.is_active(),

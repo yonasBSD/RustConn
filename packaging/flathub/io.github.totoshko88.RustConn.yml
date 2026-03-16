@@ -1,12 +1,14 @@
 app-id: io.github.totoshko88.RustConn
 runtime: org.gnome.Platform
-runtime-version: '49'
+runtime-version: '50'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 command: rustconn
 
 finish-args:
+  # Library path for VTE (installed to lib64)
+  - --env=LD_LIBRARY_PATH=/app/lib64:/app/lib
   # Wayland/X11 access
   - --socket=wayland
   - --socket=fallback-x11
@@ -17,6 +19,13 @@ finish-args:
   - --share=network
   # Home directory access for SSH keys
   - --filesystem=home/.ssh:ro
+  # AWS/GCP/Azure CLI config directories for ZeroTrust connections
+  # .aws needs read-write: AWS CLI v2 SSO writes session tokens to ~/.aws/sso/cache/
+  # and credential_process caches to ~/.aws/cli/cache/ during interactive login via local shell
+  - --filesystem=home/.aws
+  - --filesystem=home/.config/gcloud:ro
+  - --filesystem=home/.azure:ro
+  - --filesystem=home/.kube:ro
   # SSH agent socket
   - --socket=ssh-auth
   # D-Bus access for secret service (GNOME Keyring, KWallet)
@@ -27,10 +36,16 @@ finish-args:
   - --talk-name=org.keepassxc.KeePassXC.BrowserServer
   # System tray (StatusNotifierItem)
   - --talk-name=org.kde.StatusNotifierWatcher
+  # Host command execution for ZeroTrust (aws, gcloud, az) and Kubernetes (kubectl)
+  # These CLI tools are installed on the host, not in the sandbox
+  - --talk-name=org.freedesktop.Flatpak
   # Device access (serial ports for picocom require --device=all; no granular option exists)
   - --device=all
   # Downloads directory for SFTP file transfers via mc
   - --filesystem=xdg-download:create
+  # Strip host-exported bash function mc() that sources /usr/share/mc/mc-wrapper.sh
+  # (absent in sandbox); without this, the function shadows /app/bin/mc
+  - --unset-env=BASH_FUNC_mc%%
 
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin
@@ -39,6 +54,15 @@ build-options:
     RUST_BACKTRACE: '1'
 
 modules:
+  - name: fast-float
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DFASTFLOAT_TEST=OFF
+    sources:
+      - type: archive
+        url: https://github.com/fastfloat/fast_float/archive/refs/tags/v8.0.2.tar.gz
+        sha256: e14a33089712b681d74d94e2a11362643bd7d769ae8f7e7caefe955f57f7eacd
+
   - name: vte
     buildsystem: meson
     config-opts:
@@ -51,14 +75,14 @@ modules:
       - -Ddocs=false
     sources:
       - type: archive
-        url: https://download.gnome.org/sources/vte/0.78/vte-0.78.7.tar.xz
-        sha256: 6fd1edc332d9f9519ce4c0f07135fdf72d64dfd990dc4fabc6ce91b1b7e83dd0
+        url: https://download.gnome.org/sources/vte/0.80/vte-0.80.0.tar.xz
+        sha256: 267f63739765e568cf8113d0e2ee8f593028946187854bebe268c778e62647c8
         x-checker-data:
           type: gnome
           name: vte
           stable-only: true
           versions:
-            <: '0.79.0'
+            <: '0.81.0'
 
   - name: inetutils
     buildsystem: autotools
@@ -117,12 +141,37 @@ modules:
           name: libsecret
           stable-only: true
 
+  - name: slang
+    buildsystem: autotools
+    config-opts:
+      - --without-png
+      - --without-pcre
+      - --without-onig
+    sources:
+      - type: archive
+        url: https://www.jedsoft.org/releases/slang/slang-2.3.3.tar.bz2
+        sha256: f9145054ae131973c61208ea82486d5c477e4e4c76a4e07a2fce46d4d17b0f5c
+
   - name: mc
     buildsystem: autotools
     config-opts:
-      - --without-x
-      - --with-screen=ncurses
+      # Use slang instead of ncurses — mc's ncurses backend cannot parse
+      # SGR mouse sequences (mode 1006) from VTE 0.80+, causing raw escape
+      # fragments to appear as text artifacts on mouse clicks.
+      - --with-screen=slang
       - --disable-vfs-sftp
+    post-install:
+      # Host distros (e.g. openSUSE) export a bash function mc() that sources
+      # /usr/share/mc/mc-wrapper.sh — a path absent in the Flatpak sandbox.
+      # The exported function shadows /app/bin/mc. Fix: move the real binary
+      # to mc.bin, patch mc-wrapper.sh to call mc.bin, and install a shell
+      # wrapper at /app/bin/mc that unsets the inherited function then sources
+      # the correct wrapper script.
+      - mv /app/bin/mc /app/bin/mc.bin
+      - sed -i 's|/app/bin/mc |/app/bin/mc.bin |g' /app/libexec/mc/mc-wrapper.sh
+      - |
+        printf '%s\n' '#!/bin/bash' 'unset -f mc 2>/dev/null' '. /app/libexec/mc/mc-wrapper.sh "$@"' > /app/bin/mc
+      - chmod 755 /app/bin/mc
     sources:
       - type: archive
         url: http://ftp.midnight-commander.org/mc-4.8.33.tar.xz
@@ -133,13 +182,48 @@ modules:
           stable-only: true
           url-template: http://ftp.midnight-commander.org/mc-$version.tar.xz
 
+  - name: waypipe
+    buildsystem: meson
+    config-opts:
+      # Build the C-only version — avoids pulling in cargo dependencies for waypipe itself
+      - -Dbuild_rs=false
+      - -Dbuild_c=true
+      - -Dman-pages=disabled
+      - -Dtests=false
+      # Compression support (lz4/zstd available in GNOME SDK)
+      - -Dwith_lz4=enabled
+      - -Dwith_zstd=enabled
+      # Disable GPU buffer sharing and video codec (not needed for basic Wayland forwarding)
+      - -Dwith_dmabuf=disabled
+      - -Dwith_video=disabled
+    post-install:
+      # C-only build installs as "waypipe-c"; create symlink so detection finds "waypipe"
+      - ln -sf waypipe-c /app/bin/waypipe
+    sources:
+      - type: archive
+        url: https://gitlab.freedesktop.org/mstoeckl/waypipe/-/archive/v0.11.0/waypipe-v0.11.0.tar.gz
+        sha256: dc4741bd4435666b4b45ef9b8354c9f742e9c2c5fb99bb49b2ac4f32a371bcd7
+
+  - name: rustconn-terminfo
+    buildsystem: simple
+    build-commands:
+      # Create a custom terminfo entry identical to xterm-256color but
+      # without the XM extended capability. XM tells ncurses/slang to
+      # negotiate SGR mouse mode (1006) with VTE 0.80+, but mc cannot
+      # parse SGR-encoded mouse events — causing raw escape fragments
+      # like "7;6M7;6m" on every click. Removing XM prevents the
+      # negotiation so VTE falls back to X10/normal mouse mode.
+      - infocmp -x -1 xterm-256color | sed 's/xterm-256color/rustconn-256color/' | sed '/XM=/d' | tic -x -o /app/share/terminfo -
+    sources: []
+
   - name: rustconn
     buildsystem: simple
     build-options:
       env:
         CARGO_NET_OFFLINE: 'true'
+        PKG_CONFIG_PATH: /app/lib64/pkgconfig:/app/lib/pkgconfig:/app/share/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
     build-commands:
-      - cargo build --release -p rustconn -p rustconn-cli
+      - cargo build --release -p rustconn --features adw-1-8 -p rustconn-cli
       - install -Dm755 target/release/rustconn /app/bin/rustconn
       - install -Dm755 target/release/rustconn-cli /app/bin/rustconn-cli
       - install -Dm644 rustconn/assets/io.github.totoshko88.RustConn.desktop /app/share/applications/io.github.totoshko88.RustConn.desktop
@@ -156,7 +240,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/totoshko88/RustConn.git
-        tag: v0.9.15
+        tag: v0.10.0
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$

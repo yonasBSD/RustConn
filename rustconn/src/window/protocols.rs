@@ -308,14 +308,42 @@ fn start_ssh_connection_internal(
                 }
             }
 
+            // In Flatpak, ~/.ssh is read-only — point known_hosts to a writable path.
+            // Must be set BEFORE jump host resolution because ProxyCommand needs it too.
+            let flatpak_known_hosts = {
+                let user_set = ssh_config
+                    .custom_options
+                    .keys()
+                    .any(|k| k.eq_ignore_ascii_case("UserKnownHostsFile"));
+                if user_set {
+                    None
+                } else {
+                    rustconn_core::get_flatpak_known_hosts_path()
+                }
+            };
+            if let Some(ref kh_path) = flatpak_known_hosts {
+                tracing::debug!(
+                    protocol = "ssh",
+                    path = %kh_path.display(),
+                    "Using Flatpak-writable known_hosts"
+                );
+                args.push("-o".to_string());
+                args.push(format!("UserKnownHostsFile={}", kh_path.display()));
+            }
+
             // Override proxy_jump with resolved jump host chain if we have
             // reference-based jump hosts (build_command_args already added -J
             // for the string-based proxy_jump, so only add if we have more)
+            //
+            // In Flatpak, -J (ProxyJump) spawns a nested SSH process that does NOT
+            // inherit -o or -i flags from the outer command. This means the jump host
+            // SSH tries to write to ~/.ssh/known_hosts (read-only) and cannot find
+            // identity files. Fix: replace -J with -o ProxyCommand that passes
+            // UserKnownHostsFile and identity to the jump host SSH process.
             let jump_host_str = if jump_hosts.is_empty() {
                 None
             } else {
                 // Remove the -J added by build_command_args (if proxy_jump was set)
-                // and replace with the full resolved chain
                 if ssh_config.proxy_jump.is_some()
                     && let Some(pos) = args.iter().position(|a| a == "-J")
                 {
@@ -325,27 +353,56 @@ fn start_ssh_connection_internal(
                     }
                 }
                 let chain = jump_hosts.join(",");
-                args.push("-J".to_string());
-                args.push(chain.clone());
+
+                if flatpak_known_hosts.is_some() {
+                    // Flatpak: use ProxyCommand so jump host SSH inherits known_hosts
+                    // and identity file. Build a ProxyCommand for the first hop;
+                    // if there are multiple hops, nest them via -J within ProxyCommand.
+                    let mut proxy_parts =
+                        vec!["ssh".to_string(), "-W".to_string(), "%h:%p".to_string()];
+
+                    // Pass identity file to jump host if we have one
+                    if let Some(pos) = args.iter().position(|a| a == "-i")
+                        && let Some(key_path) = args.get(pos + 1)
+                    {
+                        proxy_parts.push("-i".to_string());
+                        proxy_parts.push(key_path.clone());
+                        proxy_parts.push("-o".to_string());
+                        proxy_parts.push("IdentitiesOnly=yes".to_string());
+                    }
+
+                    // Pass UserKnownHostsFile to jump host
+                    if let Some(ref kh_path) = flatpak_known_hosts {
+                        proxy_parts.push("-o".to_string());
+                        proxy_parts.push(format!("UserKnownHostsFile={}", kh_path.display()));
+                    }
+
+                    // For multi-hop chains, pass remaining hops via -J inside ProxyCommand
+                    if jump_hosts.len() > 1 {
+                        let inner_chain = jump_hosts[1..].join(",");
+                        proxy_parts.push("-J".to_string());
+                        proxy_parts.push(inner_chain);
+                    }
+
+                    // Add the first hop destination
+                    proxy_parts.push(jump_hosts[0].clone());
+
+                    let proxy_cmd = proxy_parts.join(" ");
+                    tracing::debug!(
+                        protocol = "ssh",
+                        proxy_command = %proxy_cmd,
+                        "Using ProxyCommand instead of -J for Flatpak known_hosts compatibility"
+                    );
+                    args.push("-o".to_string());
+                    args.push(format!("ProxyCommand={proxy_cmd}"));
+                } else {
+                    // Non-Flatpak: use standard -J
+                    args.push("-J".to_string());
+                    args.push(chain.clone());
+                }
+
                 Some(chain)
             };
-
-            // In Flatpak, ~/.ssh is read-only — point known_hosts to a writable path
-            let user_set_known_hosts = ssh_config
-                .custom_options
-                .keys()
-                .any(|k| k.eq_ignore_ascii_case("UserKnownHostsFile"));
-            if !user_set_known_hosts
-                && let Some(kh_path) = rustconn_core::get_flatpak_known_hosts_path()
-            {
-                tracing::debug!(
-                    protocol = "ssh",
-                    path = %kh_path.display(),
-                    "Using Flatpak-writable known_hosts"
-                );
-                args.push("-o".to_string());
-                args.push(format!("UserKnownHostsFile={}", kh_path.display()));
-            }
 
             // Check waypipe: enabled in config + binary available on PATH
             let waypipe = ssh_config.waypipe && rustconn_core::protocol::detect_waypipe().installed;
@@ -1232,30 +1289,24 @@ pub fn start_zerotrust_connection(
             let provider = zt_config.provider.display_name();
 
             // Check CLI tool availability before launch
+            // In Flatpak, checks the host via flatpak-spawn --host
             let cli = zt_config.provider.cli_command();
-            if !cli.is_empty() {
-                let cli_found = std::process::Command::new("which")
-                    .arg(cli)
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .status()
-                    .is_ok_and(|s| s.success());
-                if !cli_found {
-                    tracing::warn!(
-                        provider = %provider,
-                        cli,
-                        "ZeroTrust CLI tool not found"
+            if !cli.is_empty() && !rustconn_core::flatpak::is_host_command_available(cli) {
+                tracing::warn!(
+                    provider = %provider,
+                    cli,
+                    flatpak = rustconn_core::flatpak::is_flatpak(),
+                    "ZeroTrust CLI tool not found"
+                );
+                if let Some(root) = notebook.widget().root()
+                    && let Some(window) = root.downcast_ref::<gtk4::Window>()
+                {
+                    crate::toast::show_missing_cli_toast(
+                        window,
+                        &format!("{provider} requires '{cli}' CLI tool"),
                     );
-                    if let Some(root) = notebook.widget().root()
-                        && let Some(window) = root.downcast_ref::<gtk4::Window>()
-                    {
-                        crate::toast::show_missing_cli_toast(
-                            window,
-                            &format!("{provider} requires '{cli}' CLI tool"),
-                        );
-                    }
-                    return None;
                 }
+                return None;
             }
 
             tracing::info!(
@@ -1342,9 +1393,10 @@ pub fn start_zerotrust_connection(
     notebook.display_output(session_id, &feedback);
 
     // Spawn the Zero Trust command through shell to use full PATH
-    // This is needed because VTE doesn't see snap/flatpak paths
+    // In Flatpak, wraps with flatpak-spawn --host to run on the host system
+    let spawn_command = rustconn_core::flatpak::wrap_host_command(&full_command);
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-    notebook.spawn_command(session_id, &[&shell, "-c", &full_command], None, None);
+    notebook.spawn_command(session_id, &[&shell, "-c", &spawn_command], None, None);
 
     Some(session_id)
 }
@@ -1486,10 +1538,17 @@ pub fn start_kubernetes_connection(
     let conn_name = conn.name.clone();
 
     // Check kubectl availability before attempting to launch
-    let kubectl_info = detect_kubectl();
-    if !kubectl_info.installed {
+    // In Flatpak, check the host system via flatpak-spawn --host
+    let kubectl_available = if rustconn_core::flatpak::is_flatpak() {
+        rustconn_core::flatpak::is_host_command_available("kubectl")
+    } else {
+        let kubectl_info = detect_kubectl();
+        kubectl_info.installed
+    };
+    if !kubectl_available {
         tracing::warn!(
             connection = %conn_name,
+            flatpak = rustconn_core::flatpak::is_flatpak(),
             "kubectl not found for Kubernetes connection"
         );
         if let Some(root) = notebook.widget().root()
@@ -1588,9 +1647,10 @@ pub fn start_kubernetes_connection(
     let feedback = format!("{conn_msg}\r\n{cmd_msg}\r\n\r\n");
     notebook.display_output(session_id, &feedback);
 
-    // Spawn kubectl — use shell to ensure PATH includes snap/flatpak paths
+    // Spawn kubectl — use shell; in Flatpak wraps with flatpak-spawn --host
+    let spawn_command = rustconn_core::flatpak::wrap_host_command(&kubectl_command);
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-    notebook.spawn_command(session_id, &[&shell, "-c", &kubectl_command], None, None);
+    notebook.spawn_command(session_id, &[&shell, "-c", &spawn_command], None, None);
 
     Some(session_id)
 }

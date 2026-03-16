@@ -892,8 +892,8 @@ impl SplitViewBridge {
             // This is critical - GTK widgets can only have one parent
             Self::detach_terminal_from_parent(&terminal);
 
-            let scrolled = Self::create_terminal_scrolled_window(&terminal);
-            self.adapter.borrow().set_panel_content(panel_id, &scrolled);
+            Self::prepare_terminal_for_panel(&terminal);
+            self.adapter.borrow().set_panel_content(panel_id, &terminal);
 
             // Ensure terminal is visible
             terminal.set_visible(true);
@@ -969,9 +969,9 @@ impl SplitViewBridge {
         // Detach from current parent
         Self::detach_terminal_from_parent(&terminal);
 
-        // Create scrolled window and set as panel content
-        let scrolled = Self::create_terminal_scrolled_window(&terminal);
-        self.adapter.borrow().set_panel_content(panel_id, &scrolled);
+        // Set terminal directly as panel content (no ScrolledWindow)
+        Self::prepare_terminal_for_panel(&terminal);
+        self.adapter.borrow().set_panel_content(panel_id, &terminal);
 
         // Ensure terminal is visible
         terminal.set_visible(true);
@@ -981,27 +981,21 @@ impl SplitViewBridge {
 
     /// Detaches a terminal from its current parent widget
     fn detach_terminal_from_parent(terminal: &Terminal) {
-        if let Some(parent) = terminal.parent() {
-            if let Some(scrolled) = parent.downcast_ref::<gtk4::ScrolledWindow>() {
-                scrolled.set_child(None::<&gtk4::Widget>);
-            } else if let Some(box_widget) = parent.downcast_ref::<GtkBox>() {
-                box_widget.remove(terminal);
-            }
+        if let Some(parent) = terminal.parent()
+            && let Some(box_widget) = parent.downcast_ref::<GtkBox>()
+        {
+            box_widget.remove(terminal);
         }
     }
 
-    /// Creates a scrolled window for a terminal
-    fn create_terminal_scrolled_window(terminal: &Terminal) -> gtk4::ScrolledWindow {
+    /// Prepares a terminal for placement in a split panel.
+    ///
+    /// VTE implements `GtkScrollable` natively — no `ScrolledWindow` needed.
+    /// Wrapping in `ScrolledWindow` intercepts mouse events and breaks
+    /// ncurses apps (mc, htop) that rely on VTE's internal mouse handling.
+    fn prepare_terminal_for_panel(terminal: &Terminal) {
         terminal.set_hexpand(true);
         terminal.set_vexpand(true);
-
-        gtk4::ScrolledWindow::builder()
-            .hscrollbar_policy(gtk4::PolicyType::Never)
-            .vscrollbar_policy(gtk4::PolicyType::Automatic)
-            .hexpand(true)
-            .vexpand(true)
-            .child(terminal)
-            .build()
     }
 
     /// Clears a session from all panes
@@ -1168,9 +1162,9 @@ impl SplitViewBridge {
                     // Detach from current parent
                     Self::detach_terminal_from_parent(&terminal);
 
-                    // Create scrolled window and set as panel content
-                    let scrolled = Self::create_terminal_scrolled_window(&terminal);
-                    adapter.set_panel_content(panel_id, &scrolled);
+                    // Set terminal directly as panel content (no ScrolledWindow)
+                    Self::prepare_terminal_for_panel(&terminal);
+                    adapter.set_panel_content(panel_id, &terminal);
 
                     // Ensure terminal is visible
                     terminal.set_visible(true);
@@ -1366,8 +1360,8 @@ impl SplitViewBridge {
             // Display terminal in panel if available
             if let Some(terminal) = terminal_opt {
                 Self::detach_terminal_from_parent(&terminal);
-                let scrolled = Self::create_terminal_scrolled_window(&terminal);
-                adapter_rc.borrow().set_panel_content(panel_id, &scrolled);
+                Self::prepare_terminal_for_panel(&terminal);
+                adapter_rc.borrow().set_panel_content(panel_id, &terminal);
                 terminal.set_visible(true);
             }
 
@@ -1704,126 +1698,67 @@ impl SplitViewBridge {
 
         content.append(&actions);
 
-        // Three-column layout
+        // Build the three column groups
+        let col1 = Self::build_welcome_features_column();
+        let col2 = Self::build_welcome_shortcuts_column();
+        let col3 = Self::build_welcome_extras_column();
+
+        // Three-column layout (wide mode)
         let columns = GtkBox::new(Orientation::Horizontal, 18);
         columns.set_halign(gtk4::Align::Fill);
         columns.set_hexpand(true);
         columns.set_homogeneous(true);
         columns.set_margin_top(12);
-
-        // Column 1 - Features
-        let col1 = GtkBox::new(Orientation::Vertical, 6);
-        col1.set_valign(gtk4::Align::Start);
-        col1.set_hexpand(true);
-
-        let features_group = adw::PreferencesGroup::builder()
-            .title(&i18n("Features"))
-            .build();
-
-        let features: [(&str, String); 9] = [
-            (
-                "utilities-terminal-symbolic",
-                i18n("Embedded SSH terminals"),
-            ),
-            ("security-high-symbolic", i18n("Secure credential storage")),
-            ("dialog-password-symbolic", i18n("Password Generator")),
-            ("view-refresh-symbolic", i18n("Session Restore")),
-            ("system-run-symbolic", i18n("Expect automation")),
-            ("folder-symbolic", i18n("Groups and tags")),
-            ("network-workgroup-symbolic", i18n("Zero Trust tunnels")),
-            ("preferences-system-symbolic", i18n("Customizable settings")),
-            ("system-run-symbolic", i18n("Embedded and external clients")),
-        ];
-
-        for (icon, description) in &features {
-            let row = adw::ActionRow::builder().title(description).build();
-            row.add_prefix(&gtk4::Image::from_icon_name(icon));
-            features_group.add(&row);
-        }
-        col1.append(&features_group);
         columns.append(&col1);
-
-        // Column 2 - Keyboard shortcuts
-        let col2 = GtkBox::new(Orientation::Vertical, 6);
-        col2.set_valign(gtk4::Align::Start);
-        col2.set_hexpand(true);
-
-        let shortcuts_group = adw::PreferencesGroup::builder()
-            .title(&i18n("Keyboard Shortcuts"))
-            .build();
-
-        let shortcuts: [(&str, String); 9] = [
-            ("Ctrl+N", i18n("New connection")),
-            ("Ctrl+Shift+N", i18n("New group")),
-            ("Ctrl+Shift+T", i18n("Local shell")),
-            ("Ctrl+Shift+Q", i18n("Quick connect")),
-            ("Ctrl+F", i18n("Search")),
-            ("Ctrl+Shift+S", i18n("Split vertical")),
-            ("Ctrl+Shift+H", i18n("Split horizontal")),
-            ("Ctrl+W", i18n("Close tab")),
-            ("Ctrl+Tab", i18n("Next tab")),
-        ];
-
-        for (shortcut, description) in &shortcuts {
-            let row = adw::ActionRow::builder().title(description).build();
-            let label = gtk4::Label::builder()
-                .label(*shortcut)
-                .css_classes(["dim-label", "monospace"])
-                .build();
-            row.add_suffix(&label);
-            shortcuts_group.add(&row);
-        }
-        col2.append(&shortcuts_group);
         columns.append(&col2);
-
-        // Column 3 - Performance & Import
-        let col3 = GtkBox::new(Orientation::Vertical, 6);
-        col3.set_valign(gtk4::Align::Start);
-        col3.set_hexpand(true);
-
-        let perf_group = adw::PreferencesGroup::builder()
-            .title(&i18n("Performance"))
-            .build();
-
-        let perf_features: [(&str, String); 4] = [
-            ("edit-find-symbolic", i18n("Smart search caching")),
-            ("folder-symbolic", i18n("Lazy loading for trees")),
-            ("view-list-symbolic", i18n("Virtual scrolling")),
-            (
-                "video-joined-displays-symbolic",
-                i18n("Embedded VNC/RDP/SPICE"),
-            ),
-        ];
-
-        for (icon, description) in &perf_features {
-            let row = adw::ActionRow::builder().title(description).build();
-            row.add_prefix(&gtk4::Image::from_icon_name(icon));
-            perf_group.add(&row);
-        }
-        col3.append(&perf_group);
-
-        // Import formats
-        let formats_group = adw::PreferencesGroup::builder()
-            .title(&i18n("Import Formats"))
-            .margin_top(6)
-            .build();
-
-        let formats = [
-            "Remmina",
-            "Asbru-CM / Royal TS / MobaXterm",
-            "SSH Config",
-            "Ansible Inventory",
-        ];
-
-        for format in formats {
-            let row = adw::ActionRow::builder().title(format).build();
-            row.add_prefix(&gtk4::Image::from_icon_name("document-open-symbolic"));
-            formats_group.add(&row);
-        }
-        col3.append(&formats_group);
         columns.append(&col3);
 
+        // Single-column layout (narrow mode)
+        let narrow = GtkBox::new(Orientation::Vertical, 12);
+        narrow.set_halign(gtk4::Align::Fill);
+        narrow.set_hexpand(true);
+        narrow.set_margin_top(12);
+        narrow.set_visible(false);
+
+        let narrow_col1 = Self::build_welcome_features_column();
+        let narrow_col2 = Self::build_welcome_shortcuts_column();
+        let narrow_col3 = Self::build_welcome_extras_column();
+        narrow.append(&narrow_col1);
+        narrow.append(&narrow_col2);
+        narrow.append(&narrow_col3);
+
         content.append(&columns);
+        content.append(&narrow);
+
+        // Switch between wide/narrow based on available width
+        let columns_ref = columns.clone();
+        let narrow_ref = narrow.clone();
+        content.connect_map(move |widget| {
+            let columns_inner = columns_ref.clone();
+            let narrow_inner = narrow_ref.clone();
+            widget.connect_notify_local(Some("width-request"), move |w, _| {
+                let width = w.width();
+                let use_narrow = width > 0 && width < 600;
+                columns_inner.set_visible(!use_narrow);
+                narrow_inner.set_visible(use_narrow);
+            });
+        });
+
+        // Also check on size-allocate for responsive switching
+        let columns_ref2 = columns;
+        let narrow_ref2 = narrow;
+        content.connect_realize(move |widget| {
+            let columns_inner = columns_ref2.clone();
+            let narrow_inner = narrow_ref2.clone();
+            let surface = widget.native().and_then(|n| n.surface());
+            if let Some(surface) = surface {
+                surface.connect_layout(move |_, w, _| {
+                    let use_narrow = w > 0 && w < 700;
+                    columns_inner.set_visible(!use_narrow);
+                    narrow_inner.set_visible(use_narrow);
+                });
+            }
+        });
 
         // Hint at the bottom
         let hint = gtk4::Label::builder()
@@ -1837,6 +1772,131 @@ impl SplitViewBridge {
 
         status_page.set_child(Some(&content));
         status_page
+    }
+
+    /// Builds the Features column for the welcome screen
+    fn build_welcome_features_column() -> GtkBox {
+        let col = GtkBox::new(Orientation::Vertical, 6);
+        col.set_valign(gtk4::Align::Start);
+        col.set_hexpand(true);
+
+        let features_group = adw::PreferencesGroup::builder()
+            .title(&i18n("Features"))
+            .build();
+
+        let features: [(&str, String); 9] = [
+            (
+                "utilities-terminal-symbolic",
+                i18n("Embedded SSH, RDP, VNC, SPICE"),
+            ),
+            ("security-high-symbolic", i18n("Secure credential storage")),
+            (
+                "utilities-system-monitor-symbolic",
+                i18n("Remote host monitoring"),
+            ),
+            ("view-refresh-symbolic", i18n("Session restore & reconnect")),
+            ("system-run-symbolic", i18n("Expect automation & tasks")),
+            ("folder-symbolic", i18n("Groups, tags, and templates")),
+            ("network-workgroup-symbolic", i18n("Zero Trust tunnels")),
+            ("edit-paste-symbolic", i18n("Command snippets & clusters")),
+            (
+                "preferences-system-symbolic",
+                i18n("Customizable keybindings"),
+            ),
+        ];
+
+        for (icon, description) in &features {
+            let row = adw::ActionRow::builder()
+                .title(gtk4::glib::markup_escape_text(description))
+                .build();
+            row.add_prefix(&gtk4::Image::from_icon_name(icon));
+            features_group.add(&row);
+        }
+        col.append(&features_group);
+        col
+    }
+
+    /// Builds the Keyboard Shortcuts column for the welcome screen
+    fn build_welcome_shortcuts_column() -> GtkBox {
+        let col = GtkBox::new(Orientation::Vertical, 6);
+        col.set_valign(gtk4::Align::Start);
+        col.set_hexpand(true);
+
+        let shortcuts_group = adw::PreferencesGroup::builder()
+            .title(&i18n("Keyboard Shortcuts"))
+            .build();
+
+        let shortcuts: [(&str, String); 9] = [
+            ("Ctrl+N", i18n("New connection")),
+            ("Ctrl+Shift+Q", i18n("Quick connect")),
+            ("Ctrl+P", i18n("Command palette")),
+            ("Ctrl+Shift+T", i18n("Local shell")),
+            ("Ctrl+F", i18n("Search")),
+            ("Ctrl+Shift+S", i18n("Split vertical")),
+            ("Ctrl+Shift+H", i18n("Split horizontal")),
+            ("Ctrl+I", i18n("Import connections")),
+            ("Ctrl+,", i18n("Settings")),
+        ];
+
+        for (shortcut, description) in &shortcuts {
+            let row = adw::ActionRow::builder().title(description).build();
+            let label = gtk4::Label::builder()
+                .label(*shortcut)
+                .css_classes(["dim-label", "monospace"])
+                .build();
+            row.add_suffix(&label);
+            shortcuts_group.add(&row);
+        }
+        col.append(&shortcuts_group);
+        col
+    }
+
+    /// Builds the Quick Access & Import column for the welcome screen
+    fn build_welcome_extras_column() -> GtkBox {
+        let col = GtkBox::new(Orientation::Vertical, 6);
+        col.set_valign(gtk4::Align::Start);
+        col.set_hexpand(true);
+
+        let quick_group = adw::PreferencesGroup::builder()
+            .title(&i18n("Quick Access"))
+            .build();
+
+        let quick_features: [(&str, String); 4] = [
+            ("edit-find-symbolic", i18n("Fuzzy search & command palette")),
+            ("starred-symbolic", i18n("Pin favorites to sidebar")),
+            ("view-dual-symbolic", i18n("Split view for terminals")),
+            ("document-open-symbolic", i18n("Open .rdp files directly")),
+        ];
+
+        for (icon, description) in &quick_features {
+            let row = adw::ActionRow::builder()
+                .title(gtk4::glib::markup_escape_text(description))
+                .build();
+            row.add_prefix(&gtk4::Image::from_icon_name(icon));
+            quick_group.add(&row);
+        }
+        col.append(&quick_group);
+
+        // Import formats
+        let formats_group = adw::PreferencesGroup::builder()
+            .title(&i18n("Import Formats"))
+            .margin_top(6)
+            .build();
+
+        let formats = [
+            "SSH Config / Ansible / RDP",
+            "Remmina / Asbru-CM / MobaXterm",
+            "Royal TS / Remote Desktop Manager",
+            "Libvirt XML / Virt-Viewer",
+        ];
+
+        for format in formats {
+            let row = adw::ActionRow::builder().title(format).build();
+            row.add_prefix(&gtk4::Image::from_icon_name("document-open-symbolic"));
+            formats_group.add(&row);
+        }
+        col.append(&formats_group);
+        col
     }
 
     /// Sets up the "Select Tab" callback for empty panel placeholders.
@@ -2117,8 +2177,8 @@ impl SplitViewBridge {
         // Set terminal content if available from internal map
         if let Some(terminal) = self.terminals.borrow().get(&session_id).cloned() {
             Self::detach_terminal_from_parent(&terminal);
-            let scrolled = Self::create_terminal_scrolled_window(&terminal);
-            self.adapter.borrow().set_panel_content(panel_id, &scrolled);
+            Self::prepare_terminal_for_panel(&terminal);
+            self.adapter.borrow().set_panel_content(panel_id, &terminal);
             terminal.set_visible(true);
         }
 
@@ -2211,8 +2271,8 @@ impl SplitViewBridge {
 
         // Detach terminal from any previous parent and display in panel
         Self::detach_terminal_from_parent(terminal);
-        let scrolled = Self::create_terminal_scrolled_window(terminal);
-        self.adapter.borrow().set_panel_content(panel_id, &scrolled);
+        Self::prepare_terminal_for_panel(terminal);
+        self.adapter.borrow().set_panel_content(panel_id, terminal);
         terminal.set_visible(true);
 
         // Update pane's current_session for filtering in Select Tab

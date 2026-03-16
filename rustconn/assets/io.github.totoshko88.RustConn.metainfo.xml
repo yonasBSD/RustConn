@@ -30,6 +30,9 @@
     </ul>
   </description>
   <launchable type="desktop-id">io.github.totoshko88.RustConn.desktop</launchable>
+  <provides>
+    <mediatype>application/x-rdp</mediatype>
+  </provides>
   <translation type="gettext">rustconn</translation>
   <categories>
     <category>Network</category>
@@ -90,6 +93,31 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.0" date="2026-03-14">
+      <description>
+        <p>GTK4/libadwaita/VTE upgrade, RDP file association, FreeRDP in Flatpak, and Flatpak fixes:</p>
+        <ul>
+          <li>RDP file association — double-click .rdp files to open and connect automatically</li>
+          <li>FreeRDP 3.24.0 bundled in Flatpak — external RDP works out of the box on Wayland</li>
+          <li>sdl-freerdp3 and unversioned FreeRDP binary detection for distro and Flatpak builds</li>
+          <li>GTK-rs bindings upgraded: gtk4 0.11, libadwaita 0.9, vte4 0.10, gdk4-wayland 0.11</li>
+          <li>MSRV bumped to Rust 1.92 across all crates, CI, and packaging</li>
+          <li>Flatpak runtime bumped to GNOME 50 with VTE 0.80</li>
+          <li>AdwSpinner, AdwShortcutsDialog, AdwSwitchRow, AdwWrapBox migrations (cfg-gated)</li>
+          <li>CSS prefers-reduced-motion support for accessibility</li>
+          <li>Tiered distro feature flags: adw-1-8 for Tumbleweed/Fedora 43+, adw-1-6 for Leap/Fedora 42</li>
+          <li>Fixed default window size too small on first start</li>
+          <li>Fixed RDP gateway parameters ignored in embedded mode — auto-fallback to FreeRDP</li>
+          <li>Fixed external RDP sidebar icon stays green after tab close</li>
+          <li>Fixed SSH jump host connections broken in Flatpak (interactive and monitoring)</li>
+          <li>Fixed mc wrapper not found in Flatpak on openSUSE</li>
+          <li>Fixed ZeroTrust and Kubernetes connections broken in Flatpak — CLI tools via flatpak-spawn; cloud config dirs mounted into sandbox</li>
+          <li>Fixed split view text selection broken by GestureClick handler</li>
+          <li>Fixed untranslated protocol display names across all 15 languages</li>
+          <li>Codebase cleanup: removed unused CSS classes, consolidated futures-util, removed dead code</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.9.15" date="2026-03-11">
       <description>
         <p>Hide local cursor option and SSH fixes:</p>
@@ -562,5 +590,7 @@
     <keyword>zerotrust</keyword>
     <keyword>serial</keyword>
     <keyword>sftp</keyword>
+    <keyword>kubernetes</keyword>
+    <keyword>k8s</keyword>
   </keywords>
 </component>

@@ -14,6 +14,8 @@ pub enum RdpBackend {
     IronRdp,
     /// FreeRDP wlfreerdp for Wayland embedded mode
     WlFreeRdp,
+    /// FreeRDP SDL3 client (works on both Wayland and X11 via SDL3)
+    SdlFreeRdp3,
     /// FreeRDP xfreerdp3 for X11/external mode
     XFreeRdp3,
     /// FreeRDP xfreerdp (legacy) for X11/external mode
@@ -29,6 +31,7 @@ impl RdpBackend {
         match self {
             Self::IronRdp => "ironrdp",
             Self::WlFreeRdp => "wlfreerdp",
+            Self::SdlFreeRdp3 => "sdl-freerdp3",
             Self::XFreeRdp3 => "xfreerdp3",
             Self::XFreeRdp => "xfreerdp",
             Self::FreeRdp => "freerdp",
@@ -53,6 +56,7 @@ impl RdpBackend {
         match self {
             Self::IronRdp => "IronRDP (Native)",
             Self::WlFreeRdp => "FreeRDP (Wayland)",
+            Self::SdlFreeRdp3 => "FreeRDP 3.x (SDL3)",
             Self::XFreeRdp3 => "FreeRDP 3.x",
             Self::XFreeRdp => "FreeRDP 2.x",
             Self::FreeRdp => "FreeRDP",
@@ -122,10 +126,33 @@ impl RdpBackendSelector {
             });
 
             // Check wlfreerdp
+            // Check wlfreerdp3 / wlfreerdp (Wayland-native)
+            let wlfreerdp_available =
+                Self::check_command("wlfreerdp3") || Self::check_command("wlfreerdp");
+            let wlfreerdp_cmd = if Self::check_command("wlfreerdp3") {
+                "wlfreerdp3"
+            } else {
+                "wlfreerdp"
+            };
             results.push(BackendDetectionResult {
                 backend: RdpBackend::WlFreeRdp,
-                available: Self::check_command("wlfreerdp"),
-                version: Self::get_freerdp_version("wlfreerdp"),
+                available: wlfreerdp_available,
+                version: Self::get_freerdp_version(wlfreerdp_cmd),
+            });
+
+            // Check sdl-freerdp3 / sdl-freerdp (SDL3 client, works on Wayland + X11)
+            // Versioned name used by distro packages, unversioned by Flatpak / upstream
+            let sdl_freerdp3_available =
+                Self::check_command("sdl-freerdp3") || Self::check_command("sdl-freerdp");
+            let sdl_freerdp3_cmd = if Self::check_command("sdl-freerdp3") {
+                "sdl-freerdp3"
+            } else {
+                "sdl-freerdp"
+            };
+            results.push(BackendDetectionResult {
+                backend: RdpBackend::SdlFreeRdp3,
+                available: sdl_freerdp3_available,
+                version: Self::get_freerdp_version(sdl_freerdp3_cmd),
             });
 
             // Check xfreerdp3
@@ -187,12 +214,17 @@ impl RdpBackendSelector {
 
     /// Selects the best backend for external mode
     ///
-    /// Priority: xfreerdp3 > xfreerdp > freerdp
+    /// Priority: sdl-freerdp3 > xfreerdp3 > xfreerdp > freerdp
     #[must_use]
     pub fn select_external(&mut self) -> Option<RdpBackend> {
         let available = self.available_backends();
 
-        // Prefer xfreerdp3 (newest)
+        // Prefer sdl-freerdp3 (SDL3, works on both Wayland and X11)
+        if available.contains(&RdpBackend::SdlFreeRdp3) {
+            return Some(RdpBackend::SdlFreeRdp3);
+        }
+
+        // Then xfreerdp3 (newest X11)
         if available.contains(&RdpBackend::XFreeRdp3) {
             return Some(RdpBackend::XFreeRdp3);
         }
@@ -279,6 +311,7 @@ mod tests {
     fn test_backend_command_names() {
         assert_eq!(RdpBackend::IronRdp.command_name(), "ironrdp");
         assert_eq!(RdpBackend::WlFreeRdp.command_name(), "wlfreerdp");
+        assert_eq!(RdpBackend::SdlFreeRdp3.command_name(), "sdl-freerdp3");
         assert_eq!(RdpBackend::XFreeRdp3.command_name(), "xfreerdp3");
         assert_eq!(RdpBackend::XFreeRdp.command_name(), "xfreerdp");
     }
@@ -287,6 +320,7 @@ mod tests {
     fn test_backend_embedded_support() {
         assert!(RdpBackend::IronRdp.supports_embedded());
         assert!(RdpBackend::WlFreeRdp.supports_embedded());
+        assert!(!RdpBackend::SdlFreeRdp3.supports_embedded());
         assert!(!RdpBackend::XFreeRdp3.supports_embedded());
         assert!(!RdpBackend::XFreeRdp.supports_embedded());
     }
@@ -295,6 +329,7 @@ mod tests {
     fn test_backend_is_native() {
         assert!(RdpBackend::IronRdp.is_native());
         assert!(!RdpBackend::WlFreeRdp.is_native());
+        assert!(!RdpBackend::SdlFreeRdp3.is_native());
         assert!(!RdpBackend::XFreeRdp3.is_native());
     }
 

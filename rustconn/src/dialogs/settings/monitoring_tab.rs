@@ -1,8 +1,8 @@
 //! Monitoring settings tab using libadwaita components
 
 use adw::prelude::*;
+use gtk4::CheckButton;
 use gtk4::prelude::*;
-use gtk4::{CheckButton, Switch};
 use libadwaita as adw;
 use rustconn_core::monitoring::MonitoringSettings;
 
@@ -13,8 +13,8 @@ use crate::i18n::i18n;
 pub struct MonitoringPageWidgets {
     /// The preferences page
     pub page: adw::PreferencesPage,
-    /// Global enable switch
-    pub enabled_switch: Switch,
+    /// Global enable switch row
+    pub enabled_row: adw::SwitchRow,
     /// Polling interval spin row
     pub interval_row: adw::SpinRow,
     /// Show CPU usage
@@ -46,14 +46,11 @@ impl MonitoringPageWidgets {
             .description(i18n("Remote host metrics collection"))
             .build();
 
-        let enabled_switch = Switch::builder().valign(gtk4::Align::Center).build();
-        let enable_row = adw::ActionRow::builder()
+        let enabled_row = adw::SwitchRow::builder()
             .title(i18n("Enable monitoring"))
             .subtitle(i18n("Show CPU, memory, disk, and network for SSH sessions"))
             .build();
-        enable_row.add_suffix(&enabled_switch);
-        enable_row.set_activatable_widget(Some(&enabled_switch));
-        general_group.add(&enable_row);
+        general_group.add(&enabled_row);
 
         let interval_row = adw::SpinRow::builder()
             .title(i18n("Polling interval"))
@@ -154,7 +151,8 @@ impl MonitoringPageWidgets {
         let net_clone = show_network.clone();
         let load_clone = show_load.clone();
         let sysinfo_clone = show_system_info.clone();
-        enabled_switch.connect_state_set(move |_, state| {
+        enabled_row.connect_active_notify(move |row| {
+            let state = row.is_active();
             interval_clone.set_sensitive(state);
             cpu_clone.set_sensitive(state);
             mem_clone.set_sensitive(state);
@@ -162,12 +160,11 @@ impl MonitoringPageWidgets {
             net_clone.set_sensitive(state);
             load_clone.set_sensitive(state);
             sysinfo_clone.set_sensitive(state);
-            gtk4::glib::Propagation::Proceed
         });
 
         Self {
             page,
-            enabled_switch,
+            enabled_row,
             interval_row,
             show_cpu,
             show_memory,
@@ -180,7 +177,7 @@ impl MonitoringPageWidgets {
 
     /// Loads monitoring settings into UI controls
     pub fn load(&self, settings: &MonitoringSettings) {
-        self.enabled_switch.set_active(settings.enabled);
+        self.enabled_row.set_active(settings.enabled);
         self.interval_row
             .set_value(f64::from(settings.effective_interval_secs()));
         self.show_cpu.set_active(settings.show_cpu);
@@ -206,7 +203,7 @@ impl MonitoringPageWidgets {
     #[must_use]
     pub fn collect(&self) -> MonitoringSettings {
         MonitoringSettings {
-            enabled: self.enabled_switch.is_active(),
+            enabled: self.enabled_row.is_active(),
             interval_secs: self.interval_row.value() as u8,
             show_cpu: self.show_cpu.is_active(),
             show_memory: self.show_memory.is_active(),

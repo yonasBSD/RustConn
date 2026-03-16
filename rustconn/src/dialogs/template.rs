@@ -799,10 +799,12 @@ impl TemplateDialog {
             .build();
 
         // Client mode dropdown
-        let client_mode_list = StringList::new(&[
-            RdpClientMode::Embedded.display_name(),
-            RdpClientMode::External.display_name(),
-        ]);
+        let client_mode_items: Vec<String> = vec![
+            i18n(RdpClientMode::Embedded.display_name()),
+            i18n(RdpClientMode::External.display_name()),
+        ];
+        let client_mode_strs: Vec<&str> = client_mode_items.iter().map(String::as_str).collect();
+        let client_mode_list = StringList::new(&client_mode_strs);
         let client_mode_dropdown = DropDown::builder()
             .model(&client_mode_list)
             .valign(gtk4::Align::Center)
@@ -984,10 +986,12 @@ impl TemplateDialog {
             .build();
 
         // Client mode dropdown
-        let client_mode_list = StringList::new(&[
-            VncClientMode::Embedded.display_name(),
-            VncClientMode::External.display_name(),
-        ]);
+        let vnc_mode_items: Vec<String> = vec![
+            i18n(VncClientMode::Embedded.display_name()),
+            i18n(VncClientMode::External.display_name()),
+        ];
+        let vnc_mode_strs: Vec<&str> = vnc_mode_items.iter().map(String::as_str).collect();
+        let client_mode_list = StringList::new(&vnc_mode_strs);
         let client_mode_dropdown = DropDown::builder()
             .model(&client_mode_list)
             .valign(gtk4::Align::Center)

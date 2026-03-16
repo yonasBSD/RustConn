@@ -15,17 +15,17 @@ It brings SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust conne
 | **File Transfer** | SFTP file browser via system file manager (sftp:// URI, D-Bus portal) |
 | **Organization** | Groups, tags, templates, custom icons (emoji/GTK), connection history & statistics |
 | **Monitoring** | Remote host metrics bar (CPU, RAM, disk, network, load, system info) — agentless, per-connection toggle |
-| **Import/Export** | Asbru-CM, Remmina, SSH config, Ansible inventory, Royal TS, MobaXterm, virt-viewer (.vv), libvirt XML, native (.rcn) |
-| **Security** | KeePassXC (KDBX), libsecret, Bitwarden CLI, 1Password CLI, Passbolt CLI integration |
-| **Productivity** | Split terminals, command snippets, cluster broadcast, Wake-on-LAN, SSH port forwarding, automation (expect rules, key sequences, pre/post-connect tasks), session reconnect, settings backup/restore |
+| **Import/Export** | Asbru-CM, Remmina, SSH config, Ansible inventory, Royal TS, MobaXterm, Remote Desktop Manager, RDP files (.rdp), virt-viewer (.vv), libvirt XML, native (.rcn) |
+| **Security** | KeePassXC (KDBX), libsecret, Bitwarden CLI, 1Password CLI, Passbolt CLI, Pass (passwordstore.org) |
+| **Productivity** | Split terminals, command snippets, cluster broadcast, Wake-on-LAN, SSH port forwarding, automation (expect rules, key sequences, pre/post-connect tasks), session reconnect, settings backup/restore, .rdp file association |
 | **CLI** | `rustconn-cli` — headless management: list/add/update/delete connections, import/export, snippets, groups, templates, clusters, secrets, WoL, shell completions |
 
 | Protocol | Client | Type |
 |----------|--------|------|
 | SSH | VTE terminal (port forwarding: -L/-R/-D) | Embedded |
-| RDP | IronRDP / FreeRDP fallback | Embedded + external |
+| RDP | IronRDP / FreeRDP fallback (bundled in Flatpak) | Embedded + external |
 | VNC | vnc-rs / vncviewer fallback | Embedded + external |
-| SPICE | remote-viewer | External |
+| SPICE | spice-client / remote-viewer fallback | Embedded + external |
 | Telnet | VTE terminal | Embedded |
 | Serial | picocom via VTE | External (bundled in Flatpak) |
 | Kubernetes | kubectl exec via VTE | External |
@@ -38,7 +38,7 @@ It brings SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust conne
 | **Flatpak** | Recommended. Extensions mechanism built-in, sandboxed |
 | **Package manager** | Uses system dependencies (GTK4, VTE, libadwaita) |
 | **Snap** | Strict confinement, requires additional permissions |
-| **From source** | Requires Rust 1.88+, GTK4 dev libraries |
+| **From source** | Requires Rust 1.92+, GTK4 dev libraries |
 
 <a href="https://flathub.org/apps/io.github.totoshko88.RustConn">
   <img width="200" alt="Download on Flathub" src="https://flathub.org/api/badge?locale=en"/>
@@ -65,7 +65,7 @@ cargo build --release
 ./target/release/rustconn
 ```
 
-**Build dependencies:** GTK4 4.14+, VTE4, libadwaita, Rust 1.88+ | **Optional:** FreeRDP, TigerVNC, virt-viewer, picocom, kubectl
+**Build dependencies:** GTK4 4.14+, VTE4, libadwaita, Rust 1.92+ | **Optional:** FreeRDP, TigerVNC, virt-viewer, picocom, kubectl
 
 
 ## Quick Start

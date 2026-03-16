@@ -1191,9 +1191,9 @@ impl SplitViewAdapter {
     /// When the panel is clicked, the callback is invoked with the panel ID.
     /// This allows the bridge to update focus state and switch tabs.
     ///
-    /// The click event is claimed to prevent it from propagating to the terminal,
-    /// which would cause unwanted text selection. However, clicks on buttons
-    /// (like "Select Tab") are allowed to propagate so the button can handle them.
+    /// Clicks on interactive child widgets (buttons, VTE terminals) are not
+    /// claimed so those widgets can handle the event themselves — e.g. text
+    /// selection in terminals or button activation.
     ///
     /// # Arguments
     ///
@@ -1213,20 +1213,30 @@ impl SplitViewAdapter {
         click.set_propagation_phase(gtk4::PropagationPhase::Capture);
 
         click.connect_pressed(move |gesture, _, x, y| {
-            // Check if the click is on a button widget - if so, let it propagate
-            // to allow the button to handle the click (e.g., "Select Tab" button)
+            // Check if the click lands on an interactive child widget (button or
+            // VTE terminal). If so, fire the focus callback but do NOT claim the
+            // event — let the child handle it (button activation, text selection).
             if let Some(gesture_widget) = gesture.widget()
                 && let Some(target_widget) = gesture_widget.pick(x, y, gtk4::PickFlags::DEFAULT)
             {
-                // Walk up the widget tree to check if we clicked on a button
                 let mut current: Option<gtk4::Widget> = Some(target_widget);
-                while let Some(widget) = current {
+                while let Some(ref widget) = current {
+                    // Let buttons handle their own clicks
                     if widget.downcast_ref::<Button>().is_some() {
-                        // Click is on a button - don't claim, let it propagate
                         tracing::debug!(
                             "Panel click handler: click on button in panel {}, not claiming",
                             panel_id
                         );
+                        gesture.set_state(gtk4::EventSequenceState::None);
+                        return;
+                    }
+                    // Let VTE terminals handle clicks for text selection
+                    if widget.type_().name() == "VteTerminal" {
+                        tracing::debug!(
+                            "Panel click handler: click on terminal in panel {}, not claiming",
+                            panel_id
+                        );
+                        callback(panel_id);
                         gesture.set_state(gtk4::EventSequenceState::None);
                         return;
                     }
@@ -1236,8 +1246,7 @@ impl SplitViewAdapter {
 
             tracing::debug!("Panel click handler: clicked on panel {}", panel_id);
             callback(panel_id);
-            // Claim the event to prevent propagation to terminal (avoids text selection)
-            // The callback should manually focus the terminal if needed
+            // Claim the event on non-interactive areas to prevent unintended propagation
             gesture.set_state(gtk4::EventSequenceState::Claimed);
         });
 

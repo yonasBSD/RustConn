@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.9.15** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.10.0** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -24,22 +24,24 @@ RustConn is a modern connection manager designed for Linux with Wayland-first ap
     - [Wake-on-LAN](#wake-on-lan)
     - [Flatpak Components](#flatpak-components)
 12. [Settings](#settings)
-13. [Startup Action](#startup-action)
-14. [Command Palette](#command-palette)
-15. [Favorites](#favorites)
-16. [Tab Coloring](#tab-coloring)
-17. [Tab Grouping](#tab-grouping)
-18. [Custom Icons](#custom-icons)
-19. [Remote Monitoring](#remote-monitoring)
-20. [Custom Keybindings](#custom-keybindings)
-21. [Adaptive UI](#adaptive-ui)
-22. [Encrypted Documents](#encrypted-documents)
-23. [Keyboard Shortcuts](#keyboard-shortcuts)
-24. [CLI Usage](#cli-usage)
-25. [Frequently Asked Questions](#frequently-asked-questions)
-26. [Migration Guide](#migration-guide)
-27. [Troubleshooting](#troubleshooting)
-28. [Security Best Practices](#security-best-practices)
+13. [Backup & Restore](#backup--restore)
+14. [Startup Action](#startup-action)
+15. [Command Palette](#command-palette)
+16. [Favorites](#favorites)
+17. [Tab Coloring](#tab-coloring)
+18. [Tab Grouping](#tab-grouping)
+19. [Custom Icons](#custom-icons)
+20. [Remote Monitoring](#remote-monitoring)
+21. [Custom Keybindings](#custom-keybindings)
+22. [Adaptive UI](#adaptive-ui)
+23. [Encrypted Documents](#encrypted-documents)
+24. [RDP File Association](#rdp-file-association)
+25. [Keyboard Shortcuts](#keyboard-shortcuts)
+26. [CLI Usage](#cli-usage)
+27. [Frequently Asked Questions](#frequently-asked-questions)
+28. [Migration Guide](#migration-guide)
+29. [Troubleshooting](#troubleshooting)
+30. [Security Best Practices](#security-best-practices)
 
 ---
 
@@ -107,7 +109,7 @@ Shows integration status in sidebar toolbar:
 - **Highlighted** — Password manager enabled and configured
 - **Dimmed** — Disabled or not configured
 - Click to open appropriate password manager:
-  - KeePassXC/GNOME Secrets for KeePassXC backend
+  - KeePassXC/GNOME Secrets for KeePassXC backend (in Flatpak, launches KeePassXC on the host via `flatpak-spawn`)
   - Seahorse/GNOME Settings for libsecret backend
   - Bitwarden web vault for Bitwarden backend
   - 1Password app for 1Password backend
@@ -156,15 +158,10 @@ SSH connections support hardware security keys (YubiKey, SoloKey, etc.) via the 
 - The key file path configured in the connection's SSH key field
 
 **Advanced Tabs:**
-- **Advanced** — Window mode (Embedded/External/Fullscreen), remember window position, Wake-on-LAN configuration (MAC address, broadcast, port, wait time)
-- **Automation** — Expect rules for auto-responding to terminal patterns, pattern tester, pre-connect task, post-disconnect task (with conditions: first/last connection only)
+- **Advanced** — Window mode (Embedded/External/Fullscreen), remember window position, hide local cursor (embedded RDP/VNC/SPICE), Wake-on-LAN configuration (MAC address, broadcast, port, wait time), monitoring override (enable/disable/global, custom polling interval)
+- **Automation** — Expect rules for auto-responding to terminal patterns, pattern tester with built-in templates (Sudo, SSH Host Key, Login, etc.), pre-connect task, post-disconnect task (with conditions: first/last connection only)
 - **Data** — Local variables (connection-scoped, override global variables), custom properties (Text/URL/Protected metadata)
 - **Logging** — Session logging (enable/disable, log path template with variables, timestamp format, max file size, retention days, granular content options: log activity, log input, log output, add timestamps)
-- **WOL** — Wake-on-LAN MAC address
-- **Variables** — Local variables for automation
-- **Automation** — Expect rules for auto-login (see below)
-- **Tasks** — Pre/post connection commands (see below)
-- **Custom Properties** — Metadata key-value fields for organization
 
 ### Automation (Expect Rules)
 
@@ -338,7 +335,7 @@ RustConn/
 | Protocol | Session Type |
 |----------|--------------|
 | SSH | Embedded VTE terminal tab |
-| RDP | Embedded IronRDP or external FreeRDP |
+| RDP | Embedded IronRDP or external FreeRDP (bundled in Flatpak) |
 
 **RDP HiDPI Support:** On HiDPI/4K displays, the embedded IronRDP client automatically sends the correct scale factor to the Windows server (e.g. 200% on a 2× display), so remote UI elements render at the correct logical size. The Scale Override setting in the connection dialog allows manual adjustment if needed.
 
@@ -356,12 +353,17 @@ RustConn/
 | Services | Win+R → `services.msc` | Opens Services console via Run dialog |
 
 The Quick Actions menu is accessible via the dropdown button (arrow icon) on the RDP toolbar. All labels are translatable.
+
+**Hide Local Cursor:** Embedded RDP, VNC, and SPICE viewers support hiding the local OS cursor to eliminate the "double cursor" effect (local + remote cursor visible simultaneously). Toggle "Show Local Cursor" in the connection dialog's Features section. Enabled by default for backward compatibility.
 | VNC | Embedded vnc-rs or external TigerVNC |
 | SPICE | Embedded spice-client or external remote-viewer |
 | Telnet | Embedded VTE terminal tab (external `telnet` client) |
 | Serial | Embedded VTE terminal tab (external `picocom` client) |
 | Kubernetes | Embedded VTE terminal tab (external `kubectl exec`) |
 | ZeroTrust | Provider CLI in terminal |
+| Local Shell | Local VTE terminal tab (user's default shell) |
+
+**Local Shell:** Open a local terminal tab without connecting to any remote host. Useful as a quick terminal emulator or for running local commands alongside remote sessions. Start via Menu → File → Local Shell, the startup action (Settings → Interface → Startup → Local Shell), or `rustconn --shell`.
 
 ### Display Mode (Window Mode)
 
@@ -381,12 +383,13 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 **Notes:**
 - Fullscreen mode maximizes the RustConn window, not the remote desktop. Use F11 to toggle true fullscreen of the entire application.
 - External Window mode for VNC requires an external VNC viewer installed (TigerVNC, vncviewer, gvncviewer, or similar). If no viewer is found, a toast notification shows the install hint.
+- External Window mode for RDP uses FreeRDP. In the Flatpak build, FreeRDP (SDL3 client) is bundled — no separate installation needed. On native installs, RustConn auto-detects available FreeRDP variants in priority order: `wlfreerdp3` > `wlfreerdp` > `sdl-freerdp3` > `sdl-freerdp` > `xfreerdp3` > `xfreerdp`.
 - The VNC protocol tab also has its own **Client Mode** (Embedded/External) setting. When Display Mode is set to External Window, it takes precedence over the protocol-level Client Mode.
 
 ### Tab Management
 
 - **Switch** — Click tab or Ctrl+Tab / Ctrl+Shift+Tab
-- **Close** — Click X or Ctrl+W
+- **Close** — Click X or Ctrl+Shift+W
 - **Reorder** — Drag tabs
 
 ### Split View
@@ -395,7 +398,7 @@ Split view works with terminal-based sessions: SSH, Telnet, Serial, Kubernetes, 
 
 - **Horizontal Split** — Ctrl+Shift+H
 - **Vertical Split** — Ctrl+Shift+S
-- **Close Pane** — Ctrl+Shift+W
+- **Close Pane** — Ctrl+Shift+X
 - **Focus Next Pane** — Ctrl+`
 
 ### Status Indicators
@@ -411,6 +414,15 @@ Enable in Settings → Interface page → Session Restore:
 - Restored on next startup
 - Optional prompt before restore
 - Configurable maximum age
+
+### Session Reconnect
+
+When a terminal session disconnects (SSH, Telnet, Serial, Kubernetes), a "Reconnect" banner appears at the top of the terminal tab. Click it to re-establish the connection in one click without opening the connection dialog.
+
+- The banner appears automatically when the VTE child process exits
+- Reconnect uses the same connection settings (host, credentials, protocol options)
+- If the connection fails again, the banner reappears
+- Close the tab normally with Ctrl+Shift+W to dismiss
 
 ### Session Logging
 
@@ -479,9 +491,20 @@ sudo snap connect rustconn:serial-port
 
 **CLI:**
 ```bash
+# Create a serial connection (--device is an alias for --host with serial protocol)
 rustconn-cli add --name "Router" --protocol serial --device /dev/ttyUSB0 --baud-rate 9600
+
+# Or use --host directly
+rustconn-cli add --name "Switch" --protocol serial --host /dev/ttyACM0 --baud-rate 115200
+
+# Connect (launches picocom with configured parameters)
 rustconn-cli connect "Router"
-rustconn-cli serial --device /dev/ttyACM0 --baud-rate 115200
+
+# Update serial-specific settings
+rustconn-cli update "Router" --device /dev/ttyACM1 --baud-rate 19200
+
+# Dry-run to see the picocom command
+rustconn-cli connect "Router" --dry-run
 ```
 
 ### SSH Port Forwarding
@@ -663,12 +686,21 @@ Connect to Kubernetes pods via `kubectl exec -it`. Two modes: exec into an exist
 **Flatpak:** kubectl is available as a downloadable component in Flatpak Components dialog.
 
 **CLI:**
+
+The CLI supports creating and connecting to Kubernetes connections. Kubernetes-specific parameters (namespace, pod, container, shell, busybox mode) are configured through the GUI — the CLI `add` command creates a connection with default Kubernetes settings that you can then customize in the GUI.
+
 ```bash
-rustconn-cli add --name "K8s Pod" --protocol kubernetes --namespace production --pod web-app-1
+# Create a Kubernetes connection (configure pod/namespace in GUI)
+rustconn-cli add --name "K8s Pod" --protocol kubernetes --host ""
+
+# Connect (launches kubectl exec with configured parameters)
 rustconn-cli connect "K8s Pod"
-rustconn-cli kubernetes --namespace default --pod nginx-abc123 --shell /bin/bash
-rustconn-cli kubernetes --namespace dev --busybox --shell /bin/sh
+
+# Dry-run to see the kubectl command
+rustconn-cli connect "K8s Pod" --dry-run
 ```
+
+For full control over Kubernetes parameters (namespace, pod, container, shell, busybox mode, kubeconfig path), use the GUI connection dialog.
 
 ### SFTP File Browser
 
@@ -683,11 +715,9 @@ Before opening SFTP, RustConn automatically runs `ssh-add` with your configured 
 - Right-click an SSH connection in sidebar → "Open SFTP"
 - Or use the `win.open-sftp` action while a connection is selected
 
-RustConn uses `gtk::UriLauncher` to open `sftp://user@host:port` — this is portal-aware and works across all desktop environments and sandboxes:
-- GNOME, KDE Plasma, COSMIC, Cinnamon, MATE, XFCE
-- Flatpak and Snap (uses XDG Desktop Portal)
+RustConn tries file managers in this order: `dolphin` (KDE), `nautilus` (GNOME), `xdg-open` (fallback). The `SSH_AUTH_SOCK` environment variable is injected into the spawned process so the file manager can access the SSH agent.
 
-If `UriLauncher` fails, RustConn falls back to `xdg-open`, then `nautilus --new-window`.
+On KDE, if `dolphin` is not found (e.g., in Flatpak), `xdg-open` is used — which opens whichever application is registered as the `sftp://` handler. See [SFTP Troubleshooting](#sftp-troubleshooting) if the wrong application opens.
 
 **SFTP via Midnight Commander:**
 
@@ -729,6 +759,49 @@ SFTP connections use the `folder-remote-symbolic` icon in the sidebar and behave
 rustconn-cli add --name "File Server" --host files.example.com --protocol sftp --username admin
 rustconn-cli connect "File Server"
 ```
+
+### SFTP Troubleshooting
+
+**Choosing the Default SFTP Client (KDE / GNOME / other):**
+
+RustConn opens `sftp://` URIs via `xdg-open`, which delegates to your desktop's default handler. On KDE, if FileZilla is installed, it may register itself as the default `sftp://` handler instead of Dolphin.
+
+To set Dolphin (recommended for SSH key support):
+
+```bash
+# Option 1: edit mimeapps.list directly
+# Add this line under [Default Applications] in ~/.config/mimeapps.list:
+x-scheme-handler/sftp=org.kde.dolphin.desktop
+
+# Option 2: xdg-mime (requires qt6-tools / qttools installed)
+xdg-mime default org.kde.dolphin.desktop x-scheme-handler/sftp
+```
+
+If `xdg-mime` fails with "qtpaths: command not found", use Option 1 or install `qt6-qttools` (`sudo dnf install qt6-qttools` / `sudo apt install qt6-tools-dev`).
+
+On GNOME, Nautilus handles `sftp://` by default — no changes needed.
+
+**FileZilla Does Not Support SSH Agent:**
+
+FileZilla uses its own SSH library and ignores the system SSH agent (`SSH_AUTH_SOCK`). Even though RustConn adds your key to the agent before opening SFTP, FileZilla will still prompt for a password.
+
+Solutions:
+- Switch the `sftp://` handler to Dolphin or Nautilus (see above) — both use OpenSSH and respect the SSH agent
+- Configure the key directly in FileZilla: Site Manager → SFTP tab → Key file
+- Use mc mode in RustConn (Settings → Terminal → SFTP via mc) — mc runs in the same process and inherits the agent
+
+**Flatpak: File Manager Cannot Access SSH Key:**
+
+In Flatpak builds, RustConn runs inside a sandbox with its own SSH agent. When `xdg-open` launches a file manager (Dolphin, Nautilus), it runs outside the sandbox and uses the host's SSH agent — which does not have the key that RustConn added.
+
+Additionally, SSH key paths from the Flatpak document portal (e.g., `/run/user/1000/doc/...`) are not accessible on the host.
+
+Solutions (pick one):
+1. **Use mc mode** (recommended) — Settings → Terminal → SFTP via mc. Midnight Commander runs inside the Flatpak sandbox and inherits RustConn's SSH agent. Works without any extra setup. This is enabled by default in Flatpak builds.
+2. **Add the key on the host** — run `ssh-add ~/.ssh/your_key` in a regular terminal before opening SFTP. The file manager will then find the key in the host agent.
+3. **Store keys in `~/.ssh/`** — keys in `~/.ssh/` are accessible to both the Flatpak sandbox and the host. Avoid selecting keys via the file picker (which creates portal paths).
+
+This limitation does not affect native packages (deb, rpm, Snap) where RustConn and the file manager share the same SSH agent.
 
 ---
 
@@ -1113,6 +1186,7 @@ Deleting a cluster does not delete the underlying connections.
 - Royal TS (.rtsz XML)
 - MobaXterm sessions (.mxtsessions)
 - Remote Desktop Manager (JSON)
+- RDP files (.rdp — Microsoft Remote Desktop)
 - Virt-Viewer (.vv files — SPICE/VNC from libvirt, Proxmox VE)
 - Libvirt / GNOME Boxes (domain XML — VNC, SPICE, RDP from QEMU/KVM VMs)
 - RustConn Native (.rcn)
@@ -1139,6 +1213,7 @@ For large imports (10+ connections), a preview is shown before applying. You can
 | Royal TS | — | `.rtsz` file | All | Folder hierarchy → groups |
 | MobaXterm | — | `.mxtsessions` | SSH, RDP, VNC, Telnet, Serial | INI-based sessions |
 | Remote Desktop Manager | — | JSON file | SSH, RDP, VNC | Devolutions JSON export |
+| RDP File | — | `.rdp` file | RDP | Microsoft Remote Desktop format; address, credentials, gateway, resolution, audio, clipboard |
 | Virt-Viewer | — | `.vv` file | SPICE, VNC | From libvirt, Proxmox VE, oVirt |
 | Libvirt / GNOME Boxes | `/etc/libvirt/qemu/`, `~/.config/libvirt/qemu/` | XML file | VNC, SPICE, RDP | Domain XML `<graphics>` elements |
 | RustConn Native | — | `.rcn` file | All | Full-fidelity backup |
@@ -1503,6 +1578,42 @@ Searches PATH and user directories (`~/bin/`, `~/.local/bin/`, `~/.cargo/bin/`).
 
 ---
 
+## Backup & Restore
+
+Back up your entire RustConn configuration (connections, groups, snippets, clusters, templates, history, keybindings, variables, and settings) as a single ZIP archive.
+
+### Create a Backup
+
+1. Open **Settings** (Ctrl+,) → **Interface** page
+2. Scroll to **Backup & Restore** section
+3. Click **Backup**
+4. Choose a save location
+5. RustConn creates a ZIP containing all configuration files
+
+### Restore from Backup
+
+1. Open **Settings** → **Interface** page → **Backup & Restore**
+2. Click **Restore**
+3. Select a previously created backup ZIP
+4. Confirm the restore (overwrites current configuration)
+5. Restart RustConn for all changes to take effect
+
+### What's Included
+
+| Included | Not Included |
+|----------|-------------|
+| Connections and groups | Passwords (stored in secret backend) |
+| Templates and snippets | Encrypted documents |
+| Clusters | SSH keys |
+| Global variables (names only; secret values are in vault) | Session logs |
+| Keybindings | Flatpak-installed CLI tools |
+| Application settings | |
+| Connection history and statistics | |
+
+After restoring on a new machine, re-enter passwords or configure the same secret backend. See also the [Migration Guide](#migration-guide) for full machine-to-machine migration.
+
+---
+
 ## Startup Action
 
 Configure which session opens automatically when RustConn starts. Useful for users who always work with the same connection or want RustConn as their default terminal.
@@ -1667,7 +1778,7 @@ Leave the field empty to use the default icon (folder for groups, protocol-based
 
 ## Remote Monitoring
 
-MobaXterm-style monitoring bar below SSH, Telnet, and Kubernetes terminals showing real-time system metrics from remote Linux hosts. Completely agentless — no software needs to be installed on the remote host. RustConn collects data by parsing `/proc/*` and `df` output over a separate SSH connection.
+MobaXterm-style monitoring bar below SSH terminals showing real-time system metrics from remote Linux hosts. Completely agentless — no software needs to be installed on the remote host. RustConn collects data by parsing `/proc/*` and `df` output over a separate SSH connection. For Telnet and Kubernetes sessions, monitoring is available if the host is also reachable via SSH.
 
 ### How It Works
 
@@ -1824,7 +1935,7 @@ Customize all keyboard shortcuts via Settings → Interface page → Keybindings
 
 ### Available Actions
 
-Over 25 customizable actions across 6 categories: Application, Connections, Navigation, Terminal, Split View, and View. See the [Keyboard Shortcuts](#keyboard-shortcuts) section for the full default list.
+Over 30 customizable actions across 6 categories: Application, Connections, Navigation, Terminal, Split View, and View. See the [Keyboard Shortcuts](#keyboard-shortcuts) section for the full default list.
 
 ---
 
@@ -1900,9 +2011,58 @@ Store sensitive notes, certificates, and credentials in AES-256-GCM encrypted do
 
 ---
 
+## RDP File Association
+
+RustConn registers as a handler for `.rdp` files. Double-clicking an `.rdp` file in your file manager opens RustConn and connects automatically.
+
+### How It Works
+
+1. Double-click an `.rdp` file (or run `rustconn file.rdp` from the terminal)
+2. RustConn parses the file and creates a temporary connection with the extracted settings
+3. The connection starts immediately — no dialog is shown
+
+### Supported .rdp Fields
+
+| .rdp Field | RustConn Mapping |
+|------------|-----------------|
+| `full address:s:host:port` | Host and port |
+| `username:s:` | Username |
+| `domain:s:` | Domain |
+| `gatewayhostname:s:` | RDP Gateway host |
+| `gatewayusername:s:` | RDP Gateway username |
+| `gatewayaccesstoken:s:` | RDP Gateway port (parsed from token) |
+| `desktopwidth:i:` / `desktopheight:i:` | Resolution |
+| `session bpp:i:` | Color depth |
+| `audiomode:i:` | Audio redirection (0=local, 1=remote, 2=off) |
+| `redirectclipboard:i:` | Clipboard sharing |
+
+Fields not present in the `.rdp` file use RustConn defaults. Passwords are never stored in `.rdp` files — RustConn prompts for credentials if needed.
+
+### Desktop Integration
+
+The `.desktop` file registers the `application/x-rdp` MIME type. On most desktops, `.rdp` files will automatically associate with RustConn after installation. If not, set the association manually:
+
+```bash
+xdg-mime default io.github.totoshko88.RustConn.desktop application/x-rdp
+```
+
+### CLI Usage
+
+```bash
+# Open an .rdp file directly
+rustconn ~/Downloads/server.rdp
+
+# Works with absolute and relative paths
+rustconn /tmp/production-vm.rdp
+```
+
+---
+
 ## Keyboard Shortcuts
 
 Press **Ctrl+?** or **F1** for searchable shortcuts dialog.
+
+Note: Sidebar-scoped shortcuts (F2, Delete, Ctrl+E, Ctrl+D, Ctrl+C, Ctrl+V, Ctrl+M) only work when the sidebar has focus. They do not intercept input in VTE terminals or embedded viewers.
 
 ### Connections
 
@@ -1916,6 +2076,7 @@ Press **Ctrl+?** or **F1** for searchable shortcuts dialog.
 | Delete | Delete |
 | Ctrl+D | Duplicate |
 | Ctrl+C / Ctrl+V | Copy / Paste |
+| Ctrl+M | Move to Group |
 
 ### Terminal
 
@@ -1924,7 +2085,7 @@ Press **Ctrl+?** or **F1** for searchable shortcuts dialog.
 | Ctrl+Shift+C | Copy |
 | Ctrl+Shift+V | Paste |
 | Ctrl+Shift+F | Terminal Search |
-| Ctrl+W | Close Tab |
+| Ctrl+Shift+W | Close Tab |
 | Ctrl+Tab | Next Tab |
 | Ctrl+Shift+Tab | Previous Tab |
 
@@ -1946,7 +2107,7 @@ These settings apply to all terminal sessions (SSH, Telnet, Serial, Kubernetes, 
 |----------|--------|
 | Ctrl+Shift+H | Split Horizontal |
 | Ctrl+Shift+S | Split Vertical |
-| Ctrl+Shift+W | Close Pane |
+| Ctrl+Shift+X | Close Pane |
 | Ctrl+` | Focus Next Pane |
 
 ### Application
@@ -1968,6 +2129,8 @@ These settings apply to all terminal sessions (SSH, Telnet, Serial, Kubernetes, 
 
 ## CLI Usage
 
+The `rustconn-cli` binary provides full connection management from the terminal. It shares the same configuration files as the GUI (`~/.config/rustconn/`), so changes made in either tool are immediately visible to the other.
+
 ### GUI Startup Flags
 
 The GUI binary (`rustconn`) accepts startup flags:
@@ -1982,144 +2145,420 @@ rustconn --help                         # Print usage
 
 These flags override the startup action configured in Settings.
 
-### Commands
+### Global Options
 
-```bash
-# List connections
-rustconn-cli list
-rustconn-cli list --format json
-rustconn-cli list --group "Production" --tag "web"
-rustconn-cli list --protocol ssh
+Every `rustconn-cli` command accepts these flags:
 
-# Connect
-rustconn-cli connect "My Server"
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--config <PATH>` | `-c` | Path to configuration directory (overrides default and `RUSTCONN_CONFIG_DIR`) |
+| `--verbose` | `-v` | Increase log verbosity (`-v` info, `-vv` debug, `-vvv` trace) |
+| `--quiet` | `-q` | Suppress all output except errors |
+| `--no-color` | — | Disable colored output (also respects `NO_COLOR` env var) |
 
-# Telnet connection
-rustconn-cli telnet --host 192.168.1.10 --port 23
+### Environment Variables
 
-# Serial connection
-rustconn-cli serial --device /dev/ttyUSB0 --baud-rate 115200
-rustconn-cli serial --device /dev/ttyACM0 --baud-rate 9600 --data-bits 7 --parity even
+| Variable | Description |
+|----------|-------------|
+| `RUSTCONN_CONFIG_DIR` | Override the default configuration directory (`~/.config/rustconn/`) |
+| `NO_COLOR` | Disable colored output when set to any value (see [no-color.org](https://no-color.org)) |
+| `RUST_LOG` | Override log level filter (e.g. `RUST_LOG=debug rustconn-cli list`) |
 
-# Kubernetes connection
-rustconn-cli kubernetes --namespace default --pod nginx-abc123 --shell /bin/bash
-rustconn-cli kubernetes --namespace dev --busybox
-rustconn-cli kubernetes --kubeconfig ~/.kube/prod.yaml --context prod-cluster --namespace app --pod web-1
+### Connection Lookup
 
-# Add connection
-rustconn-cli add --name "New Server" --host "192.168.1.10" --protocol ssh --user admin
-rustconn-cli add --name "FIDO2 Server" --host "10.0.0.5" --key ~/.ssh/id_ed25519_sk --auth-method security-key
-rustconn-cli add --name "Router Console" --protocol serial --device /dev/ttyUSB0 --baud-rate 9600
+Most commands accept a connection by name or UUID. The lookup order is:
 
-# Show connection details
-rustconn-cli show "My Server"
+1. Exact name match
+2. UUID match
+3. Case-insensitive name match
+4. Prefix match (e.g. `"Prod"` matches `"Production DB"`)
+5. If no match is found, fuzzy substring suggestions are shown
 
-# Update connection
-rustconn-cli update "My Server" --host "192.168.1.20" --port 2222
-rustconn-cli update "My Server" --auth-method security-key --key ~/.ssh/id_ed25519_sk
-
-# Duplicate connection
-rustconn-cli duplicate "My Server" --new-name "My Server Copy"
-
-# Delete connection
-rustconn-cli delete "My Server"
-
-# Test connectivity
-rustconn-cli test "My Server"
-rustconn-cli test all --timeout 5
-
-# Import/Export
-rustconn-cli import --format ssh-config ~/.ssh/config
-rustconn-cli import --format remmina ~/remmina/
-rustconn-cli export --format native --output backup.rcn
-rustconn-cli export --format ansible --output inventory.yml
-
-# Snippets
-rustconn-cli snippet list
-rustconn-cli snippet show "Deploy Script"
-rustconn-cli snippet add --name "Restart" --command "sudo systemctl restart \${service}"
-rustconn-cli snippet run "Deploy" --var service=nginx --execute
-rustconn-cli snippet delete "Old Snippet"
-
-# Groups
-rustconn-cli group list
-rustconn-cli group show "Production"
-rustconn-cli group create --name "New Group" --parent "Production"
-rustconn-cli group add-connection --group "Production" --connection "Web-01"
-rustconn-cli group remove-connection --group "Production" --connection "Web-01"
-rustconn-cli group delete "Old Group"
-
-# Templates
-rustconn-cli template list
-rustconn-cli template show "SSH Template"
-rustconn-cli template create --name "New Template" --protocol ssh --port 2222
-rustconn-cli template delete "Old Template"
-rustconn-cli template apply "SSH Template" --name "New Connection" --host "server.example.com"
-
-# Clusters
-rustconn-cli cluster list
-rustconn-cli cluster show "Web Servers"
-rustconn-cli cluster create --name "DB Cluster" --broadcast
-rustconn-cli cluster add-connection --cluster "DB Cluster" --connection "DB-01"
-rustconn-cli cluster remove-connection --cluster "DB Cluster" --connection "DB-01"
-rustconn-cli cluster delete "Old Cluster"
-
-# Global Variables
-rustconn-cli var list
-rustconn-cli var show "my_var"
-rustconn-cli var set my_var "my_value"
-rustconn-cli var set api_key "secret123" --secret
-rustconn-cli var delete "my_var"
-
-# Secret Management
-rustconn-cli secret status                    # Show backend status
-rustconn-cli secret get "My Server"           # Get credentials
-rustconn-cli secret get "My Server" --backend keepass
-rustconn-cli secret set "My Server"           # Store (prompts for password)
-rustconn-cli secret set "My Server" --password "pass" --backend keyring
-rustconn-cli secret delete "My Server"        # Delete credentials
-rustconn-cli secret verify-keepass --database ~/passwords.kdbx
-rustconn-cli secret verify-keepass --database ~/passwords.kdbx --key-file ~/key.key
-
-# Statistics
-rustconn-cli stats
-
-# Wake-on-LAN
-rustconn-cli wol AA:BB:CC:DD:EE:FF
-rustconn-cli wol "Server Name"
-rustconn-cli wol AA:BB:CC:DD:EE:FF --broadcast 192.168.1.255 --port 9
+```
+$ rustconn-cli show "prodction"
+Error: Connection not found: 'prodction'. Did you mean: Production DB, Production Web?
 ```
 
-### Secret Command Details
+### Output Formats
 
-The `secret` command manages credentials stored in secret backends:
+Commands that list data (`list`, `snippet list`, `group list`, etc.) support three output formats:
+
+| Format | Flag | Description |
+|--------|------|-------------|
+| `table` | `--format table` | Human-readable table (default in terminal) |
+| `json` | `--format json` | Machine-readable JSON (default when piped) |
+| `csv` | `--format csv` | Comma-separated values |
+
+When stdout is not a terminal (piped or redirected), the format automatically switches from `table` to `json` for scripting convenience. Long table output is paged through `less` when available.
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | General error (configuration, validation, I/O, export, import) |
+| `2` | Connection failure (test failed, connection not found, connection error) |
+
+### Connection Management
+
+#### list — List connections
+
+```bash
+rustconn-cli list                                    # All connections (table)
+rustconn-cli list --format json                      # JSON output
+rustconn-cli list --format csv                       # CSV output
+rustconn-cli list --protocol ssh                     # Filter by protocol
+rustconn-cli list --group "Production"               # Filter by group name
+rustconn-cli list --tag "web"                        # Filter by tag
+rustconn-cli list --group "Production" --tag "web"   # Combine filters
+```
+
+#### show — Show connection details
+
+Displays all fields for a connection including protocol-specific configuration (SSH auth method, key path, RDP resolution, serial device settings, monitoring config).
+
+```bash
+rustconn-cli show "My Server"
+rustconn-cli show 550e8400-e29b-41d4-a716-446655440000   # By UUID
+```
+
+#### add — Add a new connection
+
+```bash
+# SSH (default protocol)
+rustconn-cli add --name "Web Server" --host 192.168.1.10 --user admin
+rustconn-cli add --name "FIDO2 Server" --host 10.0.0.5 --key ~/.ssh/id_ed25519_sk --auth-method security-key
+
+# RDP
+rustconn-cli add --name "Windows DC" --host 10.0.0.1 --protocol rdp --user administrator
+
+# VNC
+rustconn-cli add --name "VNC Host" --host 10.0.0.2 --protocol vnc --port 5901
+
+# Serial
+rustconn-cli add --name "Router Console" --protocol serial --host /dev/ttyUSB0 --baud-rate 9600
+rustconn-cli add --name "Switch" --protocol serial --device /dev/ttyACM0 --baud-rate 115200
+
+# Telnet
+rustconn-cli add --name "Legacy Switch" --host 192.168.1.1 --protocol telnet --port 23
+
+# With custom icon
+rustconn-cli add --name "DB Primary" --host db.example.com --user postgres --icon "🗄️"
+```
+
+Options:
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--name` | `-n` | Connection name (required) |
+| `--host` | `-H` | Hostname, IP, or device path (required) |
+| `--port` | `-p` | Port number (defaults: SSH=22, RDP=3389, VNC=5900, Telnet=23) |
+| `--protocol` | `-P` | Protocol type: `ssh`, `rdp`, `vnc`, `spice`, `telnet`, `serial`, `sftp`, `kubernetes` (default: `ssh`) |
+| `--user` | `-u` | Username |
+| `--key` | `-k` | Path to SSH private key file |
+| `--auth-method` | — | SSH auth: `password`, `publickey`, `keyboard-interactive`, `agent`, `security-key` |
+| `--device` | — | Serial device path (alias for `--host` with serial protocol) |
+| `--baud-rate` | — | Serial baud rate: 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 |
+| `--icon` | — | Custom icon (emoji or GTK icon name, e.g. `"🏢"`, `"starred-symbolic"`) |
+
+#### update — Update an existing connection
+
+```bash
+rustconn-cli update "My Server" --host 192.168.1.20 --port 2222
+rustconn-cli update "My Server" --new-name "Renamed Server"
+rustconn-cli update "My Server" --auth-method security-key --key ~/.ssh/id_ed25519_sk
+rustconn-cli update "My Server" --icon "⭐"
+```
+
+All flags from `add` are available (except `--protocol`), plus `--new-name` to rename. Only specified fields are changed; unspecified fields remain unchanged.
+
+#### duplicate — Duplicate a connection
+
+```bash
+rustconn-cli duplicate "My Server"                          # Creates "My Server (copy)"
+rustconn-cli duplicate "My Server" --new-name "Staging"     # Custom name
+```
+
+The duplicate gets a new UUID, fresh timestamps, and no `last_connected` value.
+
+#### delete — Delete a connection
+
+```bash
+rustconn-cli delete "My Server"              # Prompts for confirmation
+rustconn-cli delete "My Server" --force      # Skip confirmation
+```
+
+In non-interactive mode (piped stdin), confirmation is automatically assumed.
+
+#### connect — Initiate a connection
+
+```bash
+rustconn-cli connect "My Server"
+rustconn-cli connect "My Server" --dry-run   # Show command without executing
+```
+
+The `--dry-run` flag prints the exact command that would be executed (e.g. `ssh -p 22 admin@192.168.1.10`), useful for debugging or scripting.
+
+For SFTP connections, `connect` prints a hint to use `rustconn-cli sftp` instead.
+
+#### test — Test connectivity
+
+```bash
+rustconn-cli test "My Server"                # Test single connection
+rustconn-cli test all                        # Test all connections
+rustconn-cli test all --timeout 5            # Custom timeout (seconds, default: 10)
+```
+
+Output shows colored pass/fail indicators with latency measurements. When testing all connections, a summary with pass rate is printed at the end. Exit code is `2` if any test fails.
+
+### SFTP
+
+Open an SFTP session for an SSH connection. Three modes are available:
+
+```bash
+rustconn-cli sftp "My Server"                # Open in file manager (Dolphin/Nautilus/xdg-open)
+rustconn-cli sftp "My Server" --cli          # Interactive sftp CLI session
+rustconn-cli sftp "My Server" --mc           # Open in Midnight Commander
+```
+
+The command automatically manages SSH agent keys before connecting. Only SSH connections are supported; other protocols return an error.
+
+### Import & Export
+
+#### export
+
+```bash
+rustconn-cli export --format native --output backup.rcn
+rustconn-cli export --format ansible --output inventory.yml
+rustconn-cli export --format ssh-config --output config
+rustconn-cli export --format remmina --output ~/remmina-export/
+rustconn-cli export --format royal-ts --output connections.rtsz
+rustconn-cli export --format moba-xterm --output sessions.mxtsessions
+rustconn-cli export --format asbru --output asbru.yml
+```
+
+| Format | Description |
+|--------|-------------|
+| `native` | RustConn native format (`.rcn`) — preserves all fields |
+| `ansible` | Ansible inventory (YAML) |
+| `ssh-config` | OpenSSH config format |
+| `remmina` | Remmina `.remmina` files |
+| `asbru` | Asbru-CM YAML |
+| `royal-ts` | Royal TS JSON (`.rtsz`) |
+| `moba-xterm` | MobaXterm sessions (`.mxtsessions`) |
+
+#### import
+
+```bash
+rustconn-cli import --format ssh-config ~/.ssh/config
+rustconn-cli import --format remmina ~/remmina/
+rustconn-cli import --format native backup.rcn
+rustconn-cli import --format ansible inventory.yml
+rustconn-cli import --format royal-ts connections.rtsz
+rustconn-cli import --format moba-xterm sessions.mxtsessions
+rustconn-cli import --format asbru asbru.yml
+```
+
+Import formats match the export formats listed above. Passwords are never included in import/export files — re-enter them after importing.
+
+### Sync
+
+Synchronize connections from an external inventory source (JSON or YAML). Useful for keeping RustConn in sync with a CMDB, NetBox, or Ansible inventory.
+
+```bash
+rustconn-cli sync inventory.json --source netbox
+rustconn-cli sync inventory.yml --source ansible --remove-stale
+rustconn-cli sync inventory.json --source netbox --dry-run
+```
+
+| Flag | Description |
+|------|-------------|
+| `--source` | Source identifier for tagging synced connections (required) |
+| `--remove-stale` | Remove connections from this source that are no longer in the inventory |
+| `--dry-run` | Show what would change without saving |
+
+The sync report shows added, updated, removed, and skipped counts.
+
+### Groups
+
+```bash
+rustconn-cli group list                                          # List all groups
+rustconn-cli group list --format json                            # JSON output
+rustconn-cli group show "Production"                             # Show group details and connections
+rustconn-cli group create --name "Staging"                       # Create a top-level group
+rustconn-cli group create --name "EU" --parent "Production"      # Create a child group
+rustconn-cli group create --name "DB" --description "Databases" --icon "🗄️"
+rustconn-cli group add-connection -g "Production" -c "Web-01"    # Add connection to group
+rustconn-cli group remove-connection -g "Production" -c "Web-01" # Remove from group
+rustconn-cli group delete "Old Group"                            # Delete a group
+```
+
+Groups support hierarchical nesting via `--parent`. The `show` subcommand lists all connections belonging to the group.
+
+### Templates
+
+Templates define reusable connection presets. Create a template once, then apply it to create connections with pre-filled fields.
+
+```bash
+rustconn-cli template list                                       # List all templates
+rustconn-cli template list --protocol ssh                        # Filter by protocol
+rustconn-cli template show "SSH Bastion"                         # Show template details
+rustconn-cli template create --name "SSH Bastion" --protocol ssh --port 2222 --user ops
+rustconn-cli template create --name "RDP Standard" --protocol rdp --description "Standard RDP"
+rustconn-cli template delete "Old Template"
+
+# Create a connection from a template
+rustconn-cli template apply "SSH Bastion" --name "Prod Bastion" --host bastion.example.com
+rustconn-cli template apply "SSH Bastion" --host 10.0.0.1 --user admin   # Override fields
+```
+
+When applying a template, `--host` and `--name` fill in the connection-specific values. `--port` and `--user` can override the template defaults.
+
+### Clusters
+
+Clusters group connections for broadcast command execution (send the same input to all sessions simultaneously).
+
+```bash
+rustconn-cli cluster list
+rustconn-cli cluster show "Web Servers"                          # Show cluster and its connections
+rustconn-cli cluster create --name "DB Cluster" --broadcast      # Create with broadcast enabled
+rustconn-cli cluster create --name "Mixed" --connections "DB-01,DB-02,Web-01"  # Pre-populate
+rustconn-cli cluster add-connection -C "DB Cluster" -c "DB-01"
+rustconn-cli cluster remove-connection -C "DB Cluster" -c "DB-01"
+rustconn-cli cluster delete "Old Cluster"
+```
+
+### Snippets
+
+Snippets are reusable command templates with variable substitution. Variables use `${var}` syntax.
+
+```bash
+rustconn-cli snippet list
+rustconn-cli snippet list --category deploy                      # Filter by category
+rustconn-cli snippet list --tag production                       # Filter by tag
+rustconn-cli snippet show "Deploy Script"                        # Show details and variables
+
+# Create a snippet
+rustconn-cli snippet add --name "Restart" --command "sudo systemctl restart \${service}"
+rustconn-cli snippet add --name "Deploy" --command "cd /app && git pull && \${restart_cmd}" \
+    --category deploy --tags "production,ci" --description "Standard deploy"
+
+# Run a snippet (preview mode — prints the expanded command)
+rustconn-cli snippet run "Deploy" --var service=nginx --var restart_cmd="systemctl restart nginx"
+
+# Run a snippet (execute mode — actually runs the command)
+rustconn-cli snippet run "Deploy" --var service=nginx --execute
+
+rustconn-cli snippet delete "Old Snippet"
+```
+
+The `run` subcommand without `--execute` only prints the expanded command (safe preview). With `--execute`, it runs the command via `sh -c` and warns about shell metacharacters in variable values.
+
+### Variables
+
+Global variables can be referenced in snippets and connection templates. Secret variables are masked in output.
+
+```bash
+rustconn-cli var list
+rustconn-cli var list --format json
+rustconn-cli var show "my_var"
+rustconn-cli var set my_var "my_value"
+rustconn-cli var set api_key "secret123" --secret                # Masked in output
+rustconn-cli var set deploy_env "staging" --description "Current deploy target"
+rustconn-cli var delete "my_var"
+```
+
+### Secrets
+
+Manage credentials stored in secret backends. Supports system keyring (libsecret), KeePass (KDBX), Bitwarden, 1Password, Passbolt, and Pass.
+
+```bash
+rustconn-cli secret status                                       # Show backend availability
+rustconn-cli secret get "My Server"                              # Get credentials (default backend)
+rustconn-cli secret get "My Server" --backend keepass            # Specific backend
+rustconn-cli secret set "My Server"                              # Store (prompts for password)
+rustconn-cli secret set "My Server" --user admin --backend keyring
+rustconn-cli secret delete "My Server"
+rustconn-cli secret delete "My Server" --backend bitwarden
+rustconn-cli secret verify-keepass --database ~/vault.kdbx
+rustconn-cli secret verify-keepass -d ~/vault.kdbx -k ~/key.key  # With key file
+```
 
 | Subcommand | Description |
 |------------|-------------|
-| `status` | Show available backends (Keyring, KeePass, Bitwarden) and configuration |
+| `status` | Show available backends and their configuration status |
 | `get` | Retrieve credentials for a connection |
-| `set` | Store credentials (interactive password prompt if not provided) |
-| `delete` | Delete credentials from backend |
-| `verify-keepass` | Verify KeePass database can be unlocked |
+| `set` | Store credentials (interactive password prompt if `--password` is omitted) |
+| `delete` | Delete credentials from a backend |
+| `verify-keepass` | Verify that a KeePass database can be unlocked |
 
-**Backend Options:**
-- `keyring` / `libsecret` — System keyring (GNOME Keyring, KDE Wallet)
-- `keepass` / `kdbx` — KeePass database (requires KDBX configured in settings)
-- `bitwarden` / `bw` — Bitwarden CLI
+Backend aliases:
 
-**Examples:**
+| Backend | Aliases |
+|---------|---------|
+| System keyring (libsecret) | `keyring`, `libsecret` |
+| KeePass KDBX | `keepass`, `kdbx` |
+| Bitwarden | `bitwarden`, `bw` |
+| 1Password | `1password`, `op` |
+| Passbolt | `passbolt` |
+| Pass (passwordstore.org) | `pass` |
+
+> **Security note:** Prefer the interactive password prompt (omit `--password`) over passing passwords on the command line, which may be visible in process listings.
+
+### Wake-on-LAN
+
+Send magic packets to wake sleeping machines. Accepts a MAC address directly or a connection name (if the connection has WoL configured).
+
 ```bash
-# Check which backends are available
-rustconn-cli secret status
+rustconn-cli wol AA:BB:CC:DD:EE:FF
+rustconn-cli wol "Server Name"                                   # Uses MAC from connection config
+rustconn-cli wol AA:BB:CC:DD:EE:FF --broadcast 192.168.1.255 --port 9
+```
 
-# Store password in system keyring
-rustconn-cli secret set "Production DB" --backend keyring
+Three packets are sent with retry. Default broadcast address is `255.255.255.255`, default port is `9`.
 
-# Store password in KeePass (uses configured KDBX)
-rustconn-cli secret set "Production DB" --backend keepass --user admin
+### Statistics
 
-# Verify KeePass database with key file
-rustconn-cli secret verify-keepass -d ~/vault.kdbx -k ~/key.key
+```bash
+rustconn-cli stats
+```
+
+Shows a summary: total connections by protocol, groups, templates, clusters, snippets, variables, recently used connections (last 7 days), and ever-connected count.
+
+### Shell Completions & Man Page
+
+```bash
+# Generate shell completions
+rustconn-cli completions bash > ~/.local/share/bash-completion/completions/rustconn-cli
+rustconn-cli completions zsh > ~/.local/share/zsh/site-functions/_rustconn-cli
+rustconn-cli completions fish > ~/.config/fish/completions/rustconn-cli.fish
+
+# Generate man page
+rustconn-cli man-page > ~/.local/share/man/man1/rustconn-cli.1
+```
+
+Supported shells: `bash`, `zsh`, `fish`, `elvish`, `powershell`.
+
+### Scripting Examples
+
+```bash
+# Backup all connections to JSON
+rustconn-cli list --format json > connections-backup.json
+
+# Test all connections and fail CI if any are unreachable
+rustconn-cli test all --timeout 5 || echo "Some connections failed"
+
+# List SSH connections as CSV for processing
+rustconn-cli list --format csv --protocol ssh | tail -n +2 | while IFS=, read -r name host port _; do
+    echo "Checking $name at $host:$port"
+done
+
+# Dry-run a connection to see the command
+rustconn-cli connect "Production DB" --dry-run
+
+# Sync from inventory with dry-run first
+rustconn-cli sync inventory.yml --source ansible --dry-run
+rustconn-cli sync inventory.yml --source ansible --remove-stale
 ```
 
 ---
@@ -2140,11 +2579,11 @@ Connection files themselves (in `~/.config/rustconn/connections/`) contain only 
 
 ### How do I migrate RustConn to another machine?
 
-The simplest approach is Settings Backup/Restore:
+The simplest approach is [Backup & Restore](#backup--restore):
 
-1. On the old machine: **Settings > Interface > Backup & Restore > Backup**
+1. On the old machine: **Settings → Interface → Backup & Restore → Backup**
 2. Copy the resulting ZIP file to the new machine
-3. On the new machine: **Settings > Interface > Backup & Restore > Restore**
+3. On the new machine: **Settings → Interface → Backup & Restore → Restore**
 4. Restart RustConn
 
 This exports connections, groups, snippets, clusters, templates, history, and settings. Passwords are not included in the backup since they live in your secret backend. You will need to re-enter credentials or configure the same secret backend on the new machine.
@@ -2350,6 +2789,7 @@ This means `bw` is not found in PATH. Flatpak users must install `bw` via Flatpa
 3. Configure KDBX path in Settings → Secrets
 4. Provide password/key file
 5. For password source, select "KeePass" in connection dialog
+6. **Flatpak users:** KeePassXC installed on the host system is detected and used automatically via `flatpak-spawn --host`. All KDBX operations (read, write, delete, verify, group management) work transparently inside the sandbox. No additional configuration needed.
 
 ### Pass (passwordstore.org) Not Working
 
@@ -2364,10 +2804,12 @@ This means `bw` is not found in PATH. Flatpak users must install `bw` via Flatpa
 
 1. Check IronRDP/vnc-rs features enabled
 2. For external: verify FreeRDP/TigerVNC installed
-3. Wayland vs X11 compatibility
-4. HiDPI/4K: IronRDP sends scale factor automatically; use Scale Override in connection dialog if remote UI is too small or too large
-5. FreeRDP passwords are passed via stdin (`/from-stdin`), not command-line arguments
-6. Clipboard not syncing: ensure "Clipboard" is enabled in RDP connection settings; text is synced automatically via CLIPRDR channel, Copy/Paste buttons are manual fallback
+3. **Flatpak:** FreeRDP (SDL3 client) is bundled in the Flatpak build — external RDP works out of the box without installing anything. TigerVNC can be installed via Flatpak Components.
+4. Wayland vs X11 compatibility
+5. HiDPI/4K: IronRDP sends scale factor automatically; use Scale Override in connection dialog if remote UI is too small or too large
+6. FreeRDP passwords are passed via stdin (`/from-stdin`), not command-line arguments
+7. Clipboard not syncing: ensure "Clipboard" is enabled in RDP connection settings; text is synced automatically via CLIPRDR channel, Copy/Paste buttons are manual fallback
+8. RDP Gateway: IronRDP does not support RD Gateway; connections with a gateway configured automatically fall back to external FreeRDP with a toast notification
 
 ### Session Restore Issues
 
@@ -2417,6 +2859,9 @@ If features are not working in the Flatpak build:
 3. **Serial devices:** Requires `--device=all` permission
 4. **CLI tools:** Host-installed binaries (bw, kubectl, pass, op) are NOT visible inside the sandbox. Use Menu → Flatpak Components to install them
 5. **Secret Service:** GNOME Keyring / KDE Wallet access works via D-Bus portal
+6. **KeePassXC:** Host-installed `keepassxc-cli` is detected and used automatically via `flatpak-spawn --host` — no manual configuration needed
+7. **Zero Trust / Kubernetes:** Cloud CLIs (`aws`, `gcloud`, `az`, `kubectl`) on the host are detected and executed via `flatpak-spawn --host`. Config directories (`~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`) are mounted into the sandbox so credentials are shared
+8. **FreeRDP:** Bundled in the Flatpak build (SDL3 client). External RDP works out of the box on Wayland without `DISPLAY`
 
 ### Monitoring Issues
 
