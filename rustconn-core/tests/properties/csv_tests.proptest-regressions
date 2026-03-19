@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 3be06909d3dca61b20e7276d310b1fce2a66843c0634b889d54ccb17c665f0c6 # shrinks to name = "A", host = "a.aa", special = " "
+cc 16e37eab2d731054fbc48b640ac477cc61b8a961f9821e6e5216db9b2002fb76 # shrinks to names = [" "], hosts = ["a.aa"], protocols = [Ssh], ports = [1], usernames = [None], descriptions = [None], tags_list = [[]]
+cc 62d535c7603deb382c86ef302a9f436935f60d4591be9cc4e7fb98624c087c19 # shrinks to names = ["a "], hosts = ["0.aa"], protocols = [Ssh], ports = [1], usernames = [None], descriptions = [None], tags_list = [[]]

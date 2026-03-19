@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-03-19
+
+### Note
+Thank you to **Todor Todorov** for the support and for pointing out that the donation link was broken. The donation service has been changed and is now working. Today marks 8 months of active development on RustConn. If you'd like to support the project financially, I'd be very grateful: [https://donatello.to/totoshko88](https://donatello.to/totoshko88)
+
+### Added
+- **MOSH protocol** — new protocol type with predict mode (Adaptive/Always/Never), SSH port, UDP port range, server binary path, and custom arguments; `MoshProtocol` handler with `build_command()`, `detect_mosh()` in detection module; GUI tab in connection dialog; CLI support
+- **CSV import/export** — RFC 4180 compliant CSV parsing and generation; auto column mapping from headers (`name`, `host`, `port`, `protocol`, `username`, `group`, `tags`, `description`); configurable delimiter (comma, semicolon, tab); GUI import dialog with column mapping preview; CLI `import --format csv` and `export --format csv` with `--delimiter` and `--fields` options
+- **Session recording** — scriptreplay-compatible format (data + timing files); per-connection toggle in Advanced tab; `●REC` indicator in tab title; sanitization of sensitive output; recordings saved to `$XDG_DATA_HOME/rustconn/recordings/`
+- **Text highlighting rules** — regex-based pattern matching with foreground/background colors; per-connection and global rules; built-in defaults for ERROR (red), WARNING (yellow), CRITICAL/FATAL (red background); rules editor in Settings and Connection Dialog; VTE integration
+- **Ad-hoc broadcast** — send keystrokes to multiple terminals simultaneously; toolbar toggle button with keyboard shortcut; per-terminal checkboxes for selection; separate from existing cluster broadcast
+- **Smart Folders** — dynamic connection grouping with filter criteria: protocol type, tags (AND logic), host glob pattern (`*.prod.example.com`), parent group; sidebar section with read-only connection list; create/edit/delete dialogs; CLI `smart-folders list/show/create/delete` subcommands
+- **Script credentials** — `PasswordSource::Script` variant for dynamic credential resolution; shell command parsed via `shell-words`; 30-second timeout via `tokio::time::timeout`; stdout trimmed to `SecretString`; GUI entry with Test button in Auth tab
+- **Per-connection terminal theming** — color overrides (background, foreground, cursor) per connection in `#RRGGBB` or `#RRGGBBAA` format; 3 `ColorDialogButton` widgets in Advanced tab; Reset button; VTE `set_color_background/foreground/cursor` integration
+- **15 new language translations** — all new UI strings for 8 features translated across uk, de, fr, es, it, pl, cs, sk, da, sv, nl, pt, be, kk, uz
+
+### Dependencies
+- New: `csv` 1.x (RFC 4180 parsing), `glob` 0.3 (Smart Folder host matching), `shell-words` 1.x (script credential argument splitting)
+- CLI downloads: 1Password CLI 2.32.1→2.33.0, kubectl 1.35.2→1.35.3
+
+### Fixed
+- Flatpak SSH key paths become stale after rebuild — keys copied to stable `~/.var/app/<app-id>/.ssh/` with fallback resolution ([#62](https://github.com/totoshko88/RustConn/issues/62))
+- SFTP `ssh-add` uses stale portal key path — resolved via `resolve_key_path()` before use
+- SFTP mc opens even when `ssh-add` fails — now aborts with toast error and "failed" status
+- `script` command format updated to `--log-out`/`--log-timing` for modern util-linux
+- Remote SSH recording used local paths — now extracts SSH config for remote `script` execution
+- Recording playback showed `Script started on …` header — stripped with timing adjustment
+- `script` invocation visible in terminal — erased via ANSI escape after `feed_child`
+- SCP host key verification prompts in `stop_recording()` — added `-o StrictHostKeyChecking=no`
+- RDP sidebar status not clearing after disconnect — `decrement_session_count` called with correct flag
+- `PlaybackToolbar` GtkSearchEntry finalization warning — `Drop` unparents popover
+- `cargo/config` deprecation warning in Flatpak build — renamed to `config.toml`
+- Flatpak local manifest runtime updated from GNOME 50beta to GNOME 50
+- Dependencies: euclid 0.22.14, toml 1.0.7, zerocopy 0.8.47, zip 8.3
+
 ## [0.10.0] - 2026-03-16
 
 > **Note:** Flatpak release will follow after March 18, 2026, when GNOME 50 runtime is published on Flathub.

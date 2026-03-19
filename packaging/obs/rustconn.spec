@@ -1,12 +1,12 @@
 #
 # spec file for package rustconn
 #
-# Copyright (c) 2025 Anton Isaiev
+# Copyright (c) 2026 Anton Isaiev
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
 Name:           rustconn
-Version:        0.10.0
+Version:        0.10.1
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -223,6 +223,31 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Wed Mar 18 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.1-0
+- MOSH protocol — predict mode, SSH port, UDP port range, server binary
+- CSV import/export — RFC 4180, auto column mapping, delimiter options
+- Session recording — scriptreplay-compatible format, sanitization, REC indicator
+- Text highlighting rules — regex patterns, per-connection + global, VTE integration
+- Ad-hoc broadcast — send keystrokes to multiple terminals simultaneously
+- Smart Folders — dynamic connection grouping by protocol/tags/host/group
+- Script credentials — PasswordSource::Script with shell-words and 30s timeout
+- Per-connection terminal theming — background/foreground/cursor color overrides
+- 15 language translations for all new v0.10.1 UI strings
+- New dependencies: csv 1.x, glob 0.3, shell-words 1.x
+- Fixed Flatpak SSH key paths stale after rebuild — stable copy with fallback
+- Fixed SFTP ssh-add stale portal key path — resolve before use
+- Fixed SFTP mc opens when ssh-add fails — abort with toast error
+- Fixed script command format for modern util-linux (--log-out/--log-timing)
+- Fixed remote SSH recording using local paths
+- Fixed recording playback showing script header
+- Fixed script invocation visible in terminal
+- Fixed SCP host key verification prompts in stop_recording
+- Fixed RDP sidebar status not clearing after disconnect
+- Fixed PlaybackToolbar GtkSearchEntry finalization warning
+- Fixed cargo/config deprecation warning in Flatpak build
+- Flatpak local manifest runtime: GNOME 50beta → 50
+- Dependencies: euclid 0.22.14, toml 1.0.7, zerocopy 0.8.47, zip 8.3
+
 * Mon Mar 16 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.0-0
 - Note: Flatpak release will follow after March 18, 2026, when
   GNOME 50 runtime is published on Flathub

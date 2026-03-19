@@ -290,11 +290,12 @@ impl SearchEngine {
             "serial" => Ok(ProtocolType::Serial),
             "sftp" => Ok(ProtocolType::Sftp),
             "kubernetes" | "k8s" => Ok(ProtocolType::Kubernetes),
+            "mosh" => Ok(ProtocolType::Mosh),
             _ => Err(SearchError::InvalidOperator {
                 operator: "protocol".to_string(),
                 reason: format!(
                     "unknown protocol '{value}', expected ssh, rdp, vnc, \
-                     spice, telnet, zerotrust, serial, sftp, or kubernetes"
+                     spice, telnet, zerotrust, serial, sftp, kubernetes, or mosh"
                 ),
             }),
         }
@@ -1027,6 +1028,7 @@ mod tests {
             }
             ProtocolType::Sftp => Connection::new_sftp(name.to_string(), host.to_string(), 22),
             ProtocolType::Kubernetes => Connection::new_kubernetes(name.to_string()),
+            ProtocolType::Mosh => Connection::new_mosh(name.to_string(), host.to_string(), 22),
         };
         conn.id = Uuid::new_v4();
         conn

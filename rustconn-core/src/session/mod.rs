@@ -5,6 +5,8 @@
 
 mod logger;
 mod manager;
+/// Session recording in `scriptreplay`-compatible format.
+pub mod recording;
 mod restore;
 #[allow(clippy::module_inception)]
 mod session;

@@ -124,6 +124,9 @@ pub struct SettingsDialog {
     // Keybinding settings
     keybindings_overrides: Rc<RefCell<rustconn_core::config::keybindings::KeybindingSettings>>,
     keybindings_page: adw::PreferencesPage,
+    // Global highlight rules
+    highlight_rules_list: gtk4::ListBox,
+    highlight_rules: Rc<RefCell<Vec<rustconn_core::models::HighlightRule>>>,
     // Current settings
     settings: Rc<RefCell<AppSettings>>,
     // Connections list for startup action dropdown
@@ -213,6 +216,58 @@ impl SettingsDialog {
 
         // 1. Terminal page already has terminal groups; add logging groups
         move_groups(&logging_page, &terminal_page);
+
+        // Add global highlight rules group to terminal page
+        let hl_group = adw::PreferencesGroup::builder()
+            .title(i18n("Highlight Rules"))
+            .description(i18n("Global regex-based text highlighting rules"))
+            .build();
+
+        let hl_scrolled = gtk4::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk4::PolicyType::Never)
+            .vscrollbar_policy(gtk4::PolicyType::Automatic)
+            .min_content_height(120)
+            .build();
+
+        let highlight_rules_list = gtk4::ListBox::builder()
+            .selection_mode(gtk4::SelectionMode::None)
+            .css_classes(["boxed-list"])
+            .build();
+        highlight_rules_list
+            .set_placeholder(Some(&gtk4::Label::new(Some(&i18n("No highlight rules")))));
+        hl_scrolled.set_child(Some(&highlight_rules_list));
+        hl_group.add(&hl_scrolled);
+
+        let hl_btn_box = GtkBox::new(gtk4::Orientation::Horizontal, 8);
+        hl_btn_box.set_halign(gtk4::Align::End);
+        hl_btn_box.set_margin_top(8);
+
+        let add_hl_button = Button::builder()
+            .label(&i18n("Add Rule"))
+            .css_classes(["suggested-action"])
+            .build();
+        hl_btn_box.append(&add_hl_button);
+        hl_group.add(&hl_btn_box);
+        terminal_page.add(&hl_group);
+
+        let highlight_rules: Rc<RefCell<Vec<rustconn_core::models::HighlightRule>>> =
+            Rc::new(RefCell::new(Vec::new()));
+
+        // Wire up add highlight rule button for settings
+        {
+            let list_clone = highlight_rules_list.clone();
+            let rules_clone = highlight_rules.clone();
+            add_hl_button.connect_clicked(move |_| {
+                let new_rule =
+                    rustconn_core::models::HighlightRule::new(String::new(), String::new());
+                let rule_id = new_rule.id;
+                rules_clone.borrow_mut().push(new_rule.clone());
+
+                let row = create_settings_highlight_rule_row(Some(&new_rule));
+                wire_settings_highlight_rule_row(&row, rule_id, &list_clone, &rules_clone);
+                list_clone.append(&row);
+            });
+        }
 
         // 2. UI page already has UI groups; add keybinding groups
         move_groups(&keybindings_page, &ui_page);
@@ -446,6 +501,8 @@ impl SettingsDialog {
             monitoring_widgets,
             keybindings_overrides,
             keybindings_page,
+            highlight_rules_list,
+            highlight_rules,
             settings,
             connections: Rc::new(RefCell::new(Vec::new())),
             on_save: None,
@@ -662,6 +719,9 @@ impl SettingsDialog {
 
         // Load monitoring settings
         self.monitoring_widgets.load(&settings.monitoring);
+
+        // Load global highlight rules
+        self.load_highlight_rules(&settings.highlight_rules);
     }
 
     /// Sets up the close handler to collect and save settings
@@ -729,6 +789,9 @@ impl SettingsDialog {
 
         // Monitoring controls
         let monitoring_widgets_clone = self.monitoring_widgets.clone();
+
+        // Highlight rules
+        let highlight_rules_clone = self.highlight_rules.clone();
 
         // Store callback reference
         let on_save_callback = self.on_save.clone();
@@ -848,6 +911,13 @@ impl SettingsDialog {
                 history: settings_clone.borrow().history.clone(),
                 keybindings: collect_keybinding_settings(&keybindings_overrides_clone),
                 monitoring: monitoring_widgets_clone.collect(),
+                highlight_rules: highlight_rules_clone
+                    .borrow()
+                    .iter()
+                    .filter(|r| !r.pattern.is_empty())
+                    .cloned()
+                    .collect(),
+                smart_folders: settings_clone.borrow().smart_folders.clone(),
             };
 
             // Update stored settings
@@ -863,8 +933,158 @@ impl SettingsDialog {
         });
     }
 
+    /// Loads global highlight rules into the settings dialog
+    fn load_highlight_rules(&self, rules: &[rustconn_core::models::HighlightRule]) {
+        // Clear existing rows
+        while let Some(row) = self.highlight_rules_list.row_at_index(0) {
+            self.highlight_rules_list.remove(&row);
+        }
+        self.highlight_rules.borrow_mut().clear();
+
+        for rule in rules {
+            self.highlight_rules.borrow_mut().push(rule.clone());
+            let row = create_settings_highlight_rule_row(Some(rule));
+            wire_settings_highlight_rule_row(
+                &row,
+                rule.id,
+                &self.highlight_rules_list,
+                &self.highlight_rules,
+            );
+            self.highlight_rules_list.append(&row);
+        }
+    }
+
     /// Returns a reference to the dialog for toast notifications
     pub fn dialog(&self) -> &adw::PreferencesDialog {
         &self.dialog
+    }
+}
+
+/// Creates a highlight rule row for the settings dialog ListBox.
+fn create_settings_highlight_rule_row(
+    rule: Option<&rustconn_core::models::HighlightRule>,
+) -> gtk4::ListBoxRow {
+    let row = gtk4::ListBoxRow::builder()
+        .activatable(false)
+        .selectable(false)
+        .build();
+
+    let hbox = GtkBox::new(gtk4::Orientation::Horizontal, 8);
+    hbox.set_margin_top(6);
+    hbox.set_margin_bottom(6);
+    hbox.set_margin_start(8);
+    hbox.set_margin_end(8);
+
+    let name_entry = gtk4::Entry::builder()
+        .placeholder_text(i18n("Name"))
+        .width_chars(12)
+        .tooltip_text(i18n("Rule name"))
+        .build();
+    if let Some(r) = rule {
+        name_entry.set_text(&r.name);
+    }
+    name_entry.set_widget_name("hl_name");
+
+    let pattern_entry = gtk4::Entry::builder()
+        .placeholder_text(i18n("Pattern (regex)"))
+        .hexpand(true)
+        .tooltip_text(i18n("Regex pattern to match"))
+        .build();
+    if let Some(r) = rule {
+        pattern_entry.set_text(&r.pattern);
+    }
+    pattern_entry.set_widget_name("hl_pattern");
+
+    let enabled_check = CheckButton::builder()
+        .active(rule.is_none_or(|r| r.enabled))
+        .tooltip_text(i18n("Enable rule"))
+        .valign(gtk4::Align::Center)
+        .build();
+    enabled_check.set_widget_name("hl_enabled");
+
+    let delete_button = Button::builder()
+        .icon_name("user-trash-symbolic")
+        .css_classes(["flat"])
+        .tooltip_text(i18n("Delete rule"))
+        .valign(gtk4::Align::Center)
+        .build();
+    delete_button.set_widget_name("hl_delete");
+
+    hbox.append(&name_entry);
+    hbox.append(&pattern_entry);
+    hbox.append(&enabled_check);
+    hbox.append(&delete_button);
+
+    row.set_child(Some(&hbox));
+    row
+}
+
+/// Wires up a settings highlight rule row's signals to update the rules data.
+fn wire_settings_highlight_rule_row(
+    row: &gtk4::ListBoxRow,
+    rule_id: uuid::Uuid,
+    list: &gtk4::ListBox,
+    rules: &Rc<RefCell<Vec<rustconn_core::models::HighlightRule>>>,
+) {
+    // Find child widgets by name
+    let Some(hbox_widget) = row.child() else {
+        return;
+    };
+    let Some(hbox) = hbox_widget.downcast_ref::<GtkBox>() else {
+        return;
+    };
+
+    let mut child = hbox.first_child();
+    while let Some(widget) = child {
+        let name = widget.widget_name();
+        if name == "hl_name" {
+            if let Some(entry) = widget.downcast_ref::<gtk4::Entry>() {
+                let rules_clone = rules.clone();
+                let id = rule_id;
+                entry.connect_changed(move |e| {
+                    let text = e.text().to_string();
+                    let mut r = rules_clone.borrow_mut();
+                    if let Some(rule) = r.iter_mut().find(|r| r.id == id) {
+                        rule.name = text;
+                    }
+                });
+            }
+        } else if name == "hl_pattern" {
+            if let Some(entry) = widget.downcast_ref::<gtk4::Entry>() {
+                let rules_clone = rules.clone();
+                let id = rule_id;
+                entry.connect_changed(move |e| {
+                    let text = e.text().to_string();
+                    let mut r = rules_clone.borrow_mut();
+                    if let Some(rule) = r.iter_mut().find(|r| r.id == id) {
+                        rule.pattern = text;
+                    }
+                });
+            }
+        } else if name == "hl_enabled" {
+            if let Some(check) = widget.downcast_ref::<CheckButton>() {
+                let rules_clone = rules.clone();
+                let id = rule_id;
+                check.connect_toggled(move |c| {
+                    let active = c.is_active();
+                    let mut r = rules_clone.borrow_mut();
+                    if let Some(rule) = r.iter_mut().find(|r| r.id == id) {
+                        rule.enabled = active;
+                    }
+                });
+            }
+        } else if name == "hl_delete"
+            && let Some(button) = widget.downcast_ref::<Button>()
+        {
+            let list_clone = list.clone();
+            let rules_clone = rules.clone();
+            let row_clone = row.clone();
+            let id = rule_id;
+            button.connect_clicked(move |_| {
+                list_clone.remove(&row_clone);
+                rules_clone.borrow_mut().retain(|r| r.id != id);
+            });
+        }
+        child = widget.next_sibling();
     }
 }

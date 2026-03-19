@@ -410,6 +410,7 @@ impl MobaXtermExporter {
             ProtocolType::Kubernetes => {
                 Err(ExportError::UnsupportedProtocol("Kubernetes".to_string()))
             }
+            ProtocolType::Mosh => Err(ExportError::UnsupportedProtocol("MOSH".to_string())),
         }
     }
 }

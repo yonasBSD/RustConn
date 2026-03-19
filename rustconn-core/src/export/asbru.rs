@@ -77,6 +77,7 @@ impl AsbruExporter {
     ///
     /// A string containing the YAML entry for the connection.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn connection_to_entry(
         connection: &Connection,
         group_uuid_map: &HashMap<Uuid, String>,
@@ -117,6 +118,7 @@ impl AsbruExporter {
             ProtocolType::Serial => "serial",
             ProtocolType::Sftp => "SFTP",
             ProtocolType::Kubernetes => "kubernetes",
+            ProtocolType::Mosh => "mosh",
         };
         lines.push(format!("  method: \"{method}\""));
 
@@ -167,7 +169,8 @@ impl AsbruExporter {
             | ProtocolConfig::Telnet(_)
             | ProtocolConfig::ZeroTrust(_)
             | ProtocolConfig::Serial(_)
-            | ProtocolConfig::Kubernetes(_) => {
+            | ProtocolConfig::Kubernetes(_)
+            | ProtocolConfig::Mosh(_) => {
                 // VNC, SPICE, Telnet, ZeroTrust, Kubernetes don't have additional fields
             }
             ProtocolConfig::Sftp(ssh_config) => {

@@ -26,6 +26,8 @@ pub enum ProtocolType {
     Sftp,
     /// Kubernetes pod shell (kubectl exec)
     Kubernetes,
+    /// MOSH protocol (mobile shell)
+    Mosh,
 }
 
 impl ProtocolType {
@@ -44,6 +46,7 @@ impl ProtocolType {
             Self::Serial => "serial",
             Self::Sftp => "sftp",
             Self::Kubernetes => "kubernetes",
+            Self::Mosh => "mosh",
         }
     }
 
@@ -58,6 +61,7 @@ impl ProtocolType {
             Self::ZeroTrust | Self::Serial => 0,
             Self::Sftp => 22,
             Self::Kubernetes => 0,
+            Self::Mosh => 22,
         }
     }
 }
@@ -74,6 +78,7 @@ impl std::fmt::Display for ProtocolType {
             Self::Serial => write!(f, "Serial"),
             Self::Sftp => write!(f, "SFTP"),
             Self::Kubernetes => write!(f, "Kubernetes"),
+            Self::Mosh => write!(f, "MOSH"),
         }
     }
 }
@@ -100,6 +105,8 @@ pub enum ProtocolConfig {
     Sftp(SshConfig),
     /// Kubernetes pod shell configuration
     Kubernetes(KubernetesConfig),
+    /// MOSH protocol configuration
+    Mosh(MoshConfig),
 }
 
 impl ProtocolConfig {
@@ -116,6 +123,7 @@ impl ProtocolConfig {
             Self::Serial(_) => ProtocolType::Serial,
             Self::Sftp(_) => ProtocolType::Sftp,
             Self::Kubernetes(_) => ProtocolType::Kubernetes,
+            Self::Mosh(_) => ProtocolType::Mosh,
         }
     }
 }
@@ -241,6 +249,39 @@ pub struct TelnetConfig {
     /// What the Delete key sends
     #[serde(default)]
     pub delete_sends: TelnetDeleteSends,
+}
+
+/// MOSH prediction mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MoshPredictMode {
+    /// Adaptive prediction (default)
+    #[default]
+    Adaptive,
+    /// Always predict
+    Always,
+    /// Never predict
+    Never,
+}
+
+/// MOSH protocol configuration
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MoshConfig {
+    /// SSH port for the initial handshake
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_port: Option<u16>,
+    /// UDP port range for MOSH (e.g., "60000:60010")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port_range: Option<String>,
+    /// Path to the mosh-server binary on the remote host
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_binary: Option<String>,
+    /// Prediction mode
+    #[serde(default)]
+    pub predict_mode: MoshPredictMode,
+    /// Custom command-line arguments for the mosh client
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub custom_args: Vec<String>,
 }
 
 /// Serial port baud rate

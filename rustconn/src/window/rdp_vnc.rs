@@ -387,11 +387,9 @@ fn start_embedded_rdp_session(
     let state_for_callback = state.clone();
     embedded_widget.connect_state_changed(move |rdp_state| match rdp_state {
         crate::embedded_rdp::RdpConnectionState::Disconnected => {
+            notebook_for_state.stop_recording(session_id);
             notebook_for_state.mark_tab_disconnected(session_id);
-            sidebar_for_state.decrement_session_count(
-                &connection_id.to_string(),
-                notebook_for_state.get_session_info(session_id).is_some(),
-            );
+            sidebar_for_state.decrement_session_count(&connection_id.to_string(), false);
             // Record connection end in history
             if let Some(info) = notebook_for_state.get_session_info(session_id)
                 && let Some(entry_id) = info.history_entry_id
@@ -888,6 +886,7 @@ fn start_vnc_session_internal(
         let state_for_callback = state.clone();
         vnc_widget.connect_state_changed(move |vnc_state| {
             if vnc_state == crate::session::SessionState::Disconnected {
+                notebook_for_state.stop_recording(session_id);
                 notebook_for_state.mark_tab_disconnected(session_id);
                 sidebar_for_state.decrement_session_count(&connection_id.to_string(), false);
                 // Record connection end in history

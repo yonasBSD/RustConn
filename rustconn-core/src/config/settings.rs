@@ -2,7 +2,9 @@
 //!
 //! This module defines the application-wide settings stored in config.toml.
 
+use crate::models::HighlightRule;
 use crate::models::HistorySettings;
+use crate::models::SmartFolder;
 use crate::monitoring::MonitoringSettings;
 use crate::variables::Variable;
 use secrecy::SecretString;
@@ -39,6 +41,12 @@ pub struct AppSettings {
     /// Remote host monitoring settings
     #[serde(default)]
     pub monitoring: MonitoringSettings,
+    /// Global highlight rules for regex-based text highlighting
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub highlight_rules: Vec<HighlightRule>,
+    /// Saved smart folders for dynamic connection grouping
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub smart_folders: Vec<SmartFolder>,
 }
 
 /// Terminal-related settings

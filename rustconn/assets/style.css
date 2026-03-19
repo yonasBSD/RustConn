@@ -453,3 +453,25 @@ label.error {
         transition: none;
     }
 }
+
+/* ============================================================
+ * Playback Tab Styles
+ * Requirement 6.2: Distinct visual overlay for playback tabs
+ * ============================================================ */
+
+.playback-tab {
+    background-color: alpha(@accent_bg_color, 0.08);
+    border-top: 2px solid @accent_color;
+}
+
+.playback-toolbar {
+    padding: 4px 8px;
+    background-color: alpha(@headerbar_bg_color, 0.6);
+    border-bottom: 1px solid @borders;
+}
+
+.playback-status-label {
+    font-weight: 600;
+    font-size: 0.9em;
+    opacity: 0.8;
+}

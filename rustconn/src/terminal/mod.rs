@@ -9,6 +9,7 @@
 //! - `config` - Terminal appearance and behavior configuration
 
 mod config;
+pub mod playback;
 mod types;
 
 pub use types::{SessionWidgetStorage, TerminalSession};
@@ -23,19 +24,52 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::time::Instant;
 use uuid::Uuid;
 use vte4::prelude::*;
 use vte4::{PtyFlags, Terminal};
 
 use crate::automation::{AutomationSession, Trigger};
+use crate::broadcast::BroadcastController;
 use crate::embedded_rdp::EmbeddedRdpWidget;
 use crate::embedded_spice::EmbeddedSpiceWidget;
 use crate::i18n::{i18n, i18n_f};
 use crate::session::{SessionState, SessionWidget, VncSessionWidget};
 use crate::split_view::TabSplitManager;
 use rustconn_core::automation::{KeyElement, KeySequence};
+use rustconn_core::highlight::CompiledHighlightRules;
+use rustconn_core::models::HighlightRule;
+use rustconn_core::session::SanitizeConfig;
+use rustconn_core::session::recording::{RecordingMetadata, metadata_path, write_metadata};
 use rustconn_core::split::TabId;
 use rustconn_core::split::tab_groups::TabGroupManager;
+
+/// SSH connection parameters needed for remote recording file retrieval.
+#[derive(Debug, Clone)]
+pub struct SshRecordingParams {
+    /// Remote host address
+    pub host: String,
+    /// Remote port
+    pub port: u16,
+    /// Username for SSH
+    pub username: Option<String>,
+    /// Path to SSH identity file
+    pub identity_file: Option<String>,
+}
+
+/// Tracks a remote recording session (script running on a remote host).
+struct RemoteRecordingInfo {
+    /// Remote path to the data file (on the SSH host)
+    remote_data: String,
+    /// Remote path to the timing file (on the SSH host)
+    remote_timing: String,
+    /// Local destination for the data file
+    local_data: PathBuf,
+    /// Local destination for the timing file
+    local_timing: PathBuf,
+    /// SSH connection params for SCP retrieval
+    ssh_params: SshRecordingParams,
+}
 
 /// Terminal notebook widget for managing multiple terminal sessions
 /// Now using adw::TabView for modern GNOME HIG compliance
@@ -80,6 +114,16 @@ pub struct TerminalNotebook {
     session_to_cluster: Rc<RefCell<HashMap<Uuid, Uuid>>>,
     /// Broadcast mode flags per cluster: cluster_id → broadcast enabled
     cluster_broadcast_flags: Rc<RefCell<HashMap<Uuid, Rc<std::cell::Cell<bool>>>>>,
+    /// Active recording sessions (tracked by session_id)
+    active_recordings: Rc<RefCell<HashSet<Uuid>>>,
+    /// Recording paths and start times: session_id → (data_path, timing_path, connection_name, start_time)
+    recording_paths: RefCell<HashMap<Uuid, (PathBuf, PathBuf, String, Instant)>>,
+    /// Remote recording info for SSH sessions: session_id → RemoteRecordingInfo
+    remote_recordings: RefCell<HashMap<Uuid, RemoteRecordingInfo>>,
+    /// Compiled highlight rules per session: session_id → CompiledHighlightRules
+    session_highlight_rules: Rc<RefCell<HashMap<Uuid, CompiledHighlightRules>>>,
+    /// Ad-hoc broadcast controller for sending input to multiple terminals
+    broadcast_controller: Rc<RefCell<BroadcastController>>,
 }
 
 impl TerminalNotebook {
@@ -137,6 +181,11 @@ impl TerminalNotebook {
             cluster_sessions: Rc::new(RefCell::new(HashMap::new())),
             session_to_cluster: Rc::new(RefCell::new(HashMap::new())),
             cluster_broadcast_flags: Rc::new(RefCell::new(HashMap::new())),
+            recording_paths: RefCell::new(HashMap::new()),
+            session_highlight_rules: Rc::new(RefCell::new(HashMap::new())),
+            active_recordings: Rc::new(RefCell::new(HashSet::new())),
+            remote_recordings: RefCell::new(HashMap::new()),
+            broadcast_controller: Rc::new(RefCell::new(BroadcastController::new())),
         };
 
         term_notebook.setup_tab_view_signals();
@@ -155,6 +204,9 @@ impl TerminalNotebook {
         let session_tab_ids = self.session_tab_ids.clone();
         let on_page_closed = self.on_page_closed.clone();
         let on_split_cleanup = self.on_split_cleanup.clone();
+        let active_recordings = self.active_recordings.clone();
+        let session_highlight_rules = self.session_highlight_rules.clone();
+        let broadcast_controller = self.broadcast_controller.clone();
 
         // Handle create-window signal - we must connect this to prevent the default
         // behavior which causes CRITICAL warnings. Returning None cancels the tearoff.
@@ -207,6 +259,17 @@ impl TerminalNotebook {
                 // Clean up session data
                 sessions.borrow_mut().remove(&session_id);
                 terminals.borrow_mut().remove(&session_id);
+
+                // Remove active recording flag if present
+                active_recordings.borrow_mut().remove(&session_id);
+
+                // Remove compiled highlight rules for this session
+                session_highlight_rules.borrow_mut().remove(&session_id);
+
+                // Remove terminal from broadcast selection if active
+                broadcast_controller
+                    .borrow_mut()
+                    .remove_terminal(&session_id);
 
                 // Disconnect embedded widgets before removing
                 if let Some(widget_storage) = session_widgets.borrow_mut().remove(&session_id) {
@@ -509,10 +572,14 @@ impl TerminalNotebook {
             protocol,
             automation,
             &rustconn_core::config::TerminalSettings::default(),
+            None,
         )
     }
 
     /// Creates a new terminal tab with specific settings
+    ///
+    /// When `theme_override` is `Some`, the per-connection colors are applied
+    /// on top of the global theme. When `None`, the global theme is used as-is.
     pub fn create_terminal_tab_with_settings(
         &self,
         connection_id: Uuid,
@@ -520,6 +587,7 @@ impl TerminalNotebook {
         protocol: &str,
         automation: Option<&AutomationConfig>,
         settings: &rustconn_core::config::TerminalSettings,
+        theme_override: Option<&rustconn_core::models::ConnectionThemeOverride>,
     ) -> Uuid {
         let session_id = Uuid::new_v4();
         self.remove_welcome_page();
@@ -564,6 +632,11 @@ impl TerminalNotebook {
 
         // Apply user settings
         config::configure_terminal_with_settings(&terminal, settings);
+
+        // Apply per-connection theme override (if present) on top of the global theme
+        if let Some(override_colors) = theme_override {
+            config::apply_theme_override(&terminal, override_colors);
+        }
 
         // VTE implements GtkScrollable natively — no ScrolledWindow needed.
         // Wrapping in ScrolledWindow intercepts mouse events and breaks
@@ -1003,7 +1076,37 @@ impl TerminalNotebook {
         // events, causing raw escape fragments like `7;6M7;6m` on clicks.
         // The custom entry is compiled into /app/share/terminfo/ during
         // the Flatpak build.
-        if rustconn_core::flatpak::is_flatpak() {
+        //
+        // IMPORTANT: Only use rustconn-256color for LOCAL shells. For SSH
+        // and other remote connections, the remote host won't have this
+        // terminfo entry, causing "Unknown terminal" errors in htop, mc, etc.
+        // We detect this by checking if the command is ssh/mosh/telnet.
+        let is_remote_command = argv
+            .first()
+            .map(|cmd| {
+                let base = std::path::Path::new(cmd)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(cmd);
+                matches!(
+                    base,
+                    "ssh"
+                        | "mosh"
+                        | "telnet"
+                        | "kubectl"
+                        | "aws"
+                        | "gcloud"
+                        | "az"
+                        | "oci"
+                        | "cloudflared"
+                        | "tsh"
+                        | "tailscale"
+                        | "boundary"
+                )
+            })
+            .unwrap_or(false);
+
+        if rustconn_core::flatpak::is_flatpak() && !is_remote_command {
             env_vec.retain(|e| !e.starts_with("TERM="));
             env_vec.push(glib::GString::from("TERM=rustconn-256color"));
             // Prepend /app/share/terminfo so ncurses/slang finds the
@@ -2087,6 +2190,356 @@ impl TerminalNotebook {
         *self.on_split_cleanup.borrow_mut() = Some(Box::new(callback));
     }
 
+    // ========================================================================
+    // Session Recording
+    // ========================================================================
+
+    /// Starts recording a terminal session.
+    ///
+    /// For local shells, launches `script` with local file paths.
+    /// For SSH/remote sessions, launches `script` on the remote host with
+    /// `/tmp` paths and retrieves the files via SCP when recording stops.
+    ///
+    /// # Requirements
+    /// - 6.3: Recording starts when the terminal session begins
+    /// - 6.6: Visual indicator in the terminal tab during recording
+    ///
+    /// # Returns
+    ///
+    /// `true` if recording was started successfully, `false` on error.
+    #[allow(dead_code)] // Called by connection flow when session_recording_enabled is true
+    pub fn start_recording(
+        &self,
+        session_id: Uuid,
+        connection_name: &str,
+        _sanitize: SanitizeConfig,
+        ssh_params: Option<SshRecordingParams>,
+    ) -> bool {
+        use rustconn_core::session::recording::{
+            default_recordings_dir, ensure_recordings_dir, recording_paths,
+        };
+
+        // Duplicate check: if already recording, return true without action
+        if self.is_recording(session_id) {
+            return true;
+        }
+
+        let Some(dir) = default_recordings_dir() else {
+            tracing::error!("Cannot determine recordings directory");
+            return false;
+        };
+
+        if let Err(e) = ensure_recordings_dir(&dir) {
+            tracing::error!(%e, "Recordings directory is not writable, disabling recording");
+            return false;
+        }
+
+        let (data_path, timing_path) = recording_paths(&dir, connection_name);
+
+        // Determine if this is a remote session by checking the protocol
+        let is_remote = self
+            .session_info
+            .borrow()
+            .get(&session_id)
+            .map(|info| {
+                matches!(
+                    info.protocol.as_str(),
+                    "ssh" | "sftp" | "telnet" | "mosh" | "serial"
+                )
+            })
+            .unwrap_or(false);
+
+        // Store recording paths and start time for metadata generation on stop
+        self.recording_paths.borrow_mut().insert(
+            session_id,
+            (
+                data_path.clone(),
+                timing_path.clone(),
+                connection_name.to_string(),
+                Instant::now(),
+            ),
+        );
+
+        // Update tab title with ●REC indicator
+        self.update_recording_indicator(session_id, true);
+
+        if let Some(terminal) = self.get_terminal(session_id) {
+            if let Some(params) = ssh_params.filter(|_| is_remote) {
+                // Remote session: use /tmp paths on the remote host.
+                // After stop_recording we retrieve files via SCP.
+                let short_id = &session_id.to_string()[..8];
+                let remote_data = format!("/tmp/rustconn_rec_{short_id}.data");
+                let remote_timing = format!("/tmp/rustconn_rec_{short_id}.timing");
+
+                self.remote_recordings.borrow_mut().insert(
+                    session_id,
+                    RemoteRecordingInfo {
+                        remote_data: remote_data.clone(),
+                        remote_timing: remote_timing.clone(),
+                        local_data: data_path.clone(),
+                        local_timing: timing_path.clone(),
+                        ssh_params: params,
+                    },
+                );
+
+                let cmd = format!(
+                    "script -q -f --log-out '{remote_data}' --log-timing '{remote_timing}'\n"
+                );
+                terminal.feed_child(cmd.as_bytes());
+                // Erase the echoed command from the terminal display:
+                // move cursor up one line and clear it.
+                terminal.feed(b"\x1b[1A\x1b[2K");
+            } else {
+                // Local session: write directly to local recording paths.
+                let data_str = data_path.display().to_string();
+                let timing_str = timing_path.display().to_string();
+                let cmd =
+                    format!("script -q -f --log-out '{data_str}' --log-timing '{timing_str}'\n");
+                terminal.feed_child(cmd.as_bytes());
+                // Erase the echoed command from the terminal display
+                terminal.feed(b"\x1b[1A\x1b[2K");
+            }
+            self.active_recordings.borrow_mut().insert(session_id);
+        }
+
+        tracing::info!(
+            %session_id,
+            data = %data_path.display(),
+            timing = %timing_path.display(),
+            remote = is_remote,
+            "Session recording started via script"
+        );
+
+        true
+    }
+
+    /// Stops recording a terminal session.
+    ///
+    /// Sends `exit` to terminate the `script` sub-shell, then restores the
+    /// tab title and generates the metadata sidecar. For remote sessions,
+    /// retrieves the recording files from the remote host via SCP.
+    #[allow(dead_code)] // Called by connection flow on session end
+    pub fn stop_recording(&self, session_id: Uuid) {
+        if !self.active_recordings.borrow_mut().remove(&session_id) {
+            return;
+        }
+
+        // Send `exit` to terminate the `script` sub-shell
+        if let Some(terminal) = self.get_terminal(session_id) {
+            terminal.feed_child(b"exit\n");
+        }
+
+        self.update_recording_indicator(session_id, false);
+
+        // For remote sessions, retrieve files via SCP
+        if let Some(remote_info) = self.remote_recordings.borrow_mut().remove(&session_id) {
+            let params = &remote_info.ssh_params;
+            let mut port_args = vec!["-P".to_string(), params.port.to_string()];
+            if let Some(ref key) = params.identity_file {
+                port_args.push("-i".to_string());
+                port_args.push(key.clone());
+            }
+            // Re-use the Flatpak-writable known_hosts so SCP/SSH don't prompt
+            if let Some(kh) = rustconn_core::get_flatpak_known_hosts_path() {
+                port_args.push("-o".to_string());
+                port_args.push(format!("UserKnownHostsFile={}", kh.display()));
+            }
+            port_args.push("-o".to_string());
+            port_args.push("StrictHostKeyChecking=accept-new".to_string());
+            let user_host = if let Some(ref user) = params.username {
+                format!("{user}@{}", params.host)
+            } else {
+                params.host.clone()
+            };
+
+            // SCP data file
+            let data_src = format!("{user_host}:{}", remote_info.remote_data);
+            let data_result = std::process::Command::new("scp")
+                .args(&port_args)
+                .arg(&data_src)
+                .arg(remote_info.local_data.as_os_str())
+                .output();
+
+            // SCP timing file
+            let timing_src = format!("{user_host}:{}", remote_info.remote_timing);
+            let timing_result = std::process::Command::new("scp")
+                .args(&port_args)
+                .arg(&timing_src)
+                .arg(remote_info.local_timing.as_os_str())
+                .output();
+
+            match (&data_result, &timing_result) {
+                (Ok(d), Ok(t)) if d.status.success() && t.status.success() => {
+                    tracing::info!(%session_id, "Remote recording files retrieved via SCP");
+                }
+                _ => {
+                    tracing::warn!(
+                        %session_id,
+                        "Failed to retrieve remote recording files via SCP"
+                    );
+                }
+            }
+
+            // Clean up remote temp files (best-effort)
+            let mut ssh_args: Vec<String> = vec!["-p".to_string(), params.port.to_string()];
+            if let Some(ref key) = params.identity_file {
+                ssh_args.push("-i".to_string());
+                ssh_args.push(key.clone());
+            }
+            if let Some(kh) = rustconn_core::get_flatpak_known_hosts_path() {
+                ssh_args.push("-o".to_string());
+                ssh_args.push(format!("UserKnownHostsFile={}", kh.display()));
+            }
+            ssh_args.push("-o".to_string());
+            ssh_args.push("StrictHostKeyChecking=accept-new".to_string());
+            let _ = std::process::Command::new("ssh")
+                .args(&ssh_args)
+                .arg(&user_host)
+                .arg(format!(
+                    "rm -f '{}' '{}'",
+                    remote_info.remote_data, remote_info.remote_timing
+                ))
+                .output();
+        }
+
+        // Generate .meta.json sidecar
+        if let Some((data_path, timing_path, connection_name, start_time)) =
+            self.recording_paths.borrow_mut().remove(&session_id)
+        {
+            let duration = start_time.elapsed().as_secs_f64();
+            let data_size = std::fs::metadata(&data_path).map(|m| m.len()).unwrap_or(0);
+            let timing_size = std::fs::metadata(&timing_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
+
+            let meta = RecordingMetadata {
+                connection_name,
+                display_name: None,
+                created_at: chrono::Utc::now(),
+                duration_secs: duration,
+                total_size_bytes: data_size + timing_size,
+            };
+            let meta_path = metadata_path(&data_path);
+            if let Err(e) = write_metadata(&meta_path, &meta) {
+                tracing::warn!(%e, "Failed to write recording metadata sidecar");
+            }
+        }
+
+        tracing::info!(%session_id, "Session recording stopped");
+    }
+
+    /// Returns whether a session is currently being recorded.
+    #[must_use]
+    #[allow(dead_code)] // Public API for recording status checks
+    pub fn is_recording(&self, session_id: Uuid) -> bool {
+        self.active_recordings.borrow().contains(&session_id)
+    }
+
+    /// Opens a new Playback Tab for the given recording entry.
+    ///
+    /// Creates a tab containing a VTE terminal with a playback toolbar
+    /// overlay. The recording is loaded and playback starts automatically.
+    pub fn open_playback_tab(&self, entry: &rustconn_core::session::recording::RecordingEntry) {
+        self.remove_welcome_page();
+
+        let display_name = entry
+            .metadata
+            .display_name
+            .as_deref()
+            .unwrap_or(&entry.metadata.connection_name);
+        let tab_title = i18n_f("Playback: {}", &[display_name]);
+
+        let widget = playback::create_playback_tab_widget(entry);
+
+        let page = self.tab_view.append(&widget);
+        page.set_title(&tab_title);
+        page.set_icon(Some(&gio::ThemedIcon::new("media-playback-start-symbolic")));
+        page.set_tooltip(&tab_title);
+
+        self.tab_view.set_selected_page(&page);
+    }
+
+    /// Flushes all active session recorders without removing them.
+    ///
+    /// Called during window close / application shutdown to ensure all
+    /// buffered recording data is written to disk before exit.
+    pub fn flush_active_recordings(&self) {
+        // With the `script`-based approach, recording is handled by the
+        // external `script` process which flushes on exit. We send `exit`
+        // to each active recording session to ensure `script` terminates
+        // and flushes its buffers.
+        let ids: Vec<Uuid> = self.active_recordings.borrow().iter().copied().collect();
+        for session_id in ids {
+            self.stop_recording(session_id);
+        }
+    }
+
+    /// Updates the tab title to show or hide the "●REC" indicator.
+    fn update_recording_indicator(&self, session_id: Uuid, recording: bool) {
+        let rec_prefix = i18n("●REC");
+        if let Some(page) = self.sessions.borrow().get(&session_id) {
+            let current_title = page.title().to_string();
+            if recording {
+                if !current_title.starts_with(&rec_prefix) {
+                    page.set_title(&format!("{rec_prefix} {current_title}"));
+                }
+            } else {
+                let stripped = current_title
+                    .strip_prefix(&rec_prefix)
+                    .map(|s| s.trim_start())
+                    .unwrap_or(&current_title);
+                page.set_title(stripped);
+            }
+        }
+    }
+
+    // === Highlight rules integration ===
+
+    /// Sets up highlight rules for a terminal session.
+    ///
+    /// Compiles global and per-connection [`HighlightRule`]s using
+    /// [`CompiledHighlightRules::compile`], registers each valid regex
+    /// pattern with VTE's `match_add_regex()` so matched text is
+    /// visually indicated, and stores the compiled rules for the session.
+    #[allow(dead_code)] // Will be called by connection flow when highlighting is wired up
+    pub fn set_highlight_rules(
+        &self,
+        session_id: Uuid,
+        global_rules: &[HighlightRule],
+        per_conn_rules: &[HighlightRule],
+    ) {
+        let compiled = CompiledHighlightRules::compile(global_rules, per_conn_rules);
+
+        // Register each rule's pattern with VTE for visual matching
+        if let Some(terminal) = self.terminals.borrow().get(&session_id) {
+            for rule in compiled.source_patterns() {
+                let pattern = &rule.pattern;
+                match vte4::Regex::for_match(pattern, 0) {
+                    Ok(vte_regex) => {
+                        terminal.match_add_regex(&vte_regex, 0);
+                        tracing::trace!(
+                            %session_id,
+                            rule_name = %rule.name,
+                            "Registered VTE highlight regex"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            %session_id,
+                            rule_name = %rule.name,
+                            pattern = %pattern,
+                            "Failed to register VTE highlight regex: {e}"
+                        );
+                    }
+                }
+            }
+        }
+
+        self.session_highlight_rules
+            .borrow_mut()
+            .insert(session_id, compiled);
+    }
+
     // === Cluster terminal tracking ===
 
     /// Registers a terminal session as part of a cluster
@@ -2156,6 +2609,66 @@ impl TerminalNotebook {
             .borrow()
             .get(&cluster_id)
             .is_some_and(|sessions| !sessions.is_empty())
+    }
+
+    // ── Ad-hoc Broadcast ──────────────────────────────────────────────
+
+    /// Toggles ad-hoc broadcast mode on/off.
+    ///
+    /// When activated, the app layer can show checkboxes on terminal tabs.
+    /// When deactivated, all selections are cleared.
+    #[allow(dead_code)] // Public API — wired by app layer
+    pub fn toggle_broadcast(&self) {
+        let mut bc = self.broadcast_controller.borrow_mut();
+        if bc.is_active() {
+            bc.deactivate();
+        } else {
+            bc.activate();
+        }
+    }
+
+    /// Returns whether ad-hoc broadcast mode is currently active.
+    #[must_use]
+    #[allow(dead_code)] // Public API — wired by app layer
+    pub fn is_broadcast_active(&self) -> bool {
+        self.broadcast_controller.borrow().is_active()
+    }
+
+    /// Toggles a terminal's selection for ad-hoc broadcast.
+    #[allow(dead_code)] // Public API — wired by app layer
+    pub fn toggle_broadcast_terminal(&self, session_id: Uuid) {
+        self.broadcast_controller
+            .borrow_mut()
+            .toggle_terminal(session_id);
+    }
+
+    /// Returns whether a terminal is selected for ad-hoc broadcast.
+    #[must_use]
+    #[allow(dead_code)] // Public API — wired by app layer
+    pub fn is_broadcast_terminal_selected(&self, session_id: &Uuid) -> bool {
+        self.broadcast_controller.borrow().is_selected(session_id)
+    }
+
+    /// Sends text to all terminals selected for ad-hoc broadcast.
+    ///
+    /// Uses `send_text_to_session` for each selected terminal.
+    /// Returns the number of terminals that received the input.
+    #[allow(dead_code)] // Public API — wired by app layer
+    pub fn broadcast_text(&self, text: &str) -> usize {
+        let targets = self.broadcast_controller.borrow().broadcast_targets();
+        let mut count = 0;
+        for session_id in targets {
+            self.send_text_to_session(session_id, text);
+            count += 1;
+        }
+        count
+    }
+
+    /// Returns a clone of the broadcast controller for external wiring.
+    #[must_use]
+    #[allow(dead_code)] // Public API — wired by app layer
+    pub fn broadcast_controller(&self) -> Rc<RefCell<BroadcastController>> {
+        self.broadcast_controller.clone()
     }
 }
 

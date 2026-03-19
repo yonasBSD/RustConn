@@ -282,7 +282,8 @@ impl MainWindow {
 
             // Ensure SSH key is in agent before SFTP (mc and
             // file managers cannot pass identity files directly).
-            let key_path = rustconn_core::sftp::get_ssh_key_path(conn);
+            let key_path = rustconn_core::sftp::get_ssh_key_path(conn)
+                .and_then(|p| rustconn_core::resolve_key_path(&p));
 
             // Check if password auth — mc FISH doesn't support it
             let uses_password = matches!(
@@ -346,9 +347,18 @@ impl MainWindow {
                                 %stderr,
                                 "ssh-add failed — mc FISH may not authenticate"
                             );
+                            toast_clone.show_error(&format!(
+                                "{}: {}",
+                                crate::i18n::i18n("SSH key not available"),
+                                stderr.trim()
+                            ));
+                            return;
                         }
                         Err(e) => {
                             tracing::error!(?e, "Failed to run ssh-add");
+                            toast_clone
+                                .show_error(&crate::i18n::i18n("Failed to add SSH key to agent."));
+                            return;
                         }
                     }
                 }
@@ -376,6 +386,7 @@ impl MainWindow {
                     "sftp",
                     None,
                     &terminal_settings,
+                    None,
                 );
 
                 let downloads = rustconn_core::sftp::get_downloads_dir();
@@ -522,7 +533,72 @@ impl MainWindow {
     ///
     /// Called when user clicks "Connect" on an SFTP-type connection.
     /// Reuses the same logic as the `open-sftp` sidebar action.
+    /// Performs SSH port check before opening the file manager or mc.
     pub(crate) fn handle_sftp_connect(
+        state: &SharedAppState,
+        notebook: &SharedNotebook,
+        sidebar: Option<&SharedSidebar>,
+        split_view: Option<&SharedSplitView>,
+        connection_id: Uuid,
+    ) {
+        // Pre-connect SSH port check before opening SFTP
+        let (should_check, host, port, timeout) = {
+            let state_ref = state.borrow();
+            let Some(conn) = state_ref.get_connection(connection_id) else {
+                return;
+            };
+            let settings = state_ref.settings();
+            let should = settings.connection.pre_connect_port_check && !conn.skip_port_check;
+            (
+                should,
+                conn.host.clone(),
+                conn.port,
+                settings.connection.port_check_timeout_secs,
+            )
+        };
+
+        if should_check {
+            let state_clone = state.clone();
+            let notebook_clone = notebook.clone();
+            let sidebar_clone = sidebar.cloned();
+            let split_view_clone = split_view.cloned();
+
+            crate::utils::spawn_blocking_with_callback(
+                move || rustconn_core::check_port(&host, port, timeout),
+                move |result| match result {
+                    Ok(_) => {
+                        Self::handle_sftp_connect_internal(
+                            &state_clone,
+                            &notebook_clone,
+                            sidebar_clone.as_ref(),
+                            split_view_clone.as_ref(),
+                            connection_id,
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!("Port check failed for SFTP connection: {e}");
+                        if let Some(sb) = &sidebar_clone {
+                            sb.update_connection_status(&connection_id.to_string(), "failed");
+                        }
+                        if let Some(root) = notebook_clone.widget().root()
+                            && let Some(window) = root.downcast_ref::<gtk4::Window>()
+                        {
+                            crate::toast::show_retry_toast_on_window(
+                                window,
+                                &crate::i18n::i18n("Connection failed. Host unreachable."),
+                                &connection_id.to_string(),
+                            );
+                        }
+                    }
+                },
+            );
+        } else {
+            Self::handle_sftp_connect_internal(state, notebook, sidebar, split_view, connection_id);
+        }
+    }
+
+    /// Internal SFTP connect logic after port check passes
+    fn handle_sftp_connect_internal(
         state: &SharedAppState,
         notebook: &SharedNotebook,
         sidebar: Option<&SharedSidebar>,
@@ -534,7 +610,8 @@ impl MainWindow {
             return;
         };
         let use_mc = state_ref.settings().terminal.sftp_use_mc;
-        let key_path = rustconn_core::sftp::get_ssh_key_path(conn);
+        let key_path = rustconn_core::sftp::get_ssh_key_path(conn)
+            .and_then(|p| rustconn_core::resolve_key_path(&p));
 
         if use_mc {
             let mc_cmd = rustconn_core::sftp::build_mc_sftp_command(conn);
@@ -563,9 +640,17 @@ impl MainWindow {
                     Ok(output) => {
                         let stderr = String::from_utf8_lossy(&output.stderr);
                         tracing::warn!(?kp, %stderr, "ssh-add failed");
+                        if let Some(sb) = sidebar {
+                            sb.update_connection_status(&connection_id.to_string(), "failed");
+                        }
+                        return;
                     }
                     Err(e) => {
                         tracing::error!(?e, "Failed to run ssh-add");
+                        if let Some(sb) = sidebar {
+                            sb.update_connection_status(&connection_id.to_string(), "failed");
+                        }
+                        return;
                     }
                 }
             }
@@ -582,6 +667,7 @@ impl MainWindow {
                 "sftp",
                 None,
                 &terminal_settings,
+                None,
             );
 
             let downloads = rustconn_core::sftp::get_downloads_dir();

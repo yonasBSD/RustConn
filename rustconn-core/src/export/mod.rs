@@ -10,6 +10,7 @@
 pub mod ansible;
 pub mod asbru;
 pub mod batch;
+pub mod csv_export;
 pub mod mobaxterm;
 pub mod native;
 pub mod remmina;
@@ -24,6 +25,7 @@ pub use batch::{
     BATCH_EXPORT_THRESHOLD, BatchExportCancelHandle, BatchExportResult, BatchExporter,
     DEFAULT_EXPORT_BATCH_SIZE,
 };
+pub use csv_export::{CsvExportField, CsvExportOptions, CsvExporter};
 pub use mobaxterm::MobaXtermExporter;
 pub use native::{NATIVE_FILE_EXTENSION, NATIVE_FORMAT_VERSION, NativeExport, NativeImportError};
 pub use remmina::RemminaExporter;
@@ -54,6 +56,8 @@ pub enum ExportFormat {
     RoyalTs,
     /// MobaXterm session format (.mxtsessions)
     MobaXterm,
+    /// CSV format (.csv)
+    Csv,
 }
 
 impl ExportFormat {
@@ -68,6 +72,7 @@ impl ExportFormat {
             Self::Native,
             Self::RoyalTs,
             Self::MobaXterm,
+            Self::Csv,
         ]
     }
 
@@ -82,6 +87,7 @@ impl ExportFormat {
             Self::Native => "RustConn Native",
             Self::RoyalTs => "Royal TS",
             Self::MobaXterm => "MobaXterm",
+            Self::Csv => "CSV",
         }
     }
 
@@ -96,6 +102,7 @@ impl ExportFormat {
             Self::Native => NATIVE_FILE_EXTENSION,
             Self::RoyalTs => "rtsz",
             Self::MobaXterm => "mxtsessions",
+            Self::Csv => "csv",
         }
     }
 
@@ -353,7 +360,7 @@ mod tests {
     #[test]
     fn test_export_format_all() {
         let formats = ExportFormat::all();
-        assert_eq!(formats.len(), 7);
+        assert_eq!(formats.len(), 8);
         assert!(formats.contains(&ExportFormat::Ansible));
         assert!(formats.contains(&ExportFormat::SshConfig));
         assert!(formats.contains(&ExportFormat::Remmina));
@@ -361,6 +368,7 @@ mod tests {
         assert!(formats.contains(&ExportFormat::Native));
         assert!(formats.contains(&ExportFormat::RoyalTs));
         assert!(formats.contains(&ExportFormat::MobaXterm));
+        assert!(formats.contains(&ExportFormat::Csv));
     }
 
     #[test]
@@ -372,6 +380,7 @@ mod tests {
         assert_eq!(ExportFormat::Native.display_name(), "RustConn Native");
         assert_eq!(ExportFormat::RoyalTs.display_name(), "Royal TS");
         assert_eq!(ExportFormat::MobaXterm.display_name(), "MobaXterm");
+        assert_eq!(ExportFormat::Csv.display_name(), "CSV");
     }
 
     #[test]
@@ -383,6 +392,7 @@ mod tests {
         assert_eq!(ExportFormat::Native.file_extension(), "rcn");
         assert_eq!(ExportFormat::RoyalTs.file_extension(), "rtsz");
         assert_eq!(ExportFormat::MobaXterm.file_extension(), "mxtsessions");
+        assert_eq!(ExportFormat::Csv.file_extension(), "csv");
     }
 
     #[test]
@@ -394,6 +404,7 @@ mod tests {
         assert!(!ExportFormat::Native.exports_to_directory());
         assert!(!ExportFormat::RoyalTs.exports_to_directory());
         assert!(!ExportFormat::MobaXterm.exports_to_directory());
+        assert!(!ExportFormat::Csv.exports_to_directory());
     }
 
     #[test]

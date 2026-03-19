@@ -253,6 +253,17 @@ pub enum Commands {
     #[command(subcommand, about = "Manage secret backends and credentials")]
     Secret(SecretCommands),
 
+    /// Manage smart folders
+    #[command(
+        subcommand,
+        about = "Manage smart folders for dynamic connection grouping"
+    )]
+    SmartFolder(SmartFolderCommands),
+
+    /// Manage session recordings
+    #[command(subcommand, about = "Manage session recordings")]
+    Recording(RecordingCommands),
+
     /// Duplicate a connection
     #[command(about = "Duplicate an existing connection")]
     Duplicate {
@@ -358,6 +369,8 @@ pub enum ExportFormatArg {
     RoyalTs,
     /// MobaXterm session format (.mxtsessions)
     MobaXterm,
+    /// CSV format (.csv)
+    Csv,
 }
 
 /// Import format options
@@ -389,6 +402,8 @@ pub enum ImportFormatArg {
     /// Libvirt domain XML / GNOME Boxes
     #[value(name = "libvirt", alias = "gnome-boxes")]
     Libvirt,
+    /// CSV format (.csv)
+    Csv,
 }
 
 /// Snippet subcommands
@@ -787,5 +802,84 @@ pub enum SecretCommands {
         /// Path to key file (optional)
         #[arg(short, long)]
         key_file: Option<PathBuf>,
+    },
+}
+
+/// Smart folder subcommands
+#[derive(Subcommand)]
+pub enum SmartFolderCommands {
+    /// List all smart folders
+    #[command(about = "List all smart folders")]
+    List {
+        /// Output format
+        #[arg(short, long, default_value = "table", value_enum)]
+        format: OutputFormat,
+    },
+
+    /// Show connections matching a smart folder
+    #[command(about = "Show connections matching a smart folder's filters")]
+    Show {
+        /// Smart folder name or ID
+        name: String,
+    },
+
+    /// Create a new smart folder
+    #[command(about = "Create a new smart folder with filter criteria")]
+    Create {
+        /// Smart folder name
+        #[arg(short, long)]
+        name: String,
+
+        /// Filter by protocol (ssh, rdp, vnc, etc.)
+        #[arg(short, long)]
+        protocol: Option<String>,
+
+        /// Filter by host glob pattern (e.g. "*.prod.*")
+        #[arg(short = 'H', long)]
+        host_pattern: Option<String>,
+
+        /// Filter by tags (comma-separated)
+        #[arg(short, long)]
+        tags: Option<String>,
+    },
+
+    /// Delete a smart folder
+    #[command(about = "Delete a smart folder")]
+    Delete {
+        /// Smart folder name or ID
+        name: String,
+    },
+}
+
+/// Recording subcommands
+#[derive(Subcommand)]
+pub enum RecordingCommands {
+    /// List all recordings with metadata
+    #[command(about = "List all recordings with metadata")]
+    List {
+        /// Output format
+        #[arg(long, default_value = "table", value_enum)]
+        format: OutputFormat,
+    },
+
+    /// Delete a recording by name
+    #[command(about = "Delete a recording by name")]
+    Delete {
+        /// Recording display name or connection name
+        name: String,
+
+        /// Skip confirmation prompt
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Import external scriptreplay files
+    #[command(about = "Import external scriptreplay files")]
+    Import {
+        /// Path to the data file
+        data_file: PathBuf,
+
+        /// Path to the timing file
+        timing_file: PathBuf,
     },
 }

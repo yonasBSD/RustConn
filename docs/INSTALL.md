@@ -86,7 +86,7 @@ flatpak install flathub org.gnome.Platform//50
 #### Install
 
 ```bash
-flatpak install --user RustConn-0.10.0.flatpak
+flatpak install --user RustConn-0.10.1.flatpak
 ```
 
 Confirm runtime dependency installation if prompted.
@@ -249,6 +249,7 @@ FreeRDP detection priority: `wlfreerdp3` > `wlfreerdp` > `sdl-freerdp3` > `sdl-f
 | SFTP | Midnight Commander | `mc` |
 | Wayland forwarding | waypipe | `waypipe` |
 | Kubernetes | kubectl | `kubectl` |
+| MOSH | mosh | `mosh` |
 
 ### Optional Password Managers
 

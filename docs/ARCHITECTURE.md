@@ -1,6 +1,6 @@
 # RustConn Architecture Guide
 
-**Version 0.10.0** | Last updated: March 2026
+**Version 0.10.1** | Last updated: March 2026
 
 This document describes the internal architecture of RustConn for contributors and maintainers.
 
@@ -709,6 +709,7 @@ pub struct ProtocolCapabilities {
 - `SerialProtocol`: Serial via external `picocom` client (capabilities: terminal, split_view)
 - `KubernetesProtocol`: Kubernetes via external `kubectl exec` (capabilities: terminal, split_view)
 - `SftpProtocol`: SFTP file transfer via file manager/mc (capabilities: file_transfer, external_fallback, split_view when mc mode is active)
+- `MoshProtocol`: MOSH mobile shell via external `mosh` client (capabilities: terminal, split_view)
 
 ### Adding a New Protocol
 
@@ -989,12 +990,14 @@ rustconn/src/
 │   ├── types.rs           # Shared types
 │   └── ui.rs              # Status overlay rendering
 ├── monitoring.rs           # MonitoringBar widget, MonitoringCoordinator
+├── broadcast.rs           # BroadcastController — ad-hoc keystroke broadcast to multiple terminals
+├── smart_folder_ui.rs     # Smart Folders sidebar section and dialogs
 └── utils.rs               # Async helpers, utilities
 
 rustconn-core/src/
 ├── lib.rs                 # Public API re-exports
 ├── error.rs               # Error types
-├── models/                # Data models
+├── models/                # Data models (incl. smart_folder.rs, highlight.rs)
 ├── config/                # Settings persistence, keybindings
 ├── connection/            # Connection management
 │   ├── mod.rs             # Module exports
@@ -1002,12 +1005,13 @@ rustconn-core/src/
 │   ├── retry.rs           # RetryConfig, RetryState, exponential backoff
 │   ├── port_check.rs      # TCP port reachability check
 │   └── ...
-├── protocol/              # Protocol implementations
+├── protocol/              # Protocol implementations (incl. mosh.rs)
 ├── secret/                # Credential backends
 │   ├── mod.rs             # Module exports
 │   ├── backend.rs         # SecretBackend trait
 │   ├── manager.rs         # SecretManager with bulk operations
-│   ├── resolver.rs        # CredentialResolver (Vault/Variable/Inherit resolution)
+│   ├── resolver.rs        # CredentialResolver (Vault/Variable/Inherit/Script resolution)
+│   ├── script_resolver.rs # Script credential resolver (shell-words, 30s timeout)
 │   ├── hierarchy.rs       # KeePass hierarchical paths
 │   ├── keyring.rs         # Shared system keyring via secret-tool
 │   ├── libsecret.rs       # GNOME Keyring backend
@@ -1023,6 +1027,7 @@ rustconn-core/src/
 │   ├── mod.rs             # Module exports
 │   ├── manager.rs         # SessionManager with health checks
 │   ├── logger.rs          # Session logging with sanitization
+│   ├── recording.rs       # Session recording (scriptreplay-compatible format)
 │   ├── restore.rs         # Session state persistence
 │   └── ...
 ├── monitoring/            # Remote host metrics (agentless)
@@ -1035,8 +1040,9 @@ rustconn-core/src/
 ├── import/                # Format importers
 │   ├── mod.rs             # Module exports
 │   ├── traits.rs          # ImportSource trait, ImportStatistics
+│   ├── csv_import.rs      # CSV importer (RFC 4180, auto column mapping)
 │   └── ...
-├── export/                # Format exporters
+├── export/                # Format exporters (incl. csv_export.rs)
 ├── search/                # Search engine, command palette
 ├── rdp_client/            # RDP client implementation
 │   ├── mod.rs             # Module exports
@@ -1044,7 +1050,10 @@ rustconn-core/src/
 │   ├── quick_actions.rs   # Windows admin quick actions (key sequences)
 │   └── ...
 ├── cli_download.rs        # Flatpak CLI download manager
+├── highlight.rs           # Text highlighting rules engine (CompiledHighlightRules, find_matches)
+├── smart_folder.rs        # SmartFolderManager — dynamic connection grouping with filter evaluation
 ├── sftp.rs                # SFTP URI/command builders, ssh-add, mc FISH VFS
+├── flatpak.rs             # Flatpak sandbox detection, portal key path resolution, stable key copy
 ├── snap.rs                # Snap environment detection and paths
 └── ...
 ```

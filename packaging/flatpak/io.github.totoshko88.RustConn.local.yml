@@ -1,6 +1,6 @@
 app-id: io.github.totoshko88.RustConn
 runtime: org.gnome.Platform
-runtime-version: '50beta'
+runtime-version: '50'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
@@ -225,12 +225,14 @@ modules:
         CARGO_NET_OFFLINE: 'true'
         PKG_CONFIG_PATH: /app/lib64/pkgconfig:/app/lib/pkgconfig:/app/share/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
     build-commands:
-      # GNOME 50beta SDK appends -O2 via CFLAGS after aws-lc-sys sets -O0 for
+      # GNOME 50 SDK (GCC 15) appends -O2 via CFLAGS after aws-lc-sys sets -O0 for
       # jitterentropy-base.c, which triggers a #error requiring -O0. The wrapper
       # detects jitterentropy source files and forces -O0 at the very end.
       - |
         printf '%s\n' '#!/bin/sh' 'case "$*" in' '  *jitterentropy*)' '    exec /usr/bin/cc "$@" -O0' '    ;;' '  *)' '    exec /usr/bin/cc "$@"' '    ;;' 'esac' > /app/bin/cc-wrap
         chmod +x /app/bin/cc-wrap
+      # Rename deprecated cargo/config to config.toml
+      - if [ -f cargo/config ]; then mv cargo/config cargo/config.toml; fi
       - CC=/app/bin/cc-wrap cargo build --release -p rustconn --features adw-1-8 -p rustconn-cli
       - install -Dm755 target/release/rustconn /app/bin/rustconn
       - install -Dm755 target/release/rustconn-cli /app/bin/rustconn-cli

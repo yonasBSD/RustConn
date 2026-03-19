@@ -43,6 +43,7 @@ pub mod async_utils;
 #[cfg(feature = "rdp-audio")]
 pub mod audio;
 pub mod automation;
+pub mod broadcast;
 pub mod dialogs;
 pub mod display;
 pub mod embedded;
@@ -59,6 +60,7 @@ pub mod session;
 mod sidebar;
 mod sidebar_types;
 mod sidebar_ui;
+pub mod smart_folder_ui;
 pub mod split_view;
 mod state;
 mod terminal;

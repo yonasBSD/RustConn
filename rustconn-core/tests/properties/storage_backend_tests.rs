@@ -94,6 +94,9 @@ fn create_test_connection(id: Uuid, name: &str, host: &str) -> Connection {
         pin_order: 0,
         icon: None,
         monitoring_config: None,
+        theme_override: None,
+        session_recording_enabled: false,
+        highlight_rules: Vec::new(),
     }
 }
 

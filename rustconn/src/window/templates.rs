@@ -222,7 +222,7 @@ pub fn refresh_templates_list(
             ProtocolType::Vnc => vnc_templates.push(template),
             ProtocolType::Spice => spice_templates.push(template),
             ProtocolType::Serial | ProtocolType::Sftp => ssh_templates.push(template),
-            ProtocolType::Kubernetes => ssh_templates.push(template),
+            ProtocolType::Kubernetes | ProtocolType::Mosh => ssh_templates.push(template),
         }
     }
 

@@ -111,10 +111,11 @@ pub fn parse_protocol(protocol: &str) -> Result<(ProtocolType, u16), CliError> {
         "serial" => Ok((ProtocolType::Serial, 0)),
         "sftp" => Ok((ProtocolType::Sftp, 22)),
         "kubernetes" | "k8s" => Ok((ProtocolType::Kubernetes, 0)),
+        "mosh" => Ok((ProtocolType::Mosh, 22)),
         _ => Err(CliError::Config(format!(
             "Unknown protocol '{protocol}'. \
              Supported protocols: ssh, rdp, vnc, spice, telnet, \
-             serial, sftp, kubernetes"
+             serial, sftp, kubernetes, mosh"
         ))),
     }
 }
@@ -220,6 +221,15 @@ fn create_connection(
                 tracing::warn!("--auth-method is ignored for Kubernetes connections");
             }
             Connection::new_kubernetes(name.to_string())
+        }
+        ProtocolType::Mosh => {
+            if key.is_some() {
+                tracing::warn!("--key option is ignored for MOSH connections");
+            }
+            if auth_method.is_some() {
+                tracing::warn!("--auth-method is ignored for MOSH connections");
+            }
+            Connection::new_mosh(name.to_string(), host.to_string(), port)
         }
     }
 }

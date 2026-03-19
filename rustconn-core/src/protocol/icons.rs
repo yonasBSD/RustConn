@@ -124,6 +124,7 @@ pub const fn get_protocol_icon(protocol: ProtocolType) -> &'static str {
         ProtocolType::Serial => "network-wired-symbolic",
         ProtocolType::Sftp => "folder-remote-symbolic",
         ProtocolType::Kubernetes => "system-run-symbolic",
+        ProtocolType::Mosh => "utilities-terminal-symbolic",
     }
 }
 
@@ -149,6 +150,7 @@ pub fn get_protocol_icon_by_name(protocol: &str) -> &'static str {
         "serial" => "network-wired-symbolic",
         "sftp" => "folder-remote-symbolic",
         "kubernetes" => "system-run-symbolic",
+        "mosh" => "utilities-terminal-symbolic",
         "info" => "dialog-information-symbolic",
         _ => "network-server-symbolic",
     }
@@ -167,6 +169,7 @@ pub fn get_protocol_color_rgb(protocol: &str) -> (u8, u8, u8) {
         "spice" => (0xff, 0x78, 0x00),          // Orange
         "serial" => (0xf6, 0xd3, 0x2d),         // Yellow
         "kubernetes" => (0x00, 0xb4, 0xd8),     // Cyan
+        "mosh" => (0x26, 0xa2, 0x69),           // Green-teal
         "sftp" => (0x62, 0xa0, 0xea),           // Light blue
         _ => (0x99, 0xc1, 0xf1),                // Default light blue
     }
@@ -182,6 +185,7 @@ pub fn get_protocol_tab_css_class(protocol: &str) -> &'static str {
         "spice" => "tab-protocol-spice",
         "serial" => "tab-protocol-serial",
         "kubernetes" => "tab-protocol-k8s",
+        "mosh" => "tab-protocol-mosh",
         "sftp" => "tab-protocol-sftp",
         _ => "tab-protocol-default",
     }
@@ -196,6 +200,7 @@ pub const PROTOCOL_TAB_CSS_CLASSES: &[&str] = &[
     "tab-protocol-serial",
     "tab-protocol-k8s",
     "tab-protocol-sftp",
+    "tab-protocol-mosh",
     "tab-protocol-default",
 ];
 
@@ -217,6 +222,7 @@ pub const fn all_protocol_icons() -> &'static [(ProtocolType, &'static str)] {
         (ProtocolType::Sftp, "folder-remote-symbolic"),
         (ProtocolType::Serial, "network-wired-symbolic"),
         (ProtocolType::Kubernetes, "system-run-symbolic"),
+        (ProtocolType::Mosh, "utilities-terminal-symbolic"),
     ]
 }
 

@@ -9,12 +9,15 @@ use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Orientation};
 
 /// Shows the context menu for a connection item with group awareness
+#[allow(clippy::fn_params_excessive_bools)]
 pub fn show_context_menu_for_item(
     widget: &impl IsA<gtk4::Widget>,
     x: f64,
     y: f64,
     is_group: bool,
     is_ssh: bool,
+    is_connected: bool,
+    is_recording: bool,
 ) {
     // Get the root window to access actions
     let Some(root) = widget.root() else { return };
@@ -201,6 +204,40 @@ pub fn show_context_menu_for_item(
                 }
             });
             menu_box.append(&sftp_btn);
+        }
+    }
+
+    // Recording buttons (only for non-group connected sessions)
+    if !is_group && is_connected {
+        if is_recording {
+            let stop_btn = create_menu_button(&i18n("Stop Recording"));
+            stop_btn.add_css_class("destructive-action");
+            stop_btn.set_tooltip_text(Some(&i18n("Stop recording this session")));
+            let win = window_clone.clone();
+            let popover_c = popover_ref.clone();
+            stop_btn.connect_clicked(move |_| {
+                if let Some(p) = popover_c.upgrade() {
+                    p.popdown();
+                }
+                if let Some(action) = win.lookup_action("stop-recording") {
+                    action.activate(None);
+                }
+            });
+            menu_box.append(&stop_btn);
+        } else {
+            let start_btn = create_menu_button(&i18n("Start Recording"));
+            start_btn.set_tooltip_text(Some(&i18n("Start recording this session")));
+            let win = window_clone.clone();
+            let popover_c = popover_ref.clone();
+            start_btn.connect_clicked(move |_| {
+                if let Some(p) = popover_c.upgrade() {
+                    p.popdown();
+                }
+                if let Some(action) = win.lookup_action("start-recording") {
+                    action.activate(None);
+                }
+            });
+            menu_box.append(&start_btn);
         }
     }
 

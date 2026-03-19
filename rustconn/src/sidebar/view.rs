@@ -22,6 +22,7 @@ pub fn setup_list_item(
     _factory: &SignalListItemFactory,
     list_item: &ListItem,
     _group_ops_mode: bool,
+    recording_checker: Rc<RefCell<Option<Box<dyn Fn(&str) -> bool>>>>,
 ) {
     let expander = TreeExpander::new();
 
@@ -140,18 +141,48 @@ pub fn setup_list_item(
                 });
 
             // Detect SSH protocol from the ConnectionItem data
-            let is_ssh = list_item_weak
+            let (is_ssh, is_connected, conn_id_str) = list_item_weak
                 .upgrade()
                 .and_then(|li| li.item())
                 .and_then(|obj| obj.downcast::<gtk4::TreeListRow>().ok())
                 .and_then(|row| row.item())
                 .and_then(|obj| obj.downcast::<ConnectionItem>().ok())
-                .is_some_and(|item| {
+                .map(|item| {
                     let p = item.protocol();
-                    p == "ssh" || p == "sftp"
-                });
+                    let ssh = p == "ssh" || p == "sftp";
+                    let status = item.status();
+                    let connected = status == "connected";
+                    let id = item.id();
+                    tracing::debug!(
+                        name = %item.name(),
+                        protocol = %p,
+                        %status,
+                        %connected,
+                        %id,
+                        "Context menu: ConnectionItem status"
+                    );
+                    (ssh, connected, id)
+                })
+                .unwrap_or((false, false, String::new()));
 
-            sidebar_ui::show_context_menu_for_item(&widget, x, y, is_group, is_ssh);
+            let is_recording = if is_connected && !conn_id_str.is_empty() {
+                recording_checker
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|checker| checker(&conn_id_str))
+            } else {
+                false
+            };
+
+            sidebar_ui::show_context_menu_for_item(
+                &widget,
+                x,
+                y,
+                is_group,
+                is_ssh,
+                is_connected,
+                is_recording,
+            );
         }
     });
     expander.add_controller(gesture);

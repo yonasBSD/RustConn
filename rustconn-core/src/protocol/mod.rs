@@ -9,6 +9,7 @@ mod detection;
 pub mod freerdp;
 pub mod icons;
 mod kubernetes;
+mod mosh;
 mod rdp;
 mod registry;
 mod serial;
@@ -21,10 +22,10 @@ mod vnc;
 pub use cli::{format_command_message, format_connection_message};
 pub use detection::{
     ClientDetectionResult, ClientInfo, ZeroTrustDetectionResult, detect_aws_cli, detect_azure_cli,
-    detect_boundary, detect_cloudflared, detect_gcloud_cli, detect_kubectl, detect_oci_cli,
-    detect_picocom, detect_rdp_client, detect_spice_client, detect_ssh_client, detect_tailscale,
-    detect_teleport, detect_telnet_client, detect_vnc_client, detect_vnc_viewer_name,
-    detect_vnc_viewer_path, detect_waypipe,
+    detect_boundary, detect_cloudflared, detect_gcloud_cli, detect_kubectl, detect_mosh,
+    detect_oci_cli, detect_picocom, detect_rdp_client, detect_spice_client, detect_ssh_client,
+    detect_tailscale, detect_teleport, detect_telnet_client, detect_vnc_client,
+    detect_vnc_viewer_name, detect_vnc_viewer_path, detect_waypipe,
 };
 pub use freerdp::{
     FreeRdpConfig, build_freerdp_args, extract_geometry_from_args, has_decorations_flag,
@@ -35,6 +36,7 @@ pub use icons::{
     get_protocol_tab_css_class, get_zero_trust_provider_icon,
 };
 pub use kubernetes::KubernetesProtocol;
+pub use mosh::MoshProtocol;
 pub use rdp::RdpProtocol;
 pub use registry::ProtocolRegistry;
 pub use serial::SerialProtocol;

@@ -13,19 +13,20 @@ use crate::i18n::i18n;
 use adw::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{
-    Box as GtkBox, Button, CheckButton, DropDown, Entry, FileDialog, Grid, Label, ListBox,
-    ListBoxRow, Orientation, PasswordEntry, ScrolledWindow, SpinButton, Stack, StringList,
-    TextView,
+    Box as GtkBox, Button, CheckButton, ColorDialogButton, DrawingArea, DropDown, Entry,
+    FileDialog, Grid, Label, ListBox, ListBoxRow, Orientation, PasswordEntry, ScrolledWindow,
+    SpinButton, Stack, StringList, TextView,
 };
 use libadwaita as adw;
 use rustconn_core::automation::{ConnectionTask, ExpectRule, TaskCondition, builtin_templates};
 use rustconn_core::models::{
     AwsSsmConfig, AzureBastionConfig, AzureSshConfig, BoundaryConfig, CloudflareAccessConfig,
-    Connection, CustomProperty, GcpIapConfig, GenericZeroTrustConfig, OciBastionConfig,
-    PasswordSource, PropertyType, ProtocolConfig, RdpClientMode, RdpConfig, RdpPerformanceMode,
-    Resolution, ScaleOverride, SharedFolder, SpiceConfig, SpiceImageCompression, SshAuthMethod,
-    SshConfig, SshKeySource, TailscaleSshConfig, TeleportConfig, VncClientMode, VncConfig,
-    VncPerformanceMode, WindowMode, ZeroTrustConfig, ZeroTrustProvider, ZeroTrustProviderConfig,
+    Connection, ConnectionThemeOverride, CustomProperty, GcpIapConfig, GenericZeroTrustConfig,
+    HighlightRule, OciBastionConfig, PasswordSource, PropertyType, ProtocolConfig, RdpClientMode,
+    RdpConfig, RdpPerformanceMode, Resolution, ScaleOverride, SharedFolder, SpiceConfig,
+    SpiceImageCompression, SshAuthMethod, SshConfig, SshKeySource, TailscaleSshConfig,
+    TeleportConfig, VncClientMode, VncConfig, VncPerformanceMode, WindowMode, ZeroTrustConfig,
+    ZeroTrustProvider, ZeroTrustProviderConfig,
 };
 use rustconn_core::session::LogConfig;
 use rustconn_core::variables::Variable;
@@ -124,6 +125,10 @@ pub struct ConnectionDialog {
     // Variable name dropdown (for Variable password source)
     variable_dropdown: DropDown,
     variable_row: GtkBox,
+    // Script command entry (for Script password source)
+    script_command_entry: Entry,
+    script_test_button: Button,
+    script_row: GtkBox,
     // Group selection
     group_dropdown: DropDown,
     groups_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
@@ -230,6 +235,10 @@ pub struct ConnectionDialog {
     telnet_custom_args_entry: Entry,
     telnet_backspace_dropdown: DropDown,
     telnet_delete_dropdown: DropDown,
+    // MOSH fields (embedded in SSH tab, visible only when MOSH protocol selected)
+    mosh_port_range_entry: Entry,
+    mosh_predict_dropdown: DropDown,
+    mosh_server_binary_entry: Entry,
     // Serial fields
     serial_device_entry: Entry,
     serial_baud_dropdown: DropDown,
@@ -289,6 +298,19 @@ pub struct ConnectionDialog {
     wol_broadcast_entry: Entry,
     wol_port_spin: SpinButton,
     wol_wait_spin: SpinButton,
+    // Terminal theme fields
+    theme_bg_button: ColorDialogButton,
+    theme_fg_button: ColorDialogButton,
+    theme_cursor_button: ColorDialogButton,
+    theme_reset_button: Button,
+    theme_preview: DrawingArea,
+    // Session recording field
+    recording_toggle: adw::SwitchRow,
+    // Highlight rules fields
+    highlight_rules_list: ListBox,
+    highlight_rules: Rc<RefCell<Vec<HighlightRule>>>,
+    /// Button to add highlight rules
+    add_highlight_rule_button: Button,
     // State
     editing_id: Rc<RefCell<Option<Uuid>>>,
     // Callback
@@ -397,6 +419,9 @@ impl ConnectionDialog {
             group_dropdown,
             username_load_button,
             domain_load_button,
+            script_command_entry,
+            script_test_button,
+            script_row,
         ) = super::general_tab::create_basic_tab();
         // Wrap basic grid in ScrolledWindow for consistent styling
         let basic_scrolled = ScrolledWindow::builder()
@@ -442,6 +467,10 @@ impl ConnectionDialog {
             ssh_compression,
             ssh_startup_entry,
             ssh_options_entry,
+            mosh_settings_group,
+            mosh_port_range_entry,
+            mosh_predict_dropdown,
+            mosh_server_binary_entry,
         ) = ssh::create_ssh_options();
 
         // Add port forwarding group to SSH options panel
@@ -586,6 +615,10 @@ impl ConnectionDialog {
         ) = super::kubernetes::create_kubernetes_options();
         protocol_stack.add_named(&k8s_box, Some("kubernetes"));
 
+        // MOSH now uses SSH tab with additional MOSH settings group
+        // (mosh_port_range_entry, mosh_predict_dropdown, mosh_server_binary_entry
+        //  are already created in ssh::create_ssh_options above)
+
         // Set initial protocol view
         protocol_stack.set_visible_child_name("ssh");
 
@@ -606,6 +639,7 @@ impl ConnectionDialog {
             &password_row,
             &domain_entry,
             &domain_label,
+            &mosh_settings_group,
         );
 
         // === Data Tab (Variables + Custom Properties) ===
@@ -664,10 +698,21 @@ impl ConnectionDialog {
             wol_broadcast_entry,
             wol_port_spin,
             wol_wait_spin,
+            theme_bg_button,
+            theme_fg_button,
+            theme_cursor_button,
+            theme_reset_button,
+            theme_preview,
+            recording_toggle,
+            highlight_rules_list,
+            add_highlight_rule_button,
+            _theme_preset_dropdown,
         ) = super::advanced_tab::create_advanced_tab();
         view_stack
             .add_titled(&advanced_tab, Some("advanced"), &i18n("Advanced"))
             .set_icon_name(Some("preferences-system-symbolic"));
+
+        let highlight_rules: Rc<RefCell<Vec<HighlightRule>>> = Rc::new(RefCell::new(Vec::new()));
 
         // Wire up add variable button
         Self::wire_add_variable_button(&add_variable_button, &variables_list, &variables_rows);
@@ -694,6 +739,13 @@ impl ConnectionDialog {
             &add_custom_property_button,
             &custom_properties_list,
             &custom_properties,
+        );
+
+        // Wire up add highlight rule button
+        Self::wire_add_highlight_rule_button(
+            &add_highlight_rule_button,
+            &highlight_rules_list,
+            &highlight_rules,
         );
 
         let on_save: super::ConnectionCallback = Rc::new(RefCell::new(None));
@@ -820,6 +872,9 @@ impl ConnectionDialog {
             &k8s_busybox_check,
             &k8s_busybox_image_entry,
             &k8s_custom_args_entry,
+            &mosh_port_range_entry,
+            &mosh_predict_dropdown,
+            &mosh_server_binary_entry,
             &variables_rows,
             &logging_tab_struct,
             &expect_rules,
@@ -840,7 +895,13 @@ impl ConnectionDialog {
             &wol_broadcast_entry,
             &wol_port_spin,
             &wol_wait_spin,
+            &theme_bg_button,
+            &theme_fg_button,
+            &theme_cursor_button,
             &connections_data,
+            &script_command_entry,
+            &recording_toggle,
+            &highlight_rules,
         );
 
         let result = Self {
@@ -865,6 +926,9 @@ impl ConnectionDialog {
             password_row,
             variable_dropdown,
             variable_row,
+            script_command_entry,
+            script_test_button,
+            script_row,
             group_dropdown,
             groups_data,
             full_groups_data: Rc::new(RefCell::new(HashMap::new())),
@@ -975,6 +1039,9 @@ impl ConnectionDialog {
             k8s_busybox_check,
             k8s_busybox_image_entry,
             k8s_custom_args_entry,
+            mosh_port_range_entry,
+            mosh_predict_dropdown,
+            mosh_server_binary_entry,
             expect_rules_list,
             expect_rules,
             add_expect_rule_button,
@@ -999,6 +1066,15 @@ impl ConnectionDialog {
             wol_broadcast_entry,
             wol_port_spin,
             wol_wait_spin,
+            theme_bg_button,
+            theme_fg_button,
+            theme_cursor_button,
+            theme_reset_button,
+            theme_preview,
+            recording_toggle,
+            highlight_rules_list,
+            highlight_rules,
+            add_highlight_rule_button,
             editing_id,
             on_save,
             connections_data,
@@ -1266,6 +1342,11 @@ impl ConnectionDialog {
                                 rustconn_core::models::KubernetesConfig::default(),
                             )
                         }
+                        rustconn_core::models::ProtocolType::Mosh => {
+                            rustconn_core::models::ProtocolConfig::Mosh(
+                                rustconn_core::models::MoshConfig::default(),
+                            )
+                        }
                     };
                     let mut test_conn = rustconn_core::models::Connection::new(
                         conn_name.clone(),
@@ -1482,6 +1563,7 @@ impl ConnectionDialog {
         password_row: &GtkBox,
         domain_entry: &Entry,
         domain_label: &Label,
+        mosh_settings_group: &adw::PreferencesGroup,
     ) {
         let stack_clone = stack.clone();
         let port_clone = port_spin.clone();
@@ -1497,6 +1579,7 @@ impl ConnectionDialog {
         let password_row = password_row.clone();
         let domain_entry = domain_entry.clone();
         let domain_label = domain_label.clone();
+        let mosh_group = mosh_settings_group.clone();
 
         dropdown.connect_selected_notify(move |dropdown| {
             let protocols = [
@@ -1509,12 +1592,13 @@ impl ConnectionDialog {
                 "serial",
                 "sftp",
                 "kubernetes",
+                "mosh",
             ];
             let selected = dropdown.selected() as usize;
             if selected < protocols.len() {
                 let protocol_id = protocols[selected];
-                // SFTP reuses SSH config tab
-                let stack_name = if protocol_id == "sftp" {
+                // SFTP and MOSH reuse SSH config tab
+                let stack_name = if protocol_id == "sftp" || protocol_id == "mosh" {
                     "ssh"
                 } else {
                     protocol_id
@@ -1550,6 +1634,9 @@ impl ConnectionDialog {
                 let is_rdp = protocol_id == "rdp";
                 domain_entry.set_visible(is_rdp);
                 domain_label.set_visible(is_rdp);
+
+                // MOSH settings group visible only when MOSH is selected
+                mosh_group.set_visible(protocol_id == "mosh");
             }
         });
     }
@@ -1561,7 +1648,7 @@ impl ConnectionDialog {
             "vnc" | "spice" => 5900.0,
             "zerotrust" | "serial" | "kubernetes" => 0.0,
             "telnet" => 23.0,
-            _ => 22.0, // ssh, sftp
+            _ => 22.0, // ssh, sftp, mosh
         }
     }
 
@@ -1693,6 +1780,9 @@ impl ConnectionDialog {
         k8s_busybox_check: &CheckButton,
         k8s_busybox_image_entry: &Entry,
         k8s_custom_args_entry: &Entry,
+        mosh_port_range_entry: &Entry,
+        mosh_predict_dropdown: &DropDown,
+        mosh_server_binary_entry: &Entry,
         variables_rows: &Rc<RefCell<Vec<LocalVariableRow>>>,
         logging_tab: &logging_tab::LoggingTab,
         expect_rules: &Rc<RefCell<Vec<ExpectRule>>>,
@@ -1713,7 +1803,13 @@ impl ConnectionDialog {
         wol_broadcast_entry: &Entry,
         wol_port_spin: &SpinButton,
         wol_wait_spin: &SpinButton,
+        theme_bg_button: &ColorDialogButton,
+        theme_fg_button: &ColorDialogButton,
+        theme_cursor_button: &ColorDialogButton,
         connections_data: &Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
+        script_command_entry: &Entry,
+        recording_toggle: &adw::SwitchRow,
+        highlight_rules: &Rc<RefCell<Vec<HighlightRule>>>,
     ) {
         let window = window.clone();
         let on_save = on_save.clone();
@@ -1828,6 +1924,9 @@ impl ConnectionDialog {
         let k8s_busybox_check = k8s_busybox_check.clone();
         let k8s_busybox_image_entry = k8s_busybox_image_entry.clone();
         let k8s_custom_args_entry = k8s_custom_args_entry.clone();
+        let mosh_port_range_entry = mosh_port_range_entry.clone();
+        let mosh_predict_dropdown = mosh_predict_dropdown.clone();
+        let mosh_server_binary_entry = mosh_server_binary_entry.clone();
         let variables_rows = variables_rows.clone();
         let logging_enabled_check = logging_tab.enabled_check.clone();
         let logging_path_entry = logging_tab.path_entry.clone();
@@ -1856,13 +1955,20 @@ impl ConnectionDialog {
         let wol_broadcast_entry = wol_broadcast_entry.clone();
         let wol_port_spin = wol_port_spin.clone();
         let wol_wait_spin = wol_wait_spin.clone();
+        let theme_bg_button = theme_bg_button.clone();
+        let theme_fg_button = theme_fg_button.clone();
+        let theme_cursor_button = theme_cursor_button.clone();
         let editing_id = editing_id.clone();
         let connections_data = connections_data.clone();
+        let script_command_entry = script_command_entry.clone();
+        let recording_toggle = recording_toggle.clone();
+        let highlight_rules = highlight_rules.clone();
 
         save_btn.connect_clicked(move |_| {
             let local_variables = Self::collect_local_variables(&variables_rows);
             let collected_expect_rules = expect_rules.borrow().clone();
             let collected_custom_properties = custom_properties.borrow().clone();
+            let collected_highlight_rules = highlight_rules.borrow().clone();
             let data = ConnectionDialogData {
                 name_entry: &name_entry,
                 icon_entry: &icon_entry,
@@ -1973,6 +2079,9 @@ impl ConnectionDialog {
                 k8s_busybox_check: &k8s_busybox_check,
                 k8s_busybox_image_entry: &k8s_busybox_image_entry,
                 k8s_custom_args_entry: &k8s_custom_args_entry,
+                mosh_port_range_entry: &mosh_port_range_entry,
+                mosh_predict_dropdown: &mosh_predict_dropdown,
+                mosh_server_binary_entry: &mosh_server_binary_entry,
                 local_variables: &local_variables,
                 logging_tab: &logging_tab::LoggingTab {
                     enabled_check: logging_enabled_check.clone(),
@@ -2003,9 +2112,15 @@ impl ConnectionDialog {
                 wol_broadcast_entry: &wol_broadcast_entry,
                 wol_port_spin: &wol_port_spin,
                 wol_wait_spin: &wol_wait_spin,
+                theme_bg_button: &theme_bg_button,
+                theme_fg_button: &theme_fg_button,
+                theme_cursor_button: &theme_cursor_button,
                 rdp_performance_mode_dropdown: &rdp_performance_mode_dropdown,
                 vnc_performance_mode_dropdown: &vnc_performance_mode_dropdown,
                 editing_id: &editing_id,
+                script_command_entry: &script_command_entry,
+                recording_toggle: &recording_toggle,
+                highlight_rules: &collected_highlight_rules,
             };
 
             if let Err(err) = data.validate() {
@@ -4538,7 +4653,18 @@ impl ConnectionDialog {
                     if let Ok(file) = result
                         && let Some(path) = file.path()
                     {
-                        entry.set_text(&path.to_string_lossy());
+                        // In Flatpak, the file chooser returns document portal paths
+                        // like /run/user/1000/doc/XXXXXXXX/key.pem which become stale
+                        // after rebuilds. Copy the key to a stable location.
+                        let stable_path = if rustconn_core::is_flatpak()
+                            && rustconn_core::is_portal_path(&path)
+                        {
+                            rustconn_core::copy_key_to_flatpak_ssh(&path)
+                                .unwrap_or_else(|| path.clone())
+                        } else {
+                            path
+                        };
+                        entry.set_text(&stable_path.to_string_lossy());
                     }
                 },
             );
@@ -4628,6 +4754,7 @@ impl ConnectionDialog {
             PasswordSource::Vault => 1,
             PasswordSource::Variable(_) => 2,
             PasswordSource::Inherit => 3,
+            PasswordSource::Script(_) => 5,
             PasswordSource::None => 4,
         };
         self.password_source_dropdown
@@ -4644,6 +4771,11 @@ impl ConnectionDialog {
                     break;
                 }
             }
+        }
+
+        // If Script source, populate the command entry
+        if let PasswordSource::Script(ref cmd) = conn.password_source {
+            self.script_command_entry.set_text(cmd);
         }
 
         // Protocol and protocol-specific fields
@@ -4712,6 +4844,11 @@ impl ConnectionDialog {
                 self.protocol_stack.set_visible_child_name("kubernetes");
                 self.set_kubernetes_config(k8s);
             }
+            ProtocolConfig::Mosh(mosh_config) => {
+                self.protocol_dropdown.set_selected(9); // MOSH
+                // MOSH uses SSH tab — protocol dropdown handler shows mosh_settings_group
+                self.set_mosh_config(mosh_config);
+            }
         }
 
         // Set local variables
@@ -4741,6 +4878,33 @@ impl ConnectionDialog {
 
         // Set WOL config
         self.set_wol_config(conn.wol_config.as_ref());
+
+        // Set terminal theme override
+        if let Some(ref theme) = conn.theme_override {
+            if let Some(ref bg) = theme.background
+                && let Some(rgba) = super::advanced_tab::hex_to_rgba(bg)
+            {
+                self.theme_bg_button.set_rgba(&rgba);
+            }
+            if let Some(ref fg) = theme.foreground
+                && let Some(rgba) = super::advanced_tab::hex_to_rgba(fg)
+            {
+                self.theme_fg_button.set_rgba(&rgba);
+            }
+            if let Some(ref cur) = theme.cursor
+                && let Some(rgba) = super::advanced_tab::hex_to_rgba(cur)
+            {
+                self.theme_cursor_button.set_rgba(&rgba);
+            }
+            self.theme_preview.queue_draw();
+        }
+
+        // Set session recording toggle
+        self.recording_toggle
+            .set_active(conn.session_recording_enabled);
+
+        // Set highlight rules
+        self.set_highlight_rules(&conn.highlight_rules);
     }
 
     /// Sets the available groups for the group dropdown
@@ -5029,6 +5193,125 @@ impl ConnectionDialog {
         Self::connect_rule_entry_changes(&rule_row, &self.expect_rules);
 
         self.expect_rules_list.append(&rule_row.row);
+    }
+
+    /// Sets the highlight rules for this connection
+    fn set_highlight_rules(&self, rules: &[HighlightRule]) {
+        // Clear existing rows
+        while let Some(row) = self.highlight_rules_list.row_at_index(0) {
+            self.highlight_rules_list.remove(&row);
+        }
+        self.highlight_rules.borrow_mut().clear();
+
+        // Add rows for each rule
+        for rule in rules {
+            self.add_highlight_rule_row(Some(rule));
+        }
+    }
+
+    /// Adds a highlight rule row to the list
+    fn add_highlight_rule_row(&self, rule: Option<&HighlightRule>) {
+        let hl_row = super::advanced_tab::create_highlight_rule_row(rule);
+        let rule_id = hl_row.id;
+
+        let new_rule = if let Some(r) = rule {
+            r.clone()
+        } else {
+            HighlightRule::new(String::new(), String::new())
+        };
+        // Ensure the stored rule has the same ID as the row
+        let mut stored_rule = new_rule;
+        stored_rule.id = rule_id;
+        self.highlight_rules.borrow_mut().push(stored_rule);
+
+        // Connect delete button
+        let list_for_delete = self.highlight_rules_list.clone();
+        let rules_for_delete = self.highlight_rules.clone();
+        let row_widget = hl_row.row.clone();
+        let delete_id = rule_id;
+        hl_row.delete_button.connect_clicked(move |_| {
+            list_for_delete.remove(&row_widget);
+            rules_for_delete.borrow_mut().retain(|r| r.id != delete_id);
+        });
+
+        // Connect entry changes
+        Self::connect_highlight_rule_changes(&hl_row, &self.highlight_rules);
+
+        self.highlight_rules_list.append(&hl_row.row);
+    }
+
+    /// Wires up the add highlight rule button
+    fn wire_add_highlight_rule_button(
+        add_button: &Button,
+        highlight_rules_list: &ListBox,
+        highlight_rules: &Rc<RefCell<Vec<HighlightRule>>>,
+    ) {
+        let list_clone = highlight_rules_list.clone();
+        let rules_clone = highlight_rules.clone();
+
+        add_button.connect_clicked(move |_| {
+            let new_rule = HighlightRule::new(String::new(), String::new());
+            let hl_row = super::advanced_tab::create_highlight_rule_row(Some(&new_rule));
+            let rule_id = new_rule.id;
+
+            rules_clone.borrow_mut().push(new_rule);
+
+            // Connect delete button
+            let list_for_delete = list_clone.clone();
+            let rules_for_delete = rules_clone.clone();
+            let row_widget = hl_row.row.clone();
+            let delete_id = rule_id;
+            hl_row.delete_button.connect_clicked(move |_| {
+                list_for_delete.remove(&row_widget);
+                rules_for_delete.borrow_mut().retain(|r| r.id != delete_id);
+            });
+
+            // Connect entry changes
+            Self::connect_highlight_rule_changes(&hl_row, &rules_clone);
+
+            list_clone.append(&hl_row.row);
+        });
+    }
+
+    /// Connects highlight rule row entry changes to update the rule data
+    fn connect_highlight_rule_changes(
+        hl_row: &super::advanced_tab::HighlightRuleRow,
+        highlight_rules: &Rc<RefCell<Vec<HighlightRule>>>,
+    ) {
+        let rule_id = hl_row.id;
+
+        // Name entry
+        let rules_for_name = highlight_rules.clone();
+        let name_id = rule_id;
+        hl_row.name_entry.connect_changed(move |entry| {
+            let text = entry.text().to_string();
+            let mut rules = rules_for_name.borrow_mut();
+            if let Some(r) = rules.iter_mut().find(|r| r.id == name_id) {
+                r.name = text;
+            }
+        });
+
+        // Pattern entry
+        let rules_for_pattern = highlight_rules.clone();
+        let pattern_id = rule_id;
+        hl_row.pattern_entry.connect_changed(move |entry| {
+            let text = entry.text().to_string();
+            let mut rules = rules_for_pattern.borrow_mut();
+            if let Some(r) = rules.iter_mut().find(|r| r.id == pattern_id) {
+                r.pattern = text;
+            }
+        });
+
+        // Enabled checkbox
+        let rules_for_enabled = highlight_rules.clone();
+        let enabled_id = rule_id;
+        hl_row.enabled_check.connect_toggled(move |check| {
+            let active = check.is_active();
+            let mut rules = rules_for_enabled.borrow_mut();
+            if let Some(r) = rules.iter_mut().find(|r| r.id == enabled_id) {
+                r.enabled = active;
+            }
+        });
     }
 
     /// Sets the log configuration for this connection
@@ -5514,6 +5797,22 @@ impl ConnectionDialog {
         }
     }
 
+    fn set_mosh_config(&self, mosh: &rustconn_core::models::MoshConfig) {
+        // MOSH uses the main port spin for SSH port (general tab)
+        if let Some(ref port_range) = mosh.port_range {
+            self.mosh_port_range_entry.set_text(port_range);
+        }
+        let predict_idx = match mosh.predict_mode {
+            rustconn_core::models::MoshPredictMode::Adaptive => 0,
+            rustconn_core::models::MoshPredictMode::Always => 1,
+            rustconn_core::models::MoshPredictMode::Never => 2,
+        };
+        self.mosh_predict_dropdown.set_selected(predict_idx);
+        if let Some(ref server_binary) = mosh.server_binary {
+            self.mosh_server_binary_entry.set_text(server_binary);
+        }
+    }
+
     /// Runs the dialog and calls the callback with the result
     pub fn run<F: Fn(Option<super::ConnectionDialogResult>) + 'static>(&self, cb: F) {
         // Store callback - the save button handler was connected in the constructor
@@ -5541,6 +5840,8 @@ impl ConnectionDialog {
         self.password_row.set_visible(selected == 1);
         // Show variable row for Variable(2) only
         self.variable_row.set_visible(selected == 2);
+        // Show script row for Script(5) only
+        self.script_row.set_visible(selected == 5);
     }
 
     /// Connects password visibility toggle button
@@ -5569,6 +5870,7 @@ impl ConnectionDialog {
     pub fn connect_password_source_visibility(&self) {
         let password_row = self.password_row.clone();
         let variable_row = self.variable_row.clone();
+        let script_row = self.script_row.clone();
         let ssh_auth_dropdown = self.ssh_auth_dropdown.clone();
         let protocol_dropdown = self.protocol_dropdown.clone();
 
@@ -5579,6 +5881,8 @@ impl ConnectionDialog {
                 password_row.set_visible(selected == 1);
                 // Show variable row for Variable(2) only
                 variable_row.set_visible(selected == 2);
+                // Show script row for Script(5) only
+                script_row.set_visible(selected == 5);
 
                 // Sync: when password source is None(4) and protocol is SSH(0),
                 // auto-switch SSH auth from Password(0) to Public Key(1)
@@ -6188,6 +6492,10 @@ struct ConnectionDialogData<'a> {
     k8s_busybox_check: &'a CheckButton,
     k8s_busybox_image_entry: &'a Entry,
     k8s_custom_args_entry: &'a Entry,
+    // MOSH fields
+    mosh_port_range_entry: &'a Entry,
+    mosh_predict_dropdown: &'a DropDown,
+    mosh_server_binary_entry: &'a Entry,
     local_variables: &'a HashMap<String, Variable>,
     logging_tab: &'a logging_tab::LoggingTab,
     expect_rules: &'a Vec<ExpectRule>,
@@ -6212,10 +6520,20 @@ struct ConnectionDialogData<'a> {
     wol_broadcast_entry: &'a Entry,
     wol_port_spin: &'a SpinButton,
     wol_wait_spin: &'a SpinButton,
+    // Terminal theme fields
+    theme_bg_button: &'a ColorDialogButton,
+    theme_fg_button: &'a ColorDialogButton,
+    theme_cursor_button: &'a ColorDialogButton,
     editing_id: &'a Rc<RefCell<Option<Uuid>>>,
     // Jump Host fields
     ssh_jump_host_dropdown: &'a DropDown,
     connections_data: &'a Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
+    // Script credential fields
+    script_command_entry: &'a Entry,
+    // Session recording field
+    recording_toggle: &'a adw::SwitchRow,
+    // Highlight rules
+    highlight_rules: &'a Vec<HighlightRule>,
 }
 
 impl ConnectionDialogData<'_> {
@@ -6360,7 +6678,7 @@ impl ConnectionDialogData<'_> {
         }
 
         // Password source - map dropdown index to enum
-        // Dropdown order: Prompt(0), Vault(1), Variable(2), Inherit(3), None(4)
+        // Dropdown order: Prompt(0), Vault(1), Variable(2), Inherit(3), None(4), Script(5)
         conn.password_source = match self.password_source_dropdown.selected() {
             1 => PasswordSource::Vault,
             2 => {
@@ -6377,6 +6695,10 @@ impl ConnectionDialogData<'_> {
             }
             3 => PasswordSource::Inherit,
             4 => PasswordSource::None,
+            5 => {
+                let cmd = self.script_command_entry.text().trim().to_string();
+                PasswordSource::Script(cmd)
+            }
             _ => PasswordSource::Prompt, // 0 and any other value default to Prompt
         };
 
@@ -6414,6 +6736,40 @@ impl ConnectionDialogData<'_> {
 
         // Set WOL config if enabled
         conn.wol_config = self.build_wol_config();
+
+        // Set terminal theme override
+        {
+            let bg_hex = super::advanced_tab::rgba_to_hex(&self.theme_bg_button.rgba());
+            let fg_hex = super::advanced_tab::rgba_to_hex(&self.theme_fg_button.rgba());
+            let cur_hex = super::advanced_tab::rgba_to_hex(&self.theme_cursor_button.rgba());
+
+            // Only set if at least one color differs from default (black bg, white fg/cursor)
+            let is_default_bg = bg_hex == "#000000";
+            let is_default_fg = fg_hex == "#ffffff";
+            let is_default_cur = cur_hex == "#ffffff";
+
+            if !(is_default_bg && is_default_fg && is_default_cur) {
+                let theme = ConnectionThemeOverride {
+                    background: if is_default_bg { None } else { Some(bg_hex) },
+                    foreground: if is_default_fg { None } else { Some(fg_hex) },
+                    cursor: if is_default_cur { None } else { Some(cur_hex) },
+                };
+                if !theme.is_empty() {
+                    conn.theme_override = Some(theme);
+                }
+            }
+        }
+
+        // Set session recording
+        conn.session_recording_enabled = self.recording_toggle.is_active();
+
+        // Set highlight rules (filter out empty patterns)
+        conn.highlight_rules = self
+            .highlight_rules
+            .iter()
+            .filter(|r| !r.pattern.is_empty())
+            .cloned()
+            .collect();
 
         // Set group from dropdown
         let selected_idx = self.group_dropdown.selected() as usize;
@@ -6556,6 +6912,7 @@ impl ConnectionDialogData<'_> {
             6 => Some(ProtocolConfig::Serial(self.build_serial_config())),
             7 => Some(ProtocolConfig::Sftp(self.build_ssh_config())),
             8 => Some(ProtocolConfig::Kubernetes(self.build_kubernetes_config())),
+            9 => Some(ProtocolConfig::Mosh(self.build_mosh_config())),
             _ => None,
         }
     }
@@ -6816,6 +7173,45 @@ impl ConnectionDialogData<'_> {
             use_busybox: self.k8s_busybox_check.is_active(),
             busybox_image,
             custom_args,
+        }
+    }
+
+    fn build_mosh_config(&self) -> rustconn_core::models::MoshConfig {
+        // MOSH uses the main port spin for SSH port (general tab)
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let ssh_port_val = self.port_spin.value() as u16;
+        let ssh_port = if ssh_port_val == 22 {
+            None
+        } else {
+            Some(ssh_port_val)
+        };
+        let port_range = {
+            let text = self.mosh_port_range_entry.text();
+            if text.trim().is_empty() {
+                None
+            } else {
+                Some(text.trim().to_string())
+            }
+        };
+        let predict_mode = match self.mosh_predict_dropdown.selected() {
+            1 => rustconn_core::models::MoshPredictMode::Always,
+            2 => rustconn_core::models::MoshPredictMode::Never,
+            _ => rustconn_core::models::MoshPredictMode::Adaptive,
+        };
+        let server_binary = {
+            let text = self.mosh_server_binary_entry.text();
+            if text.trim().is_empty() {
+                None
+            } else {
+                Some(text.trim().to_string())
+            }
+        };
+        rustconn_core::models::MoshConfig {
+            ssh_port,
+            port_range,
+            server_binary,
+            predict_mode,
+            custom_args: Vec::new(),
         }
     }
 

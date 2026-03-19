@@ -37,6 +37,7 @@ pub mod error;
 pub mod export;
 pub mod ffi;
 pub mod flatpak;
+pub mod highlight;
 pub mod import;
 pub mod models;
 pub mod monitoring;
@@ -49,6 +50,7 @@ pub mod search;
 pub mod secret;
 pub mod session;
 pub mod sftp;
+pub mod smart_folder;
 pub mod snap;
 pub mod snippet;
 pub mod spice_client;
@@ -122,7 +124,11 @@ pub use export::{
 pub use ffi::{
     ConnectionState, FfiDisplay, FfiError, FfiResult, VncCredentialType, VncDisplay, VncError,
 };
-pub use flatpak::{get_flatpak_known_hosts_path, get_flatpak_ssh_dir, is_flatpak};
+pub use flatpak::{
+    copy_key_to_flatpak_ssh, get_flatpak_known_hosts_path, get_flatpak_ssh_dir, is_flatpak,
+    is_portal_path, resolve_key_path,
+};
+pub use highlight::{CompiledHighlightRules, HighlightMatch, builtin_defaults};
 // Deprecated flatpak-spawn functions (host_command, host_exec, host_has_command,
 // host_spawn, host_which) are no longer re-exported since Flathub policy change in v0.7.7.
 pub use import::{
@@ -133,12 +139,13 @@ pub use import::{
 };
 pub use models::{
     Connection, ConnectionGroup, ConnectionHistoryEntry, ConnectionStatistics, ConnectionTemplate,
-    Credentials, CustomProperty, HistorySettings, KubernetesConfig, PasswordSource, PortForward,
-    PortForwardDirection, PropertyType, ProtocolConfig, ProtocolType, RdpConfig, RdpGateway,
-    Resolution, ScaleOverride, SerialBaudRate, SerialConfig, SerialDataBits, SerialFlowControl,
-    SerialParity, SerialStopBits, Snippet, SnippetVariable, SpiceConfig, SpiceImageCompression,
-    SshAuthMethod, SshConfig, SshKeySource, TelnetBackspaceSends, TelnetConfig, TelnetDeleteSends,
-    TemplateError, VncConfig, WindowGeometry, WindowMode, group_templates_by_protocol,
+    Credentials, CustomProperty, HighlightRule, HistorySettings, KubernetesConfig, MoshConfig,
+    MoshPredictMode, PasswordSource, PortForward, PortForwardDirection, PropertyType,
+    ProtocolConfig, ProtocolType, RdpConfig, RdpGateway, Resolution, ScaleOverride, SerialBaudRate,
+    SerialConfig, SerialDataBits, SerialFlowControl, SerialParity, SerialStopBits, Snippet,
+    SnippetVariable, SpiceConfig, SpiceImageCompression, SshAuthMethod, SshConfig, SshKeySource,
+    TelnetBackspaceSends, TelnetConfig, TelnetDeleteSends, TemplateError, VncConfig,
+    WindowGeometry, WindowMode, group_templates_by_protocol,
 };
 pub use password_generator::{
     CharacterSet, PasswordGenerator, PasswordGeneratorConfig, PasswordGeneratorError,
@@ -157,14 +164,15 @@ pub use progress::{
 };
 pub use protocol::{
     ClientDetectionResult, ClientInfo, CloudProvider, FreeRdpConfig, KubernetesProtocol,
-    PROTOCOL_TAB_CSS_CLASSES, Protocol, ProtocolCapabilities, ProtocolRegistry, ProviderIconCache,
-    RdpProtocol, SerialProtocol, SftpProtocol, SpiceProtocol, SshProtocol, TelnetProtocol,
-    VncProtocol, build_freerdp_args, detect_aws_cli, detect_azure_cli, detect_boundary,
-    detect_cloudflared, detect_gcloud_cli, detect_kubectl, detect_oci_cli, detect_picocom,
-    detect_provider, detect_rdp_client, detect_ssh_client, detect_tailscale, detect_teleport,
-    detect_telnet_client, detect_vnc_client, extract_geometry_from_args, get_protocol_color_rgb,
-    get_protocol_icon, get_protocol_icon_by_name, get_protocol_tab_css_class,
-    get_zero_trust_provider_icon, has_decorations_flag,
+    MoshProtocol, PROTOCOL_TAB_CSS_CLASSES, Protocol, ProtocolCapabilities, ProtocolRegistry,
+    ProviderIconCache, RdpProtocol, SerialProtocol, SftpProtocol, SpiceProtocol, SshProtocol,
+    TelnetProtocol, VncProtocol, build_freerdp_args, detect_aws_cli, detect_azure_cli,
+    detect_boundary, detect_cloudflared, detect_gcloud_cli, detect_kubectl, detect_mosh,
+    detect_oci_cli, detect_picocom, detect_provider, detect_rdp_client, detect_ssh_client,
+    detect_tailscale, detect_teleport, detect_telnet_client, detect_vnc_client,
+    extract_geometry_from_args, get_protocol_color_rgb, get_protocol_icon,
+    get_protocol_icon_by_name, get_protocol_tab_css_class, get_zero_trust_provider_icon,
+    has_decorations_flag,
 };
 pub use rdp_client::keyboard_layout::{
     LAYOUT_US_ENGLISH, detect_keyboard_layout, xkb_name_to_klid,

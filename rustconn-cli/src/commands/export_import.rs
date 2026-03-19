@@ -32,6 +32,7 @@ pub fn cmd_export(
         ExportFormatArg::Native => rustconn_core::export::ExportFormat::Native,
         ExportFormatArg::RoyalTs => rustconn_core::export::ExportFormat::RoyalTs,
         ExportFormatArg::MobaXterm => rustconn_core::export::ExportFormat::MobaXterm,
+        ExportFormatArg::Csv => rustconn_core::export::ExportFormat::Csv,
     };
 
     let options = rustconn_core::export::ExportOptions::new(export_format, output.to_path_buf());
@@ -66,7 +67,7 @@ fn export_connections(
     options: &rustconn_core::export::ExportOptions,
 ) -> Result<rustconn_core::export::ExportResult, CliError> {
     use rustconn_core::export::{
-        AnsibleExporter, AsbruExporter, ExportFormat, ExportTarget, MobaXtermExporter,
+        AnsibleExporter, AsbruExporter, CsvExporter, ExportFormat, ExportTarget, MobaXtermExporter,
         NativeExport, RemminaExporter, RoyalTsExporter, SshConfigExporter,
     };
 
@@ -123,6 +124,12 @@ fn export_connections(
         }
         ExportFormat::MobaXterm => {
             let exporter = MobaXtermExporter::new();
+            exporter
+                .export(connections, groups, options)
+                .map_err(|e| CliError::Export(e.to_string()))?
+        }
+        ExportFormat::Csv => {
+            let exporter = CsvExporter::new();
             exporter
                 .export(connections, groups, options)
                 .map_err(|e| CliError::Export(e.to_string()))?
@@ -330,6 +337,12 @@ fn import_connections(
         }
         ImportFormatArg::Libvirt => {
             let importer = LibvirtXmlImporter::new();
+            importer
+                .import_from_path(file)
+                .map_err(|e| CliError::Import(e.to_string()))?
+        }
+        ImportFormatArg::Csv => {
+            let importer = rustconn_core::import::CsvImporter::new();
             importer
                 .import_from_path(file)
                 .map_err(|e| CliError::Import(e.to_string()))?

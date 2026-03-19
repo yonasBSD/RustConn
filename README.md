@@ -3,21 +3,21 @@
 Manage remote connections easily.
 
 RustConn is a connection orchestrator for Linux with a GTK4/Wayland-native interface.
-It brings SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust connections under one roof — with embedded Rust clients where possible and seamless integration with external tools where needed.
+It brings SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and Zero Trust connections under one roof — with embedded Rust clients where possible and seamless integration with external tools where needed.
 
-[![Demo](https://img.youtube.com/vi/qpHmBGrsAU0/maxresdefault.jpg)](https://youtu.be/qpHmBGrsAU0)
+[![Demo](https://img.youtube.com/vi/IfW0Mepc6IY/maxresdefault.jpg)](https://youtu.be/IfW0Mepc6IY)
 
 ## Features
 
 | Category | Details |
 |----------|---------|
-| **Protocols** | SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust |
+| **Protocols** | SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust |
 | **File Transfer** | SFTP file browser via system file manager (sftp:// URI, D-Bus portal) |
 | **Organization** | Groups, tags, templates, custom icons (emoji/GTK), connection history & statistics |
 | **Monitoring** | Remote host metrics bar (CPU, RAM, disk, network, load, system info) — agentless, per-connection toggle |
-| **Import/Export** | Asbru-CM, Remmina, SSH config, Ansible inventory, Royal TS, MobaXterm, Remote Desktop Manager, RDP files (.rdp), virt-viewer (.vv), libvirt XML, native (.rcn) |
-| **Security** | KeePassXC (KDBX), libsecret, Bitwarden CLI, 1Password CLI, Passbolt CLI, Pass (passwordstore.org) |
-| **Productivity** | Split terminals, command snippets, cluster broadcast, Wake-on-LAN, SSH port forwarding, automation (expect rules, key sequences, pre/post-connect tasks), session reconnect, settings backup/restore, .rdp file association |
+| **Import/Export** | Asbru-CM, Remmina, SSH config, Ansible inventory, Royal TS, MobaXterm, Remote Desktop Manager, RDP files (.rdp), virt-viewer (.vv), libvirt XML, CSV, native (.rcn) |
+| **Security** | KeePassXC (KDBX), libsecret, Bitwarden CLI, 1Password CLI, Passbolt CLI, Pass (passwordstore.org), script credentials |
+| **Productivity** | Split terminals, command snippets, cluster broadcast, ad-hoc broadcast, smart folders, session recording, text highlighting rules, Wake-on-LAN, SSH port forwarding, automation (expect rules, key sequences, pre/post-connect tasks), session reconnect, settings backup/restore, .rdp file association |
 | **CLI** | `rustconn-cli` — headless management: list/add/update/delete connections, import/export, snippets, groups, templates, clusters, secrets, WoL, shell completions |
 
 | Protocol | Client | Type |
@@ -29,6 +29,7 @@ It brings SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust conne
 | Telnet | VTE terminal | Embedded |
 | Serial | picocom via VTE | External (bundled in Flatpak) |
 | Kubernetes | kubectl exec via VTE | External |
+| MOSH | mosh via VTE | External |
 | Zero Trust | AWS SSM, GCP IAP, Azure, OCI, Cloudflare, Teleport, Tailscale, Boundary | External |
 
 ## Installation
@@ -81,8 +82,7 @@ Full documentation: [User Guide](docs/USER_GUIDE.md)
 
 ## Support
 
-[![Ko-Fi](https://img.shields.io/badge/Ko--Fi-Support-ff5e5b?logo=ko-fi)](https://ko-fi.com/totoshko88)
-[![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?logo=paypal)](https://paypal.me/totoshko88)
+[![Donatello](https://img.shields.io/badge/Donatello-Support-ff5e5b)](https://donatello.to/totoshko88)
 [![Monobank](https://img.shields.io/badge/Monobank-UAH-black?logo=monobank)](https://send.monobank.ua/jar/2UgaGcQ3JC)
 
 ## License

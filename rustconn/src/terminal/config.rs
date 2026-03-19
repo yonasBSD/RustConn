@@ -6,6 +6,7 @@ use gtk4::gdk;
 use gtk4::glib;
 use gtk4::prelude::*;
 use rustconn_core::config::TerminalSettings;
+use rustconn_core::models::ConnectionThemeOverride;
 use rustconn_core::terminal_themes::{Color, TerminalTheme};
 use vte4::prelude::*;
 use vte4::{CursorBlinkMode, CursorShape, Terminal};
@@ -175,4 +176,56 @@ fn setup_font_with_settings(terminal: &Terminal, settings: &TerminalSettings) {
         settings.font_family, settings.font_size
     ));
     terminal.set_font(Some(&font_desc));
+}
+
+/// Converts a hex color string (`#RRGGBB` or `#RRGGBBAA`) to a GDK RGBA value.
+///
+/// Returns `None` if the string is not a valid hex color.
+fn hex_to_rgba(hex: &str) -> Option<gdk::RGBA> {
+    let hex = hex.strip_prefix('#')?;
+    let (r, g, b, a) = match hex.len() {
+        6 => {
+            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+            (r, g, b, 255u8)
+        }
+        8 => {
+            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+            let a = u8::from_str_radix(&hex[6..8], 16).ok()?;
+            (r, g, b, a)
+        }
+        _ => return None,
+    };
+    Some(gdk::RGBA::new(
+        f32::from(r) / 255.0,
+        f32::from(g) / 255.0,
+        f32::from(b) / 255.0,
+        f32::from(a) / 255.0,
+    ))
+}
+
+/// Applies per-connection theme override colors to a VTE terminal.
+///
+/// For each color field present in the override, converts the hex string to
+/// RGBA and applies it via the corresponding VTE setter. Fields that are
+/// `None` are left unchanged (the global theme colors remain).
+pub fn apply_theme_override(terminal: &Terminal, theme_override: &ConnectionThemeOverride) {
+    if let Some(ref bg) = theme_override.background
+        && let Some(rgba) = hex_to_rgba(bg)
+    {
+        terminal.set_color_background(&rgba);
+    }
+    if let Some(ref fg) = theme_override.foreground
+        && let Some(rgba) = hex_to_rgba(fg)
+    {
+        terminal.set_color_foreground(&rgba);
+    }
+    if let Some(ref cursor) = theme_override.cursor
+        && let Some(rgba) = hex_to_rgba(cursor)
+    {
+        terminal.set_color_cursor(Some(&rgba));
+    }
 }

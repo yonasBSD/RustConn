@@ -92,6 +92,9 @@ pub struct ConnectionSidebar {
     protocol_filter_buttons: Rc<RefCell<std::collections::HashMap<String, Button>>>,
     /// KeePass button for showing integration status
     keepass_button: Button,
+    /// Callback to check if a connection has an active recording session
+    /// Takes a connection ID string and returns true if recording is active
+    recording_checker: Rc<RefCell<Option<Box<dyn Fn(&str) -> bool>>>>,
 }
 
 impl ConnectionSidebar {
@@ -183,7 +186,7 @@ impl ConnectionSidebar {
         let ssh_filter = filter::create_filter_button(
             "SSH",
             rustconn_core::get_protocol_icon(ProtocolType::Ssh),
-            "Filter SSH connections",
+            "Filter SSH / MOSH connections",
         );
         #[cfg(not(feature = "adw-1-7"))]
         ssh_filter.set_hexpand(true);
@@ -523,9 +526,17 @@ impl ConnectionSidebar {
         let signal_handlers_unbind = signal_handlers.clone();
 
         let search_entry_bind = search_entry.clone();
+        let recording_checker: Rc<RefCell<Option<Box<dyn Fn(&str) -> bool>>>> =
+            Rc::new(RefCell::new(None));
+        let recording_checker_clone = recording_checker.clone();
         factory.connect_setup(move |factory, obj| {
             if let Some(list_item) = obj.downcast_ref::<ListItem>() {
-                view::setup_list_item(factory, list_item, *group_ops_mode_clone.borrow());
+                view::setup_list_item(
+                    factory,
+                    list_item,
+                    *group_ops_mode_clone.borrow(),
+                    recording_checker_clone.clone(),
+                );
             }
         });
         factory.connect_bind(move |factory, obj| {
@@ -802,6 +813,7 @@ impl ConnectionSidebar {
             active_protocol_filters,
             protocol_filter_buttons,
             keepass_button,
+            recording_checker,
         }
     }
 
@@ -821,6 +833,28 @@ impl ConnectionSidebar {
     #[must_use]
     pub fn search_debouncer(&self) -> Rc<Debouncer> {
         Rc::clone(&self.search_debouncer)
+    }
+
+    /// Sets the callback used to check if a connection has an active recording
+    pub fn set_recording_checker<F: Fn(&str) -> bool + 'static>(&self, checker: F) {
+        *self.recording_checker.borrow_mut() = Some(Box::new(checker));
+    }
+
+    /// Checks if a connection has an active recording session
+    #[must_use]
+    #[allow(dead_code)] // Public API for recording status checks
+    pub fn is_connection_recording(&self, connection_id: &str) -> bool {
+        self.recording_checker
+            .borrow()
+            .as_ref()
+            .is_some_and(|checker| checker(connection_id))
+    }
+
+    /// Returns a clone of the recording checker Rc for use in closures
+    #[must_use]
+    #[allow(dead_code)] // Public API for recording checker access
+    pub fn recording_checker_rc(&self) -> Rc<RefCell<Option<Box<dyn Fn(&str) -> bool>>>> {
+        Rc::clone(&self.recording_checker)
     }
 
     /// Returns the search spinner widget
@@ -930,24 +964,34 @@ impl ConnectionSidebar {
     /// session is closed (active_count reaches 0).
     ///
     /// Returns the new status after decrement.
-    pub fn decrement_session_count(&self, id: &str, _failed: bool) -> String {
+    pub fn decrement_session_count(&self, id: &str, failed: bool) -> String {
         let status = {
             let mut statuses = self.connection_statuses.borrow_mut();
             if let Some(info) = statuses.get_mut(id) {
                 info.active_count = info.active_count.saturating_sub(1);
                 tracing::debug!(
-                    "[Sidebar] decrement_session_count: id={}, new_count={}",
+                    "[Sidebar] decrement_session_count: id={}, new_count={}, failed={}",
                     id,
                     info.active_count,
+                    failed,
                 );
                 if info.active_count == 0 {
-                    // Clear status when no active sessions - status icons are only
-                    // meaningful for open tabs
-                    info.status = String::new();
-                    tracing::debug!(
-                        "[Sidebar] decrement_session_count: clearing status for id={}",
-                        id
-                    );
+                    if failed {
+                        // Mark as failed when last session exits with error
+                        info.status = "failed".to_string();
+                        tracing::debug!(
+                            "[Sidebar] decrement_session_count: marking failed for id={}",
+                            id
+                        );
+                    } else {
+                        // Clear status when no active sessions - status icons are only
+                        // meaningful for open tabs
+                        info.status = String::new();
+                        tracing::debug!(
+                            "[Sidebar] decrement_session_count: clearing status for id={}",
+                            id
+                        );
+                    }
                 }
                 // If still has active sessions, keep "connected" status
                 info.status.clone()

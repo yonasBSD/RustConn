@@ -7,8 +7,10 @@ use uuid::Uuid;
 use std::collections::HashMap;
 
 use super::custom_property::CustomProperty;
+use super::highlight::HighlightRule;
 use super::protocol::{ProtocolConfig, ProtocolType};
 use crate::automation::{ConnectionTask, ExpectRule, KeySequence};
+use crate::error::ConfigError;
 use crate::monitoring::MonitoringConfig;
 use crate::session::LogConfig;
 use crate::variables::Variable;
@@ -54,6 +56,8 @@ pub enum PasswordSource {
     Inherit,
     /// Password value comes from a named global variable (must be secret)
     Variable(String),
+    /// Password retrieved by executing an external command/script
+    Script(String),
 }
 
 /// Window mode for connection display
@@ -150,8 +154,68 @@ impl WindowGeometry {
     }
 }
 
+/// Per-connection terminal color override.
+///
+/// Stores optional background, foreground, and cursor colors as CSS hex strings
+/// (`#RRGGBB` or `#RRGGBBAA`). When set on a [`Connection`], these override the
+/// global terminal theme for that connection only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConnectionThemeOverride {
+    /// Background color (`#RRGGBB` or `#RRGGBBAA`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<String>,
+    /// Foreground (text) color (`#RRGGBB` or `#RRGGBBAA`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub foreground: Option<String>,
+    /// Cursor color (`#RRGGBB` or `#RRGGBBAA`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+impl ConnectionThemeOverride {
+    /// Validates that all non-`None` color fields are valid CSS hex colors.
+    ///
+    /// Accepted formats: `#RRGGBB` (6 hex digits) or `#RRGGBBAA` (8 hex digits).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Validation`] if any color value is invalid.
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        fn is_valid_hex_color(s: &str) -> bool {
+            let bytes = s.as_bytes();
+            let len = bytes.len();
+            (len == 7 || len == 9)
+                && bytes[0] == b'#'
+                && bytes[1..].iter().all(|b| b.is_ascii_hexdigit())
+        }
+
+        for (field, value) in [
+            ("background", &self.background),
+            ("foreground", &self.foreground),
+            ("cursor", &self.cursor),
+        ] {
+            if let Some(color) = value
+                && !is_valid_hex_color(color)
+            {
+                return Err(ConfigError::Validation {
+                    field: field.to_string(),
+                    reason: format!("Invalid color value '{color}': expected #RRGGBB or #RRGGBBAA"),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns `true` if all color fields are `None`.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.background.is_none() && self.foreground.is_none() && self.cursor.is_none()
+    }
+}
+
 /// A saved remote connection configuration
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Connection {
     /// Unique identifier for the connection
     pub id: Uuid,
@@ -246,6 +310,17 @@ pub struct Connection {
     /// When `None`, the global `MonitoringSettings` from `AppSettings` apply.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub monitoring_config: Option<MonitoringConfig>,
+    /// Per-connection terminal theme override
+    ///
+    /// When `None`, the global terminal theme settings apply.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_override: Option<ConnectionThemeOverride>,
+    /// Whether session recording is enabled for this connection
+    #[serde(default)]
+    pub session_recording_enabled: bool,
+    /// Per-connection highlight rules for regex-based text highlighting
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub highlight_rules: Vec<HighlightRule>,
 }
 
 impl Connection {
@@ -286,6 +361,9 @@ impl Connection {
             pin_order: 0,
             icon: None,
             monitoring_config: None,
+            theme_override: None,
+            session_recording_enabled: false,
+            highlight_rules: Vec::new(),
         }
     }
 
@@ -376,6 +454,17 @@ impl Connection {
         )
     }
 
+    /// Creates a new MOSH connection with default config
+    #[must_use]
+    pub fn new_mosh(name: String, host: String, port: u16) -> Self {
+        Self::new(
+            name,
+            host,
+            port,
+            ProtocolConfig::Mosh(super::protocol::MoshConfig::default()),
+        )
+    }
+
     /// Sets the username for this connection
     #[must_use]
     pub fn with_username(mut self, username: impl Into<String>) -> Self {
@@ -421,6 +510,7 @@ impl Connection {
             ProtocolType::Serial => 0,    // Serial uses device path, not port
             ProtocolType::Sftp => 22,
             ProtocolType::Kubernetes => 0, // Kubernetes uses kubectl, not port
+            ProtocolType::Mosh => 22,
         }
     }
 

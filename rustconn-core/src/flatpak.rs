@@ -154,6 +154,133 @@ pub fn wrap_host_command(command: &str) -> String {
     }
 }
 
+/// Checks if a path is a Flatpak document portal path.
+///
+/// Portal paths look like `/run/user/<uid>/doc/<hash>/<filename>`.
+/// These paths become stale after Flatpak rebuilds because the hash changes.
+#[must_use]
+pub fn is_portal_path(path: &std::path::Path) -> bool {
+    let s = path.to_string_lossy();
+    s.contains("/run/user/") && s.contains("/doc/")
+}
+
+/// Copies a key file from a Flatpak document portal path to the stable
+/// Flatpak SSH directory (`~/.var/app/<app-id>/.ssh/`).
+///
+/// If a file with the same name already exists and has identical content,
+/// the existing path is returned without copying. If the name collides but
+/// content differs, a numeric suffix is appended (e.g., `key_1.pem`).
+///
+/// Returns `None` if not running in Flatpak, the SSH dir cannot be created,
+/// or the copy fails.
+pub fn copy_key_to_flatpak_ssh(portal_path: &std::path::Path) -> Option<std::path::PathBuf> {
+    let ssh_dir = get_flatpak_ssh_dir()?;
+
+    if !ssh_dir.exists()
+        && let Err(e) = std::fs::create_dir_all(&ssh_dir)
+    {
+        tracing::warn!(?e, path = %ssh_dir.display(), "Failed to create Flatpak SSH dir");
+        return None;
+    }
+
+    let file_name = portal_path.file_name()?.to_string_lossy().to_string();
+    let stem = portal_path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let ext = portal_path
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+
+    let source_content = match std::fs::read(portal_path) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(?e, path = %portal_path.display(), "Failed to read portal key file");
+            return None;
+        }
+    };
+
+    // Try the original filename first
+    let candidate = ssh_dir.join(&file_name);
+    if candidate.exists() {
+        if let Ok(existing) = std::fs::read(&candidate)
+            && existing == source_content
+        {
+            tracing::debug!(path = %candidate.display(), "Key file already exists with same content");
+            return Some(candidate);
+        }
+    } else {
+        return copy_and_set_permissions(&source_content, &candidate);
+    }
+
+    // Name collision with different content — try suffixed names
+    for i in 1..100 {
+        let suffixed = ssh_dir.join(format!("{stem}_{i}{ext}"));
+        if suffixed.exists() {
+            if let Ok(existing) = std::fs::read(&suffixed)
+                && existing == source_content
+            {
+                tracing::debug!(path = %suffixed.display(), "Key file already exists with same content (suffixed)");
+                return Some(suffixed);
+            }
+            continue;
+        }
+        return copy_and_set_permissions(&source_content, &suffixed);
+    }
+
+    tracing::warn!(
+        file_name,
+        "Too many key file name collisions in Flatpak SSH dir"
+    );
+    None
+}
+
+/// Resolves a key file path that may have become stale after a Flatpak rebuild.
+///
+/// If the path exists, returns it unchanged. If it doesn't exist and we're in
+/// Flatpak, checks whether a file with the same name exists in the Flatpak SSH
+/// directory as a fallback.
+///
+/// Returns `None` if the path cannot be resolved.
+#[must_use]
+pub fn resolve_key_path(path: &std::path::Path) -> Option<std::path::PathBuf> {
+    if path.exists() {
+        return Some(path.to_path_buf());
+    }
+
+    // Fallback: check Flatpak SSH dir for a file with the same name
+    let ssh_dir = get_flatpak_ssh_dir()?;
+    let file_name = path.file_name()?;
+    let fallback = ssh_dir.join(file_name);
+    if fallback.exists() {
+        tracing::info!(
+            original = %path.display(),
+            resolved = %fallback.display(),
+            "Resolved stale key path via Flatpak SSH dir fallback"
+        );
+        Some(fallback)
+    } else {
+        None
+    }
+}
+
+/// Writes content to a file and sets 0600 permissions (owner read/write only).
+fn copy_and_set_permissions(content: &[u8], dest: &std::path::Path) -> Option<std::path::PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
+
+    if let Err(e) = std::fs::write(dest, content) {
+        tracing::warn!(?e, path = %dest.display(), "Failed to copy key file");
+        return None;
+    }
+    // SSH requires key files to be 0600
+    if let Err(e) = std::fs::set_permissions(dest, std::fs::Permissions::from_mode(0o600)) {
+        tracing::warn!(?e, path = %dest.display(), "Failed to set key file permissions");
+    }
+    tracing::info!(path = %dest.display(), "Copied key file to Flatpak SSH dir");
+    Some(dest.to_path_buf())
+}
+
 /// Shell-escapes a string by wrapping it in single quotes.
 fn shell_escape(s: &str) -> String {
     // Replace single quotes with '\'' (end quote, escaped quote, start quote)
