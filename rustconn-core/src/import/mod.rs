@@ -42,6 +42,7 @@
 mod ansible;
 mod asbru;
 pub mod batch;
+mod csv_import;
 mod libvirt;
 mod mobaxterm;
 mod normalize;
@@ -60,6 +61,7 @@ pub use batch::{
     BATCH_IMPORT_THRESHOLD, BatchCancelHandle, BatchImportResult, BatchImporter,
     DEFAULT_IMPORT_BATCH_SIZE,
 };
+pub use csv_import::{CsvColumnMapping, CsvImporter, CsvParseOptions};
 pub use libvirt::LibvirtXmlImporter;
 pub use mobaxterm::MobaXtermImporter;
 pub use normalize::{

@@ -373,6 +373,7 @@ pub fn rename_selected_item(
                                 );
                             }
                             rustconn_core::models::PasswordSource::Variable(_)
+                            | rustconn_core::models::PasswordSource::Script(_)
                             | rustconn_core::models::PasswordSource::Prompt
                             | rustconn_core::models::PasswordSource::Inherit
                             | rustconn_core::models::PasswordSource::None => {
@@ -612,6 +613,7 @@ pub fn show_edit_group_dialog(
         Some(PasswordSource::Vault) => 1,
         Some(PasswordSource::Variable(_)) => 2,
         Some(PasswordSource::Inherit) => 3,
+        Some(PasswordSource::Script(_)) => 5,
         Some(PasswordSource::None) | None => 4,
     };
     password_source_dropdown.set_selected(initial_source_idx);
@@ -1057,6 +1059,7 @@ fn start_quick_telnet(
         "telnet",
         None,
         terminal_settings,
+        None,
     );
     notebook.spawn_telnet(
         session_id,
@@ -1080,6 +1083,7 @@ fn start_quick_ssh(
         "ssh",
         None,
         terminal_settings,
+        None,
     );
     notebook.spawn_ssh(
         session_id,
@@ -1124,6 +1128,7 @@ fn start_quick_rdp(
     let connection_id = Uuid::nil();
     embedded_widget.connect_state_changed(move |rdp_state| match rdp_state {
         crate::embedded_rdp::RdpConnectionState::Disconnected => {
+            notebook_for_state.stop_recording(session_id);
             notebook_for_state.mark_tab_disconnected(session_id);
             sidebar_for_state.decrement_session_count(&connection_id.to_string(), false);
         }
@@ -1183,6 +1188,7 @@ fn start_quick_vnc(
         let connection_id = Uuid::nil();
         vnc_widget.connect_state_changed(move |vnc_state| {
             if vnc_state == crate::session::SessionState::Disconnected {
+                notebook_for_state.stop_recording(session_id);
                 notebook_for_state.mark_tab_disconnected(session_id);
                 sidebar_for_state.decrement_session_count(&connection_id.to_string(), false);
             } else if vnc_state == crate::session::SessionState::Connected {

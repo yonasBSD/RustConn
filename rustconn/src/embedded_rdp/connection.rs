@@ -1369,6 +1369,9 @@ impl super::EmbeddedRdpWidget {
     ///
     /// - Requirement 1.6: Proper cleanup on disconnect
     pub fn disconnect(&self) {
+        // Increment connection generation to invalidate any active polling loops
+        *self.connection_generation.borrow_mut() += 1;
+
         // Disconnect resize signal handler
         if let Some(handler_id) = self.resize_handler_id.borrow_mut().take() {
             self.drawing_area.disconnect(handler_id);

@@ -446,6 +446,15 @@ pub fn detect_picocom() -> ClientInfo {
     ClientInfo::not_installed("picocom", "Install picocom package")
 }
 
+/// Detects the MOSH client on the system
+#[must_use]
+pub fn detect_mosh() -> ClientInfo {
+    if let Some(info) = try_detect_client("mosh", "mosh", &["--version"]) {
+        return info;
+    }
+    ClientInfo::not_installed("mosh", "Install mosh package")
+}
+
 /// Detects waypipe (Wayland application forwarding proxy)
 ///
 /// Waypipe forwards Wayland clients over SSH, similar to `ssh -X` for X11.

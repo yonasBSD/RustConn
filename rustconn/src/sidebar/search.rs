@@ -236,24 +236,27 @@ pub fn update_search_with_filters(
         // Single protocol filter - use standard search syntax
         // Safe: we just checked filters.len() == 1, so next() will succeed
         if let Some(protocol) = filters.iter().next() {
-            let query = format!("protocol:{}", protocol.to_lowercase());
-            search_entry.set_text(&query);
+            // SSH filter also matches MOSH connections
+            if protocol == "SSH" {
+                let query = "protocols:ssh,mosh".to_string();
+                search_entry.set_text(&query);
+            } else {
+                let query = format!("protocol:{}", protocol.to_lowercase());
+                search_entry.set_text(&query);
+            }
         }
     } else {
         // Multiple protocol filters - use special syntax that filter_connections can recognize
         let mut protocols: Vec<String> = filters.iter().cloned().collect();
+        // SSH filter also matches MOSH connections
+        if protocols.iter().any(|p| p == "SSH") && !protocols.iter().any(|p| p == "MOSH") {
+            protocols.push("MOSH".to_string());
+        }
         protocols.sort();
         let query = format!("protocols:{}", protocols.join(","));
         search_entry.set_text(&query);
     }
 
-    // Reset flag after a short delay or immediately?
-    // The original code likely resets it in the changed handler or assumes
-    // the text change triggers the handler which checks the flag.
-    // Yes, the handler checks the flag and returns.
-    // The flag needs to be unset somewhere?
-    // Ah, `search_entry.set_text` is synchronous, so the handler runs immediately.
-    // So we can unset it after.
     *programmatic_flag.borrow_mut() = false;
 }
 

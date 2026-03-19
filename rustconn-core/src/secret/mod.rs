@@ -24,6 +24,7 @@ mod onepassword;
 mod pass;
 mod passbolt;
 mod resolver;
+pub mod script_resolver;
 mod status;
 mod verification;
 

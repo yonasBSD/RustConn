@@ -1,8 +1,8 @@
 # RustConn User Guide
 
-**Version 0.10.0** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.10.1** | GTK4/libadwaita Connection Manager for Linux
 
-RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
+RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
 ## Table of Contents
 
@@ -37,11 +37,19 @@ RustConn is a modern connection manager designed for Linux with Wayland-first ap
 23. [Encrypted Documents](#encrypted-documents)
 24. [RDP File Association](#rdp-file-association)
 25. [Keyboard Shortcuts](#keyboard-shortcuts)
-26. [CLI Usage](#cli-usage)
-27. [Frequently Asked Questions](#frequently-asked-questions)
-28. [Migration Guide](#migration-guide)
-29. [Troubleshooting](#troubleshooting)
-30. [Security Best Practices](#security-best-practices)
+26. [MOSH Protocol](#mosh-protocol)
+27. [CSV Import/Export](#csv-importexport)
+28. [Session Recording](#session-recording)
+29. [Text Highlighting Rules](#text-highlighting-rules)
+30. [Ad-hoc Broadcast](#ad-hoc-broadcast)
+31. [Smart Folders](#smart-folders)
+32. [Script Credentials](#script-credentials)
+33. [Per-connection Terminal Theming](#per-connection-terminal-theming)
+34. [CLI Usage](#cli-usage)
+35. [Frequently Asked Questions](#frequently-asked-questions)
+36. [Migration Guide](#migration-guide)
+37. [Troubleshooting](#troubleshooting)
+38. [Security Best Practices](#security-best-practices)
 
 ---
 
@@ -58,7 +66,7 @@ RustConn is a modern connection manager designed for Linux with Wayland-first ap
 
 1. Press **Ctrl+N** or click **+** in header bar
 2. Enter connection name and host
-3. Select protocol (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes)
+3. Select protocol (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes)
 4. Configure authentication (password or SSH key)
 5. Click **Create**
 6. Double-click the connection to connect
@@ -133,6 +141,7 @@ Shows integration status in sidebar toolbar:
   - **Vault** — Store/retrieve from configured secret backend (KeePassXC, libsecret, Bitwarden, 1Password, Passbolt)
   - **Variable** — Read credentials from a named secret global variable
   - **Inherit** — Use credentials from parent group
+  - **Script** — Resolve password from an external command (see [Script Credentials](#script-credentials))
   - **None** — No password (key-based auth)
 - SSH key selection
 - Key passphrase
@@ -145,6 +154,7 @@ Shows integration status in sidebar toolbar:
 | RDP | Client mode (embedded/external), performance mode (quality/balanced/speed), resolution, color depth, display scale override, audio redirection, RDP gateway (host, port, username), keyboard layout, disable NLA, clipboard sharing, shared folders, custom FreeRDP arguments |
 | VNC | Client mode (embedded/external), performance mode (quality/balanced/speed), encoding (Auto/Tight/ZRLE/Hextile/Raw/CopyRect), compression level, quality level, display scale override, view-only mode, scaling, clipboard sharing, custom arguments |
 | SPICE | TLS encryption, CA certificate (with inline validation), skip certificate verification, USB redirection, clipboard sharing, image compression (Auto/Off/GLZ/LZ/QUIC), proxy URL, shared folders |
+| MOSH | Predict mode (Adaptive/Always/Never), SSH port, UDP port range, server binary path, custom arguments |
 | Telnet | Custom arguments, backspace key behavior, delete key behavior |
 | Serial | Device path, baud rate, data bits, stop bits, parity, flow control, custom picocom arguments |
 | Kubernetes | Kubeconfig path, context, namespace, pod, container, shell, busybox mode, busybox image, custom kubectl arguments |
@@ -357,6 +367,7 @@ The Quick Actions menu is accessible via the dropdown button (arrow icon) on the
 **Hide Local Cursor:** Embedded RDP, VNC, and SPICE viewers support hiding the local OS cursor to eliminate the "double cursor" effect (local + remote cursor visible simultaneously). Toggle "Show Local Cursor" in the connection dialog's Features section. Enabled by default for backward compatibility.
 | VNC | Embedded vnc-rs or external TigerVNC |
 | SPICE | Embedded spice-client or external remote-viewer |
+| MOSH | MOSH via VTE terminal (external `mosh` client) |
 | Telnet | Embedded VTE terminal tab (external `telnet` client) |
 | Serial | Embedded VTE terminal tab (external `picocom` client) |
 | Kubernetes | Embedded VTE terminal tab (external `kubectl exec`) |
@@ -794,12 +805,14 @@ Solutions:
 
 In Flatpak builds, RustConn runs inside a sandbox with its own SSH agent. When `xdg-open` launches a file manager (Dolphin, Nautilus), it runs outside the sandbox and uses the host's SSH agent — which does not have the key that RustConn added.
 
-Additionally, SSH key paths from the Flatpak document portal (e.g., `/run/user/1000/doc/...`) are not accessible on the host.
+**Flatpak: SSH Key Paths and Document Portal:**
 
-Solutions (pick one):
+When you select an SSH key via the file chooser in Flatpak, the system creates a temporary document portal path (e.g., `/run/user/1000/doc/XXXXXXXX/key.pem`). These paths become stale after Flatpak rebuilds or reboots. RustConn automatically copies selected keys to a stable location (`~/.var/app/io.github.totoshko88.RustConn/.ssh/`) with correct permissions (0600). At connect time, stale portal paths are resolved via fallback lookup in this directory.
+
+Solutions for file manager SFTP (pick one):
 1. **Use mc mode** (recommended) — Settings → Terminal → SFTP via mc. Midnight Commander runs inside the Flatpak sandbox and inherits RustConn's SSH agent. Works without any extra setup. This is enabled by default in Flatpak builds.
 2. **Add the key on the host** — run `ssh-add ~/.ssh/your_key` in a regular terminal before opening SFTP. The file manager will then find the key in the host agent.
-3. **Store keys in `~/.ssh/`** — keys in `~/.ssh/` are accessible to both the Flatpak sandbox and the host. Avoid selecting keys via the file picker (which creates portal paths).
+3. **Store keys in `~/.ssh/`** — keys in `~/.ssh/` are accessible to both the Flatpak sandbox and the host.
 
 This limitation does not affect native packages (deb, rpm, Snap) where RustConn and the file manager share the same SSH agent.
 
@@ -2124,6 +2137,313 @@ These settings apply to all terminal sessions (SSH, Telnet, Serial, Kubernetes, 
 | F9 | Toggle Sidebar |
 | Ctrl+? / F1 | Keyboard Shortcuts |
 | Ctrl+Q | Quit |
+
+---
+
+## MOSH Protocol
+
+MOSH (Mobile Shell) provides a roaming, always-on terminal session that survives network changes, high latency, and intermittent connectivity. Unlike SSH, MOSH uses UDP for the session transport after an initial SSH handshake.
+
+**Create a MOSH Connection:**
+1. Press **Ctrl+N** → select **MOSH** protocol
+2. Enter host and username
+3. Configure MOSH-specific options in the **MOSH** tab:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| SSH Port | Port for the initial SSH handshake | 22 |
+| Port Range | UDP port range for MOSH session (e.g., `60000:60010`) | System default |
+| Predict Mode | Local echo prediction: Adaptive, Always, Never | Adaptive |
+| Server Binary | Path to `mosh-server` on the remote host (optional) | Auto-detect |
+| Custom Arguments | Additional arguments passed to `mosh` | — |
+
+**Requirements:**
+- `mosh` installed on the local machine (`sudo apt install mosh` / `sudo dnf install mosh`)
+- `mosh-server` installed on the remote host
+- UDP ports open between client and server (default: 60000–61000)
+
+**CLI:**
+```bash
+# Create a MOSH connection
+rustconn-cli add --name "Server" --protocol mosh --host example.com --username user
+
+# With options
+rustconn-cli add --name "Server" --protocol mosh --host example.com \
+  --mosh-predict always --mosh-port-range "60000:60010"
+
+# Connect
+rustconn-cli connect "Server"
+
+# Dry-run to see the mosh command
+rustconn-cli connect "Server" --dry-run
+```
+
+**Predict Modes:**
+- **Adaptive** (default) — enables local echo prediction when latency is detected
+- **Always** — always show predicted text (useful on very slow links)
+- **Never** — disable prediction entirely
+
+---
+
+## CSV Import/Export
+
+Import connections from CSV files or export your connections to CSV format. Follows RFC 4180 for proper handling of quoted fields, embedded delimiters, and newlines.
+
+### CSV Import
+
+1. **Menu → Import** or **Ctrl+I** → select **CSV** format
+2. Choose the CSV file
+3. RustConn auto-detects column mapping from headers (`name`, `host`, `port`, `protocol`, `username`, `group`, `tags`, `description`)
+4. Review the column mapping preview and adjust if needed
+5. Select delimiter (comma, semicolon, or tab)
+6. Click **Import**
+
+**Auto Column Mapping:**
+If the first row contains recognized header names, columns are mapped automatically. Unknown columns are ignored with a warning.
+
+**Tags:** Semicolon-separated in the `tags` column: `web;production;eu`
+
+**Groups:** Slash-separated path in the `group` column: `Production/Web Servers`
+
+### CSV Export
+
+1. **Menu → Export** → select **CSV** format
+2. Choose delimiter and fields to include
+3. Click **Export**
+
+**CLI:**
+```bash
+# Import from CSV
+rustconn-cli import --format csv --file connections.csv
+rustconn-cli import --format csv --file data.csv --delimiter ";"
+
+# Export to CSV
+rustconn-cli export --format csv --file backup.csv
+rustconn-cli export --format csv --file backup.csv --delimiter ";" --fields "name,host,port,protocol"
+```
+
+---
+
+## Session Recording
+
+Record terminal sessions in scriptreplay-compatible format for later playback. Recordings capture terminal output with timing information and automatically sanitize sensitive data (passwords, API keys, tokens).
+
+### Enable Recording
+
+**Per-connection:**
+1. Edit connection → **Advanced** tab
+2. Enable **Session Recording**
+3. Save
+
+When recording is active, the tab title shows a **●REC** indicator.
+
+### Recording Files
+
+Recordings are saved to `$XDG_DATA_HOME/rustconn/recordings/` (typically `~/.local/share/rustconn/recordings/`) with two files per session:
+
+| File | Contents |
+|------|----------|
+| `{name}_{timestamp}.data` | Raw terminal output bytes |
+| `{name}_{timestamp}.timing` | Timing data (delay + byte count per chunk) |
+
+### Playback
+
+Use the standard `scriptreplay` command:
+
+```bash
+scriptreplay --timing=session.timing session.data
+```
+
+### Sanitization
+
+Recordings automatically redact:
+- Password prompts and responses
+- API keys and tokens
+- AWS credentials
+- Private key content
+
+---
+
+## Text Highlighting Rules
+
+Define regex-based patterns to highlight matching text in terminal output with custom colors. Rules can be global (apply to all connections) or per-connection.
+
+### Built-in Defaults
+
+| Rule | Pattern | Colors |
+|------|---------|--------|
+| ERROR | `ERROR` | Red foreground |
+| WARNING | `WARNING` | Yellow foreground |
+| CRITICAL/FATAL | `CRITICAL\|FATAL` | Red background |
+
+### Configure Global Rules
+
+1. **Settings → Terminal** → **Highlighting Rules** section
+2. Click **Add Rule**
+3. Enter rule name, regex pattern, and choose foreground/background colors
+4. Toggle **Enabled** to activate/deactivate individual rules
+
+### Configure Per-connection Rules
+
+1. Edit connection → **Advanced** tab → **Highlighting Rules** section
+2. Add rules that apply only to this connection
+3. Per-connection rules take priority over global rules
+
+### Rule Properties
+
+| Property | Description |
+|----------|-------------|
+| Name | Display name for the rule |
+| Pattern | Regular expression (Rust regex syntax) |
+| Foreground Color | Text color in `#RRGGBB` format (optional) |
+| Background Color | Background color in `#RRGGBB` format (optional) |
+| Enabled | Toggle rule on/off |
+
+Invalid regex patterns are rejected with an error message during validation.
+
+---
+
+## Ad-hoc Broadcast
+
+Send keystrokes to multiple terminal sessions simultaneously. Useful for running the same command on several servers at once without setting up a cluster.
+
+### Usage
+
+1. Click the **Broadcast** toggle button in the toolbar (or use the keyboard shortcut)
+2. Checkboxes appear on each terminal tab
+3. Select the terminals you want to broadcast to
+4. Type in any selected terminal — keystrokes are sent to all selected terminals
+5. Click the Broadcast button again to deactivate
+
+### Differences from Cluster Broadcast
+
+| Feature | Ad-hoc Broadcast | Cluster Broadcast |
+|---------|-----------------|-------------------|
+| Setup | No setup — select terminals on the fly | Requires pre-defined cluster |
+| Scope | Any open terminal tabs | Connections in a cluster |
+| Persistence | Session-only | Saved in configuration |
+
+Both broadcast modes can be used independently and do not conflict with each other.
+
+---
+
+## Smart Folders
+
+Smart Folders are dynamic, filter-based views that automatically group connections matching specific criteria. Unlike regular groups, Smart Folders don't move connections — they show a live, read-only list of matching connections.
+
+### Create a Smart Folder
+
+1. Right-click in the **Smart Folders** sidebar section → **New Smart Folder**
+2. Enter a name
+3. Configure filter criteria (all filters use AND logic):
+
+| Filter | Description | Example |
+|--------|-------------|---------|
+| Protocol | Match connections of a specific protocol | SSH |
+| Tags | Connection must have ALL listed tags | `production`, `web` |
+| Host Pattern | Glob pattern matching against host | `*.prod.example.com` |
+| Parent Group | Connections in a specific group | Production |
+
+4. Click **Create**
+
+### Behavior
+
+- Smart Folders appear in a dedicated sidebar section with a 🔍 icon
+- Connections in Smart Folders are read-only (no drag-drop)
+- Double-click a connection to connect (same as regular connections)
+- Right-click a Smart Folder → **Edit** or **Delete**
+- Empty filter criteria → empty result (not "match all")
+
+### CLI
+
+```bash
+# List all smart folders
+rustconn-cli smart-folders list
+
+# Show connections matching a smart folder
+rustconn-cli smart-folders show "Prod SSH"
+
+# Create a smart folder
+rustconn-cli smart-folders create --name "Prod SSH" --protocol ssh --host-pattern "*.prod.*"
+
+# Delete a smart folder
+rustconn-cli smart-folders delete "Prod SSH"
+```
+
+---
+
+## Script Credentials
+
+Resolve passwords dynamically by running an external script or command. The script's stdout is used as the password. This is useful for integrating with custom secret management tools, HashiCorp Vault, or any command-line credential source.
+
+### Configure
+
+1. Edit connection → **Authentication** tab
+2. Set **Password Source** to **Script**
+3. Enter the command in the script field (e.g., `vault kv get -field=password secret/myserver`)
+4. Click **Test** to verify the script returns a password
+5. Save
+
+### Behavior
+
+- The command is parsed via `shell-words` (supports quoting and escaping)
+- Executed without a shell (direct process spawn) for security
+- 30-second timeout — if the script doesn't complete, the connection fails with an error
+- stdout is trimmed and stored as `SecretString` (zeroed on drop)
+- Non-zero exit code → error with stderr message
+
+### Examples
+
+```bash
+# HashiCorp Vault
+vault kv get -field=password secret/servers/web-01
+
+# AWS Secrets Manager
+aws secretsmanager get-secret-value --secret-id myserver --query SecretString --output text
+
+# Custom script
+/usr/local/bin/get-password.sh web-01
+
+# Pass (passwordstore.org)
+pass show servers/web-01
+```
+
+### CLI
+
+```bash
+rustconn-cli add --name "Server" --protocol ssh --host example.com \
+  --password-source script --password-script "vault kv get -field=password secret/myserver"
+```
+
+---
+
+## Per-connection Terminal Theming
+
+Override terminal colors (background, foreground, cursor) on a per-connection basis. Useful for visually distinguishing production vs. development environments.
+
+### Configure
+
+1. Edit connection → **Advanced** tab → **Terminal Theme** section
+2. Click the color buttons to set:
+   - **Background** color
+   - **Foreground** (text) color
+   - **Cursor** color
+3. Colors are in `#RRGGBB` or `#RRGGBBAA` format
+4. Click **Reset** to clear overrides and use the global theme
+5. Save
+
+### Behavior
+
+- Color overrides are applied when the VTE terminal is created for the session
+- Uses VTE `set_color_background()`, `set_color_foreground()`, `set_color_cursor()` APIs
+- If no override is set, the global terminal theme is used
+- Overrides are stored in the connection configuration and exported/imported with the connection
+
+### Tips
+
+- Use a red-tinted background for production servers
+- Use a green-tinted background for development/staging
+- Combine with tab coloring for maximum visual distinction
 
 ---
 

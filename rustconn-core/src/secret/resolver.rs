@@ -105,6 +105,9 @@ impl CredentialResolver {
         let result = match connection.password_source {
             PasswordSource::Vault => self.resolve_from_vault(connection).await,
             PasswordSource::Variable(ref name) => self.resolve_from_variable(name).await,
+            PasswordSource::Script(ref command) => {
+                super::script_resolver::resolve_script(command).await
+            }
             PasswordSource::Prompt | PasswordSource::Inherit => {
                 // Caller handles these cases.
                 // Inherit requires group hierarchy — use resolve_with_hierarchy() instead.
@@ -842,6 +845,9 @@ impl CredentialResolver {
                     .await
             }
             PasswordSource::Variable(ref name) => self.resolve_from_variable(name).await,
+            PasswordSource::Script(ref command) => {
+                super::script_resolver::resolve_script(command).await
+            }
             PasswordSource::Inherit => self.resolve_inherited_credentials(connection, groups).await,
             PasswordSource::Prompt => {
                 // Caller handles these cases
@@ -1081,6 +1087,7 @@ impl CredentialResolver {
                 }
             }
             PasswordSource::Variable(_)
+            | PasswordSource::Script(_)
             | PasswordSource::Prompt
             | PasswordSource::Inherit
             | PasswordSource::None => {
@@ -1225,6 +1232,9 @@ mod tests {
             pin_order: 0,
             icon: None,
             monitoring_config: None,
+            theme_override: None,
+            session_recording_enabled: false,
+            highlight_rules: Vec::new(),
         }
     }
 

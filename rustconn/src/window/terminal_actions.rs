@@ -294,5 +294,87 @@ impl MainWindow {
             }
         });
         window.add_action(&quick_connect_action);
+
+        // Start recording action - starts recording for the selected sidebar connection's session
+        let start_recording_action = gio::SimpleAction::new("start-recording", None);
+        let notebook_clone = terminal_notebook.clone();
+        let sidebar_clone = sidebar.clone();
+        let state_clone = state.clone();
+        start_recording_action.connect_activate(move |_, _| {
+            if let Some(item) = sidebar_clone.get_selected_item() {
+                let id_str = item.id();
+                if let Ok(conn_id) = Uuid::parse_str(&id_str) {
+                    // Find the active session for this connection
+                    if let Some(session) = notebook_clone
+                        .get_all_sessions()
+                        .into_iter()
+                        .find(|s| s.connection_id == conn_id)
+                    {
+                        let (conn_name, ssh_params) = {
+                            let state_ref = state_clone.borrow();
+                            let conn = state_ref.get_connection(conn_id);
+                            let name = conn
+                                .map(|c| c.name.clone())
+                                .unwrap_or_else(|| item.name());
+                            let params = conn.and_then(|c| {
+                                let key_path = if let rustconn_core::ProtocolConfig::Ssh(ref ssh) =
+                                    c.protocol_config
+                                {
+                                    ssh.key_path
+                                        .as_ref()
+                                        .and_then(|p| rustconn_core::resolve_key_path(p))
+                                        .map(|p| p.to_string_lossy().to_string())
+                                } else {
+                                    None
+                                };
+                                // Only build params for SSH-like protocols
+                                if matches!(
+                                    c.protocol.as_str(),
+                                    "ssh" | "sftp" | "telnet" | "mosh" | "serial"
+                                ) {
+                                    Some(crate::terminal::SshRecordingParams {
+                                        host: c.host.clone(),
+                                        port: c.port,
+                                        username: c.username.clone(),
+                                        identity_file: key_path,
+                                    })
+                                } else {
+                                    None
+                                }
+                            });
+                            (name, params)
+                        };
+                        notebook_clone.start_recording(
+                            session.id,
+                            &conn_name,
+                            rustconn_core::session::SanitizeConfig::default(),
+                            ssh_params,
+                        );
+                    }
+                }
+            }
+        });
+        window.add_action(&start_recording_action);
+
+        // Stop recording action - stops recording for the selected sidebar connection's session
+        let stop_recording_action = gio::SimpleAction::new("stop-recording", None);
+        let notebook_clone = terminal_notebook.clone();
+        let sidebar_clone = sidebar.clone();
+        stop_recording_action.connect_activate(move |_, _| {
+            if let Some(item) = sidebar_clone.get_selected_item() {
+                let id_str = item.id();
+                if let Ok(conn_id) = Uuid::parse_str(&id_str) {
+                    // Find the active session for this connection
+                    if let Some(session) = notebook_clone
+                        .get_all_sessions()
+                        .into_iter()
+                        .find(|s| s.connection_id == conn_id)
+                    {
+                        notebook_clone.stop_recording(session.id);
+                    }
+                }
+            }
+        });
+        window.add_action(&stop_recording_action);
     }
 }

@@ -32,24 +32,30 @@ use crate::i18n::i18n;
 /// - Proxy entry
 /// - Various checkbuttons for options
 /// - Startup command and custom options entries
+/// - MOSH settings group (hidden by default, shown when protocol is MOSH)
+/// - MOSH-specific widgets: port range entry, predict dropdown, server binary entry
 #[allow(clippy::type_complexity)]
 pub type SshOptionsWidgets = (
     GtkBox,
-    DropDown,    // auth_dropdown
-    DropDown,    // key_source_dropdown
-    Entry,       // key_entry
-    Button,      // key_button
-    DropDown,    // agent_key_dropdown
-    DropDown,    // jump_host_dropdown
-    Entry,       // proxy_entry
-    CheckButton, // identities_only
-    CheckButton, // control_master
-    CheckButton, // agent_forwarding
-    CheckButton, // waypipe
-    CheckButton, // x11_forwarding
-    CheckButton, // compression
-    Entry,       // startup_entry
-    Entry,       // options_entry
+    DropDown,              // auth_dropdown
+    DropDown,              // key_source_dropdown
+    Entry,                 // key_entry
+    Button,                // key_button
+    DropDown,              // agent_key_dropdown
+    DropDown,              // jump_host_dropdown
+    Entry,                 // proxy_entry
+    CheckButton,           // identities_only
+    CheckButton,           // control_master
+    CheckButton,           // agent_forwarding
+    CheckButton,           // waypipe
+    CheckButton,           // x11_forwarding
+    CheckButton,           // compression
+    Entry,                 // startup_entry
+    Entry,                 // options_entry
+    adw::PreferencesGroup, // mosh_group (hidden by default)
+    Entry,                 // mosh_port_range_entry
+    DropDown,              // mosh_predict_dropdown
+    Entry,                 // mosh_server_binary_entry
 );
 
 /// Creates the SSH options panel using libadwaita components following GNOME HIG.
@@ -84,6 +90,43 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
     ) = create_session_group();
     content.append(&session_group);
 
+    // === MOSH Settings Group (hidden by default, shown when protocol is MOSH) ===
+    let mosh_group = adw::PreferencesGroup::builder()
+        .title(i18n("MOSH Settings"))
+        .description(i18n("Configure UDP port range and prediction behavior."))
+        .visible(false)
+        .build();
+
+    let (mosh_port_range_row, mosh_port_range_entry) = EntryRowBuilder::new("Port Range")
+        .subtitle("UDP port range for MOSH (start:end)")
+        .placeholder("60000:60010")
+        .build();
+    mosh_group.add(&mosh_port_range_row);
+
+    // Predict Mode dropdown
+    let predict_items = [i18n("Adaptive"), i18n("Always"), i18n("Never")];
+    let predict_strs: Vec<&str> = predict_items.iter().map(String::as_str).collect();
+    let predict_model = StringList::new(&predict_strs);
+    let mosh_predict_dropdown = DropDown::builder()
+        .model(&predict_model)
+        .selected(0)
+        .build();
+    let predict_row = adw::ActionRow::builder()
+        .title(i18n("Predict Mode"))
+        .subtitle(i18n("Controls speculative local echo of keystrokes"))
+        .build();
+    predict_row.add_suffix(&mosh_predict_dropdown);
+    predict_row.set_activatable_widget(Some(&mosh_predict_dropdown));
+    mosh_group.add(&predict_row);
+
+    let (mosh_server_binary_row, mosh_server_binary_entry) = EntryRowBuilder::new("Server Binary")
+        .subtitle("Path to mosh-server on the remote host (optional)")
+        .placeholder("/usr/bin/mosh-server")
+        .build();
+    mosh_group.add(&mosh_server_binary_row);
+
+    content.append(&mosh_group);
+
     (
         container,
         auth_dropdown,
@@ -101,6 +144,10 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         compression,
         startup_entry,
         options_entry,
+        mosh_group,
+        mosh_port_range_entry,
+        mosh_predict_dropdown,
+        mosh_server_binary_entry,
     )
 }
 

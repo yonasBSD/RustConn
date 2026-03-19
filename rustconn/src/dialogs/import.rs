@@ -15,9 +15,9 @@ use gtk4::{
 use libadwaita as adw;
 use rustconn_core::export::NativeExport;
 use rustconn_core::import::{
-    AnsibleInventoryImporter, AsbruImporter, ImportResult, ImportSource, LibvirtXmlImporter,
-    MobaXtermImporter, RdmImporter, RdpFileImporter, RemminaImporter, RoyalTsImporter,
-    SshConfigImporter, VirtViewerImporter,
+    AnsibleInventoryImporter, AsbruImporter, CsvImporter, CsvParseOptions, ImportResult,
+    ImportSource, LibvirtXmlImporter, MobaXtermImporter, RdmImporter, RdpFileImporter,
+    RemminaImporter, RoyalTsImporter, SshConfigImporter, VirtViewerImporter,
 };
 use rustconn_core::progress::LocalProgressReporter;
 use std::cell::{Cell, RefCell};
@@ -277,6 +277,12 @@ impl ImportDialog {
                 i18n("Import RDP connection from a Microsoft .rdp file"),
                 true,
             ),
+            (
+                "csv_file",
+                i18n("CSV"),
+                i18n("Import connections from a CSV file"),
+                true,
+            ),
         ];
 
         for (id, name, desc, available) in &sources {
@@ -455,6 +461,7 @@ impl ImportDialog {
             "libvirt" => "Libvirt / GNOME Boxes",
             "libvirt_file" => "Libvirt XML",
             "rdp_file" => "RDP File",
+            "csv_file" => "CSV",
             _ => "Unknown",
         }
     }
@@ -852,6 +859,21 @@ impl ImportDialog {
 
                 if source_id == "rdp_file" {
                     Self::handle_rdp_file_import(
+                        parent_window.as_ref(),
+                        &stack,
+                        &progress_bar,
+                        &progress_label,
+                        &result_label,
+                        &result_details,
+                        &result_cell,
+                        &source_name_cell,
+                        btn,
+                    );
+                    return;
+                }
+
+                if source_id == "csv_file" {
+                    Self::handle_csv_file_import(
                         parent_window.as_ref(),
                         &stack,
                         &progress_bar,
@@ -1949,6 +1971,96 @@ impl ImportDialog {
                             || "RDP File".to_string(),
                             |n| n.to_string_lossy().to_string(),
                         );
+
+                        source_name_cell_clone.borrow_mut().clone_from(&filename);
+
+                        progress_bar_clone.set_fraction(1.0);
+
+                        let conn_count = result.connections.len();
+                        let group_count = result.groups.len();
+                        let summary = format!(
+                            "Successfully imported {conn_count} connection(s) \
+                             and {group_count} group(s).\n\
+                             Connections will be added to \
+                             '{filename} Import' group."
+                        );
+                        result_label_clone.set_text(&summary);
+
+                        let details = Self::format_import_details(&result);
+                        result_details_clone.set_text(&details);
+
+                        *result_cell_clone.borrow_mut() = Some(result);
+                        stack_clone.set_visible_child_name("result");
+                        btn_clone.set_label(&i18n("Done"));
+                        btn_clone.set_sensitive(true);
+                    }
+                } else {
+                    stack_clone.set_visible_child_name("source");
+                    btn_clone.set_sensitive(true);
+                }
+            },
+        );
+    }
+
+    /// Handles importing from a CSV file via file chooser dialog.
+    ///
+    /// Opens a file chooser for selecting a .csv file, parses it using
+    /// `CsvImporter` with default options (comma delimiter, auto-detect headers),
+    /// and displays a preview with connection count before import.
+    ///
+    /// Requirements: 2.8, 2.9
+    #[allow(clippy::too_many_arguments)]
+    fn handle_csv_file_import(
+        parent_window: Option<&gtk4::Window>,
+        stack: &Stack,
+        progress_bar: &ProgressBar,
+        progress_label: &Label,
+        result_label: &Label,
+        result_details: &Label,
+        result_cell: &Rc<RefCell<Option<ImportResult>>>,
+        source_name_cell: &Rc<RefCell<String>>,
+        btn: &Button,
+    ) {
+        let file_dialog = gtk4::FileDialog::builder()
+            .title(i18n("Select CSV File"))
+            .modal(true)
+            .build();
+
+        let filter = gtk4::FileFilter::new();
+        filter.add_pattern("*.csv");
+        filter.add_pattern("*.tsv");
+        filter.set_name(Some(&i18n("CSV files (*.csv, *.tsv)")));
+        let filters = gtk4::gio::ListStore::new::<gtk4::FileFilter>();
+        filters.append(&filter);
+        file_dialog.set_filters(Some(&filters));
+
+        let stack_clone = stack.clone();
+        let progress_bar_clone = progress_bar.clone();
+        let progress_label_clone = progress_label.clone();
+        let result_label_clone = result_label.clone();
+        let result_details_clone = result_details.clone();
+        let result_cell_clone = result_cell.clone();
+        let source_name_cell_clone = source_name_cell.clone();
+        let btn_clone = btn.clone();
+
+        file_dialog.open(
+            parent_window,
+            gtk4::gio::Cancellable::NONE,
+            move |file_result| {
+                if let Ok(file) = file_result {
+                    if let Some(path) = file.path() {
+                        stack_clone.set_visible_child_name("progress");
+                        btn_clone.set_sensitive(false);
+                        progress_bar_clone.set_fraction(0.5);
+                        progress_label_clone
+                            .set_text(&format!("Importing from {}...", path.display()));
+
+                        let importer = CsvImporter::with_options(CsvParseOptions::default());
+                        let result = Self::import_or_error(importer.import_from_path(&path), "CSV");
+
+                        let filename = path
+                            .file_name()
+                            .map_or_else(|| i18n("CSV"), |n| n.to_string_lossy().to_string());
 
                         source_name_cell_clone.borrow_mut().clone_from(&filename);
 

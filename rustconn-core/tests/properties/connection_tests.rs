@@ -2389,6 +2389,9 @@ proptest! {
                 ProtocolType::Kubernetes => ProtocolConfig::Kubernetes(
                     rustconn_core::KubernetesConfig::default(),
                 ),
+                ProtocolType::Mosh => ProtocolConfig::Mosh(
+                    rustconn_core::MoshConfig::default(),
+                ),
             };
 
             manager
@@ -2456,6 +2459,9 @@ proptest! {
             ProtocolType::Kubernetes => ProtocolConfig::Kubernetes(
                 rustconn_core::KubernetesConfig::default(),
             ),
+            ProtocolType::Mosh => ProtocolConfig::Mosh(
+                rustconn_core::MoshConfig::default(),
+            ),
         };
 
         manager
@@ -2516,6 +2522,9 @@ proptest! {
             ProtocolType::Kubernetes => ProtocolConfig::Kubernetes(
                 rustconn_core::KubernetesConfig::default(),
             ),
+            ProtocolType::Mosh => ProtocolConfig::Mosh(
+                rustconn_core::MoshConfig::default(),
+            ),
         };
 
         let conn_id = manager
@@ -2561,6 +2570,9 @@ proptest! {
             ProtocolType::Sftp => ProtocolConfig::Sftp(SshConfig::default()),
             ProtocolType::Kubernetes => ProtocolConfig::Kubernetes(
                 rustconn_core::KubernetesConfig::default(),
+            ),
+            ProtocolType::Mosh => ProtocolConfig::Mosh(
+                rustconn_core::MoshConfig::default(),
             ),
         };
 
@@ -2614,6 +2626,9 @@ proptest! {
             ProtocolType::Sftp => ProtocolConfig::Sftp(SshConfig::default()),
             ProtocolType::Kubernetes => ProtocolConfig::Kubernetes(
                 rustconn_core::KubernetesConfig::default(),
+            ),
+            ProtocolType::Mosh => ProtocolConfig::Mosh(
+                rustconn_core::MoshConfig::default(),
             ),
         };
 

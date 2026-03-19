@@ -201,6 +201,7 @@ fn start_ssh_connection_internal(
         "ssh",
         Some(&conn.automation),
         &terminal_settings,
+        conn.theme_override.as_ref(),
     );
 
     // Record connection start in history
@@ -245,6 +246,11 @@ fn start_ssh_connection_internal(
             let key = ssh_config
                 .key_path
                 .as_ref()
+                .and_then(|p| {
+                    // Resolve stale portal paths: if the stored path doesn't exist,
+                    // check the Flatpak SSH dir for a file with the same name.
+                    rustconn_core::resolve_key_path(p)
+                })
                 .map(|p| p.to_string_lossy().to_string());
 
             // Use build_command_args() for all SSH-specific flags:
@@ -624,6 +630,7 @@ fn start_ssh_connection_internal(
                     ssh_cfg
                         .key_path
                         .as_ref()
+                        .and_then(|p| rustconn_core::resolve_key_path(p))
                         .map(|p| p.to_string_lossy().to_string())
                 } else {
                     None
@@ -822,6 +829,7 @@ fn start_vnc_connection_internal(
         let state_for_callback = state.clone();
         vnc_widget.connect_state_changed(move |vnc_state| {
             if vnc_state == crate::session::SessionState::Disconnected {
+                notebook_for_state.stop_recording(session_id);
                 notebook_for_state.mark_tab_disconnected(session_id);
                 sidebar_for_state.decrement_session_count(&connection_id.to_string(), false);
                 // Record connection end in history
@@ -1017,6 +1025,7 @@ fn start_spice_connection_internal(
             if spice_state == SpiceConnectionState::Disconnected
                 || spice_state == SpiceConnectionState::Error
             {
+                notebook_for_state.stop_recording(session_id);
                 notebook_for_state.mark_tab_disconnected(session_id);
                 sidebar_for_state.decrement_session_count(
                     &connection_id.to_string(),
@@ -1167,6 +1176,7 @@ fn start_telnet_connection_internal(
         "telnet",
         Some(&conn.automation),
         &terminal_settings,
+        conn.theme_override.as_ref(),
     );
 
     // Record connection start in history
@@ -1351,6 +1361,7 @@ pub fn start_zerotrust_connection(
         &tab_protocol,
         Some(&automation_config),
         &terminal_settings,
+        conn.theme_override.as_ref(),
     );
 
     // Record connection start in history
@@ -1468,6 +1479,7 @@ pub fn start_serial_connection(
         "serial",
         Some(&conn.automation),
         &terminal_settings,
+        conn.theme_override.as_ref(),
     );
 
     // Record connection start in history
@@ -1601,6 +1613,7 @@ pub fn start_kubernetes_connection(
         "kubernetes",
         Some(&conn.automation),
         &terminal_settings,
+        conn.theme_override.as_ref(),
     );
 
     // Record connection start in history

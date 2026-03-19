@@ -9,7 +9,7 @@ proptest! {
     #[test]
     fn export_format_all_returns_all(_dummy in 0..1) {
         let all = ExportFormat::all();
-        prop_assert_eq!(all.len(), 7);
+        prop_assert_eq!(all.len(), 8);
         prop_assert!(all.contains(&ExportFormat::Ansible));
         prop_assert!(all.contains(&ExportFormat::SshConfig));
         prop_assert!(all.contains(&ExportFormat::Remmina));
@@ -17,6 +17,7 @@ proptest! {
         prop_assert!(all.contains(&ExportFormat::Native));
         prop_assert!(all.contains(&ExportFormat::RoyalTs));
         prop_assert!(all.contains(&ExportFormat::MobaXterm));
+        prop_assert!(all.contains(&ExportFormat::Csv));
     }
 
     /// Property: Each ExportFormat has a non-empty display name

@@ -319,6 +319,23 @@ impl MainWindow {
         // Set up window actions
         main_window.setup_actions();
 
+        // Set up recording checker for sidebar context menu
+        {
+            let notebook = main_window.terminal_notebook.clone();
+            main_window
+                .sidebar
+                .set_recording_checker(move |conn_id_str| {
+                    if let Ok(conn_id) = Uuid::parse_str(conn_id_str) {
+                        notebook
+                            .get_all_sessions()
+                            .iter()
+                            .any(|s| s.connection_id == conn_id && notebook.is_recording(s.id))
+                    } else {
+                        false
+                    }
+                });
+        }
+
         // Load initial data
         main_window.load_connections();
 
@@ -1167,6 +1184,49 @@ impl MainWindow {
             }
         });
         window.add_action(&wol_dialog_action);
+
+        // Manage recordings action
+        let manage_recordings_action = gio::SimpleAction::new("manage-recordings", None);
+        let window_weak = window.downgrade();
+        let notebook_for_playback = self.terminal_notebook.clone();
+        manage_recordings_action.connect_activate(move |_, _| {
+            if let Some(win) = window_weak.upgrade() {
+                let dialog = std::rc::Rc::new(crate::dialogs::RecordingsDialog::new(Some(
+                    win.upcast_ref(),
+                )));
+
+                // on_delete: log deletion (row already removed inline by dialog)
+                dialog.set_on_delete(|path| {
+                    tracing::info!(?path, "Recording deleted");
+                });
+
+                // on_rename: log rename (label already updated inline by dialog)
+                dialog.set_on_rename(|path, new_name| {
+                    tracing::info!(?path, %new_name, "Recording renamed");
+                });
+
+                // on_import: refresh list after import
+                let dialog_for_import = dialog.clone();
+                dialog.set_on_import(move || {
+                    tracing::info!("Recording imported, refreshing list");
+                    dialog_for_import.refresh_list();
+                });
+
+                // on_play: open a Playback Tab for the selected recording
+                let notebook_clone = notebook_for_playback.clone();
+                dialog.set_on_play(move |entry| {
+                    tracing::info!(
+                        name = %entry.metadata.connection_name,
+                        path = ?entry.data_path,
+                        "Opening playback tab"
+                    );
+                    notebook_clone.open_playback_tab(&entry);
+                });
+
+                dialog.present();
+            }
+        });
+        window.add_action(&manage_recordings_action);
     }
 
     /// Sets up split view actions
@@ -1619,7 +1679,11 @@ impl MainWindow {
         let state_clone = state.clone();
         let split_view_clone = split_view_for_close;
         let sidebar_clone = sidebar.clone();
+        let notebook_for_close = terminal_notebook.clone();
         window.connect_close_request(move |win| {
+            // Flush all active session recordings before shutdown
+            notebook_for_close.flush_active_recordings();
+
             // Save window geometry and expanded groups state
             let (width, height) = win.default_size();
             let sidebar_width = split_view_clone.max_sidebar_width() as i32;
@@ -2004,7 +2068,8 @@ impl MainWindow {
             | ProtocolType::ZeroTrust
             | ProtocolType::Telnet
             | ProtocolType::Serial
-            | ProtocolType::Kubernetes => {
+            | ProtocolType::Kubernetes
+            | ProtocolType::Mosh => {
                 // For SSH/SPICE, cache credentials if available and start connection
                 if let Some(ref creds) = resolved_credentials
                     && let (Some(username), Some(password)) =
@@ -2902,6 +2967,9 @@ impl MainWindow {
                 tracing::error!(%session_id, exit_status, term_sig, exit_code, "Session exited with failure");
             }
 
+            // Stop recording if active before marking as disconnected
+            notebook_clone.stop_recording(session_id);
+
             // Mark tab as disconnected and show reconnect overlay
             notebook_clone.mark_tab_disconnected(session_id);
             notebook_clone.show_reconnect_overlay(session_id);
@@ -3565,6 +3633,7 @@ impl MainWindow {
             "local",
             None,
             &terminal_settings,
+            None,
         );
 
         // Get user's default shell

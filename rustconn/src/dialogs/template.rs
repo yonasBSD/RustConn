@@ -2612,6 +2612,7 @@ impl TemplateDialog {
             ProtocolType::Serial => 6,
             ProtocolType::Sftp => 7,
             ProtocolType::Kubernetes => 8,
+            ProtocolType::Mosh => 9,
         };
         self.protocol_dropdown.set_selected(protocol_idx);
         self.protocol_stack
@@ -2652,6 +2653,7 @@ impl TemplateDialog {
             ProtocolConfig::Serial(_) => {} // No Serial-specific config to load
             ProtocolConfig::Sftp(ssh) => self.load_ssh_config(ssh),
             ProtocolConfig::Kubernetes(_) => {} // No Kubernetes-specific template config
+            ProtocolConfig::Mosh(_) => {}       // No MOSH-specific template config yet
         }
     }
 
@@ -3128,7 +3130,7 @@ impl TemplateManagerDialog {
                 ProtocolType::Serial | ProtocolType::Sftp => {
                     ssh_templates.push(template);
                 }
-                ProtocolType::Kubernetes => {
+                ProtocolType::Kubernetes | ProtocolType::Mosh => {
                     ssh_templates.push(template);
                 }
             }

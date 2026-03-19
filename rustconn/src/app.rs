@@ -604,7 +604,7 @@ Serial, Kubernetes, and Zero Trust connections from a single application.",
         .comments(&description)
         .website("https://github.com/totoshko88/RustConn")
         .issue_url("https://github.com/totoshko88/rustconn/issues")
-        .support_url("https://ko-fi.com/totoshko88")
+        .support_url("https://donatello.to/totoshko88")
         .license_type(gtk4::License::Gpl30)
         .developers(vec!["Anton Isaiev <totoshko88@gmail.com>"])
         .copyright("© 2024-2026 Anton Isaiev")
@@ -634,8 +634,7 @@ Serial, Kubernetes, and Zero Trust connections from a single application.",
     );
 
     // Support/sponsorship links
-    about.add_link("Ko-Fi", "https://ko-fi.com/totoshko88");
-    about.add_link("PayPal", "https://www.paypal.com/paypalme/totoshko88");
+    about.add_link("Donatello", "https://donatello.to/totoshko88");
     about.add_link("Monobank", "https://send.monobank.ua/jar/2UgaGcQ3JC");
 
     // Acknowledgments

@@ -141,6 +141,7 @@ pub fn create_app_menu() -> gio::Menu {
         Some(&i18n("Wake On LAN...")),
         Some("win.wake-on-lan-dialog"),
     );
+    tools_section.append(Some(&i18n("Recordings...")), Some("win.manage-recordings"));
     menu.append_section(None, &tools_section);
 
     // File section (import/export connections)

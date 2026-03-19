@@ -293,9 +293,10 @@ fn parse_protocol(proto: &str) -> Result<rustconn_core::models::ProtocolType, Cl
         "serial" => Ok(ProtocolType::Serial),
         "sftp" => Ok(ProtocolType::Sftp),
         "kubernetes" | "k8s" => Ok(ProtocolType::Kubernetes),
+        "mosh" => Ok(ProtocolType::Mosh),
         _ => Err(CliError::Template(format!(
             "Unknown protocol '{proto}'. \
-             Supported: ssh, rdp, vnc, spice, telnet, serial, sftp, kubernetes"
+             Supported: ssh, rdp, vnc, spice, telnet, serial, sftp, kubernetes, mosh"
         ))),
     }
 }

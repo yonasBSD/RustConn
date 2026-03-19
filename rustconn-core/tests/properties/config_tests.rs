@@ -499,6 +499,8 @@ fn arb_full_settings() -> impl Strategy<Value = AppSettings> {
                     history: HistorySettings::default(),
                     keybindings: rustconn_core::config::keybindings::KeybindingSettings::default(),
                     monitoring: rustconn_core::MonitoringSettings::default(),
+                    highlight_rules: Vec::new(),
+                    smart_folders: Vec::new(),
                 }
             },
         )

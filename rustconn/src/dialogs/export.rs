@@ -14,8 +14,9 @@ use gtk4::{
 };
 use libadwaita as adw;
 use rustconn_core::export::{
-    AnsibleExporter, AsbruExporter, ExportFormat, ExportOptions, ExportResult, ExportTarget,
-    MobaXtermExporter, NativeExport, RemminaExporter, RoyalTsExporter, SshConfigExporter,
+    AnsibleExporter, AsbruExporter, CsvExportField, CsvExportOptions, CsvExporter, ExportFormat,
+    ExportOptions, ExportResult, ExportTarget, MobaXtermExporter, NativeExport, RemminaExporter,
+    RoyalTsExporter, SshConfigExporter,
 };
 use rustconn_core::models::{Connection, ConnectionGroup, Snippet};
 use std::cell::RefCell;
@@ -49,6 +50,17 @@ pub struct ExportDialog {
     // Result
     result_label: Label,
     result_details: Label,
+    // CSV-specific options
+    csv_options_group: adw::PreferencesGroup,
+    csv_delimiter_dropdown: DropDown,
+    csv_field_name: adw::SwitchRow,
+    csv_field_host: adw::SwitchRow,
+    csv_field_port: adw::SwitchRow,
+    csv_field_protocol: adw::SwitchRow,
+    csv_field_username: adw::SwitchRow,
+    csv_field_group: adw::SwitchRow,
+    csv_field_tags: adw::SwitchRow,
+    csv_field_description: adw::SwitchRow,
     // Buttons
     export_button: Button,
     // State
@@ -106,8 +118,23 @@ impl ExportDialog {
         dialog.set_content(Some(&toolbar_view));
 
         // === Options Page ===
-        let (options_page, format_dropdown, output_path_entry, browse_button, include_groups_row) =
-            Self::create_options_page();
+        let (
+            options_page,
+            format_dropdown,
+            output_path_entry,
+            browse_button,
+            include_groups_row,
+            csv_options_group,
+            csv_delimiter_dropdown,
+            csv_field_name,
+            csv_field_host,
+            csv_field_port,
+            csv_field_protocol,
+            csv_field_username,
+            csv_field_group,
+            csv_field_tags,
+            csv_field_description,
+        ) = Self::create_options_page();
         stack.add_named(&options_page, Some("options"));
 
         // === Progress Page ===
@@ -150,6 +177,16 @@ impl ExportDialog {
             progress_spinner,
             result_label,
             result_details,
+            csv_options_group,
+            csv_delimiter_dropdown,
+            csv_field_name,
+            csv_field_host,
+            csv_field_port,
+            csv_field_protocol,
+            csv_field_username,
+            csv_field_group,
+            csv_field_tags,
+            csv_field_description,
             export_button,
             connections: Rc::new(RefCell::new(Vec::new())),
             groups: Rc::new(RefCell::new(Vec::new())),
@@ -162,7 +199,23 @@ impl ExportDialog {
 
     /// Creates the options page with format selection and output path
     #[allow(clippy::type_complexity)]
-    fn create_options_page() -> (ScrolledWindow, DropDown, Entry, Button, adw::SwitchRow) {
+    fn create_options_page() -> (
+        ScrolledWindow,
+        DropDown,
+        Entry,
+        Button,
+        adw::SwitchRow,
+        adw::PreferencesGroup,
+        DropDown,
+        adw::SwitchRow,
+        adw::SwitchRow,
+        adw::SwitchRow,
+        adw::SwitchRow,
+        adw::SwitchRow,
+        adw::SwitchRow,
+        adw::SwitchRow,
+        adw::SwitchRow,
+    ) {
         let scrolled = ScrolledWindow::builder()
             .hscrollbar_policy(gtk4::PolicyType::Never)
             .vscrollbar_policy(gtk4::PolicyType::Automatic)
@@ -195,6 +248,7 @@ impl ExportDialog {
             &i18n("RustConn Native (.rcn)"),
             &i18n("Royal TS (.rtsz)"),
             &i18n("MobaXterm (.mxtsessions)"),
+            &i18n("CSV (*.csv)"),
         ]);
         let format_dropdown = DropDown::new(Some(format_list), gtk4::Expression::NONE);
         format_dropdown.set_selected(0);
@@ -265,6 +319,79 @@ impl ExportDialog {
 
         main_vbox.append(&options_group);
 
+        // CSV-specific options section (hidden by default, shown when CSV is selected)
+        let csv_options_group = adw::PreferencesGroup::builder()
+            .title(i18n("CSV Options"))
+            .description(i18n("Configure CSV export settings"))
+            .visible(false)
+            .build();
+
+        // Delimiter selection
+        let csv_delimiter_list =
+            StringList::new(&[&i18n("Comma"), &i18n("Semicolon"), &i18n("Tab")]);
+        let csv_delimiter_dropdown =
+            DropDown::new(Some(csv_delimiter_list), gtk4::Expression::NONE);
+        csv_delimiter_dropdown.set_selected(0);
+        csv_delimiter_dropdown.set_valign(gtk4::Align::Center);
+
+        let delimiter_row = adw::ActionRow::builder()
+            .title(i18n("Delimiter"))
+            .subtitle(i18n("Field separator character"))
+            .build();
+        delimiter_row.add_suffix(&csv_delimiter_dropdown);
+        csv_options_group.add(&delimiter_row);
+
+        // Field selection switches
+        let csv_field_name = adw::SwitchRow::builder()
+            .title(i18n("Name"))
+            .active(true)
+            .build();
+        csv_options_group.add(&csv_field_name);
+
+        let csv_field_host = adw::SwitchRow::builder()
+            .title(i18n("Host"))
+            .active(true)
+            .build();
+        csv_options_group.add(&csv_field_host);
+
+        let csv_field_port = adw::SwitchRow::builder()
+            .title(i18n("Port"))
+            .active(true)
+            .build();
+        csv_options_group.add(&csv_field_port);
+
+        let csv_field_protocol = adw::SwitchRow::builder()
+            .title(i18n("Protocol"))
+            .active(true)
+            .build();
+        csv_options_group.add(&csv_field_protocol);
+
+        let csv_field_username = adw::SwitchRow::builder()
+            .title(i18n("Username"))
+            .active(true)
+            .build();
+        csv_options_group.add(&csv_field_username);
+
+        let csv_field_group = adw::SwitchRow::builder()
+            .title(i18n("Group"))
+            .active(true)
+            .build();
+        csv_options_group.add(&csv_field_group);
+
+        let csv_field_tags = adw::SwitchRow::builder()
+            .title(i18n("Tags"))
+            .active(true)
+            .build();
+        csv_options_group.add(&csv_field_tags);
+
+        let csv_field_description = adw::SwitchRow::builder()
+            .title(i18n("Description"))
+            .active(true)
+            .build();
+        csv_options_group.add(&csv_field_description);
+
+        main_vbox.append(&csv_options_group);
+
         clamp.set_child(Some(&main_vbox));
         scrolled.set_child(Some(&clamp));
 
@@ -274,6 +401,16 @@ impl ExportDialog {
             output_path_entry,
             browse_button,
             include_groups_row,
+            csv_options_group,
+            csv_delimiter_dropdown,
+            csv_field_name,
+            csv_field_host,
+            csv_field_port,
+            csv_field_protocol,
+            csv_field_username,
+            csv_field_group,
+            csv_field_tags,
+            csv_field_description,
         )
     }
 
@@ -363,6 +500,7 @@ impl ExportDialog {
             4 => ExportFormat::Native,
             5 => ExportFormat::RoyalTs,
             6 => ExportFormat::MobaXterm,
+            7 => ExportFormat::Csv,
             _ => ExportFormat::Ansible,
         }
     }
@@ -402,12 +540,28 @@ impl ExportDialog {
         *self.snippets.borrow_mut() = snippets;
     }
 
+    /// Maps a format dropdown index to an `ExportFormat`
+    fn format_from_index(index: u32) -> ExportFormat {
+        match index {
+            0 => ExportFormat::Ansible,
+            1 => ExportFormat::SshConfig,
+            2 => ExportFormat::Remmina,
+            3 => ExportFormat::Asbru,
+            4 => ExportFormat::Native,
+            5 => ExportFormat::RoyalTs,
+            6 => ExportFormat::MobaXterm,
+            7 => ExportFormat::Csv,
+            _ => ExportFormat::Ansible,
+        }
+    }
+
     /// Performs the export operation
     fn do_export(
         connections: &[Connection],
         groups: &[ConnectionGroup],
         snippets: &[Snippet],
         options: &ExportOptions,
+        csv_options: Option<&CsvExportOptions>,
     ) -> Result<ExportResult, String> {
         match options.format {
             ExportFormat::Ansible => {
@@ -461,6 +615,16 @@ impl ExportDialog {
             }
             ExportFormat::MobaXterm => {
                 let exporter = MobaXtermExporter;
+                exporter
+                    .export(connections, groups, options)
+                    .map_err(|e| e.to_string())
+            }
+            ExportFormat::Csv => {
+                let exporter = if let Some(csv_opts) = csv_options {
+                    CsvExporter::with_options(csv_opts.clone())
+                } else {
+                    CsvExporter::new()
+                };
                 exporter
                     .export(connections, groups, options)
                     .map_err(|e| e.to_string())
@@ -555,16 +719,7 @@ impl ExportDialog {
         let parent_window = self.parent.clone();
 
         self.browse_button.connect_clicked(move |_| {
-            let format = match format_dropdown.selected() {
-                0 => ExportFormat::Ansible,
-                1 => ExportFormat::SshConfig,
-                2 => ExportFormat::Remmina,
-                3 => ExportFormat::Asbru,
-                4 => ExportFormat::Native,
-                5 => ExportFormat::RoyalTs,
-                6 => ExportFormat::MobaXterm,
-                _ => ExportFormat::Ansible,
-            };
+            let format = Self::format_from_index(format_dropdown.selected());
 
             let output_entry = output_path_entry.clone();
 
@@ -632,6 +787,10 @@ impl ExportDialog {
                         filter.add_pattern("*.mxtsessions");
                         filter.set_name(Some(&i18n("MobaXterm Sessions (*.mxtsessions)")));
                     }
+                    ExportFormat::Csv => {
+                        filter.add_pattern("*.csv");
+                        filter.set_name(Some(&i18n("CSV (*.csv)")));
+                    }
                 }
 
                 let filters = gtk4::gio::ListStore::new::<gtk4::FileFilter>();
@@ -656,19 +815,14 @@ impl ExportDialog {
     /// Connects format dropdown change to update UI hints
     fn connect_format_change(&self) {
         let output_path_entry = self.output_path_entry.clone();
+        let csv_options_group = self.csv_options_group.clone();
 
         self.format_dropdown
             .connect_selected_notify(move |dropdown| {
-                let format = match dropdown.selected() {
-                    0 => ExportFormat::Ansible,
-                    1 => ExportFormat::SshConfig,
-                    2 => ExportFormat::Remmina,
-                    3 => ExportFormat::Asbru,
-                    4 => ExportFormat::Native,
-                    5 => ExportFormat::RoyalTs,
-                    6 => ExportFormat::MobaXterm,
-                    _ => ExportFormat::Ansible,
-                };
+                let format = Self::format_from_index(dropdown.selected());
+
+                // Show/hide CSV options based on format
+                csv_options_group.set_visible(format == ExportFormat::Csv);
 
                 // Update placeholder text based on format
                 if format.exports_to_directory() {
@@ -703,6 +857,15 @@ impl ExportDialog {
         let snippets = self.snippets.clone();
         let result_cell = self.result.clone();
         let on_complete = self.on_complete.clone();
+        let csv_delimiter_dropdown = self.csv_delimiter_dropdown.clone();
+        let csv_field_name = self.csv_field_name.clone();
+        let csv_field_host = self.csv_field_host.clone();
+        let csv_field_port = self.csv_field_port.clone();
+        let csv_field_protocol = self.csv_field_protocol.clone();
+        let csv_field_username = self.csv_field_username.clone();
+        let csv_field_group = self.csv_field_group.clone();
+        let csv_field_tags = self.csv_field_tags.clone();
+        let csv_field_description = self.csv_field_description.clone();
 
         export_button.connect_clicked(move |btn| {
             let current_page = stack.visible_child_name();
@@ -731,15 +894,44 @@ impl ExportDialog {
             }
 
             let output_path = PathBuf::from(output_text.as_str());
-            let format = match format_dropdown.selected() {
-                0 => ExportFormat::Ansible,
-                1 => ExportFormat::SshConfig,
-                2 => ExportFormat::Remmina,
-                3 => ExportFormat::Asbru,
-                4 => ExportFormat::Native,
-                5 => ExportFormat::RoyalTs,
-                6 => ExportFormat::MobaXterm,
-                _ => ExportFormat::Ansible,
+            let format = Self::format_from_index(format_dropdown.selected());
+
+            // Build CSV export options if CSV format is selected
+            let csv_opts = if format == ExportFormat::Csv {
+                let delimiter = match csv_delimiter_dropdown.selected() {
+                    0 => b',',
+                    1 => b';',
+                    2 => b'\t',
+                    _ => b',',
+                };
+                let mut fields = Vec::new();
+                if csv_field_name.is_active() {
+                    fields.push(CsvExportField::Name);
+                }
+                if csv_field_host.is_active() {
+                    fields.push(CsvExportField::Host);
+                }
+                if csv_field_port.is_active() {
+                    fields.push(CsvExportField::Port);
+                }
+                if csv_field_protocol.is_active() {
+                    fields.push(CsvExportField::Protocol);
+                }
+                if csv_field_username.is_active() {
+                    fields.push(CsvExportField::Username);
+                }
+                if csv_field_group.is_active() {
+                    fields.push(CsvExportField::GroupName);
+                }
+                if csv_field_tags.is_active() {
+                    fields.push(CsvExportField::Tags);
+                }
+                if csv_field_description.is_active() {
+                    fields.push(CsvExportField::Description);
+                }
+                Some(CsvExportOptions { delimiter, fields })
+            } else {
+                None
             };
 
             let options = ExportOptions::new(format, output_path.clone())
@@ -761,7 +953,7 @@ impl ExportDialog {
             progress_bar.set_fraction(0.5);
             progress_label.set_text(&i18n("Writing output files..."));
 
-            let export_result = Self::do_export(&conns, &grps, &snips, &options);
+            let export_result = Self::do_export(&conns, &grps, &snips, &options, csv_opts.as_ref());
 
             progress_bar.set_fraction(1.0);
             #[cfg(not(feature = "adw-1-6"))]

@@ -272,7 +272,7 @@ cargo fmt
 
 ```bash
 # Flatpak SDK and runtime
-flatpak install flathub org.gnome.Sdk//50beta org.gnome.Platform//50beta
+flatpak install flathub org.gnome.Sdk//50 org.gnome.Platform//50
 flatpak install flathub org.freedesktop.Sdk.Extension.rust-stable//24.08
 ```
 

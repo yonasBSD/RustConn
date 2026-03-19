@@ -60,6 +60,14 @@ pub enum CliError {
     #[error("Secret error: {0}")]
     Secret(String),
 
+    /// Smart folder error
+    #[error("Smart folder error: {0}")]
+    SmartFolder(String),
+
+    /// Recording error
+    #[error("Recording error: {0}")]
+    Recording(String),
+
     /// Protocol error
     #[error("Protocol error: {0}")]
     Protocol(String),
@@ -113,6 +121,8 @@ impl CliError {
             | Self::Cluster(_)
             | Self::Variable(_)
             | Self::Secret(_)
+            | Self::SmartFolder(_)
+            | Self::Recording(_)
             | Self::Protocol(_) => exit_codes::GENERAL_ERROR,
         }
     }

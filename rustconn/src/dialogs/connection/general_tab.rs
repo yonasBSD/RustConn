@@ -40,6 +40,9 @@ pub(super) fn create_basic_tab() -> (
     DropDown,
     Button,
     Button,
+    Entry,
+    Button,
+    GtkBox,
 ) {
     let vbox = GtkBox::new(Orientation::Vertical, 8);
     vbox.set_margin_top(12);
@@ -97,6 +100,7 @@ pub(super) fn create_basic_tab() -> (
         "Serial".to_string(),
         "SFTP".to_string(),
         "Kubernetes".to_string(),
+        "MOSH".to_string(),
     ];
     let protocol_strs: Vec<&str> = protocol_items.iter().map(String::as_str).collect();
     let protocol_list = StringList::new(&protocol_strs);
@@ -215,6 +219,7 @@ pub(super) fn create_basic_tab() -> (
         i18n("Variable"),
         i18n("Inherit"),
         i18n("None"),
+        i18n("Script"),
     ];
     let pw_src_strs: Vec<&str> = pw_src_items.iter().map(String::as_str).collect();
     let password_source_list = StringList::new(&pw_src_strs);
@@ -284,6 +289,39 @@ pub(super) fn create_basic_tab() -> (
         .bind_property("visible", &variable_dropdown, "visible")
         .sync_create()
         .build();
+    row += 1;
+
+    // Script command entry — shown when password source is Script
+    let script_label = Label::builder()
+        .label(i18n("Command:"))
+        .halign(gtk4::Align::End)
+        .build();
+    let script_command_entry = Entry::builder()
+        .placeholder_text(i18n("e.g. vault kv get -field=password secret/myapp"))
+        .hexpand(true)
+        .build();
+    let script_test_button = Button::builder()
+        .label(i18n("Test Script"))
+        .tooltip_text(i18n("Test the script command"))
+        .build();
+    let script_box = GtkBox::new(Orientation::Horizontal, 4);
+    script_box.append(&script_command_entry);
+    script_box.append(&script_test_button);
+    let script_row = GtkBox::new(Orientation::Horizontal, 0);
+    script_row.set_visible(false);
+    grid.attach(&script_label, 0, row, 1, 1);
+    grid.attach(&script_box, 1, row, 2, 1);
+    script_row
+        .bind_property("visible", &script_label, "visible")
+        .sync_create()
+        .build();
+    script_row
+        .bind_property("visible", &script_box, "visible")
+        .sync_create()
+        .build();
+    script_command_entry.update_relation(&[gtk4::accessible::Relation::LabelledBy(&[
+        script_label.upcast_ref(),
+    ])]);
     row += 1;
 
     // Tags
@@ -407,6 +445,9 @@ pub(super) fn create_basic_tab() -> (
         group_dropdown,
         username_load_button,
         domain_load_button,
+        script_command_entry,
+        script_test_button,
+        script_row,
     )
 }
 

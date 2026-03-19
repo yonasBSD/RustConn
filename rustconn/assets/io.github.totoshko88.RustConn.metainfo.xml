@@ -79,7 +79,7 @@
   <url type="help">https://github.com/totoshko88/RustConn/blob/main/docs/USER_GUIDE.md</url>
   <url type="translate">https://github.com/totoshko88/RustConn/tree/main/po</url>
   <url type="contribute">https://github.com/totoshko88/RustConn/blob/main/README.md</url>
-  <url type="donation">https://ko-fi.com/totoshko88</url>
+  <url type="donation">https://donatello.to/totoshko88</url>
   <content_rating type="oars-1.1"/>
   <requires>
     <display_length compare="ge">360</display_length>
@@ -93,6 +93,30 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.1" date="2026-03-18">
+      <description>
+        <p>8 new features: MOSH protocol, CSV import/export, session recording, text highlighting, ad-hoc broadcast, smart folders, script credentials, and per-connection terminal theming:</p>
+        <ul>
+          <li>MOSH protocol — mobile shell with predict mode, UDP port range, and server binary path</li>
+          <li>CSV import/export — RFC 4180 compliant with auto column mapping and configurable delimiter</li>
+          <li>Session recording — scriptreplay-compatible format with sensitive output sanitization and REC indicator</li>
+          <li>Text highlighting rules — regex-based pattern matching with per-connection and global rules (ERROR, WARNING, CRITICAL defaults)</li>
+          <li>Ad-hoc broadcast — send keystrokes to multiple terminals simultaneously with per-terminal selection</li>
+          <li>Smart Folders — dynamic connection grouping by protocol, tags, host glob pattern, or parent group</li>
+          <li>Script credentials — resolve passwords from external scripts with 30-second timeout</li>
+          <li>Per-connection terminal theming — background, foreground, and cursor color overrides per connection</li>
+          <li>15 language translations updated for all new features</li>
+          <li>Fixed Flatpak SSH key paths stale after rebuild — stable copy with fallback resolution</li>
+          <li>Fixed SFTP ssh-add stale portal key path and mc opening on auth failure</li>
+          <li>Fixed session recording: script command format, remote paths, playback header, terminal visibility, SCP host key prompts</li>
+          <li>Fixed RDP sidebar status not clearing after disconnect</li>
+          <li>Fixed PlaybackToolbar GtkSearchEntry finalization warning</li>
+          <li>Fixed cargo/config deprecation warning in Flatpak build</li>
+          <li>Flatpak local manifest runtime updated to GNOME 50</li>
+          <li>Dependencies: euclid 0.22.14, toml 1.0.7, zerocopy 0.8.47, zip 8.3</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.0" date="2026-03-14">
       <description>
         <p>GTK4/libadwaita/VTE upgrade, RDP file association, FreeRDP in Flatpak, and Flatpak fixes:</p>
@@ -592,5 +616,6 @@
     <keyword>sftp</keyword>
     <keyword>kubernetes</keyword>
     <keyword>k8s</keyword>
+    <keyword>mosh</keyword>
   </keywords>
 </component>

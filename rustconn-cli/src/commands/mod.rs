@@ -10,9 +10,11 @@ mod export_import;
 mod group;
 mod list;
 mod manpage;
+mod recording;
 mod secret;
 mod sftp;
 mod show;
+mod smart_folder;
 mod snippet;
 mod stats;
 mod sync;
@@ -113,6 +115,8 @@ pub fn dispatch(config_path: Option<&Path>, command: Commands) -> Result<(), Cli
         Commands::Cluster(subcmd) => cluster::cmd_cluster(config_path, subcmd),
         Commands::Var(subcmd) => variable::cmd_var(config_path, subcmd),
         Commands::Secret(subcmd) => secret::cmd_secret(config_path, subcmd),
+        Commands::SmartFolder(subcmd) => smart_folder::cmd_smart_folder(config_path, subcmd),
+        Commands::Recording(subcmd) => recording::cmd_recording(subcmd),
         Commands::Duplicate { name, new_name } => {
             duplicate::cmd_duplicate(config_path, &name, new_name.as_deref())
         }

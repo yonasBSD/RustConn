@@ -173,6 +173,8 @@ modules:
         CARGO_NET_OFFLINE: 'true'
         PKG_CONFIG_PATH: /app/lib64/pkgconfig:/app/lib/pkgconfig:/app/share/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
     build-commands:
+      # Rename deprecated cargo/config to config.toml
+      - if [ -f cargo/config ]; then mv cargo/config cargo/config.toml; fi
       - cargo build --release -p rustconn --features adw-1-8 -p rustconn-cli
       - install -Dm755 target/release/rustconn /app/bin/rustconn
       - install -Dm755 target/release/rustconn-cli /app/bin/rustconn-cli
@@ -190,5 +192,5 @@ modules:
     sources:
       - type: git
         url: https://github.com/totoshko88/RustConn.git
-        tag: v0.10.0
+        tag: v0.10.1
       - cargo-sources.json

@@ -70,6 +70,9 @@ impl RemminaExporter {
             ProtocolType::Kubernetes => {
                 return Err(ExportError::UnsupportedProtocol("Kubernetes".to_string()));
             }
+            ProtocolType::Mosh => {
+                return Err(ExportError::UnsupportedProtocol("MOSH".to_string()));
+            }
         }
 
         Ok(output)

@@ -58,6 +58,7 @@ fn arb_password_source() -> impl Strategy<Value = PasswordSource> {
         Just(PasswordSource::Prompt),
         Just(PasswordSource::Inherit),
         "[a-z]{3,10}".prop_map(PasswordSource::Variable),
+        "[a-z /._-]{1,50}".prop_map(PasswordSource::Script),
     ]
 }
 
