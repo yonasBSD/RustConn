@@ -34,8 +34,6 @@ finish-args:
   - --talk-name=org.keepassxc.KeePassXC.BrowserServer
   # System tray (StatusNotifierItem)
   - --talk-name=org.kde.StatusNotifierWatcher
-  # Host command execution for ZeroTrust (aws, gcloud, az) and Kubernetes (kubectl)
-  - --talk-name=org.freedesktop.Flatpak
   # Device access (serial ports for picocom require --device=all; no granular option exists)
   - --device=all
   # Downloads directory for SFTP file transfers via mc

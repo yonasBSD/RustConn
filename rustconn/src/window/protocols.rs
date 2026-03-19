@@ -1299,7 +1299,6 @@ pub fn start_zerotrust_connection(
             let provider = zt_config.provider.display_name();
 
             // Check CLI tool availability before launch
-            // In Flatpak, checks the host via flatpak-spawn --host
             let cli = zt_config.provider.cli_command();
             if !cli.is_empty() && !rustconn_core::flatpak::is_host_command_available(cli) {
                 tracing::warn!(
@@ -1403,8 +1402,7 @@ pub fn start_zerotrust_connection(
     let feedback = format!("{conn_msg}\r\n{cmd_msg}\r\n\r\n");
     notebook.display_output(session_id, &feedback);
 
-    // Spawn the Zero Trust command through shell to use full PATH
-    // In Flatpak, wraps with flatpak-spawn --host to run on the host system
+    // Spawn the Zero Trust command through shell
     let spawn_command = rustconn_core::flatpak::wrap_host_command(&full_command);
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
     notebook.spawn_command(session_id, &[&shell, "-c", &spawn_command], None, None);
@@ -1550,7 +1548,6 @@ pub fn start_kubernetes_connection(
     let conn_name = conn.name.clone();
 
     // Check kubectl availability before attempting to launch
-    // In Flatpak, check the host system via flatpak-spawn --host
     let kubectl_available = if rustconn_core::flatpak::is_flatpak() {
         rustconn_core::flatpak::is_host_command_available("kubectl")
     } else {
@@ -1660,7 +1657,7 @@ pub fn start_kubernetes_connection(
     let feedback = format!("{conn_msg}\r\n{cmd_msg}\r\n\r\n");
     notebook.display_output(session_id, &feedback);
 
-    // Spawn kubectl — use shell; in Flatpak wraps with flatpak-spawn --host
+    // Spawn kubectl via shell
     let spawn_command = rustconn_core::flatpak::wrap_host_command(&kubectl_command);
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
     notebook.spawn_command(session_id, &[&shell, "-c", &spawn_command], None, None);

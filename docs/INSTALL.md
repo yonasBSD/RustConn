@@ -44,7 +44,6 @@ RustConn requests the following permissions for full functionality:
 | `--talk-name=org.kde.kwalletd5/6` | KWallet access |
 | `--talk-name=org.keepassxc.KeePassXC.BrowserServer` | KeePassXC proxy |
 | `--talk-name=org.kde.StatusNotifierWatcher` | System tray support |
-| `--talk-name=org.freedesktop.Flatpak` | Host command execution (Zero Trust CLIs, kubectl) |
 
 ### Bundled Components
 

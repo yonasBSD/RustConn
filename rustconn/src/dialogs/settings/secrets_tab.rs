@@ -41,14 +41,10 @@ struct SecretCliDetection {
 /// Runs all secret backend CLI detection on a background thread.
 /// This function is `Send` and performs no GTK calls.
 fn detect_secret_backends() -> SecretCliDetection {
-    // KeePassXC (Flatpak-aware: check host system via flatpak-spawn)
+    // KeePassXC
     let keepassxc_installed = rustconn_core::flatpak::is_host_command_available("keepassxc-cli");
     let keepassxc_version = if keepassxc_installed {
-        if rustconn_core::flatpak::is_flatpak() {
-            get_cli_version("flatpak-spawn", &["--host", "keepassxc-cli", "--version"])
-        } else {
-            get_cli_version("keepassxc-cli", &["--version"])
-        }
+        get_cli_version("keepassxc-cli", &["--version"])
     } else {
         None
     };

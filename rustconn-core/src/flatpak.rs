@@ -1,15 +1,12 @@
-//! Flatpak sandbox detection and host command helpers
+//! Flatpak sandbox detection and path helpers
 //!
 //! This module provides utilities for detecting if the application is running
-//! inside a Flatpak sandbox and for executing host commands via
-//! `flatpak-spawn --host`.
+//! inside a Flatpak sandbox, resolving SSH key paths, and checking CLI
+//! availability in the sandbox PATH.
 //!
-//! Host command execution requires `--talk-name=org.freedesktop.Flatpak`
-//! in the Flatpak manifest. This permission is included in the local build
-//! manifest but may not be present in Flathub builds. Users can add it via:
-//! ```text
-//! flatpak override --user --talk-name=org.freedesktop.Flatpak io.github.totoshko88.RustConn
-//! ```
+//! CLI tools are installed into the sandbox via Flatpak Components
+//! (`~/.var/app/io.github.totoshko88.RustConn/cli/`).
+//! Host command execution via `flatpak-spawn --host` is no longer used.
 
 use std::sync::OnceLock;
 
@@ -92,66 +89,30 @@ pub fn is_flatpak() -> bool {
     })
 }
 
-/// Checks whether a CLI tool is available, accounting for Flatpak sandbox.
+/// Checks whether a CLI tool is available in PATH.
 ///
-/// - Outside Flatpak: runs `which <cli>` directly.
-/// - Inside Flatpak: runs `flatpak-spawn --host which <cli>` to check the host.
-///
-/// Returns `false` if the tool is not found or if `flatpak-spawn --host` is
-/// not permitted (missing `--talk-name=org.freedesktop.Flatpak`).
+/// Runs `which <cli>` to check if the binary exists.
+/// In Flatpak, CLI tools are installed to the sandbox via Flatpak Components.
 #[must_use]
 pub fn is_host_command_available(cli: &str) -> bool {
     use std::process::Command;
 
-    if !is_flatpak() {
-        return Command::new("which")
-            .arg(cli)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok_and(|s| s.success());
-    }
-
-    let result = Command::new("flatpak-spawn")
-        .arg("--host")
-        .arg("which")
+    Command::new("which")
         .arg(cli)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status();
-
-    match result {
-        Ok(status) if status.success() => true,
-        Ok(_) => {
-            tracing::debug!(cli, "Host command not found via flatpak-spawn");
-            false
-        }
-        Err(e) => {
-            tracing::warn!(
-                cli,
-                ?e,
-                "flatpak-spawn --host failed; grant permission with: \
-                 flatpak override --user --talk-name=org.freedesktop.Flatpak \
-                 io.github.totoshko88.RustConn"
-            );
-            false
-        }
-    }
+        .status()
+        .is_ok_and(|s| s.success())
 }
 
-/// Wraps a shell command string for host execution when inside Flatpak.
+/// Returns the command unchanged.
 ///
-/// - Outside Flatpak: returns the command unchanged.
-/// - Inside Flatpak: prepends `flatpak-spawn --host` so the shell runs on the host.
-///
-/// The returned string is suitable for `bash -c "<command>"` or direct VTE spawn.
+/// Previously wrapped commands with `flatpak-spawn --host` for host execution.
+/// Since 0.10.1, CLI tools are installed into the Flatpak sandbox via
+/// Flatpak Components, so host execution is no longer needed.
 #[must_use]
 pub fn wrap_host_command(command: &str) -> String {
-    if is_flatpak() {
-        format!("flatpak-spawn --host bash -c {}", shell_escape(command))
-    } else {
-        command.to_string()
-    }
+    command.to_string()
 }
 
 /// Checks if a path is a Flatpak document portal path.
@@ -281,12 +242,6 @@ fn copy_and_set_permissions(content: &[u8], dest: &std::path::Path) -> Option<st
     Some(dest.to_path_buf())
 }
 
-/// Shell-escapes a string by wrapping it in single quotes.
-fn shell_escape(s: &str) -> String {
-    // Replace single quotes with '\'' (end quote, escaped quote, start quote)
-    format!("'{}'", s.replace('\'', "'\\''"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,16 +254,6 @@ mod tests {
         // Just verify it doesn't panic and returns a boolean
         // The result depends on the environment
         let _ = result;
-    }
-
-    #[test]
-    fn test_shell_escape_simple() {
-        assert_eq!(shell_escape("hello world"), "'hello world'");
-    }
-
-    #[test]
-    fn test_shell_escape_with_quotes() {
-        assert_eq!(shell_escape("it's"), "'it'\\''s'");
     }
 
     #[test]

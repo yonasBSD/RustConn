@@ -73,25 +73,8 @@ pub async fn detect_keepassxc() -> PasswordManagerInfo {
         formats: vec!["KDBX 3", "KDBX 4"],
     };
 
-    // Check keepassxc-cli (Flatpak-aware)
-    if crate::flatpak::is_flatpak() {
-        // Inside Flatpak: check host via flatpak-spawn
-        if crate::flatpak::is_host_command_available("keepassxc-cli") {
-            info.installed = true;
-            // Get version via flatpak-spawn --host keepassxc-cli --version
-            if let Ok(output) = Command::new("flatpak-spawn")
-                .arg("--host")
-                .arg("keepassxc-cli")
-                .arg("--version")
-                .output()
-                .await
-                && output.status.success()
-            {
-                let version_str = String::from_utf8_lossy(&output.stdout);
-                info.version = parse_version_line(&version_str);
-            }
-        }
-    } else if let Ok(output) = Command::new("keepassxc-cli")
+    // Check keepassxc-cli availability
+    if let Ok(output) = Command::new("keepassxc-cli")
         .arg("--version")
         .output()
         .await
@@ -114,22 +97,8 @@ pub async fn detect_keepassxc() -> PasswordManagerInfo {
         info.status_message = Some("Not running or browser integration disabled".to_string());
     }
 
-    // Find executable path (Flatpak-aware)
-    if crate::flatpak::is_flatpak() {
-        if let Ok(output) = Command::new("flatpak-spawn")
-            .arg("--host")
-            .arg("which")
-            .arg("keepassxc")
-            .output()
-            .await
-            && output.status.success()
-        {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() {
-                info.path = Some(PathBuf::from(path));
-            }
-        }
-    } else if let Ok(output) = Command::new("which").arg("keepassxc").output().await
+    // Find executable path
+    if let Ok(output) = Command::new("which").arg("keepassxc").output().await
         && output.status.success()
     {
         let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -744,48 +713,6 @@ pub fn get_password_manager_launch_command(
     match backend {
         crate::config::SecretBackendType::KeePassXc
         | crate::config::SecretBackendType::KdbxFile => {
-            // In Flatpak, check host system for KeePassXC
-            if crate::flatpak::is_flatpak() {
-                if crate::flatpak::is_host_command_available("keepassxc") {
-                    return Some((
-                        "flatpak-spawn".to_string(),
-                        vec!["--host".to_string(), "keepassxc".to_string()],
-                    ));
-                }
-                // Try GNOME Secrets on host
-                if crate::flatpak::is_host_command_available("gnome-secrets") {
-                    return Some((
-                        "flatpak-spawn".to_string(),
-                        vec!["--host".to_string(), "gnome-secrets".to_string()],
-                    ));
-                }
-                // Try KeePass 2 on host
-                if crate::flatpak::is_host_command_available("keepass2") {
-                    return Some((
-                        "flatpak-spawn".to_string(),
-                        vec!["--host".to_string(), "keepass2".to_string()],
-                    ));
-                }
-                // Try GNOME Secrets flatpak on host
-                if std::process::Command::new("flatpak-spawn")
-                    .args(["--host", "flatpak", "info", "org.gnome.World.Secrets"])
-                    .output()
-                    .is_ok_and(|o| o.status.success())
-                {
-                    return Some((
-                        "flatpak-spawn".to_string(),
-                        vec![
-                            "--host".to_string(),
-                            "flatpak".to_string(),
-                            "run".to_string(),
-                            "org.gnome.World.Secrets".to_string(),
-                        ],
-                    ));
-                }
-                return None;
-            }
-
-            // Outside Flatpak: direct detection
             // Try KeePassXC first
             if std::process::Command::new("which")
                 .arg("keepassxc")

@@ -36,9 +36,6 @@ finish-args:
   - --talk-name=org.keepassxc.KeePassXC.BrowserServer
   # System tray (StatusNotifierItem)
   - --talk-name=org.kde.StatusNotifierWatcher
-  # Host command execution for ZeroTrust (aws, gcloud, az) and Kubernetes (kubectl)
-  # These CLI tools are installed on the host, not in the sandbox
-  - --talk-name=org.freedesktop.Flatpak
   # Device access (serial ports for picocom require --device=all; no granular option exists)
   - --device=all
   # Downloads directory for SFTP file transfers via mc
@@ -243,6 +240,7 @@ modules:
       - type: git
         url: https://github.com/totoshko88/RustConn.git
         tag: v0.10.1
+        commit: 8768f79d4ab468ac4d7f5ebbeb79448467e94654
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$
