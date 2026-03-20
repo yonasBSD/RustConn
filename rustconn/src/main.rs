@@ -198,15 +198,32 @@ fn main() -> gtk4::glib::ExitCode {
 
     // Initialize logging with environment filter (RUST_LOG)
     // Filter out noisy zbus debug messages (ProvideXdgActivationToken errors from ksni)
+    // and IronRDP internal debug spam (Non-32 bpp compressed RLE_BITMAP_STREAM etc.)
     //
     // Note: expect() is acceptable here because:
-    // 1. "zbus=warn" is a compile-time constant directive that is always valid
+    // 1. These are compile-time constant directives that are always valid
     // 2. Runtime creation failure at startup is unrecoverable - the app cannot function
-    let filter = tracing_subscriber::EnvFilter::from_default_env().add_directive(
-        "zbus=warn"
-            .parse()
-            .expect("compile-time constant directive"),
-    );
+    let filter = tracing_subscriber::EnvFilter::from_default_env()
+        .add_directive(
+            "zbus=warn"
+                .parse()
+                .expect("compile-time constant directive"),
+        )
+        .add_directive(
+            "ironrdp=warn"
+                .parse()
+                .expect("compile-time constant directive"),
+        )
+        .add_directive(
+            "ironrdp_session=warn"
+                .parse()
+                .expect("compile-time constant directive"),
+        )
+        .add_directive(
+            "ironrdp_tokio=warn"
+                .parse()
+                .expect("compile-time constant directive"),
+        );
 
     tracing_subscriber::fmt().with_env_filter(filter).init();
 

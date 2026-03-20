@@ -39,6 +39,7 @@ tracing-subscriber = { workspace = true }
 # Audio playback for RDP embedded mode
 cpal = { version = "0.17.3", optional = true }
 serde = { workspace = true, features = ["derive"] }
+shell-words = "1"
 
 [features]
 default = ["tray", "vnc-embedded", "rdp-embedded", "rdp-audio", "wayland-native", "spice-embedded"]

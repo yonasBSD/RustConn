@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.10.1
+Version:        0.10.2
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,26 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu Mar 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.2-0
+- Fixed MOSH connections not dispatched — added start_mosh_connection()
+- Fixed auto-recording not triggered from session_recording_enabled toggle
+- Fixed highlight rules not applied to terminal after connection
+- Fixed script command visible on recording start — delayed erase
+- Fixed double exit and UI freeze on recording stop — Ctrl+D + async SCP
+- Fixed lost commands in recording playback — strip_script_command_echo()
+- Fixed .rdp file association — MIME type XML for all packaging formats
+- Fixed sidebar stretching with long connection names — ellipsize
+- Fixed picocom not detected in Flatpak — which_binary() fallback
+- Fixed RDP error message when FreeRDP not installed
+- Fixed IronRDP debug log spam — filtered to warn level
+- Improved CSV import delimiter auto-detection
+- Improved script credentials test button with 30s timeout and feedback
+- Added config sync documentation to User Guide
+- Dependencies: shell-words 1.x (rustconn crate), aws-lc-rs 1.16.2, tar 0.4.45
+
+* Fri Mar 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.2-0
+- See CHANGELOG.md for full release notes
+
 * Wed Mar 18 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.1-0
 - MOSH protocol — predict mode, SSH port, UDP port range, server binary
 - CSV import/export — RFC 4180, auto column mapping, delimiter options
