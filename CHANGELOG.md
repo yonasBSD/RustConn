@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-03-20
+
+### Fixed
+- **MOSH connections not working** — `start_connection()` dispatch was missing the `"mosh"` arm; MOSH connections silently failed. Added `start_mosh_connection()` with port check, binary detection, and CLI feedback
+- **Auto-recording not triggered** — `session_recording_enabled` toggle in connection dialog had no effect; wired auto-recording into SSH, Telnet, Serial, Kubernetes, and MOSH connection handlers using `connect_contents_changed` callback
+- **Highlight rules not applied** — per-connection `highlight_rules` were saved but never passed to `TerminalNotebook`; wired `set_highlight_rules()` call into all protocol handlers after terminal tab creation
+- **`script` command visible on recording start** — replaced synchronous `feed()` erase with 100ms delayed erase via `glib::timeout_add_local_once` so PTY echo arrives before the clear sequence; added leading space for `HISTCONTROL=ignorespace`
+- **Double exit and UI freeze on recording stop** — replaced `exit\n` with `\x04` (Ctrl+D/EOF) to terminate `script` sub-shell without visible echo; moved SCP file retrieval and remote cleanup to background thread via `spawn_blocking_with_callback`
+- **Lost commands in recording playback** — added `strip_script_command_echo()` that removes the echoed `script -q -f --log-out …` line from recording data with timing entry adjustment, analogous to existing `strip_script_header()`
+- **.rdp files not opening on double-click** — created `application/x-rdp` MIME type XML definition (`io.github.totoshko88.RustConn-rdp.xml`); installed in all packaging formats: Flatpak, Flathub, OBS RPM/DEB, native install script ([#64](https://github.com/totoshko88/RustConn/issues/64))
+- **Sidebar stretching with long connection names** — added `ellipsize(End)` and `max_width_chars(35)` to sidebar connection label ([#64](https://github.com/totoshko88/RustConn/issues/64))
+- **picocom not detected in Flatpak** — `picocom --help` returns exit code 1 on v3.x causing detection failure; added `which_binary()` fallback that confirms binary existence without running it ([#62](https://github.com/totoshko88/RustConn/issues/62))
+- **RDP "indefinite connection" with no feedback** — improved error message when FreeRDP is not installed: now shows "Install FreeRDP 3.x (xfreerdp3 or wlfreerdp3)" instead of raw error ([#61](https://github.com/totoshko88/RustConn/issues/61))
+- **IronRDP debug log spam** — filtered `ironrdp`, `ironrdp_session`, `ironrdp_tokio` crates to `warn` level in tracing subscriber; suppresses noisy `Non-32 bpp compressed RLE_BITMAP_STREAM` messages
+
+### Improved
+- **CSV import auto-detects delimiter** — `.tsv` files use tab; for `.csv` files, heuristic compares comma/semicolon/tab counts in the first line and picks the most frequent separator
+- **Script credentials test feedback** — "Test Script" button now runs the configured command with 30s timeout, shows success with masked output preview or failure with stderr and exit code
+- **Config sync documentation** — added "Configuration Sync Between Machines" section to User Guide with Git, Syncthing/rsync, CLI export/import, and built-in Backup/Restore instructions
+
+### Dependencies
+- New: `shell-words` 1.x added to `rustconn` crate (script credential test button)
+- Updated: `aws-lc-rs` 1.16.1→1.16.2, `aws-lc-sys` 0.38.0→0.39.0, `itoa` 1.0.17→1.0.18, `tar` 0.4.44→0.4.45
+
 ## [0.10.1] - 2026-03-19
 
 ### Note

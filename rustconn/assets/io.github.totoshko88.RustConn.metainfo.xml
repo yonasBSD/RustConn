@@ -95,6 +95,27 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.2" date="2026-03-20">
+      <description>
+        <p>Bug fixes for session recording, MOSH, highlight rules, and packaging improvements:</p>
+        <ul>
+          <li>Fixed MOSH connections silently failing — added missing dispatch handler</li>
+          <li>Fixed auto-recording not triggered when session_recording_enabled is set</li>
+          <li>Fixed per-connection highlight rules not applied after terminal creation</li>
+          <li>Fixed script command visible on recording start — delayed erase with HISTCONTROL support</li>
+          <li>Fixed double exit and UI freeze on recording stop — EOF signal with async SCP retrieval</li>
+          <li>Fixed lost commands in recording playback — strips echoed script invocation line</li>
+          <li>Fixed .rdp file association — MIME type definition installed in all packaging formats</li>
+          <li>Fixed sidebar stretching with long names — ellipsize with max width</li>
+          <li>Fixed picocom detection in Flatpak — fallback to which_binary() for v3.x</li>
+          <li>Fixed RDP error message — shows "Install FreeRDP 3.x" instead of raw error</li>
+          <li>Suppressed IronRDP debug log spam in tracing subscriber</li>
+          <li>CSV import auto-detects delimiter from file content</li>
+          <li>Script credentials test button with 30s timeout and masked output preview</li>
+          <li>Config sync documentation added to User Guide</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.1" date="2026-03-19">
       <description>
         <p>8 new features: MOSH protocol, CSV import/export, session recording, text highlighting, ad-hoc broadcast, smart folders, script credentials, and per-connection terminal theming:</p>

@@ -1216,6 +1216,7 @@ impl ConnectionDialog {
         let protocol_dropdown = result.protocol_dropdown.clone();
         let _username_entry = result.username_entry.clone();
         let window = result.window.clone();
+        let window_for_script = window.clone();
 
         test_button.connect_clicked(move |btn| {
             // Validate required fields
@@ -1399,6 +1400,111 @@ impl ConnectionDialog {
                 },
             );
         });
+
+        // Script credentials test button
+        {
+            let script_entry = result.script_command_entry.clone();
+            let script_btn = result.script_test_button.clone();
+            let window = window_for_script;
+            result.script_test_button.connect_clicked(move |_| {
+                let cmd_text = script_entry.text().to_string();
+                if cmd_text.trim().is_empty() {
+                    alert::show_error(
+                        &window,
+                        &i18n("Script Test Failed"),
+                        &i18n("Script command is empty"),
+                    );
+                    return;
+                }
+
+                let args = match shell_words::split(&cmd_text) {
+                    Ok(a) if a.is_empty() => {
+                        alert::show_error(
+                            &window,
+                            &i18n("Script Test Failed"),
+                            &i18n("Script command is empty after parsing"),
+                        );
+                        return;
+                    }
+                    Ok(a) => a,
+                    Err(e) => {
+                        alert::show_error(
+                            &window,
+                            &i18n("Script Test Failed"),
+                            &format!("{}: {e}", i18n("Failed to parse command")),
+                        );
+                        return;
+                    }
+                };
+
+                script_btn.set_sensitive(false);
+                script_btn.set_label(&i18n("Testing…"));
+                let btn_clone = script_btn.clone();
+                let window_clone = window.clone();
+
+                crate::utils::spawn_blocking_with_timeout(
+                    move || {
+                        let output = std::process::Command::new(&args[0])
+                            .args(&args[1..])
+                            .stdin(std::process::Stdio::null())
+                            .output();
+                        match output {
+                            Ok(o) => (
+                                o.status.success(),
+                                String::from_utf8_lossy(&o.stdout).trim().to_string(),
+                                String::from_utf8_lossy(&o.stderr).trim().to_string(),
+                                o.status.code(),
+                            ),
+                            Err(e) => (false, String::new(), e.to_string(), None),
+                        }
+                    },
+                    std::time::Duration::from_secs(30),
+                    move |result: Option<(bool, String, String, Option<i32>)>| {
+                        btn_clone.set_sensitive(true);
+                        btn_clone.set_label(&i18n("Test Script"));
+
+                        match result {
+                            Some((true, stdout, _, _)) => {
+                                let preview = if stdout.len() > 40 {
+                                    format!("{}…", &stdout[..40])
+                                } else if stdout.is_empty() {
+                                    i18n("(empty output)")
+                                } else {
+                                    "●".repeat(stdout.len())
+                                };
+                                alert::show_success(
+                                    &window_clone,
+                                    &i18n("Script Test Successful"),
+                                    &format!("{}: {preview}", i18n("Output")),
+                                );
+                            }
+                            Some((false, _, stderr, code)) => {
+                                let code_str =
+                                    code.map(|c| format!(" (exit {c})")).unwrap_or_default();
+                                let msg = if stderr.is_empty() {
+                                    format!("{}{code_str}", i18n("Command failed"))
+                                } else {
+                                    let preview = if stderr.len() > 120 {
+                                        format!("{}…", &stderr[..120])
+                                    } else {
+                                        stderr
+                                    };
+                                    format!("{preview}{code_str}")
+                                };
+                                alert::show_error(&window_clone, &i18n("Script Test Failed"), &msg);
+                            }
+                            None => {
+                                alert::show_error(
+                                    &window_clone,
+                                    &i18n("Script Test Failed"),
+                                    &i18n("Script timed out after 30 seconds"),
+                                );
+                            }
+                        }
+                    },
+                );
+            });
+        }
 
         // Reverse sync: when SSH auth switches to Password(0) but password_source is None(4),
         // auto-switch password_source to Prompt(0)
