@@ -83,6 +83,7 @@ Full documentation: [User Guide](docs/USER_GUIDE.md)
 ## Support
 
 [![Donatello](https://img.shields.io/badge/Donatello-Support-ff5e5b)](https://donatello.to/totoshko88)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi)](https://ko-fi.com/totoshko88)
 [![Monobank](https://img.shields.io/badge/Monobank-UAH-black?logo=monobank)](https://send.monobank.ua/jar/2UgaGcQ3JC)
 
 ## License
