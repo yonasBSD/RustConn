@@ -428,6 +428,13 @@ fn cmd_secret_set(
     use rustconn_core::config::SecretBackendType;
     use rustconn_core::secret::{KeePassHierarchy, KeePassStatus};
 
+    if password.is_some() {
+        eprintln!(
+            "Warning: --password is insecure (visible in process listings). \
+             Prefer interactive prompt."
+        );
+    }
+
     let config_manager = create_config_manager(config_path)?;
 
     let connections = config_manager

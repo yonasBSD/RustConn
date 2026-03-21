@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.10.2
+Version:        0.10.3
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,21 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Sat Mar 21 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.3-0
+- Security: RDP password no longer exposed in /proc — uses /from-stdin pipe
+- Security: SSH agent askpass script zeroized before deletion
+- Security: CLI --password flag shows security warning
+- Security: Legacy XOR credential decryption now logged
+- Fixed highlight rules not applied without per-connection rules (#66)
+- Fixed CLI add --protocol zerotrust silently creating SSH connection
+- Fixed config file corruption on crash — atomic temp-file + rename
+- Fixed blocking DNS in async check_port_async
+- Improved sidebar tooltip with full connection name on hover
+- Improved log sanitization performance — LazyLock regex compilation
+- Improved CLI parse_protocol consolidated into shared utility
+- Dead code cleanup — removed unused AppStateError, VncLauncher, FieldValidator
+- Dependencies: rustls-webpki 0.103.10, zune-jpeg 0.5.14
+
 * Thu Mar 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.2-0
 - Fixed MOSH connections not dispatched — added start_mosh_connection()
 - Fixed auto-recording not triggered from session_recording_enabled toggle

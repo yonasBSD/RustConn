@@ -8,6 +8,7 @@ use chrono::{Local, Utc};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use thiserror::Error;
 
 use crate::variables::{VariableManager, VariableScope};
@@ -710,37 +711,24 @@ fn sanitize_filename(name: &str) -> String {
         .collect()
 }
 
-/// Patterns that indicate sensitive data in terminal output
+/// Patterns that indicate sensitive data in terminal output.
+/// Only lowercase variants are needed — the matching code already
+/// calls `to_lowercase()` on both sides before comparison.
 const SENSITIVE_PATTERNS: &[&str] = &[
     "password:",
-    "Password:",
-    "PASSWORD:",
     "pass:",
-    "Pass:",
-    "PASS:",
     "secret:",
-    "Secret:",
-    "SECRET:",
     "token:",
-    "Token:",
-    "TOKEN:",
     "api_key:",
-    "API_KEY:",
     "apikey:",
-    "APIKEY:",
     "private_key:",
-    "PRIVATE_KEY:",
     "ssh_pass:",
-    "SSH_PASS:",
     "sudo password",
-    "Enter passphrase",
-    "Enter PIN",
-    "OTP:",
+    "enter passphrase",
+    "enter pin",
     "otp:",
     "2fa:",
-    "2FA:",
     "mfa:",
-    "MFA:",
 ];
 
 /// Regex patterns for detecting sensitive data values
@@ -762,6 +750,14 @@ const SENSITIVE_VALUE_PATTERNS: &[&str] = &[
     // SSH key fingerprints (not sensitive but may indicate key operations)
     r"SHA256:[a-zA-Z0-9+/]{43}",
 ];
+
+/// Pre-compiled regexes for `SENSITIVE_VALUE_PATTERNS` — compiled once via `LazyLock`.
+static COMPILED_SENSITIVE_PATTERNS: LazyLock<Vec<regex::Regex>> = LazyLock::new(|| {
+    SENSITIVE_VALUE_PATTERNS
+        .iter()
+        .filter_map(|p| regex::Regex::new(p).ok())
+        .collect()
+});
 
 /// Configuration for log sanitization
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -872,13 +868,11 @@ pub fn sanitize_output(output: &str, config: &SanitizeConfig) -> String {
         }
     }
 
-    // Apply regex patterns for sensitive values
-    for pattern_str in SENSITIVE_VALUE_PATTERNS {
-        if let Ok(re) = regex::Regex::new(pattern_str) {
-            result = re
-                .replace_all(&result, config.replacement.as_str())
-                .to_string();
-        }
+    // Apply pre-compiled regex patterns for sensitive values
+    for re in COMPILED_SENSITIVE_PATTERNS.iter() {
+        result = re
+            .replace_all(&result, config.replacement.as_str())
+            .to_string();
     }
 
     // Apply custom patterns

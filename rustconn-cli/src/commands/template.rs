@@ -7,7 +7,7 @@ use rustconn_core::models::ConnectionTemplate;
 use crate::cli::{OutputFormat, TemplateCommands};
 use crate::error::CliError;
 use crate::format::escape_csv_field;
-use crate::util::{create_config_manager, create_template_manager};
+use crate::util::{create_config_manager, create_template_manager, parse_protocol_type};
 
 /// Template command handler
 pub fn cmd_template(config_path: Option<&Path>, subcmd: TemplateCommands) -> Result<(), CliError> {
@@ -58,7 +58,7 @@ fn cmd_template_list(
     let manager = create_template_manager(config_path)?;
 
     let filtered: Vec<&ConnectionTemplate> = if let Some(proto) = protocol {
-        let proto_type = parse_protocol(proto)?;
+        let proto_type = parse_protocol_type(proto)?;
         manager.get_by_protocol(proto_type)
     } else {
         manager.list_templates()
@@ -279,24 +279,4 @@ fn find_template_in_manager<'a>(
     Err(CliError::Template(format!(
         "Template not found: {name_or_id}"
     )))
-}
-
-/// Parse a protocol string into `ProtocolType`
-fn parse_protocol(proto: &str) -> Result<rustconn_core::models::ProtocolType, CliError> {
-    use rustconn_core::models::ProtocolType;
-    match proto.to_lowercase().as_str() {
-        "ssh" => Ok(ProtocolType::Ssh),
-        "rdp" => Ok(ProtocolType::Rdp),
-        "vnc" => Ok(ProtocolType::Vnc),
-        "spice" => Ok(ProtocolType::Spice),
-        "telnet" => Ok(ProtocolType::Telnet),
-        "serial" => Ok(ProtocolType::Serial),
-        "sftp" => Ok(ProtocolType::Sftp),
-        "kubernetes" | "k8s" => Ok(ProtocolType::Kubernetes),
-        "mosh" => Ok(ProtocolType::Mosh),
-        _ => Err(CliError::Template(format!(
-            "Unknown protocol '{proto}'. \
-             Supported: ssh, rdp, vnc, spice, telnet, serial, sftp, kubernetes, mosh"
-        ))),
-    }
 }

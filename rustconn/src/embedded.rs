@@ -432,10 +432,10 @@ impl RdpLauncher {
             cmd.arg(format!("/u:{user}"));
         }
 
-        if let Some(pass) = password
-            && !pass.is_empty()
-        {
-            cmd.arg(format!("/p:{pass}"));
+        let has_password = password.is_some_and(|p| !p.is_empty());
+        if has_password {
+            cmd.arg("/from-stdin");
+            cmd.stdin(std::process::Stdio::piped());
         }
 
         if let Some((width, height)) = resolution {
@@ -479,62 +479,15 @@ impl RdpLauncher {
         }
 
         match cmd.spawn() {
-            Ok(child) => {
-                tab.set_process(child);
-                tab.set_status(&format!("Connected to {host}"));
-                Ok(())
-            }
-            Err(e) => Err(EmbeddingError::ProcessStartFailed(e.to_string())),
-        }
-    }
-}
-
-/// VNC session launcher for embedded and external sessions
-pub struct VncLauncher;
-
-impl VncLauncher {
-    /// Starts a VNC session
-    ///
-    /// # Errors
-    /// Returns error if the VNC client fails to start
-    pub fn start(
-        tab: &EmbeddedSessionTab,
-        host: &str,
-        port: u16,
-        encoding: Option<&str>,
-        quality: Option<u8>,
-        extra_args: &[String],
-    ) -> Result<(), EmbeddingError> {
-        use std::process::Command;
-
-        let mut cmd = Command::new("vncviewer");
-
-        if let Some(enc) = encoding {
-            cmd.arg("-PreferredEncoding");
-            cmd.arg(enc);
-        }
-
-        if let Some(q) = quality {
-            cmd.arg("-QualityLevel");
-            cmd.arg(q.to_string());
-        }
-
-        for arg in extra_args {
-            cmd.arg(arg);
-        }
-
-        let server = if port == 5900 {
-            format!("{host}:0")
-        } else if port > 5900 && port < 6000 {
-            let display = port - 5900;
-            format!("{host}:{display}")
-        } else {
-            format!("{host}::{port}")
-        };
-        cmd.arg(&server);
-
-        match cmd.spawn() {
-            Ok(child) => {
+            Ok(mut child) => {
+                if has_password
+                    && let Some(pass) = password
+                    && let Some(mut stdin) = child.stdin.take()
+                {
+                    use std::io::Write;
+                    let _ = writeln!(stdin, "{pass}");
+                    drop(stdin);
+                }
                 tab.set_process(child);
                 tab.set_status(&format!("Connected to {host}"));
                 Ok(())

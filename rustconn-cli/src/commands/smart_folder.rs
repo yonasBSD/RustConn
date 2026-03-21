@@ -8,7 +8,7 @@ use rustconn_core::smart_folder::SmartFolderManager;
 use crate::cli::{OutputFormat, SmartFolderCommands};
 use crate::error::CliError;
 use crate::format::escape_csv_field;
-use crate::util::create_config_manager;
+use crate::util::{create_config_manager, parse_protocol_type};
 
 /// Smart folder command handler
 pub fn cmd_smart_folder(
@@ -164,7 +164,7 @@ fn cmd_smart_folder_create(
         )));
     }
 
-    let filter_protocol = protocol.map(|p| parse_protocol(p)).transpose()?;
+    let filter_protocol = protocol.map(|p| parse_protocol_type(p)).transpose()?;
 
     let filter_tags = tags
         .map(|t| t.split(',').map(|s| s.trim().to_string()).collect())
@@ -237,20 +237,5 @@ fn find_smart_folder<'a>(
         _ => Err(CliError::SmartFolder(format!(
             "Ambiguous smart folder name: {name_or_id}"
         ))),
-    }
-}
-
-/// Parse a protocol string to `ProtocolType`
-fn parse_protocol(s: &str) -> Result<rustconn_core::models::ProtocolType, CliError> {
-    use rustconn_core::models::ProtocolType;
-    match s.to_lowercase().as_str() {
-        "ssh" => Ok(ProtocolType::Ssh),
-        "rdp" => Ok(ProtocolType::Rdp),
-        "vnc" => Ok(ProtocolType::Vnc),
-        "spice" => Ok(ProtocolType::Spice),
-        "telnet" => Ok(ProtocolType::Telnet),
-        "serial" => Ok(ProtocolType::Serial),
-        "mosh" => Ok(ProtocolType::Mosh),
-        other => Err(CliError::SmartFolder(format!("Unknown protocol: {other}"))),
     }
 }

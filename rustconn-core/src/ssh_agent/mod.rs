@@ -540,6 +540,17 @@ impl SshAgentManager {
                 .output()
                 .map_err(|e| AgentError::AddKeyFailed(e.to_string()));
 
+            // Zeroize the askpass script before removal to prevent recovery
+            if let Ok(metadata) = std::fs::metadata(&script_path) {
+                let size = metadata.len() as usize;
+                if let Ok(mut f) = std::fs::OpenOptions::new().write(true).open(&script_path) {
+                    use std::io::Write;
+                    let zeros = vec![0u8; size];
+                    let _ = f.write_all(&zeros);
+                    let _ = f.sync_all();
+                }
+            }
+
             // Always clean up the temporary script
             let _ = std::fs::remove_dir_all(&script_dir);
 

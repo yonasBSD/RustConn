@@ -167,3 +167,36 @@ pub fn output_with_pager(content: &str) -> Result<(), CliError> {
         Ok(())
     }
 }
+
+/// Parse a protocol string into `ProtocolType`
+pub fn parse_protocol_type(s: &str) -> Result<rustconn_core::models::ProtocolType, CliError> {
+    use rustconn_core::models::ProtocolType;
+    match s.to_lowercase().as_str() {
+        "ssh" => Ok(ProtocolType::Ssh),
+        "rdp" => Ok(ProtocolType::Rdp),
+        "vnc" => Ok(ProtocolType::Vnc),
+        "spice" => Ok(ProtocolType::Spice),
+        "telnet" => Ok(ProtocolType::Telnet),
+        "serial" => Ok(ProtocolType::Serial),
+        "sftp" => Ok(ProtocolType::Sftp),
+        "kubernetes" | "k8s" => Ok(ProtocolType::Kubernetes),
+        "zerotrust" | "zero-trust" | "zt" => Ok(ProtocolType::ZeroTrust),
+        "mosh" => Ok(ProtocolType::Mosh),
+        _ => Err(CliError::Config(format!("Unknown protocol: {s}"))),
+    }
+}
+
+/// Get the default port for a protocol
+pub fn default_port_for_protocol(proto: rustconn_core::models::ProtocolType) -> u16 {
+    use rustconn_core::models::ProtocolType;
+    match proto {
+        ProtocolType::Ssh | ProtocolType::Sftp | ProtocolType::Mosh => 22,
+        ProtocolType::Rdp => 3389,
+        ProtocolType::Vnc => 5900,
+        ProtocolType::Spice => 5930,
+        ProtocolType::Telnet => 23,
+        ProtocolType::Serial => 0,
+        ProtocolType::Kubernetes => 0,
+        ProtocolType::ZeroTrust => 22,
+    }
+}

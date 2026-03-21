@@ -46,7 +46,6 @@ pub fn setup_list_item(
     label.set_halign(gtk4::Align::Start);
     label.set_hexpand(true);
     label.set_ellipsize(pango::EllipsizeMode::End);
-    label.set_max_width_chars(35);
     content_box.append(&label);
 
     let pin_icon = Image::from_icon_name("starred-symbolic");
@@ -354,8 +353,14 @@ pub fn bind_list_item(
 
         set_label_text(&label, &item.name());
 
-        // Clear group tooltip for connections
-        expander.set_tooltip_text(None::<&str>);
+        // Show full connection name and host in tooltip
+        let name = item.name();
+        let host = item.host();
+        if host.is_empty() || host == name {
+            expander.set_tooltip_text(Some(&name));
+        } else {
+            expander.set_tooltip_text(Some(&format!("{name}\n{host}")));
+        }
 
         // Show pin icon for pinned connections
         if let Some(ref pin) = pin_icon {

@@ -15,7 +15,7 @@ use rustconn_core::models::{
     Connection, ConnectionGroup, ConnectionHistoryEntry, ConnectionStatistics, Credentials,
     PasswordSource, Snippet,
 };
-use rustconn_core::secret::{AsyncCredentialResolver, CredentialResolver, SecretManager};
+use rustconn_core::secret::{CredentialResolver, SecretManager};
 use rustconn_core::session::{Session, SessionManager};
 use rustconn_core::snippet::SnippetManager;
 use rustconn_core::template::TemplateManager;
@@ -238,7 +238,7 @@ impl AppState {
         }
 
         // Note: Bitwarden password decryption and vault auto-unlock are deferred
-        // to `initialize_secret_backends()` which runs asynchronously after the
+        // to startup which runs asynchronously after the
         // main window is presented. This avoids blocking the UI on startup.
 
         // Initialize connection manager
@@ -298,69 +298,6 @@ impl AppState {
             history_entries,
             secret_backend_available: None,
         })
-    }
-
-    /// Initializes secret backends asynchronously after the main window is shown.
-    ///
-    /// This decrypts Bitwarden/KDBX passwords and auto-unlocks vaults without
-    /// blocking the GTK main thread. Call this via `spawn_async` after
-    /// `window.present()` to keep startup fast.
-    ///
-    /// Returns `true` if a backend was successfully initialized.
-    pub fn initialize_secret_backends(&mut self) -> bool {
-        let mut backend_ready = false;
-
-        // Decrypt Bitwarden password from encrypted storage
-        if self.settings.secrets.bitwarden_password_encrypted.is_some() {
-            if self.settings.secrets.decrypt_bitwarden_password() {
-                tracing::info!("Bitwarden password restored from encrypted storage");
-            } else {
-                tracing::warn!("Failed to decrypt Bitwarden password");
-            }
-        }
-
-        // Decrypt Bitwarden API credentials
-        if self.settings.secrets.bitwarden_use_api_key
-            && (self
-                .settings
-                .secrets
-                .bitwarden_client_id_encrypted
-                .is_some()
-                || self
-                    .settings
-                    .secrets
-                    .bitwarden_client_secret_encrypted
-                    .is_some())
-        {
-            if self.settings.secrets.decrypt_bitwarden_api_credentials() {
-                tracing::info!("Bitwarden API credentials restored from encrypted storage");
-            } else {
-                tracing::warn!("Failed to decrypt Bitwarden API credentials");
-            }
-        }
-
-        // Auto-unlock Bitwarden vault
-        if matches!(
-            self.settings.secrets.preferred_backend,
-            rustconn_core::config::SecretBackendType::Bitwarden
-        ) {
-            match crate::async_utils::with_runtime(|rt| {
-                rt.block_on(rustconn_core::secret::auto_unlock(&self.settings.secrets))
-            }) {
-                Ok(Ok(_backend)) => {
-                    tracing::info!("Bitwarden vault unlocked at startup");
-                    backend_ready = true;
-                }
-                Ok(Err(e)) => {
-                    tracing::warn!("Bitwarden auto-unlock at startup failed: {e}");
-                }
-                Err(e) => {
-                    tracing::warn!("Bitwarden auto-unlock at startup failed (runtime): {e}");
-                }
-            }
-        }
-
-        backend_ready
     }
 
     // ========== Password Cache Operations ==========
@@ -892,7 +829,7 @@ impl AppState {
 
     /// Refreshes the cached secret backend availability
     ///
-    /// Call this after `initialize_secret_backends()` and after settings changes
+    /// Call this after settings changes
     /// that affect the secret backend configuration.
     pub fn refresh_secret_backend_cache(&mut self) {
         let secret_manager = self.secret_manager.clone();
@@ -900,23 +837,6 @@ impl AppState {
             with_runtime(|rt| rt.block_on(async { secret_manager.is_available().await }))
                 .unwrap_or(false),
         );
-    }
-
-    // ========== Async Credential Operations ==========
-
-    /// Creates an async credential resolver for non-blocking credential resolution
-    ///
-    /// This method creates a resolver that can be used for async credential
-    /// resolution without blocking the UI thread.
-    ///
-    /// # Returns
-    /// An `AsyncCredentialResolver` configured with current settings
-    #[must_use]
-    pub fn create_async_resolver(&self) -> AsyncCredentialResolver {
-        AsyncCredentialResolver::new(
-            Arc::new(SecretManager::empty()),
-            self.settings.secrets.clone(),
-        )
     }
 
     // ========== GTK-Friendly Async Credential Operations ==========

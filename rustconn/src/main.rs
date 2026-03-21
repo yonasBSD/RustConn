@@ -72,8 +72,6 @@ mod vault_ops;
 pub mod wayland_surface;
 mod window;
 
-pub mod error;
-
 // CLI startup override, set in `main()` and consumed in `build_ui()`.
 // Uses `RefCell` because GTK is single-threaded and the value
 // is written once before `app.run()` and read once inside `connect_activate`.

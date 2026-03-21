@@ -205,8 +205,8 @@ fn start_ssh_connection_internal(
         conn.theme_override.as_ref(),
     );
 
-    // Apply per-connection highlight rules (merged with global rules)
-    if !conn.highlight_rules.is_empty() {
+    // Apply highlight rules (built-in defaults + global + per-connection)
+    {
         let global_rules = state
             .try_borrow()
             .ok()
@@ -1226,8 +1226,8 @@ fn start_telnet_connection_internal(
         conn.theme_override.as_ref(),
     );
 
-    // Apply per-connection highlight rules (merged with global rules)
-    if !conn.highlight_rules.is_empty() {
+    // Apply highlight rules (built-in defaults + global + per-connection)
+    {
         let global_rules = state
             .try_borrow()
             .ok()
@@ -1572,8 +1572,8 @@ pub fn start_serial_connection(
         conn.theme_override.as_ref(),
     );
 
-    // Apply per-connection highlight rules (merged with global rules)
-    if !conn.highlight_rules.is_empty() {
+    // Apply highlight rules (built-in defaults + global + per-connection)
+    {
         let global_rules = state
             .try_borrow()
             .ok()
@@ -1734,8 +1734,8 @@ pub fn start_kubernetes_connection(
         conn.theme_override.as_ref(),
     );
 
-    // Apply per-connection highlight rules (merged with global rules)
-    if !conn.highlight_rules.is_empty() {
+    // Apply highlight rules (built-in defaults + global + per-connection)
+    {
         let global_rules = state
             .try_borrow()
             .ok()
@@ -1968,8 +1968,8 @@ fn start_mosh_connection_internal(
         conn.theme_override.as_ref(),
     );
 
-    // Apply per-connection highlight rules (merged with global rules)
-    if !conn.highlight_rules.is_empty() {
+    // Apply highlight rules (built-in defaults + global + per-connection)
+    {
         let global_rules = state
             .try_borrow()
             .ok()

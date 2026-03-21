@@ -95,6 +95,26 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.3" date="2026-03-21">
+      <description>
+        <p>Security hardening, code audit fixes, and dead code cleanup:</p>
+        <ul>
+          <li>Security: RDP password no longer exposed in /proc — uses /from-stdin pipe</li>
+          <li>Security: SSH agent askpass script zeroized before deletion</li>
+          <li>Security: CLI --password flag shows security warning</li>
+          <li>Security: Legacy XOR credential decryption now logged</li>
+          <li>Fixed highlight rules not applied without per-connection rules (#66)</li>
+          <li>Fixed CLI add --protocol zerotrust silently creating SSH connection</li>
+          <li>Fixed config file corruption on crash — atomic temp-file + rename</li>
+          <li>Fixed blocking DNS in async check_port_async</li>
+          <li>Improved sidebar tooltip with full connection name on hover</li>
+          <li>Improved log sanitization performance — LazyLock regex compilation</li>
+          <li>Improved CLI parse_protocol consolidated into shared utility</li>
+          <li>Dead code cleanup — removed unused AppStateError, VncLauncher, FieldValidator</li>
+          <li>Dependencies: rustls-webpki 0.103.10, zune-jpeg 0.5.14</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.2" date="2026-03-20">
       <description>
         <p>Bug fixes for session recording, MOSH, highlight rules, and packaging improvements:</p>

@@ -505,7 +505,7 @@ impl ConfigManager {
         })
     }
 
-    /// Saves data to a TOML file
+    /// Saves data to a TOML file with atomic write (temp file + rename).
     fn save_toml_file<T>(path: &Path, data: &T) -> ConfigResult<()>
     where
         T: serde::Serialize,
@@ -513,23 +513,34 @@ impl ConfigManager {
         let content = toml::to_string_pretty(data)
             .map_err(|e| ConfigError::Serialize(format!("Failed to serialize: {e}")))?;
 
-        fs::write(path, content).map_err(|e| {
-            ConfigError::Write(format!("Failed to write {}: {}", path.display(), e))
+        // Atomic write: temp file + rename (matches save_toml_file_async pattern)
+        let temp_path = path.with_extension("tmp");
+
+        fs::write(&temp_path, content).map_err(|e| {
+            ConfigError::Write(format!("Failed to write {}: {}", temp_path.display(), e))
         })?;
 
-        // Restrict file permissions to owner-only (0600) — config files contain
-        // hostnames, usernames, port forwards, SSH key paths.
+        // Restrict file permissions to owner-only (0600)
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|e| {
+            fs::set_permissions(&temp_path, fs::Permissions::from_mode(0o600)).map_err(|e| {
                 ConfigError::Write(format!(
                     "Failed to set permissions on {}: {}",
-                    path.display(),
+                    temp_path.display(),
                     e
                 ))
             })?;
         }
+
+        fs::rename(&temp_path, path).map_err(|e| {
+            ConfigError::Write(format!(
+                "Failed to rename {} to {}: {}",
+                temp_path.display(),
+                path.display(),
+                e
+            ))
+        })?;
 
         Ok(())
     }

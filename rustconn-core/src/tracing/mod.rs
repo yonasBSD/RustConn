@@ -116,6 +116,7 @@ pub enum TracingOutput {
         rotate: bool,
     },
     /// Output to OpenTelemetry collector (placeholder for future implementation)
+    #[deprecated(note = "OpenTelemetry support is not yet implemented")]
     OpenTelemetry {
         /// Endpoint URL for the collector
         endpoint: String,
@@ -302,6 +303,7 @@ pub fn init_tracing(config: &TracingConfig) -> TracingResult<()> {
                 .try_init()
                 .map_err(|e| TracingError::InitializationFailed(e.to_string()))?;
         }
+        #[allow(deprecated)]
         TracingOutput::OpenTelemetry { endpoint } => {
             // OpenTelemetry support is a placeholder for future implementation
             // For now, fall back to stderr with a warning

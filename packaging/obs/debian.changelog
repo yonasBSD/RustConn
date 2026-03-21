@@ -1,3 +1,27 @@
+rustconn (0.10.3-1) unstable; urgency=medium
+
+  * See CHANGELOG.md for full release notes
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Sat, 21 Mar 2026 12:00:00 +0200
+
+rustconn (0.10.3-1) unstable; urgency=medium
+
+  * Security: RDP password no longer exposed in /proc — uses /from-stdin pipe
+  * Security: SSH agent askpass script zeroized before deletion
+  * Security: CLI --password flag shows security warning
+  * Security: Legacy XOR credential decryption now logged
+  * Fixed highlight rules not applied without per-connection rules (#66)
+  * Fixed CLI add --protocol zerotrust silently creating SSH connection
+  * Fixed config file corruption on crash — atomic temp-file + rename
+  * Fixed blocking DNS in async check_port_async
+  * Improved sidebar tooltip with full connection name on hover
+  * Improved log sanitization performance — LazyLock regex compilation
+  * Improved CLI parse_protocol consolidated into shared utility
+  * Dead code cleanup — removed unused AppStateError, VncLauncher, FieldValidator
+  * Dependencies: rustls-webpki 0.103.10, zune-jpeg 0.5.14
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Sat, 21 Mar 2026 12:00:00 +0200
+
 rustconn (0.10.2-1) unstable; urgency=medium
 
   * See CHANGELOG.md for full release notes

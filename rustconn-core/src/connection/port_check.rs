@@ -119,9 +119,9 @@ pub async fn check_port_async(
     let timeout = Duration::from_secs(u64::from(timeout_secs));
     let addr_str = format!("{host}:{port}");
 
-    // Resolve hostname (blocking, but fast)
-    let addrs: Vec<SocketAddr> = addr_str
-        .to_socket_addrs()
+    // Resolve hostname asynchronously
+    let addrs: Vec<SocketAddr> = tokio::net::lookup_host(&addr_str)
+        .await
         .map_err(|e| PortCheckError::ResolutionFailed {
             host: host.to_string(),
             reason: e.to_string(),

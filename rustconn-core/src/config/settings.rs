@@ -877,6 +877,10 @@ fn decrypt_credential(data: &[u8], machine_key: &[u8]) -> Result<Vec<u8>, String
         decrypt_credential_aes(data, machine_key)
     } else {
         // Legacy XOR format — decrypt transparently; re-encrypted on next save
+        tracing::warn!(
+            "Decrypting credential with legacy XOR cipher — \
+             will be upgraded to AES-256-GCM on next save"
+        );
         Ok(SecretSettings::xor_cipher_legacy(data, machine_key))
     }
 }

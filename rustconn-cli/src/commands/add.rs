@@ -6,7 +6,7 @@ use rustconn_core::config::ConfigManager;
 use rustconn_core::models::{Connection, ProtocolType, SshAuthMethod};
 
 use crate::error::CliError;
-use crate::util::create_config_manager;
+use crate::util::{create_config_manager, default_port_for_protocol, parse_protocol_type};
 
 /// Parameters for the `add` command
 pub struct AddParams<'a> {
@@ -43,7 +43,7 @@ pub fn cmd_add(config_path: Option<&Path>, params: AddParams<'_>) -> Result<(), 
         protocol_type,
         params.key,
         ssh_auth,
-    );
+    )?;
 
     // Apply serial-specific settings
     if protocol_type == ProtocolType::Serial
@@ -102,22 +102,9 @@ pub fn parse_auth_method(s: &str) -> Result<SshAuthMethod, CliError> {
 
 /// Parse protocol string and return protocol type with default port
 pub fn parse_protocol(protocol: &str) -> Result<(ProtocolType, u16), CliError> {
-    match protocol.to_lowercase().as_str() {
-        "ssh" => Ok((ProtocolType::Ssh, 22)),
-        "rdp" => Ok((ProtocolType::Rdp, 3389)),
-        "vnc" => Ok((ProtocolType::Vnc, 5900)),
-        "spice" => Ok((ProtocolType::Spice, 5900)),
-        "telnet" => Ok((ProtocolType::Telnet, 23)),
-        "serial" => Ok((ProtocolType::Serial, 0)),
-        "sftp" => Ok((ProtocolType::Sftp, 22)),
-        "kubernetes" | "k8s" => Ok((ProtocolType::Kubernetes, 0)),
-        "mosh" => Ok((ProtocolType::Mosh, 22)),
-        _ => Err(CliError::Config(format!(
-            "Unknown protocol '{protocol}'. \
-             Supported protocols: ssh, rdp, vnc, spice, telnet, \
-             serial, sftp, kubernetes, mosh"
-        ))),
-    }
+    let proto = parse_protocol_type(protocol)?;
+    let port = default_port_for_protocol(proto);
+    Ok((proto, port))
 }
 
 /// Create a connection with the specified parameters
@@ -129,8 +116,8 @@ fn create_connection(
     protocol_type: ProtocolType,
     key: Option<&Path>,
     auth_method: Option<SshAuthMethod>,
-) -> Connection {
-    match protocol_type {
+) -> Result<Connection, CliError> {
+    let conn = match protocol_type {
         ProtocolType::Ssh => {
             let mut conn = Connection::new_ssh(name.to_string(), host.to_string(), port);
             if let rustconn_core::models::ProtocolConfig::Ssh(ref mut ssh_config) =
@@ -177,7 +164,9 @@ fn create_connection(
         ProtocolType::ZeroTrust => {
             tracing::error!("Zero Trust connections cannot be created via CLI quick-connect");
             tracing::info!("Use the GUI to configure Zero Trust connections");
-            Connection::new_ssh(name.to_string(), host.to_string(), port)
+            return Err(CliError::Config(
+                "Zero Trust connections cannot be created via CLI. Use the GUI.".into(),
+            ));
         }
         ProtocolType::Telnet => {
             if key.is_some() {
@@ -231,5 +220,6 @@ fn create_connection(
             }
             Connection::new_mosh(name.to_string(), host.to_string(), port)
         }
-    }
+    };
+    Ok(conn)
 }

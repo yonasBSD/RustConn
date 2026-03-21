@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-03-21
+
+### Security
+- **RDP password no longer exposed in `/proc`** — legacy `RdpLauncher` passed password as `/p:{pass}` CLI argument visible to all system users; now uses `/from-stdin` pipe matching `SafeFreeRdpLauncher` behavior
+- **SSH agent askpass script zeroized before deletion** — passphrase temp file in `/tmp/rustconn-askpass-*/` is now overwritten with zeros and fsynced before `remove_dir_all`, preventing recovery after abnormal termination
+- **CLI `--password` flag shows security warning** — `rustconn-cli secret set --password` now prints a warning that the value is visible in process listings and recommends the interactive prompt
+- **Legacy XOR credential decryption now logged** — transparent XOR→AES-256-GCM migration now emits `tracing::warn!` so administrators can track remaining legacy credentials
+
+### Fixed
+- **Highlight rules not applied without per-connection rules** — built-in defaults (ERROR, WARNING, CRITICAL, FATAL) and global highlight rules were skipped when a connection had no per-connection rules; removed the `is_empty()` guard so highlights always apply ([#66](https://github.com/totoshko88/RustConn/issues/66))
+- **CLI `add --protocol zerotrust` silently created SSH connection** — now returns an error instead of logging and falling back to SSH
+- **Config file corruption on crash** — sync `save_toml_file` now uses atomic temp-file + rename pattern matching the async version
+- **Blocking DNS in async `check_port_async`** — replaced `to_socket_addrs()` with `tokio::net::lookup_host()` to avoid blocking the tokio worker thread
+
+### Improved
+- **Sidebar shows full connection name on hover** — tooltip displays full name and host for truncated entries; removed `max_width_chars` limit so labels use all available sidebar space
+- **Log sanitization performance** — `sanitize_output()` regex patterns compiled once via `LazyLock` instead of on every call; `SENSITIVE_PATTERNS` deduplicated from 29 to 16 lowercase-only entries
+- **CLI `parse_protocol` consolidated** — three duplicate implementations in `add.rs`, `template.rs`, `smart_folder.rs` replaced with shared `parse_protocol_type()` + `default_port_for_protocol()` in `util.rs`
+- **`ProtocolResult<T>` deduplication** — removed duplicate type alias from `protocol/mod.rs`, now re-exported from `error.rs`
+- **OpenTelemetry tracing variant marked deprecated** — `TracingOutput::OpenTelemetry` now has `#[deprecated]` attribute until implementation is complete
+- **Dead code cleanup** — removed unused `AppStateError`, `VncLauncher`, `FieldValidator`/`FormValidator` framework, `initialize_secret_backends()`, `create_async_resolver()`
+
+### Dependencies
+- Updated: `rustls-webpki` 0.103.9→0.103.10, `zune-jpeg` 0.5.13→0.5.14
+
 ## [0.10.2] - 2026-03-20
 
 ### Fixed

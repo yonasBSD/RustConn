@@ -46,11 +46,8 @@ pub use ssh::SshProtocol;
 pub use telnet::TelnetProtocol;
 pub use vnc::VncProtocol;
 
-use crate::error::ProtocolError;
+pub use crate::error::ProtocolResult;
 use crate::models::Connection;
-
-/// Result type for protocol operations
-pub type ProtocolResult<T> = Result<T, ProtocolError>;
 
 /// Describes what a protocol supports at a feature level.
 ///
