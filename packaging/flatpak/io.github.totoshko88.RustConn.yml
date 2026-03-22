@@ -165,6 +165,57 @@ modules:
       - infocmp -x -1 xterm-256color | sed 's/xterm-256color/rustconn-256color/' | sed '/XM=/d' | tic -x -o /app/share/terminfo -
     sources: []
 
+  - name: waypipe
+    buildsystem: meson
+    config-opts:
+      # Build the C-only version — avoids pulling in cargo dependencies for waypipe itself
+      - -Dbuild_rs=false
+      - -Dbuild_c=true
+      - -Dman-pages=disabled
+      - -Dtests=false
+      # Compression support (lz4/zstd available in GNOME SDK)
+      - -Dwith_lz4=enabled
+      - -Dwith_zstd=enabled
+      # Disable GPU buffer sharing and video codec (not needed for basic Wayland forwarding)
+      - -Dwith_dmabuf=disabled
+      - -Dwith_video=disabled
+    post-install:
+      # C-only build installs as "waypipe-c"; create symlink so detection finds "waypipe"
+      - ln -sf waypipe-c /app/bin/waypipe
+    sources:
+      - type: archive
+        url: https://gitlab.freedesktop.org/mstoeckl/waypipe/-/archive/v0.11.0/waypipe-v0.11.0.tar.gz
+        sha256: dc4741bd4435666b4b45ef9b8354c9f742e9c2c5fb99bb49b2ac4f32a371bcd7
+
+  - name: freerdp
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DALLOW_IN_SOURCE_BUILD=ON
+      - -DWITH_SERVER=OFF
+      - -DWITH_SHADOW=OFF
+      - -DWITH_PROXY=OFF
+      - -DWITH_PLATFORM_SERVER=OFF
+      - -DWITH_X11=OFF
+      - -DWITH_CLIENT_SDL2=OFF
+      - -DWITH_CLIENT_SDL3=ON
+      - -DCHANNEL_URBDRC=OFF
+      - -DWITH_CUPS=OFF
+      - -DWITH_PCSC=OFF
+      - -DWITH_SWSCALE=OFF
+      - -DWITH_FFMPEG=OFF
+      - -DWITH_AAD=OFF
+      - -DWITH_WEBVIEW=OFF
+      - -DWITH_FUSE=OFF
+      - -DWITH_KRB5=OFF
+      - -DBUILD_TESTING=OFF
+      - -DWITH_SAMPLE=OFF
+      - -DWITH_MANPAGES=OFF
+      - -DWITH_RDTK=OFF
+    sources:
+      - type: archive
+        url: https://github.com/FreeRDP/FreeRDP/releases/download/3.24.0/freerdp-3.24.0.tar.gz
+        sha256: 168011bd58eae8d898842ef39c6c9bf5761ab617a68ccad80d623a3e535d0367
+
   - name: rustconn
     buildsystem: simple
     build-options:
@@ -198,5 +249,5 @@ modules:
     sources:
       - type: git
         url: https://github.com/totoshko88/RustConn.git
-        tag: v0.10.3
+        tag: v0.10.4
       - cargo-sources.json

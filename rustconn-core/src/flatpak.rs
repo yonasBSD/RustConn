@@ -92,17 +92,26 @@ pub fn is_flatpak() -> bool {
 /// Checks whether a CLI tool is available in PATH.
 ///
 /// Runs `which <cli>` to check if the binary exists.
-/// In Flatpak, CLI tools are installed to the sandbox via Flatpak Components.
+/// In Flatpak, CLI tools are installed to the sandbox via Flatpak Components,
+/// so the extended PATH (including CLI directories) is used for the lookup.
 #[must_use]
 pub fn is_host_command_available(cli: &str) -> bool {
     use std::process::Command;
 
-    Command::new("which")
-        .arg(cli)
+    let mut cmd = Command::new("which");
+    cmd.arg(cli)
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success())
+        .stderr(std::process::Stdio::null());
+
+    // In Flatpak, CLI tools are installed outside the default PATH.
+    // Use the extended PATH that includes Flatpak CLI directories.
+    if is_flatpak() {
+        let extended_path = crate::cli_download::get_extended_path();
+        cmd.env("PATH", &extended_path);
+        tracing::trace!(cli, path = %extended_path, "Checking CLI availability with extended PATH");
+    }
+
+    cmd.status().is_ok_and(|s| s.success())
 }
 
 /// Returns the command unchanged.

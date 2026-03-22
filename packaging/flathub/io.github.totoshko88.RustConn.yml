@@ -214,6 +214,40 @@ modules:
       - infocmp -x -1 xterm-256color | sed 's/xterm-256color/rustconn-256color/' | sed '/XM=/d' | tic -x -o /app/share/terminfo -
     sources: []
 
+  - name: freerdp
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DALLOW_IN_SOURCE_BUILD=ON
+      - -DWITH_SERVER=OFF
+      - -DWITH_SHADOW=OFF
+      - -DWITH_PROXY=OFF
+      - -DWITH_PLATFORM_SERVER=OFF
+      - -DWITH_X11=OFF
+      - -DWITH_CLIENT_SDL2=OFF
+      - -DWITH_CLIENT_SDL3=ON
+      - -DCHANNEL_URBDRC=OFF
+      - -DWITH_CUPS=OFF
+      - -DWITH_PCSC=OFF
+      - -DWITH_SWSCALE=OFF
+      - -DWITH_FFMPEG=OFF
+      - -DWITH_AAD=OFF
+      - -DWITH_WEBVIEW=OFF
+      - -DWITH_FUSE=OFF
+      - -DWITH_KRB5=OFF
+      - -DBUILD_TESTING=OFF
+      - -DWITH_SAMPLE=OFF
+      - -DWITH_MANPAGES=OFF
+      - -DWITH_RDTK=OFF
+    sources:
+      - type: archive
+        url: https://github.com/FreeRDP/FreeRDP/releases/download/3.24.0/freerdp-3.24.0.tar.gz
+        sha256: 168011bd58eae8d898842ef39c6c9bf5761ab617a68ccad80d623a3e535d0367
+        x-checker-data:
+          type: anitya
+          project-id: 10442
+          stable-only: true
+          url-template: https://github.com/FreeRDP/FreeRDP/releases/download/$version/freerdp-$version.tar.gz
+
   - name: rustconn
     buildsystem: simple
     build-options:
@@ -247,7 +281,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/totoshko88/RustConn.git
-        tag: v0.10.3
+        tag: v0.10.4
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$

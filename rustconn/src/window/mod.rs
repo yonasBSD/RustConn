@@ -2466,8 +2466,13 @@ impl MainWindow {
         // Update status to connecting
         sidebar.update_connection_status(&connection_id.to_string(), "connecting");
 
-        let session_id =
-            Self::start_connection(state, notebook, sidebar, monitoring, connection_id)?;
+        let session_id = if let Some(id) = Self::start_connection(state, notebook, sidebar, monitoring, connection_id) {
+            id
+        } else {
+            // Connection failed to start — reset status so it doesn't stay yellow
+            sidebar.update_connection_status(&connection_id.to_string(), "failed");
+            return None;
+        };
 
         // Get session info to check protocol
         if let Some(info) = notebook.get_session_info(session_id) {

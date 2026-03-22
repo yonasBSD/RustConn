@@ -26,7 +26,7 @@ pub use crate::embedded_vnc_types::{
     VncConnectionState, VncPixelBuffer, VncWaylandSurface, find_best_standard_resolution,
 };
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, i18n_f};
 use gtk4::gdk;
 use gtk4::glib;
 use gtk4::prelude::*;
@@ -778,7 +778,10 @@ impl EmbeddedVncWidget {
                                 let _ =
                                     sender.try_send(VncClientCommand::TypeText(text.to_string()));
                                 // Show brief feedback
-                                status.set_text(&format!("Pasted {char_count} chars"));
+                                status.set_text(&i18n_f(
+                                    "Pasted {} chars",
+                                    &[&char_count.to_string()],
+                                ));
                                 status.set_visible(true);
                                 // Hide after 2 seconds
                                 let status_hide = status.clone();

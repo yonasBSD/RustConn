@@ -1465,7 +1465,7 @@ impl ImportDialog {
                             Err(e) => {
                                 // Show error
                                 progress_bar_clone.set_fraction(1.0);
-                                result_label_clone.set_text("Import Failed");
+                                result_label_clone.set_text(&i18n("Import Failed"));
                                 result_details_clone.set_text(&format!("Error: {e}"));
 
                                 stack_clone.set_visible_child_name("result");

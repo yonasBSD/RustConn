@@ -4457,7 +4457,7 @@ impl ConnectionDialog {
         test_entry.connect_changed(move |entry| {
             let test_text = entry.text().to_string();
             if test_text.is_empty() {
-                result_clone.set_text("Enter text above to test patterns");
+                result_clone.set_text(&i18n("Enter text above to test patterns"));
                 result_clone.remove_css_class("success");
                 result_clone.remove_css_class("error");
                 result_clone.add_css_class("dim-label");
@@ -4501,7 +4501,7 @@ impl ConnectionDialog {
             }
 
             if !matched {
-                result_clone.set_text("No patterns matched");
+                result_clone.set_text(&i18n("No patterns matched"));
                 result_clone.remove_css_class("success");
                 result_clone.remove_css_class("error");
                 result_clone.add_css_class("dim-label");

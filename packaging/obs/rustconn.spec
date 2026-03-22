@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.10.3
+Version:        0.10.4
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,13 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Sun Mar 22 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.4-0
+- Flatpak manifests: added missing FreeRDP and Waypipe modules
+- i18n: wrapped 5 untranslated UI strings, translated for 15 languages
+- Snap license corrected: GPL-3.0+ to GPL-3.0-or-later
+- ARM64 release builds added (deb, rpm, appimage)
+- Removed duplicate changelog entries in packaging files
+
 * Sat Mar 21 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.3-0
 - Security: RDP password no longer exposed in /proc — uses /from-stdin pipe
 - Security: SSH agent askpass script zeroized before deletion
@@ -257,9 +264,6 @@ done
 - Improved script credentials test button with 30s timeout and feedback
 - Added config sync documentation to User Guide
 - Dependencies: shell-words 1.x (rustconn crate), aws-lc-rs 1.16.2, tar 0.4.45
-
-* Fri Mar 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.2-0
-- See CHANGELOG.md for full release notes
 
 * Wed Mar 18 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.1-0
 - MOSH protocol — predict mode, SSH port, UDP port range, server binary
@@ -331,9 +335,6 @@ done
 - Fixed SSH custom options -o prefix not stripped (#49)
 - Fixed SSH custom options placeholder misleading (#49)
 
-* Wed Mar 11 2026 Anton Isaiev <totoshko88@gmail.com> - 0.9.15-0
-- Version bump to 0.9.15
-
 * Wed Mar 11 2026 Anton Isaiev <totoshko88@gmail.com> - 0.9.14-0
 - Fixed SSH connection fails in Flatpak on KDE — host SSH_ASKPASS
   (e.g. ksshaskpass) stripped from VTE child environment (#48)
@@ -373,9 +374,6 @@ done
 - Added monitoring: stopped indication with warning icon and dimmed bar
 - Added monitoring: all mount points in disk tooltip (snap/tmpfs filtered)
 - Removed dead read_import_file_async from import traits
-
-* Sat Mar 07 2026 Anton Isaiev <totoshko88@gmail.com> - 0.9.10-0
-- Version bump to 0.9.10
 
 * Fri Mar 06 2026 Anton Isaiev <totoshko88@gmail.com> - 0.9.9-0
 - Fixed sshpass not installed in Flatpak (#42)
@@ -468,9 +466,6 @@ done
 - Fixed Bitwarden CLI not found in Flatpak — dynamic bw path resolution (#28)
 - CLI downloads: Teleport 18.7.0→18.7.1
 - Dependencies: vnc-rs 0.5.2→0.5.3, rustls 0.23.36→0.23.37
-
-* Mon Feb 24 2026 Anton Isaiev <totoshko88@gmail.com> - 0.9.1-0
-- Version bump to 0.9.1
 
 * Sat Feb 21 2026 Anton Isaiev <totoshko88@gmail.com> - 0.9.0-0
 - Ukrainian translation reviewed by Mykola Zubkov — 674 translations

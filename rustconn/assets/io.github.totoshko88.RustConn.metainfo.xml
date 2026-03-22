@@ -12,7 +12,7 @@
   <description>
     <p>
       RustConn is a modern connection manager for Linux with a GTK4/Wayland-native
-      interface. Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust
+      interface. Manage SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and Zero Trust
       connections from a single application. Core protocols use embedded Rust
       implementations with no external dependencies required.
     </p>
@@ -22,7 +22,7 @@
       MobaXterm, Royal TS, SSH config, or Ansible inventory.
     </p>
     <ul>
-      <li>SSH, Telnet, Serial, and Kubernetes with embedded VTE terminals</li>
+      <li>SSH, MOSH, Telnet, Serial, and Kubernetes with embedded VTE terminals</li>
       <li>RDP via IronRDP, VNC via vnc-rs, and SPICE via spice-client with external fallback</li>
       <li>Zero Trust tunnels: AWS SSM, GCP IAP, Azure Bastion, Cloudflare, Teleport, Tailscale</li>
       <li>Credential storage via KeePassXC, GNOME Keyring, Bitwarden, 1Password, or Passbolt</li>
@@ -95,6 +95,19 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.4" date="2026-03-22">
+      <description>
+        <p>Packaging fixes, i18n improvements, ARM64 builds, and duplicate changelog cleanup:</p>
+        <ul>
+          <li>Flatpak manifests: added missing FreeRDP and Waypipe modules to match documentation</li>
+          <li>i18n: wrapped 5 untranslated UI strings and added translations for all 15 languages</li>
+          <li>Snap license corrected from GPL-3.0+ to GPL-3.0-or-later (SPDX)</li>
+          <li>ARM64 release builds added (deb, rpm, appimage via QEMU emulation)</li>
+          <li>Removed duplicate changelog entries in RPM spec, Debian changelog, and OBS changes</li>
+          <li>CLI downloads: 1Password CLI 2.33.0, kubectl 1.35.3</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.3" date="2026-03-21">
       <description>
         <p>Security hardening, code audit fixes, and dead code cleanup:</p>

@@ -29,6 +29,12 @@ use uuid::Uuid;
 use vte4::prelude::*;
 use vte4::{PtyFlags, Terminal};
 
+/// PCRE2 multiline compile flag — required by VTE's `match_add_regex()`.
+///
+/// Without this flag VTE emits a runtime warning:
+/// `_vte_regex_has_multiline_compile_flag(regex)` check failed.
+const PCRE2_MULTILINE: u32 = 0x0000_0400;
+
 use crate::automation::{AutomationSession, Trigger};
 use crate::broadcast::BroadcastController;
 use crate::embedded_rdp::EmbeddedRdpWidget;
@@ -2563,7 +2569,7 @@ impl TerminalNotebook {
         if let Some(terminal) = self.terminals.borrow().get(&session_id) {
             for rule in compiled.source_patterns() {
                 let pattern = &rule.pattern;
-                match vte4::Regex::for_match(pattern, 0) {
+                match vte4::Regex::for_match(pattern, PCRE2_MULTILINE) {
                     Ok(vte_regex) => {
                         terminal.match_add_regex(&vte_regex, 0);
                         tracing::trace!(

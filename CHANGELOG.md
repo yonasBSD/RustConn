@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-03-22
+
+### Fixed
+- **Flatpak: Zero Trust CLI tools not found** — `is_host_command_available()` used default PATH which doesn't include Flatpak CLI directories (`~/.var/app/.../cli/`); now uses extended PATH from `get_cli_path_dirs()` so AWS SSM, gcloud, and other installed CLIs are detected correctly
+- **Failed connections stuck in "connecting" (yellow) state** — when `start_connection()` returned `None` (e.g. missing CLI, validation error), sidebar status was never reset; now transitions to "failed" (red) on connection launch failure
+- **VTE runtime warning on regex match registration** — `match_add_regex()` requires `PCRE2_MULTILINE` compile flag; highlight rules and search highlight regexes were compiled with flags=0, causing `_vte_regex_has_multiline_compile_flag` assertion warning
+
+### Improved
+- **Flatpak manifests: FreeRDP and Waypipe modules** — added missing `freerdp` module to `packaging/flatpak/io.github.totoshko88.RustConn.yml` and `packaging/flathub/io.github.totoshko88.RustConn.yml`; added missing `waypipe` module to `packaging/flatpak/io.github.totoshko88.RustConn.yml` — matches documentation claim "FreeRDP 3.24.0 bundled in Flatpak"
+- **i18n: 3 untranslated UI strings wrapped** — `"Failed to start"` in settings, `"Enter text above to test patterns"` and `"No patterns matched"` in connection dialog highlight rules, `"Import Failed"` in import dialog, `"Pasted {} chars"` in VNC clipboard — all translated across 15 languages
+- **Snap license corrected** — `GPL-3.0+` → `GPL-3.0-or-later` (SPDX)
+- **ARM64 release builds** — added `build-deb-arm64`, `build-rpm-arm64`, and `build-appimage-arm64` jobs to release workflow using QEMU emulation
+
+- Updated: `moka` 0.12.14→0.12.15, `yuv` 0.8.11→0.8.12
+- **CLI downloads** — Tailscale 1.94.2→1.96.2
+
 ## [0.10.3] - 2026-03-21
 
 ### Security
@@ -29,9 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OpenTelemetry tracing variant marked deprecated** — `TracingOutput::OpenTelemetry` now has `#[deprecated]` attribute until implementation is complete
 - **Dead code cleanup** — removed unused `AppStateError`, `VncLauncher`, `FieldValidator`/`FormValidator` framework, `initialize_secret_backends()`, `create_async_resolver()`
 
-### Dependencies
 - Updated: `rustls-webpki` 0.103.9→0.103.10, `zune-jpeg` 0.5.13→0.5.14
-
 ## [0.10.2] - 2026-03-20
 
 ### Fixed
@@ -52,10 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Script credentials test feedback** — "Test Script" button now runs the configured command with 30s timeout, shows success with masked output preview or failure with stderr and exit code
 - **Config sync documentation** — added "Configuration Sync Between Machines" section to User Guide with Git, Syncthing/rsync, CLI export/import, and built-in Backup/Restore instructions
 
-### Dependencies
 - New: `shell-words` 1.x added to `rustconn` crate (script credential test button)
 - Updated: `aws-lc-rs` 1.16.1→1.16.2, `aws-lc-sys` 0.38.0→0.39.0, `itoa` 1.0.17→1.0.18, `tar` 0.4.44→0.4.45
-
 ## [0.10.1] - 2026-03-19
 
 ### Note
@@ -72,10 +84,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **Per-connection terminal theming** — color overrides (background, foreground, cursor) per connection in `#RRGGBB` or `#RRGGBBAA` format; 3 `ColorDialogButton` widgets in Advanced tab; Reset button; VTE `set_color_background/foreground/cursor` integration
 - **15 new language translations** — all new UI strings for 8 features translated across uk, de, fr, es, it, pl, cs, sk, da, sv, nl, pt, be, kk, uz
 
-### Dependencies
 - New: `csv` 1.x (RFC 4180 parsing), `glob` 0.3 (Smart Folder host matching), `shell-words` 1.x (script credential argument splitting)
-- CLI downloads: 1Password CLI 2.32.1→2.33.0, kubectl 1.35.2→1.35.3
-
 ### Fixed
 - Flatpak SSH key paths become stale after rebuild — keys copied to stable `~/.var/app/<app-id>/.ssh/` with fallback resolution ([#62](https://github.com/totoshko88/RustConn/issues/62))
 - SFTP `ssh-add` uses stale portal key path — resolved via `resolve_key_path()` before use
@@ -167,10 +176,8 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **Tiered distro feature flags** — `adw-1-8` for Tumbleweed/Fedora 43+, `adw-1-6` for Leap 16.0/Fedora 42, baseline for older distros
 - **Codebase cleanup** — removed 25+ unused CSS classes, consolidated `futures-util` into `futures`, fixed metainfo.xml duplicates, added k8s keywords, removed dead code
 
-### Dependencies
 - clap 4.5.60→4.6.0, gtk4 0.11.0→0.11.1, gdk4 0.11.0→0.11.1, gsk4 0.11.0→0.11.1, glib 0.22.2→0.22.3, openssl 0.10.75→0.10.76, tracing-subscriber 0.3.22→0.3.23
 - Transitive: anstream 0.6.21→1.0.0, anstyle 1.0.13→1.0.14, anstyle-parse 0.2.7→1.0.0, cc 1.2.56→1.2.57, clap_complete 4.5.66→4.6.0, clap_mangen 0.2.31→0.2.33, colorchoice 1.0.4→1.0.5, glib-sys 0.22.0→0.22.3, once_cell 1.21.3→1.21.4, roff 0.2.2→1.1.0, tinyvec 1.10.0→1.11.0, uds_windows 1.2.0→1.2.1
-
 ## [0.9.15] - 2026-03-11
 
 ### Added
@@ -188,10 +195,8 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **SSH connection fails in Flatpak on KDE** — host `SSH_ASKPASS` environment variable (e.g. `ksshaskpass`) was inherited by the VTE child process but not available inside the sandbox, causing `Permission denied` before the password prompt appeared; now stripped from the terminal environment since RustConn uses native VTE password injection ([#48](https://github.com/totoshko88/RustConn/issues/48))
 - **Header bar buttons clipped when sidebar + monitoring enabled** — monitoring bar's system info label could request more width than available in the content area, causing overflow that pushed header bar buttons out of bounds; fixed by adding `ellipsize` to variable-length labels and `overflow: hidden` on the monitoring bar container ([#47](https://github.com/totoshko88/RustConn/issues/47))
 
-### Dependencies
 - tokio 1.49→1.50, uuid 1.21→1.22, regex 1.11→1.12, proptest 1.9→1.10, tempfile 3.23→3.26, zip 8.1→8.2, criterion 0.8.1→0.8.2, rpassword 7.3→7.4
 - Transitive: hybrid-array 0.4.7→0.4.8, image 0.25.9→0.25.10, libc 0.2.182→0.2.183, libz-sys 1.1.24→1.1.25, moxcms 0.7.11→0.8.1, quinn-proto 0.11.13→0.11.14, schannel 0.1.28→0.1.29, zerocopy 0.8.40→0.8.42
-
 ## [0.9.13] - 2026-03-09
 
 ### Fixed
@@ -251,10 +256,8 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 ### Improved
 - **Connection dialog default height** — increased from 500→670px so the Basic tab fields (including Description) are fully visible without scrolling on typical displays
 
-### Dependencies
 - serde_yaml_ng 0.9→0.10, cfg-expr 0.20.6→0.20.7, inotify 0.11.0→0.11.1, socket2 0.6.2→0.6.3, toml 1.0.4→1.0.6
 - CLI downloads: Teleport 18.7.1→18.7.2
-
 ## [0.9.9] - 2026-03-06
 
 ### Fixed
@@ -264,9 +267,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **Jump host monitoring fails** — monitoring SSH commands now include `-J` jump host chain so metrics collection works through bastion hosts ([#41](https://github.com/totoshko88/RustConn/issues/41))
 - **Jump host false positive connection status** — SSH status detection now checks terminal text for failure patterns (`Connection timed out`, `Connection refused`, etc.) before marking jump host connections as established ([#41](https://github.com/totoshko88/RustConn/issues/41))
 
-### Dependencies
 - Bitwarden CLI 2026.1.0→2026.2.0, uuid 1.21.0→1.22.0, winnow 0.7.14→0.7.15
-
 ## [0.9.8] - 2026-03-05
 
 ### Security
@@ -305,9 +306,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **Embedded RDP decomposition** — extracted 5 modules from monolithic `mod.rs` (~2900→~500 lines)
 - **Code quality** — structured tracing fields, i18n coverage, deduplication of clipboard/callback/resize patterns, module-level lint allows removed
 
-### Dependencies
 - binrw 0.15.0→0.15.1, proc-macro-crate 3.4.0→3.5.0, toml 1.0.3→1.0.4, toml_edit 0.23.10→0.25.4, uds_windows 1.1.0→1.2.0
-
 ## [0.9.7] - 2026-03-04
 
 ### Fixed
@@ -318,9 +317,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 ### Changed
 - **Bitwarden credential lookup speed** — removed per-retrieve `bw sync` (network round-trip) and added a 120-second verification cache for `bw status` checks; vault syncs once on unlock instead of on every credential lookup, making reconnect and batch operations significantly faster
 
-### Dependencies
 - tokio 1.49→1.50, aws-lc-rs 1.16.0→1.16.1, aws-lc-sys 0.37.1→0.38.0, getrandom 0.4.1→0.4.2, ipnet 2.11→2.12, quote 1.0.44→1.0.45, tokio-macros 2.6.0→2.6.1, zip 8.1→8.2
-
 ## [0.9.6] - 2026-03-02
 
 ### Fixed
@@ -362,9 +359,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 ### Removed
 - Dead code: `StateAccessError`, unused state accessors, legacy dialog tabs, ~30 unused sidebar methods
 
-### Dependencies
 - js-sys 0.3.90→0.3.91, pin-project-lite 0.2.16→0.2.17, wasm-bindgen 0.2.113→0.2.114, web-sys 0.3.90→0.3.91
-
 ## [0.9.4] - 2026-03-01
 
 ### Added
@@ -393,9 +388,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **Automation engine** — one-shot rules, per-rule timeout, regex validation, template picker, pre-connect/post-disconnect tasks, key sequences on connect
 - **Template management** — CLI and GUI migrated to `TemplateManager`; GUI keeps document integration
 
-### Dependencies
 - **Updated**: js-sys 0.3.90→0.3.91, pin-project-lite 0.2.16→0.2.17, wasm-bindgen 0.2.113→0.2.114, web-sys 0.3.90→0.3.91
-
 ## [0.9.3] - 2026-02-27
 
 ### Added
@@ -417,9 +410,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **Documentation** — Added Waypipe section to User Guide and Architecture docs
 - **Translations** — Added waypipe-related strings to all 18 languages
 
-### Dependencies
 - **Updated**: deflate64 0.1.10→0.1.11, dispatch2 0.3.0→0.3.1, objc2 0.6.3→0.6.4, zerocopy 0.8.39→0.8.40
-
 ## [0.9.2] - 2026-02-26
 
 ### Added
@@ -458,9 +449,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **i18n coverage** — Connection dialog tabs (Basic, Protocol, Data, Logging, Automation, Advanced) and all their content strings now translatable; translations added to all 14 languages
 - **User Guide** — Added "Terminal Keybinding Modes" section (vim/emacs in Bash, Zsh, Fish)
 
-### Dependencies
 - **Updated**: uuid 1.11→1.21, proptest 1.6→1.9, tempfile 3.15→3.23, plus 18 transitive dependency bumps via `cargo update`
-
 ### Internal
 - Deduplicated `PassBackend` construction in CLI and GUI
 - Cached `has_secret_backend()` result in `AppState` to avoid repeated `block_on` calls
@@ -506,9 +495,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 ### Removed
 - Dead code cleanup: unused credential caching, split view adapter methods, toast helpers, deprecated flatpak host command functions
 
-### Dependencies
 - **Updated**: deranged 0.5.6→0.5.8, js-sys 0.3.86→0.3.88, wasm-bindgen 0.2.109→0.2.111, wasm-bindgen-futures 0.4.59→0.4.61, web-sys 0.3.86→0.3.88
-
 ### Internal
 - `Project-Id-Version` updated to `0.9.0` in all `.po` files
 - Duplicate `SessionResult` type alias removed from `session/manager.rs` — canonical definition in `error.rs`
@@ -559,11 +546,9 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - API surface migrated from flat re-exports to modular paths (`rustconn_core::models::*`, etc.)
 - Architecture audit: 51 findings, 49 resolved
 
-### Dependencies
 - **serde_yaml** replaced with **serde_yaml_ng** 0.9 (maintained fork; transparent rename)
 - **cpal** `0.17.1` → `0.17.3`
 - **clap** `4.5.59` → `4.5.60`
-
 ## [0.8.8] - 2026-02-18
 
 ### Security
@@ -578,14 +563,12 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **ZeroTrust tracing** — Connection launch attempts and failures are now logged via `tracing` in both GUI and CLI paths
 - **Native export format v2** — `NativeExport` now includes `snippets` field; backward-compatible with v1 imports via `#[serde(default)]`
 
-### Dependencies
 - **native-tls** `0.2.14` → `0.2.18` — Removed version pin; 0.2.18 fixes the `Tlsv13` compile error from 0.2.17 ([#367](https://github.com/rust-native-tls/rust-native-tls/issues/367))
 - **toml** `0.8` → `1.0` — Major version bump; no API changes required (re-export crate, fully compatible)
 - **zip** `2.2` → `8.1` — Major version bump; replaced deprecated `mangled_name()` with `enclosed_name()` which adds path traversal validation
 ### Fixed
 - **RDP HiDPI scaling on 4K displays** — IronRDP now sends `desktop_scale_factor` to the Windows server (e.g. 200% on a 2× display), so remote UI elements render at the correct logical size instead of appearing tiny; previously hardcoded to 0
 - **RDP mouse coordinate mismatch on HiDPI** — Widget dimensions used for mouse→RDP coordinate transform now store CSS pixels (matching GTK event coordinates) instead of device pixels, fixing misaligned clicks on scaled displays
-
 ### Removed
 - **Dashboard module** — Removed unused `ConnectionDashboard` GUI widget, core types (`SessionStats`, `DashboardFilter`), and property tests; session monitoring is handled by Active Sessions manager and sidebar indicators
 - **5 dead GUI modules** — Removed `adaptive_tabs.rs`, `empty_state.rs`, `error_display.rs`, `floating_controls.rs`, `loading.rs` (all replaced by native adw/GTK4 equivalents)
@@ -862,12 +845,10 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **TOCTOU Elimination** — Removed redundant `path.exists()` checks before file reads in importers; the subsequent `read_import_file()` already returns `ImportError` on failure
 - **Unused Imports Cleanup** — Removed unused `ExportError` import from Asbru exporter and moved `std::fs` import to `#[cfg(test)]` in MobaXterm exporter
 
-### Dependencies
 - Updated `memchr` 2.7.6 → 2.8.0
 - Updated `ryu` 1.0.22 → 1.0.23
 - Updated `zerocopy` 0.8.38 → 0.8.39
 - Updated `zmij` 1.0.19 → 1.0.20
-
 ## [0.7.7] - 2026-02-08
 
 ### Fixed
@@ -1584,7 +1565,6 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
   - Previously the alert appeared behind the New/Edit Connection dialog
   - Fixed by passing the dialog window as parent instead of main window
 
-### Dependencies
 - Updated `quick-xml` 0.38 → 0.39
 - Updated `resvg` 0.45 → 0.46
 - Updated `usvg` 0.45 → 0.46
@@ -1594,7 +1574,6 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - Updated `gif` 0.13 → 0.14
 - Updated `imagesize` 0.13 → 0.14
 - Updated `zune-jpeg` 0.4 → 0.5
-
 ## [0.6.2] - 2026-01-15
 
 ### Added
@@ -1603,9 +1582,7 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - **Run Snippet from Context Menu** — right-click on connection → "Run Snippet..."
 - **Persistent Search History** — up to 20 recent searches saved across sessions
 
-### Dependencies
 - Updated `quick-xml` 0.38 → 0.39, `resvg` 0.45 → 0.46
-
 ## [0.6.1] - 2026-01-12
 
 ### Added
@@ -1626,11 +1603,9 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
   - **Credentials UI**: New fields in Group Dialogs to set default Username/Password/Domain
   - **Move Group**: Added "Parent" dropdown to Edit Group dialog to move groups (with cycle prevention)
 
-### Dependencies
 - Updated `libadwaita` to `0.7`
 - Updated `gtk4` to `0.10`
 - Updated `vte4` to `0.9`
-
 ## [0.6.0] - 2026-01-12
 
 ### Added
@@ -1676,7 +1651,6 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - FreeRDP thread mutex operations now have documented safety invariants
 - Package metadata now correctly shows author and license in all package formats
 
-### Dependencies
 - Updated `base64ct` 1.8.2 → 1.8.3
 - Updated `cc` 1.2.51 → 1.2.52
 - Updated `data-encoding` 2.9.0 → 2.10.0
@@ -1694,7 +1668,6 @@ Thank you to **Todor Todorov** for the support and for pointing out that the don
 - Updated `zvariant_utils` 3.2.1 → 3.3.0
 - Removed unused `cfg_aliases`, `nix`, `static_assertions` dependencies
 - Note: `sspi` and `picky-krb` kept at 0.16.0/0.11.0 due to `rand_core` version conflict
-
 ### Removed
 - `rustconn-core/src/check_structs.rs` - development artifact with unsafe code
 

@@ -603,7 +603,7 @@ impl SettingsDialog {
                     }
                     Err(e) => {
                         tracing::error!("Failed to start SSH agent: {e}");
-                        status_label_clone.set_text("Failed to start");
+                        status_label_clone.set_text(&i18n("Failed to start"));
                         status_label_clone.remove_css_class("success");
                         status_label_clone.remove_css_class("dim-label");
                         status_label_clone.add_css_class("error");

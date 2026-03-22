@@ -14,6 +14,9 @@ use vte4::prelude::*;
 
 use crate::i18n::i18n;
 
+/// PCRE2 multiline compile flag — required by VTE's `match_add_regex()`.
+const PCRE2_MULTILINE: u32 = 0x0000_0400;
+
 /// Terminal search dialog for VTE terminals
 pub struct TerminalSearchDialog {
     window: adw::Window,
@@ -247,7 +250,7 @@ impl TerminalSearchDialog {
                             format!("(?i){escaped}")
                         }
                     };
-                    if let Ok(hl_regex) = vte4::Regex::for_search(&pattern, 0) {
+                    if let Ok(hl_regex) = vte4::Regex::for_search(&pattern, PCRE2_MULTILINE) {
                         terminal.match_add_regex(&hl_regex, 0);
                     }
                 }
@@ -323,7 +326,7 @@ impl TerminalSearchDialog {
 
             // Add hover-highlight for all matches when enabled
             // VTE4 match_add_regex highlights text on mouse hover
-            if highlight_all && let Ok(hl_regex) = vte4::Regex::for_search(&pattern, 0) {
+            if highlight_all && let Ok(hl_regex) = vte4::Regex::for_search(&pattern, PCRE2_MULTILINE) {
                 terminal.match_add_regex(&hl_regex, 0);
             }
 
