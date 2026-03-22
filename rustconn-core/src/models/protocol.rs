@@ -1835,6 +1835,46 @@ impl ZeroTrustConfig {
                     a.push("--project".to_string());
                     a.push(project.clone());
                 }
+                // In Flatpak, ~/.ssh/ is read-only so gcloud cannot
+                // generate its SSH key pair there. Redirect to the
+                // writable sandbox SSH directory and copy existing
+                // host keys if available.
+                if let Some(ssh_dir) = crate::flatpak::get_flatpak_ssh_dir() {
+                    let key_path = ssh_dir.join("google_compute_engine");
+                    // Copy existing gcloud SSH keys from host if not
+                    // yet present in the writable directory.
+                    if !key_path.exists()
+                        && let Ok(home) = std::env::var("HOME")
+                    {
+                        let host_key =
+                            std::path::PathBuf::from(&home).join(".ssh/google_compute_engine");
+                        if host_key.exists() {
+                            let _ = std::fs::copy(&host_key, &key_path);
+                            // Also copy the public key
+                            let host_pub = host_key.with_extension("pub");
+                            let sandbox_pub = key_path.with_extension("pub");
+                            if host_pub.exists() {
+                                let _ = std::fs::copy(&host_pub, &sandbox_pub);
+                            }
+                        }
+                    }
+                    a.push("--ssh-key-file".to_string());
+                    a.push(key_path.display().to_string());
+                    // gcloud also writes google_compute_known_hosts
+                    // to ~/.ssh/ which is read-only. The file is written
+                    // by gcloud's own Python code (not ssh), so --ssh-flag
+                    // alone doesn't help. Use --strict-host-key-checking=no
+                    // to skip gcloud's known_hosts write (IAP tunnel already
+                    // authenticates via Google infrastructure), and redirect
+                    // ssh's own UserKnownHostsFile to the writable dir.
+                    let known_hosts = ssh_dir.join("google_compute_known_hosts");
+                    a.push("--strict-host-key-checking=no".to_string());
+                    a.push("--ssh-flag=-o".to_string());
+                    a.push(format!(
+                        "--ssh-flag=UserKnownHostsFile={}",
+                        known_hosts.display()
+                    ));
+                }
                 ("gcloud".to_string(), a)
             }
             ZeroTrustProviderConfig::AzureBastion(cfg) => {

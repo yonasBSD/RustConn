@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.10.4] - 2026-03-22
 
 ### Fixed
+- **Flatpak: Zero Trust CLIs crash on read-only filesystem** — gcloud, Azure CLI, Teleport, and OCI CLI need writable config directories; Flatpak mounts host dirs as read-only or doesn't mount them at all; now redirects CLI config paths to writable sandbox directories via environment variables (`CLOUDSDK_CONFIG`, `AZURE_CONFIG_DIR`, `TELEPORT_HOME`, `OCI_CLI_CONFIG_FILE`); bootstraps credentials from host mounts where available; Boundary uses system keyring via D-Bus (works natively in Flatpak); Cloudflare Access SSH uses browser-based auth (no persistent config needed); GCP IAP also gets `--ssh-key-file` and `--strict-host-key-checking=no` to handle read-only `~/.ssh/`
 - **Flatpak: Zero Trust CLI tools not found** — `is_host_command_available()` used default PATH which doesn't include Flatpak CLI directories (`~/.var/app/.../cli/`); now uses extended PATH from `get_cli_path_dirs()` so AWS SSM, gcloud, and other installed CLIs are detected correctly
 - **Failed connections stuck in "connecting" (yellow) state** — when `start_connection()` returned `None` (e.g. missing CLI, validation error), sidebar status was never reset; now transitions to "failed" (red) on connection launch failure
 - **VTE runtime warning on regex match registration** — `match_add_regex()` requires `PCRE2_MULTILINE` compile flag; highlight rules and search highlight regexes were compiled with flags=0, causing `_vte_regex_has_multiline_compile_flag` assertion warning
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated: `moka` 0.12.14→0.12.15, `yuv` 0.8.11→0.8.12
 - **CLI downloads** — Tailscale 1.94.2→1.96.2
+- **Libvirt daemon import** — new import source "Libvirt Daemon (virsh)" queries running libvirtd for VMs via `virsh dumpxml`, reusing the existing XML parser; supports `qemu:///session`, `qemu:///system`, and remote URIs ([#63](https://github.com/totoshko88/RustConn/issues/63))
 
 ## [0.10.3] - 2026-03-21
 

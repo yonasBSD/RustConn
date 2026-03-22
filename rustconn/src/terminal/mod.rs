@@ -1069,6 +1069,57 @@ impl TerminalNotebook {
         // sandboxed environments like Flatpak (#48).
         env_vec.retain(|e| !e.starts_with("SSH_ASKPASS="));
 
+        // In Flatpak, redirect CLI config directories to writable sandbox
+        // locations. Host directories are either mounted read-only (gcloud,
+        // Azure, kubectl) or not mounted at all (Teleport, Boundary, etc.).
+        if rustconn_core::flatpak::is_flatpak() {
+            // gcloud: ~/.config/gcloud/ mounted :ro
+            if !env_vec.iter().any(|e| e.starts_with("CLOUDSDK_CONFIG="))
+                && let Some(dir) = rustconn_core::flatpak::get_flatpak_gcloud_config_dir()
+            {
+                env_vec.push(glib::GString::from(format!(
+                    "CLOUDSDK_CONFIG={}",
+                    dir.display()
+                )));
+            }
+            // Azure CLI: ~/.azure/ mounted :ro
+            if !env_vec.iter().any(|e| e.starts_with("AZURE_CONFIG_DIR="))
+                && let Some(dir) = rustconn_core::flatpak::get_flatpak_azure_config_dir()
+            {
+                env_vec.push(glib::GString::from(format!(
+                    "AZURE_CONFIG_DIR={}",
+                    dir.display()
+                )));
+            }
+            // Teleport: ~/.tsh/ not mounted — TELEPORT_HOME redirects
+            // tsh config/data directory (default ~/.tsh)
+            if !env_vec.iter().any(|e| e.starts_with("TELEPORT_HOME="))
+                && let Some(dir) = rustconn_core::flatpak::get_flatpak_teleport_config_dir()
+            {
+                env_vec.push(glib::GString::from(format!(
+                    "TELEPORT_HOME={}",
+                    dir.display()
+                )));
+            }
+            // Boundary: uses system keyring via D-Bus (org.freedesktop.secrets)
+            // which works in Flatpak — no env var redirection needed.
+            //
+            // Cloudflare Tunnel: `cloudflared access ssh` uses browser-based
+            // auth with short-lived tokens — no persistent config dir needed
+            // for the SSH proxy use case.
+            // OCI CLI: ~/.oci/ not mounted
+            if !env_vec
+                .iter()
+                .any(|e| e.starts_with("OCI_CLI_CONFIG_FILE="))
+                && let Some(dir) = rustconn_core::flatpak::get_flatpak_oci_config_dir()
+            {
+                env_vec.push(glib::GString::from(format!(
+                    "OCI_CLI_CONFIG_FILE={}",
+                    dir.join("config").display()
+                )));
+            }
+        }
+
         // Ensure TERM is set. GUI applications (like RustConn) typically
         // don't have TERM in their environment. Without it, ncurses-based
         // programs (mc, htop, etc.) can't detect terminal capabilities

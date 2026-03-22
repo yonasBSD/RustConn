@@ -861,6 +861,16 @@ Connects via `gcloud compute ssh --tunnel-through-iap`. Requires the Google Clou
 
 **Prerequisites:** `gcloud` CLI, authenticated (`gcloud auth login`), IAP-enabled firewall rule.
 
+**Flatpak:** The Flatpak sandbox mounts `~/.config/gcloud/` as read-only to share your host credentials. RustConn automatically redirects gcloud's writable config to `~/.var/app/io.github.totoshko88.RustConn/config/gcloud/` via the `CLOUDSDK_CONFIG` environment variable. On first use, credential files are bootstrapped from the host mount.
+
+If you installed gcloud via Flatpak Components and haven't authenticated on the host, run inside a RustConn Local Shell:
+```bash
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+If gcloud was already configured on the host before installing the Flatpak, credentials are copied automatically and no extra steps are needed.
+
 #### Azure Bastion
 
 Connects via `az network bastion ssh`. Requires the Azure CLI with bastion extension.
@@ -873,6 +883,8 @@ Connects via `az network bastion ssh`. Requires the Azure CLI with bastion exten
 
 **Prerequisites:** `az` CLI, `az extension add --name bastion`, authenticated (`az login`).
 
+**Flatpak:** The Flatpak sandbox mounts `~/.azure/` as read-only to share your host credentials. RustConn automatically redirects Azure CLI's writable config to `~/.var/app/io.github.totoshko88.RustConn/config/azure/` via the `AZURE_CONFIG_DIR` environment variable. On first use, credential files (`azureProfile.json`, `msal_token_cache.json`, etc.) are bootstrapped from the host mount.
+
 #### Azure SSH (AAD)
 
 Connects via `az ssh vm` using Azure Active Directory authentication. No SSH keys needed.
@@ -883,6 +895,8 @@ Connects via `az ssh vm` using Azure Active Directory authentication. No SSH key
 | Resource Group | Resource group containing the VM | `my-rg` |
 
 **Prerequisites:** `az` CLI, `az extension add --name ssh`, AAD-enabled VM, authenticated.
+
+**Flatpak:** Same as Azure Bastion — `AZURE_CONFIG_DIR` is redirected automatically.
 
 #### OCI Bastion
 
@@ -898,6 +912,8 @@ Connects via Oracle Cloud Infrastructure Bastion service.
 
 **Prerequisites:** `oci` CLI, configured OCI credentials (`~/.oci/config`).
 
+**Flatpak:** The host `~/.oci/` directory is not mounted. RustConn redirects the OCI config file to `~/.var/app/io.github.totoshko88.RustConn/config/oci/config` via the `OCI_CLI_CONFIG_FILE` environment variable. You need to configure OCI CLI from a RustConn Local Shell after installing it via Flatpak Components.
+
 #### Cloudflare Access
 
 Connects through Cloudflare Zero Trust tunnel.
@@ -907,6 +923,8 @@ Connects through Cloudflare Zero Trust tunnel.
 | Hostname | Cloudflare Access hostname | `ssh.example.com` |
 
 **Prerequisites:** `cloudflared` installed, Cloudflare Access application configured for the hostname.
+
+**Flatpak:** Cloudflare Access SSH uses browser-based authentication with short-lived tokens — no persistent config directory is needed for the SSH proxy use case. Install `cloudflared` via Flatpak Components.
 
 #### Teleport
 
@@ -918,6 +936,8 @@ Connects via Gravitational Teleport.
 | Cluster | Teleport cluster name (optional) | `production` |
 
 **Prerequisites:** `tsh` CLI, authenticated (`tsh login`).
+
+**Flatpak:** The host `~/.tsh/` directory is not mounted. RustConn redirects Teleport's config directory to `~/.var/app/io.github.totoshko88.RustConn/config/tsh/` via the `TELEPORT_HOME` environment variable. Run `tsh login` from a RustConn Local Shell after installing Teleport via Flatpak Components.
 
 #### Tailscale SSH
 
@@ -939,6 +959,8 @@ Connects via HashiCorp Boundary proxy.
 | Controller Address | Boundary controller URL | `https://boundary.example.com` |
 
 **Prerequisites:** `boundary` CLI, authenticated (`boundary authenticate`).
+
+**Flatpak:** Boundary stores authentication tokens in the system keyring via D-Bus (`org.freedesktop.secrets`), which works natively in Flatpak. No config directory redirection is needed.
 
 #### Generic Command
 
@@ -1230,6 +1252,7 @@ For large imports (10+ connections), a preview is shown before applying. You can
 | RDP File | — | `.rdp` file | RDP | Microsoft Remote Desktop format; address, credentials, gateway, resolution, audio, clipboard |
 | Virt-Viewer | — | `.vv` file | SPICE, VNC | From libvirt, Proxmox VE, oVirt |
 | Libvirt / GNOME Boxes | `/etc/libvirt/qemu/`, `~/.config/libvirt/qemu/` | XML file | VNC, SPICE, RDP | Domain XML `<graphics>` elements |
+| Libvirt Daemon (virsh) | `qemu:///session` | — | VNC, SPICE, RDP | Queries running libvirtd via `virsh` |
 | RustConn Native | — | `.rcn` file | All | Full-fidelity backup |
 
 **Remmina import in Flatpak:**
@@ -1257,6 +1280,65 @@ Two import modes are available:
 Each `<graphics>` element in the domain XML becomes a separate connection. If a VM has both VNC and SPICE consoles, two connections are created (e.g. "myvm (VNC)", "myvm (SPICE)").
 
 Imported fields: VM name, UUID (stored as tag), description, graphics type, listen address, port, TLS port (SPICE), password. VMs with `autoport="yes"` and no resolved port use the protocol default (5900 for VNC/SPICE, 3389 for RDP) — edit the port after starting the VM. Headless VMs (no `<graphics>` element) are skipped with a note.
+
+**Libvirt Daemon import (virsh):**
+
+A third mode queries a running libvirtd instance directly via `virsh`. This resolves autoport assignments from running VMs and discovers transient domains that have no on-disk XML.
+
+Select "Libvirt Daemon (virsh)" in the import dialog. By default it connects to `qemu:///session` (user-level VMs, no root required). The importer runs `virsh list --all --name` to enumerate domains, then `virsh dumpxml <name>` for each one, feeding the XML into the same parser used by the static import.
+
+Supported URIs (pass via CLI or future UI enhancement):
+- `qemu:///session` — user-level VMs (default)
+- `qemu:///system` — system-level VMs (requires `libvirt` group membership or root)
+- `qemu+ssh://host/system` — remote libvirtd over SSH
+
+Requirements: `virsh` must be installed (`libvirt-client` package on most distros). If `virsh` is not found, the source appears greyed out in the import dialog.
+
+**Libvirt Daemon import in Flatpak:**
+
+Inside the Flatpak sandbox, `virsh` is not bundled and the libvirt socket is not accessible by default. To use the daemon import from Flatpak:
+
+1. Install `virsh` on the host system:
+
+   ```bash
+   # Debian/Ubuntu
+   sudo apt install libvirt-clients
+
+   # Fedora
+   sudo dnf install libvirt-client
+
+   # Arch Linux
+   sudo pacman -S libvirt
+
+   # openSUSE
+   sudo zypper install libvirt-client
+   ```
+
+2. Grant the Flatpak access to the host `virsh` binary and the libvirt socket:
+
+   ```bash
+   flatpak override --user \
+     --filesystem=/run/libvirt:ro \
+     --filesystem=/usr/bin/virsh:ro \
+     --filesystem=/usr/lib:ro \
+     io.github.totoshko88.RustConn
+   ```
+
+   For user-session VMs, also grant access to the user socket:
+
+   ```bash
+   flatpak override --user \
+     --filesystem=xdg-run/libvirt:ro \
+     io.github.totoshko88.RustConn
+   ```
+
+3. Verify that `virsh` works inside the sandbox:
+
+   ```bash
+   flatpak run --command=virsh io.github.totoshko88.RustConn -c qemu:///session list --all
+   ```
+
+If the above is too complex, use the static import modes instead: either auto-scan the XML directories (grant `--filesystem=~/.config/libvirt:ro`) or import individual XML files via the file picker.
 
 ### Export (Ctrl+Shift+E)
 
@@ -3247,7 +3329,7 @@ If features are not working in the Flatpak build:
 4. **CLI tools:** Host-installed binaries (bw, kubectl, pass, op) are NOT visible inside the sandbox. Use Menu → Flatpak Components to install them
 5. **Secret Service:** GNOME Keyring / KDE Wallet access works via D-Bus portal
 6. **KeePassXC:** Host-installed `keepassxc-cli` is detected and used automatically via `flatpak-spawn --host` — no manual configuration needed
-7. **Zero Trust / Kubernetes:** Cloud CLIs (`aws`, `gcloud`, `az`, `kubectl`) on the host are detected and executed via `flatpak-spawn --host`. Config directories (`~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`) are mounted into the sandbox so credentials are shared
+7. **Zero Trust / Kubernetes:** Cloud CLIs (`aws`, `gcloud`, `az`, `kubectl`) on the host are detected and executed via `flatpak-spawn --host`. Config directories (`~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`) are mounted into the sandbox so credentials are shared. CLI config paths are redirected to writable sandbox directories via `CLOUDSDK_CONFIG`, `AZURE_CONFIG_DIR`, `TELEPORT_HOME`, `OCI_CLI_CONFIG_FILE`. Boundary uses the system keyring via D-Bus
 8. **FreeRDP:** Bundled in the Flatpak build (SDL3 client). External RDP works out of the box on Wayland without `DISPLAY`
 
 ### Monitoring Issues

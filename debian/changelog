@@ -1,5 +1,6 @@
 rustconn (0.10.4-1) unstable; urgency=medium
 
+  * Flatpak: Zero Trust CLIs crash on read-only filesystem fixed
   * Flatpak manifests: added missing FreeRDP and Waypipe modules
   * i18n: wrapped 5 untranslated UI strings, translated for 15 languages
   * Snap license corrected: GPL-3.0+ to GPL-3.0-or-later
@@ -7,6 +8,7 @@ rustconn (0.10.4-1) unstable; urgency=medium
   * Removed duplicate changelog entries in packaging files
   * Dependencies: moka 0.12.15, yuv 0.8.12
   * CLI downloads: Tailscale 1.94.2 to 1.96.2
+  * Libvirt daemon import via virsh (#63)
 
   * Fixed MOSH connections not dispatched — added start_mosh_connection()
   * Fixed auto-recording not triggered from session_recording_enabled toggle

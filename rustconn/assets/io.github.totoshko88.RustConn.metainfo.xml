@@ -41,7 +41,7 @@
     <category>RemoteAccess</category>
   </categories>
   <icon type="stock">io.github.totoshko88.RustConn</icon>
-  <icon type="remote" width="128" height="128">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/icons/hicolor/128x128/apps/io.github.totoshko88.RustConn.png</icon>
+  <icon type="remote" width="256" height="256">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/icons/hicolor/256x256/apps/io.github.totoshko88.RustConn.png</icon>
   <branding>
     <color type="primary" scheme_preference="light">#dc8add</color>
     <color type="primary" scheme_preference="dark">#613583</color>
@@ -66,13 +66,20 @@
       <image type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/shell_white_en.png</image>
     </screenshot>
     <screenshot>
-      <caption>SFTP file browser</caption>
-      <image type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/sftp_dark_uk.png</image>
+      <caption>SFTP file browser via Midnight Commander</caption>
+      <image type="source" width="2841" height="1836">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/sftp_dark.png</image>
+      <image xml:lang="uk" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/sftp_dark_uk.png</image>
     </screenshot>
     <screenshot>
       <caption>Credential storage settings</caption>
-      <image type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/creds_dark_uk.png</image>
+      <image type="source" width="2841" height="1836">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/creds_dark.png</image>
+      <image xml:lang="uk" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/creds_dark_uk.png</image>
       <image xml:lang="cs" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/creds_dark_cz.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Remote host monitoring bar</caption>
+      <image type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/ssh_monitoring_en.png</image>
+      <image xml:lang="uk" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/ssh_monitoring_uk.png</image>
     </screenshot>
   </screenshots>
   <url type="homepage">https://github.com/totoshko88/RustConn</url>
@@ -82,6 +89,7 @@
   <url type="translate">https://github.com/totoshko88/RustConn/tree/main/po</url>
   <url type="contribute">https://github.com/totoshko88/RustConn/blob/main/README.md</url>
   <url type="donation">https://donatello.to/totoshko88</url>
+  <url type="contact">https://github.com/totoshko88/RustConn/issues</url>
   <content_rating type="oars-1.1"/>
   <requires>
     <display_length compare="ge">360</display_length>
@@ -96,105 +104,79 @@
   </supports>
   <releases>
     <release version="0.10.4" date="2026-03-22">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#0104---2026-03-22</url>
       <description>
-        <p>Packaging fixes, i18n improvements, ARM64 builds, and duplicate changelog cleanup:</p>
+        <p>Flatpak Zero Trust CLI fixes, libvirt daemon import, and packaging improvements.</p>
         <ul>
-          <li>Flatpak manifests: added missing FreeRDP and Waypipe modules to match documentation</li>
-          <li>i18n: wrapped 5 untranslated UI strings and added translations for all 15 languages</li>
-          <li>Snap license corrected from GPL-3.0+ to GPL-3.0-or-later (SPDX)</li>
-          <li>ARM64 release builds added (deb, rpm, appimage via QEMU emulation)</li>
-          <li>Removed duplicate changelog entries in RPM spec, Debian changelog, and OBS changes</li>
-          <li>CLI downloads: 1Password CLI 2.33.0, kubectl 1.35.3</li>
+          <li>Fixed Zero Trust CLIs crashing in Flatpak due to read-only filesystem — config paths redirected to writable sandbox directories for gcloud, Azure CLI, Teleport, and OCI CLI</li>
+          <li>Fixed Zero Trust CLI tools not found in Flatpak — extended PATH now includes Flatpak CLI directories</li>
+          <li>Fixed failed connections stuck in yellow "connecting" state — now transitions to red on launch failure</li>
+          <li>Fixed VTE regex warning on highlight rule registration</li>
+          <li>Added libvirt daemon import — query running VMs via virsh dumpxml</li>
+          <li>Added missing FreeRDP and Waypipe modules to Flatpak manifests</li>
+          <li>Added ARM64 release builds for deb, rpm, and AppImage</li>
+          <li>Wrapped 5 untranslated UI strings and added translations for all 15 languages</li>
+          <li>Updated Tailscale 1.94.2 to 1.96.2, moka 0.12.15, yuv 0.8.12</li>
         </ul>
       </description>
     </release>
     <release version="0.10.3" date="2026-03-21">
       <description>
-        <p>Security hardening, code audit fixes, and dead code cleanup:</p>
+        <p>Security hardening and reliability fixes.</p>
         <ul>
-          <li>Security: RDP password no longer exposed in /proc — uses /from-stdin pipe</li>
-          <li>Security: SSH agent askpass script zeroized before deletion</li>
-          <li>Security: CLI --password flag shows security warning</li>
-          <li>Security: Legacy XOR credential decryption now logged</li>
-          <li>Fixed highlight rules not applied without per-connection rules (#66)</li>
-          <li>Fixed CLI add --protocol zerotrust silently creating SSH connection</li>
-          <li>Fixed config file corruption on crash — atomic temp-file + rename</li>
-          <li>Fixed blocking DNS in async check_port_async</li>
-          <li>Improved sidebar tooltip with full connection name on hover</li>
-          <li>Improved log sanitization performance — LazyLock regex compilation</li>
-          <li>Improved CLI parse_protocol consolidated into shared utility</li>
-          <li>Dead code cleanup — removed unused AppStateError, VncLauncher, FieldValidator</li>
-          <li>Dependencies: rustls-webpki 0.103.10, zune-jpeg 0.5.14</li>
+          <li>RDP password no longer visible in process listings</li>
+          <li>SSH agent passphrase temp files securely wiped before deletion</li>
+          <li>Fixed highlight rules not applied without per-connection rules</li>
+          <li>Fixed config file corruption on crash — now uses atomic writes</li>
+          <li>Sidebar shows full connection name and host on hover</li>
+          <li>Removed unused code and improved log sanitization performance</li>
         </ul>
       </description>
     </release>
     <release version="0.10.2" date="2026-03-20">
       <description>
-        <p>Bug fixes for session recording, MOSH, highlight rules, and packaging improvements:</p>
+        <p>Session recording fixes, MOSH dispatch, and packaging improvements.</p>
         <ul>
           <li>Fixed MOSH connections silently failing — added missing dispatch handler</li>
-          <li>Fixed auto-recording not triggered when session_recording_enabled is set</li>
-          <li>Fixed per-connection highlight rules not applied after terminal creation</li>
-          <li>Fixed script command visible on recording start — delayed erase with HISTCONTROL support</li>
-          <li>Fixed double exit and UI freeze on recording stop — EOF signal with async SCP retrieval</li>
-          <li>Fixed lost commands in recording playback — strips echoed script invocation line</li>
-          <li>Fixed .rdp file association — MIME type definition installed in all packaging formats</li>
-          <li>Fixed sidebar stretching with long names — ellipsize with max width</li>
-          <li>Fixed picocom detection in Flatpak — fallback to which_binary() for v3.x</li>
-          <li>Fixed RDP error message — shows "Install FreeRDP 3.x" instead of raw error</li>
-          <li>Suppressed IronRDP debug log spam in tracing subscriber</li>
-          <li>CSV import auto-detects delimiter from file content</li>
-          <li>Script credentials test button with 30s timeout and masked output preview</li>
-          <li>Config sync documentation added to User Guide</li>
+          <li>Fixed session recording: script visibility, double exit freeze, lost commands in playback</li>
+          <li>Fixed auto-recording and highlight rules not applied after connection</li>
+          <li>Fixed .rdp file association — MIME type installed in all packaging formats</li>
+          <li>Fixed picocom detection in Flatpak and improved RDP error messages</li>
+          <li>CSV import now auto-detects delimiter from file content</li>
+          <li>Script credentials test button with timeout and masked output preview</li>
         </ul>
       </description>
     </release>
     <release version="0.10.1" date="2026-03-19">
       <description>
-        <p>8 new features: MOSH protocol, CSV import/export, session recording, text highlighting, ad-hoc broadcast, smart folders, script credentials, and per-connection terminal theming:</p>
+        <p>Eight new features: MOSH protocol, CSV import/export, session recording, text highlighting, ad-hoc broadcast, smart folders, script credentials, and per-connection terminal theming.</p>
         <ul>
-          <li>MOSH protocol — mobile shell with predict mode, UDP port range, and server binary path</li>
-          <li>CSV import/export — RFC 4180 compliant with auto column mapping and configurable delimiter</li>
-          <li>Session recording — scriptreplay-compatible format with sensitive output sanitization and REC indicator</li>
-          <li>Text highlighting rules — regex-based pattern matching with per-connection and global rules (ERROR, WARNING, CRITICAL defaults)</li>
-          <li>Ad-hoc broadcast — send keystrokes to multiple terminals simultaneously with per-terminal selection</li>
-          <li>Smart Folders — dynamic connection grouping by protocol, tags, host glob pattern, or parent group</li>
-          <li>Script credentials — resolve passwords from external scripts with 30-second timeout</li>
-          <li>Per-connection terminal theming — background, foreground, and cursor color overrides per connection</li>
-          <li>15 language translations updated for all new features</li>
-          <li>Fixed Flatpak SSH key paths stale after rebuild — stable copy with fallback resolution</li>
-          <li>Fixed SFTP ssh-add stale portal key path and mc opening on auth failure</li>
-          <li>Fixed session recording: script command format, remote paths, playback header, terminal visibility, SCP host key prompts</li>
-          <li>Fixed RDP sidebar status not clearing after disconnect</li>
-          <li>Fixed PlaybackToolbar GtkSearchEntry finalization warning</li>
-          <li>Fixed cargo/config deprecation warning in Flatpak build</li>
-          <li>Flatpak local manifest runtime updated to GNOME 50</li>
-          <li>Dependencies: euclid 0.22.14, toml 1.0.7, zerocopy 0.8.47, zip 8.3</li>
+          <li>MOSH protocol with predict mode, UDP port range, and server binary path</li>
+          <li>CSV import/export with auto column mapping and configurable delimiter</li>
+          <li>Session recording in scriptreplay-compatible format with sensitive output sanitization</li>
+          <li>Text highlighting rules with regex patterns, per-connection and global defaults</li>
+          <li>Ad-hoc broadcast to send keystrokes to multiple terminals simultaneously</li>
+          <li>Smart Folders for dynamic connection grouping by protocol, tags, or host pattern</li>
+          <li>Script credentials to resolve passwords from external commands</li>
+          <li>Per-connection terminal theming with background, foreground, and cursor colors</li>
+          <li>Fixed Flatpak SSH key paths becoming stale after rebuild</li>
+          <li>All 15 language translations updated for new features</li>
         </ul>
       </description>
     </release>
     <release version="0.10.0" date="2026-03-14">
       <description>
-        <p>GTK4/libadwaita/VTE upgrade, RDP file association, FreeRDP in Flatpak, and Flatpak fixes:</p>
+        <p>Major platform upgrade: GTK4 0.11, libadwaita 0.9, GNOME 50 runtime, and FreeRDP bundled in Flatpak.</p>
         <ul>
           <li>RDP file association — double-click .rdp files to open and connect automatically</li>
           <li>FreeRDP 3.24.0 bundled in Flatpak — external RDP works out of the box on Wayland</li>
-          <li>sdl-freerdp3 and unversioned FreeRDP binary detection for distro and Flatpak builds</li>
-          <li>GTK-rs bindings upgraded: gtk4 0.11, libadwaita 0.9, vte4 0.10, gdk4-wayland 0.11</li>
-          <li>MSRV bumped to Rust 1.92 across all crates, CI, and packaging</li>
+          <li>GTK-rs bindings upgraded to unlock GNOME 48–50 widget APIs</li>
           <li>Flatpak runtime bumped to GNOME 50 with VTE 0.80</li>
-          <li>AdwSpinner, AdwShortcutsDialog, AdwSwitchRow, AdwWrapBox migrations (cfg-gated)</li>
-          <li>CSS prefers-reduced-motion support for accessibility</li>
-          <li>Tiered distro feature flags: adw-1-8 for Tumbleweed/Fedora 43+, adw-1-6 for Leap/Fedora 42</li>
+          <li>Accessibility: CSS prefers-reduced-motion support</li>
+          <li>Fixed SSH jump host, mc wrapper, and Zero Trust connections in Flatpak</li>
+          <li>Fixed RDP gateway ignored in embedded mode — auto-fallback to FreeRDP</li>
           <li>Fixed default window size too small on first start</li>
-          <li>Fixed RDP gateway parameters ignored in embedded mode — auto-fallback to FreeRDP</li>
-          <li>Fixed external RDP sidebar icon stays green after tab close</li>
-          <li>Fixed SSH jump host connections broken in Flatpak (interactive and monitoring)</li>
-          <li>Fixed mc wrapper not found in Flatpak on openSUSE</li>
-          <li>Fixed ZeroTrust and Kubernetes connections broken in Flatpak — CLI tools via flatpak-spawn; cloud config dirs mounted into sandbox</li>
-          <li>Fixed split view text selection broken by GestureClick handler</li>
-          <li>Fixed untranslated protocol display names across all 15 languages</li>
-          <li>Codebase cleanup: removed unused CSS classes, consolidated futures-util, removed dead code</li>
+          <li>Translated protocol display names across all 15 languages</li>
         </ul>
       </description>
     </release>
@@ -336,17 +318,14 @@
     </release>
     <release version="0.9.4" date="2026-03-01">
       <description>
-        <p>Session reconnect, cluster broadcast, libvirt import, template manager, and UX fixes.</p>
+        <p>Session reconnect, cluster broadcast, libvirt import, and automation improvements.</p>
         <ul>
-          <li>Session Reconnect banner on disconnected VTE tabs</li>
-          <li>Cluster broadcast mode wired — keyboard input broadcasts to all terminals</li>
-          <li>Libvirt / GNOME Boxes import — VNC, SPICE, RDP from domain XML</li>
-          <li>TemplateManager — centralized template CRUD with search and import/export</li>
-          <li>Snippet shell safety check before --execute</li>
-          <li>Settings Backup/Restore as ZIP archive</li>
-          <li>Automation engine: one-shot rules, template picker, pre/post-connect tasks</li>
-          <li>Fixed password inheritance for PasswordSource::Variable</li>
-          <li>Fixed VTE spawn failure — shows banner instead of silent empty terminal</li>
+          <li>Reconnect banner on disconnected terminal tabs — one-click reconnection</li>
+          <li>Cluster broadcast mode sends keyboard input to all terminals simultaneously</li>
+          <li>Libvirt and GNOME Boxes import — VNC, SPICE, RDP from domain XML</li>
+          <li>Template manager with search, import, and export</li>
+          <li>Settings backup and restore as ZIP archive</li>
+          <li>Automation engine with one-shot rules, templates, and pre/post-connect tasks</li>
         </ul>
       </description>
     </release>

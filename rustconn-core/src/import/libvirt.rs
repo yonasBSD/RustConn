@@ -454,6 +454,25 @@ impl LibvirtXmlImporter {
             }
         }
     }
+    /// Imports connections from a raw domain XML string.
+    ///
+    /// This is the public entry point used by `LibvirtDaemonImporter` to
+    /// feed `virsh dumpxml` output into the existing parser.
+    pub fn import_domain_xml(xml: &str, source_path: &str, result: &mut ImportResult) {
+        let Some(domain) = Self::parse_domain_xml(xml) else {
+            result.add_skipped(SkippedEntry::with_location(
+                "unknown",
+                "No valid <domain> element found in XML",
+                source_path,
+            ));
+            return;
+        };
+
+        let conns = Self::domain_to_connections(&domain, source_path, result);
+        for conn in conns {
+            result.add_connection(conn);
+        }
+    }
 }
 
 impl ImportSource for LibvirtXmlImporter {

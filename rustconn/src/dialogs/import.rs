@@ -16,8 +16,8 @@ use libadwaita as adw;
 use rustconn_core::export::NativeExport;
 use rustconn_core::import::{
     AnsibleInventoryImporter, AsbruImporter, CsvImporter, CsvParseOptions, ImportResult,
-    ImportSource, LibvirtXmlImporter, MobaXtermImporter, RdmImporter, RdpFileImporter,
-    RemminaImporter, RoyalTsImporter, SshConfigImporter, VirtViewerImporter,
+    ImportSource, LibvirtDaemonImporter, LibvirtXmlImporter, MobaXtermImporter, RdmImporter,
+    RdpFileImporter, RemminaImporter, RoyalTsImporter, SshConfigImporter, VirtViewerImporter,
 };
 use rustconn_core::progress::LocalProgressReporter;
 use std::cell::{Cell, RefCell};
@@ -272,6 +272,12 @@ impl ImportDialog {
                 true,
             ),
             (
+                "libvirt_daemon",
+                i18n("Libvirt Daemon (virsh)"),
+                i18n("Query running libvirtd for VMs (requires virsh)"),
+                LibvirtDaemonImporter::is_virsh_available(),
+            ),
+            (
                 "rdp_file",
                 i18n("RDP File (.rdp)"),
                 i18n("Import RDP connection from a Microsoft .rdp file"),
@@ -460,6 +466,7 @@ impl ImportDialog {
             "vv_file" => "Virt-Viewer",
             "libvirt" => "Libvirt / GNOME Boxes",
             "libvirt_file" => "Libvirt XML",
+            "libvirt_daemon" => "Libvirt Daemon",
             "rdp_file" => "RDP File",
             "csv_file" => "CSV",
             _ => "Unknown",
@@ -508,6 +515,10 @@ impl ImportDialog {
             "ansible" => {
                 let importer = AnsibleInventoryImporter::new();
                 Self::import_or_error(importer.import(), "Ansible inventory")
+            }
+            "libvirt_daemon" => {
+                let importer = LibvirtDaemonImporter::new();
+                Self::import_or_error(importer.import(), "Libvirt Daemon")
             }
             _ => ImportResult::default(),
         }
@@ -1360,6 +1371,15 @@ impl ImportDialog {
                 }
 
                 Self::import_or_error(importer.import(), "Libvirt")
+            }
+            "libvirt_daemon" => {
+                reporter.report(0, 1, "Querying libvirt daemon...");
+                if reporter.is_cancelled() {
+                    return ImportResult::default();
+                }
+
+                let importer = LibvirtDaemonImporter::new();
+                Self::import_or_error(importer.import(), "Libvirt Daemon")
             }
             _ => ImportResult::default(),
         };

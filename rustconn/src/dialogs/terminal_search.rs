@@ -326,7 +326,9 @@ impl TerminalSearchDialog {
 
             // Add hover-highlight for all matches when enabled
             // VTE4 match_add_regex highlights text on mouse hover
-            if highlight_all && let Ok(hl_regex) = vte4::Regex::for_search(&pattern, PCRE2_MULTILINE) {
+            if highlight_all
+                && let Ok(hl_regex) = vte4::Regex::for_search(&pattern, PCRE2_MULTILINE)
+            {
                 terminal.match_add_regex(&hl_regex, 0);
             }
 
