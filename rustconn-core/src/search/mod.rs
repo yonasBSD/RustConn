@@ -647,8 +647,8 @@ impl SearchEngine {
                 return ratio.mul_add(0.4, 0.6).min(0.99);
             }
 
-            // Check for substring match using case-insensitive search
-            if let Some(pos) = target.to_lowercase().find(&query.to_lowercase()) {
+            // Check for substring match using allocation-free case-insensitive search
+            if let Some(pos) = self.find_case_insensitive(query, target) {
                 let ratio = query_len as f32 / target_len as f32;
                 let prefix_bonus = if pos == 0 { 0.1 } else { 0.0 };
                 return ratio.mul_add(0.4, 0.5 + prefix_bonus).min(0.99);

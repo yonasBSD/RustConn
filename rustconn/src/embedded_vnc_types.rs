@@ -394,8 +394,14 @@ impl VncPixelBuffer {
 
 /// Wayland surface handle for VNC subsurface integration
 ///
-/// This struct manages the Wayland surface resources for embedding
-/// the VNC display within the GTK widget hierarchy.
+/// Placeholder for future Wayland-native VNC rendering.
+///
+/// Currently all methods are no-ops — the embedded VNC widget uses a
+/// GTK `DrawingArea` with Cairo blitting instead of a real Wayland
+/// subsurface. This struct is kept because it is wired into
+/// `EmbeddedVncWidget` and will be replaced with actual
+/// `wl_surface`/`wl_subsurface` calls when native Wayland compositing
+/// support is implemented.
 #[derive(Debug, Default)]
 pub struct VncWaylandSurface {
     /// Whether the surface is initialized

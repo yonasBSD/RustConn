@@ -688,8 +688,8 @@ impl VirtualScroller {
 /// Reduces memory usage when the same strings appear multiple times
 /// (e.g., protocol names, common hostnames, usernames).
 pub struct StringInterner {
-    /// Interned strings storage
-    strings: RwLock<HashMap<u64, Arc<str>>>,
+    /// Interned strings storage — keyed by the actual string for collision-free dedup
+    strings: RwLock<HashMap<Arc<str>, Arc<str>>>,
     /// Statistics
     stats: InternerStats,
 }
@@ -724,13 +724,12 @@ impl StringInterner {
     pub fn intern(&self, s: &str) -> Arc<str> {
         self.stats.intern_count.fetch_add(1, Ordering::Relaxed);
 
-        let hash = self.hash_string(s);
+        let key: Arc<str> = Arc::from(s);
 
         // Try read lock first for cache hit
         {
             if let Some(strings) = read_rwlock(&self.strings, "interner_strings")
-                && let Some(existing) = strings.get(&hash)
-                && &**existing == s
+                && let Some(existing) = strings.get(&key)
             {
                 self.stats.hit_count.fetch_add(1, Ordering::Relaxed);
                 self.stats.bytes_saved.fetch_add(s.len(), Ordering::Relaxed);
@@ -741,23 +740,20 @@ impl StringInterner {
         // Need write lock to insert
         let Some(mut strings) = write_rwlock(&self.strings, "interner_strings") else {
             // Fallback: return a fresh Arc without caching
-            return Arc::from(s);
+            return key;
         };
 
         // Double-check after acquiring write lock
-        if let Some(existing) = strings.get(&hash)
-            && &**existing == s
-        {
+        if let Some(existing) = strings.get(&key) {
             self.stats.hit_count.fetch_add(1, Ordering::Relaxed);
             self.stats.bytes_saved.fetch_add(s.len(), Ordering::Relaxed);
             return Arc::clone(existing);
         }
 
         // Insert new string
-        let arc: Arc<str> = Arc::from(s);
-        strings.insert(hash, Arc::clone(&arc));
+        strings.insert(Arc::clone(&key), Arc::clone(&key));
         self.stats.unique_count.fetch_add(1, Ordering::Relaxed);
-        arc
+        key
     }
 
     /// Gets the interner statistics
@@ -788,13 +784,6 @@ impl StringInterner {
             s.clear();
         }
         self.stats.unique_count.store(0, Ordering::Relaxed);
-    }
-
-    fn hash_string(&self, s: &str) -> u64 {
-        use std::collections::hash_map::DefaultHasher;
-        let mut hasher = DefaultHasher::new();
-        s.hash(&mut hasher);
-        hasher.finish()
     }
 }
 

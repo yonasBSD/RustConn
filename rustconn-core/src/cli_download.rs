@@ -918,7 +918,7 @@ async fn download_with_progress(
 
     let total_size = response.content_length();
     let mut downloaded: u64 = 0;
-    let mut data = Vec::with_capacity(total_size.unwrap_or(10_000_000) as usize);
+    let mut data = Vec::with_capacity(total_size.unwrap_or(1_000_000) as usize);
 
     let mut stream = response.bytes_stream();
 

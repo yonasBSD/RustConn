@@ -31,6 +31,8 @@ pub struct ClusterDialog {
     connection_rows: Rc<RefCell<Vec<ConnectionSelectionRow>>>,
     editing_id: Rc<RefCell<Option<Uuid>>>,
     on_save: ClusterCallback,
+    select_all_btn: Button,
+    deselect_all_btn: Button,
 }
 
 /// Represents a connection selection row in the cluster dialog
@@ -123,7 +125,8 @@ impl ClusterDialog {
         content.append(&details_group);
 
         // Connections selection section
-        let (connections_group, connections_list) = Self::create_connections_section();
+        let (connections_group, connections_list, select_all_btn, deselect_all_btn) =
+            Self::create_connections_section();
         content.append(&connections_group);
 
         let on_save: ClusterCallback = Rc::new(RefCell::new(None));
@@ -192,11 +195,13 @@ impl ClusterDialog {
             connection_rows,
             editing_id,
             on_save,
+            select_all_btn,
+            deselect_all_btn,
         }
     }
 
     /// Creates the connections selection section
-    fn create_connections_section() -> (adw::PreferencesGroup, ListBox) {
+    fn create_connections_section() -> (adw::PreferencesGroup, ListBox, Button, Button) {
         let group = adw::PreferencesGroup::builder()
             .title(i18n("Connections"))
             .description(i18n("Select connections to include in this cluster"))
@@ -230,7 +235,7 @@ impl ClusterDialog {
 
         group.add(&button_box);
 
-        (group, connections_list)
+        (group, connections_list, select_all_btn, deselect_all_btn)
     }
 
     /// Creates a connection selection row widget
@@ -284,35 +289,22 @@ impl ClusterDialog {
             self.connection_rows.borrow_mut().push(conn_row);
         }
 
-        // Wire up select all / deselect all buttons
-        // Find the buttons in the frame
-        if let Some(frame) = self.connections_list.parent()
-            && let Some(scrolled) = frame.parent()
-            && let Some(vbox) = scrolled.parent()
-            && let Some(button_box) = vbox.last_child()
-            && let Some(button_box) = button_box.downcast_ref::<GtkBox>()
+        // Wire up select all / deselect all buttons using stored references
         {
-            let connection_rows_clone = self.connection_rows.clone();
-            if let Some(select_all) = button_box.first_child()
-                && let Some(select_all_btn) = select_all.downcast_ref::<Button>()
-            {
-                let rows = connection_rows_clone.clone();
-                select_all_btn.connect_clicked(move |_| {
-                    for row in rows.borrow().iter() {
-                        row.selected_check.set_active(true);
-                    }
-                });
-            }
-            if let Some(deselect_all) = button_box.last_child()
-                && let Some(deselect_all_btn) = deselect_all.downcast_ref::<Button>()
-            {
-                let rows = connection_rows_clone;
-                deselect_all_btn.connect_clicked(move |_| {
-                    for row in rows.borrow().iter() {
-                        row.selected_check.set_active(false);
-                    }
-                });
-            }
+            let rows = self.connection_rows.clone();
+            self.select_all_btn.connect_clicked(move |_| {
+                for row in rows.borrow().iter() {
+                    row.selected_check.set_active(true);
+                }
+            });
+        }
+        {
+            let rows = self.connection_rows.clone();
+            self.deselect_all_btn.connect_clicked(move |_| {
+                for row in rows.borrow().iter() {
+                    row.selected_check.set_active(false);
+                }
+            });
         }
     }
 

@@ -74,6 +74,7 @@ impl Default for TrayState {
 #[cfg(feature = "tray")]
 mod tray_impl {
     use super::*;
+    use crate::i18n::{i18n, i18n_f};
     use ksni::blocking::{Handle, TrayMethods};
     use ksni::{Icon, MenuItem, Tray, menu::StandardItem};
     use std::sync::mpsc::Sender;
@@ -203,12 +204,12 @@ mod tray_impl {
 
             // Toggle window visibility
             let label = if window_visible {
-                "Hide Window"
+                i18n("Hide Window")
             } else {
-                "Show Window"
+                i18n("Show Window")
             };
             items.push(MenuItem::Standard(StandardItem {
-                label: label.to_string(),
+                label,
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::ToggleWindow);
                 }),
@@ -235,7 +236,7 @@ mod tray_impl {
                     .collect();
 
                 items.push(MenuItem::SubMenu(ksni::menu::SubMenu {
-                    label: "Recent Connections".to_string(),
+                    label: i18n("Recent Connections"),
                     submenu: recent_items,
                     ..Default::default()
                 }));
@@ -245,7 +246,7 @@ mod tray_impl {
 
             // Quick connect
             items.push(MenuItem::Standard(StandardItem {
-                label: "Quick Connect...".to_string(),
+                label: i18n("Quick Connect..."),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::QuickConnect);
                 }),
@@ -254,7 +255,7 @@ mod tray_impl {
 
             // Local Shell
             items.push(MenuItem::Standard(StandardItem {
-                label: "Local Shell".to_string(),
+                label: i18n("Local Shell"),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::LocalShell);
                 }),
@@ -266,7 +267,7 @@ mod tray_impl {
             // Session count (informational)
             if active_sessions > 0 {
                 items.push(MenuItem::Standard(StandardItem {
-                    label: format!("{} Active Session(s)", active_sessions),
+                    label: i18n_f("{} Active Session(s)", &[&active_sessions.to_string()]),
                     enabled: false,
                     ..Default::default()
                 }));
@@ -275,7 +276,7 @@ mod tray_impl {
 
             // About
             items.push(MenuItem::Standard(StandardItem {
-                label: "About".to_string(),
+                label: i18n("About"),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::About);
                 }),
@@ -284,7 +285,7 @@ mod tray_impl {
 
             // Quit
             items.push(MenuItem::Standard(StandardItem {
-                label: "Quit".to_string(),
+                label: i18n("Quit"),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::Quit);
                 }),

@@ -945,47 +945,69 @@ impl ExportDialog {
             progress_spinner.set_spinning(true);
             progress_label.set_text(&i18n_f("Exporting to {}...", &[format.display_name()]));
 
-            // Perform export
-            let conns = connections.borrow();
-            let grps = groups.borrow();
-            let snips = snippets.borrow();
+            // Perform export on a background thread to avoid blocking the UI
+            let conns = connections.borrow().clone();
+            let grps = groups.borrow().clone();
+            let snips = snippets.borrow().clone();
 
-            progress_bar.set_fraction(0.5);
+            progress_bar.set_fraction(0.3);
             progress_label.set_text(&i18n("Writing output files..."));
 
-            let export_result = Self::do_export(&conns, &grps, &snips, &options, csv_opts.as_ref());
-
-            progress_bar.set_fraction(1.0);
+            let options_clone = options.clone();
+            let csv_opts_clone = csv_opts.clone();
+            let btn = btn.clone();
+            let progress_bar = progress_bar.clone();
+            let progress_label = progress_label.clone();
             #[cfg(not(feature = "adw-1-6"))]
-            progress_spinner.set_spinning(false);
+            let progress_spinner = progress_spinner.clone();
+            let result_label = result_label.clone();
+            let result_details = result_details.clone();
+            let result_cell = result_cell.clone();
+            let stack = stack.clone();
+            crate::utils::spawn_blocking_with_callback(
+                move || {
+                    Self::do_export(
+                        &conns,
+                        &grps,
+                        &snips,
+                        &options_clone,
+                        csv_opts_clone.as_ref(),
+                    )
+                },
+                move |export_result| {
+                    progress_bar.set_fraction(1.0);
+                    #[cfg(not(feature = "adw-1-6"))]
+                    progress_spinner.set_spinning(false);
 
-            match export_result {
-                Ok(result) => {
-                    progress_label.set_text(&i18n("Export complete"));
+                    match export_result {
+                        Ok(result) => {
+                            progress_label.set_text(&i18n("Export complete"));
 
-                    // Show results using helper method
-                    let summary = Self::format_result_summary(&result, format);
-                    result_label.set_text(&summary);
+                            // Show results using helper method
+                            let summary = Self::format_result_summary(&result, format);
+                            result_label.set_text(&summary);
 
-                    let details = Self::format_export_details(&result);
-                    result_details.set_text(&details);
+                            let details = Self::format_export_details(&result);
+                            result_details.set_text(&details);
 
-                    *result_cell.borrow_mut() = Some(result);
-                    stack.set_visible_child_name("result");
-                    btn.set_label(&i18n("Done"));
-                    btn.set_sensitive(true);
-                }
-                Err(e) => {
-                    // Show error
-                    progress_label.set_text(&i18n("Export failed"));
-                    result_label.set_text(&i18n("Export Failed"));
-                    result_details.set_text(&format!("Error: {e}"));
+                            *result_cell.borrow_mut() = Some(result);
+                            stack.set_visible_child_name("result");
+                            btn.set_label(&i18n("Done"));
+                            btn.set_sensitive(true);
+                        }
+                        Err(e) => {
+                            // Show error
+                            progress_label.set_text(&i18n("Export failed"));
+                            result_label.set_text(&i18n("Export Failed"));
+                            result_details.set_text(&format!("Error: {e}"));
 
-                    stack.set_visible_child_name("result");
-                    btn.set_label(&i18n("Close"));
-                    btn.set_sensitive(true);
-                }
-            }
+                            stack.set_visible_child_name("result");
+                            btn.set_label(&i18n("Close"));
+                            btn.set_sensitive(true);
+                        }
+                    }
+                },
+            );
         });
     }
 

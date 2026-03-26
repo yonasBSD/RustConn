@@ -277,7 +277,6 @@ impl CommandPaletteDialog {
             let engine = SearchEngine::new();
             cmds.retain(|item| engine.fuzzy_score(query, &item.label) > 0.0);
             cmds.sort_by(|a, b| {
-                let engine = SearchEngine::new();
                 let sa = engine.fuzzy_score(query, &a.label);
                 let sb = engine.fuzzy_score(query, &b.label);
                 sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)

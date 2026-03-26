@@ -8,11 +8,12 @@ use crate::util::{create_config_manager, find_connection};
 
 /// Prompts the user for confirmation on an interactive terminal.
 ///
-/// Returns `true` if the user confirms (types "y" or "Y"), or if stdin
-/// is not a terminal (non-interactive mode assumes yes).
+/// Returns `true` only if the user explicitly confirms (types "y" or "Y").
+/// Returns `false` in non-interactive mode to prevent accidental destructive
+/// operations — use `--force` to bypass confirmation in scripts.
 fn confirm(message: &str) -> bool {
     if !std::io::stdin().is_terminal() {
-        return true;
+        return false;
     }
     eprint!("{message} [y/N] ");
     let mut input = String::new();

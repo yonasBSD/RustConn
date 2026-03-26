@@ -305,7 +305,11 @@ pub struct WaylandSubsurface {
     surface_id: u32,
     /// Next surface ID counter
     next_id: u32,
-    /// Whether native Wayland rendering is active
+    /// Whether native Wayland rendering is active.
+    ///
+    /// NOTE: Always `false` — native Wayland subsurface integration is not
+    /// yet implemented. All code paths that check this field are currently
+    /// dead code (no-ops). Retained for future implementation.
     native_wayland_active: bool,
 }
 
@@ -733,9 +737,16 @@ impl Drop for WaylandSubsurface {
 }
 
 /// Rendering mode for embedded sessions
+///
+/// NOTE: Currently only `CairoFallback` is ever constructed.
+/// `WaylandSubsurface` is retained as a placeholder for future native
+/// Wayland subsurface integration, which requires unsafe access to raw
+/// `wl_surface` pointers. `RenderingMode::detect()` always returns
+/// `CairoFallback`. See also: `native_wayland_active` (always `false`),
+/// `is_native_wayland()` (always `false`), `native_wayland_possible()`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RenderingMode {
-    /// Native Wayland subsurface rendering
+    /// Native Wayland subsurface rendering (not yet implemented — never constructed)
     WaylandSubsurface,
     /// Cairo-based rendering (X11 fallback)
     #[default]

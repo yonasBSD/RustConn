@@ -128,7 +128,7 @@ impl RdpFileImporter {
             .get("gatewayhostname")
             .filter(|s| !s.is_empty())
             .map(|gw_host| {
-                let gw_port = fields.get_u16("gatewayaccesstoken").unwrap_or(443);
+                let gw_port = fields.get_u16("gatewayport").unwrap_or(443);
                 RdpGateway {
                     hostname: gw_host.to_string(),
                     port: gw_port,

@@ -200,15 +200,30 @@ fn cmd_group_delete(config_path: Option<&Path>, name: &str) -> Result<(), CliErr
         .load_groups()
         .map_err(|e| CliError::Group(format!("Failed to load groups: {e}")))?;
 
+    let mut connections = config_manager
+        .load_connections()
+        .map_err(|e| CliError::Config(format!("Failed to load connections: {e}")))?;
+
     let group = find_group(&groups, name)?;
     let id = group.id;
     let group_name = group.name.clone();
 
     groups.retain(|g| g.id != id);
 
+    // Clear group_id for connections that belonged to the deleted group
+    for conn in &mut connections {
+        if conn.group_id == Some(id) {
+            conn.group_id = None;
+        }
+    }
+
     config_manager
         .save_groups(&groups)
         .map_err(|e| CliError::Group(format!("Failed to save groups: {e}")))?;
+
+    config_manager
+        .save_connections(&connections)
+        .map_err(|e| CliError::Config(format!("Failed to save connections: {e}")))?;
 
     println!("Deleted group '{group_name}' (ID: {id})");
 

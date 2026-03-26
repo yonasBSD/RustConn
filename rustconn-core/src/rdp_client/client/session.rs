@@ -135,18 +135,24 @@ where
             let _ = event_tx.send(RdpClientEvent::CursorPosition { x, y });
         }
         ActiveStageOutput::PointerBitmap(pointer) => {
-            // Convert cursor bitmap from IronRDP's BGRA to Cairo's ARGB32 format
-            // Same conversion as for framebuffer data (swap R and B channels)
-            let mut converted_data = pointer.bitmap_data.clone();
-            for chunk in converted_data.chunks_exact_mut(4) {
-                chunk.swap(0, 2); // Swap B and R
-            }
+            let expected_size = usize::from(pointer.width) * usize::from(pointer.height) * 4;
+
+            let src = if pointer.bitmap_data.len() > expected_size {
+                &pointer.bitmap_data[..expected_size]
+            } else {
+                &pointer.bitmap_data
+            };
+
+            let data = src.to_vec();
+
+            // Pass RGBA data as-is — handle_cursor_update crops transparent
+            // padding and does R↔B swap + premultiplied alpha for HiDPI
             let _ = event_tx.send(RdpClientEvent::CursorUpdate {
                 width: pointer.width,
                 height: pointer.height,
                 hotspot_x: pointer.hotspot_x,
                 hotspot_y: pointer.hotspot_y,
-                data: converted_data,
+                data,
             });
         }
         ActiveStageOutput::Terminate(reason) => {
@@ -252,6 +258,9 @@ where
 
 /// Extracts pixel data for a specific region from the decoded image
 /// Converts from `IronRDP`'s BGRA format to Cairo's ARGB32 format by swapping R and B channels
+///
+/// Optimized for 4K rendering: uses row-based `memcpy` + bulk channel swap instead of
+/// per-pixel copy with index arithmetic. This is cache-friendly and auto-vectorizable by LLVM.
 fn extract_region_data(image: &DecodedImage, rect: RdpRect) -> Vec<u8> {
     let img_width = image.width();
     let img_height = image.height();
@@ -266,29 +275,39 @@ fn extract_region_data(image: &DecodedImage, rect: RdpRect) -> Vec<u8> {
         return Vec::new();
     }
 
-    let bytes_per_pixel = 4;
-    let stride = img_width as usize * bytes_per_pixel;
-    let result_size = region_w as usize * region_h as usize * bytes_per_pixel;
+    let bpp = 4;
+
+    // Fast path: if the region covers the entire image, avoid row-by-row copy
+    if region_x == 0 && region_y == 0 && region_w == img_width && region_h == img_height {
+        let mut result = data.to_vec();
+        // Bulk R↔B swap — LLVM auto-vectorizes this into SIMD on x86_64
+        for chunk in result.chunks_exact_mut(bpp) {
+            chunk.swap(0, 2);
+        }
+        return result;
+    }
+
+    let src_stride = img_width as usize * bpp;
+    let dst_stride = region_w as usize * bpp;
+    let result_size = dst_stride * region_h as usize;
     let mut result = vec![0u8; result_size];
 
+    // Copy rows in bulk (cache-friendly, compiles to memcpy)
     for row in 0..region_h as usize {
-        let src_row = (region_y as usize + row) * stride + region_x as usize * bytes_per_pixel;
-        let dst_row = row * region_w as usize * bytes_per_pixel;
+        let src_offset = (region_y as usize + row) * src_stride + region_x as usize * bpp;
+        let dst_offset = row * dst_stride;
 
-        for col in 0..region_w as usize {
-            let src_idx = src_row + col * bytes_per_pixel;
-            let dst_idx = dst_row + col * bytes_per_pixel;
-
-            if src_idx + 4 <= data.len() {
-                // IronRDP outputs BGRA, Cairo expects ARGB32 (which is BGRA on little-endian)
-                // However, we observe swapped colors (Blue <-> Red), so we need to swap them manually.
-                // This suggests either IronRDP or the server is producing RGBA order.
-                result[dst_idx] = data[src_idx + 2]; // B
-                result[dst_idx + 1] = data[src_idx + 1]; // G
-                result[dst_idx + 2] = data[src_idx]; // R
-                result[dst_idx + 3] = data[src_idx + 3]; // A
-            }
+        if src_offset + dst_stride <= data.len() {
+            result[dst_offset..dst_offset + dst_stride]
+                .copy_from_slice(&data[src_offset..src_offset + dst_stride]);
         }
+    }
+
+    // Bulk R↔B channel swap (BGRA→RGBA or vice versa)
+    // Process 4 bytes at a time — LLVM will auto-vectorize this
+    // into SIMD instructions on x86_64 (SSE2/AVX2)
+    for chunk in result.chunks_exact_mut(bpp) {
+        chunk.swap(0, 2);
     }
 
     result

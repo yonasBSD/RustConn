@@ -1037,9 +1037,9 @@ const fn default_gateway_port() -> u16 {
 #[serde(rename_all = "snake_case")]
 pub enum RdpPerformanceMode {
     /// Best quality - RemoteFX codec, lossless compression, all visual effects
+    #[default]
     Quality,
     /// Balanced - RemoteFX codec, adaptive compression, font smoothing
-    #[default]
     Balanced,
     /// Best speed - Legacy bitmap, maximum compression, no visual effects
     Speed,

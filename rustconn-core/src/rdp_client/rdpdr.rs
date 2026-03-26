@@ -626,25 +626,28 @@ impl RustConnRdpdrBackend {
                 }),
             ),
             FileSystemInformationClassLevel::FILE_FS_SIZE_INFORMATION => {
-                // Return some reasonable defaults
+                let (total_units, avail_units) = get_disk_stats(&self.base_path);
                 Some(FileSystemInformationClass::FileFsSizeInformation(
                     FileFsSizeInformation {
-                        total_alloc_units: 1_000_000,
-                        available_alloc_units: 500_000,
+                        total_alloc_units: total_units,
+                        available_alloc_units: avail_units,
                         sectors_per_alloc_unit: 8,
                         bytes_per_sector: 512,
                     },
                 ))
             }
-            FileSystemInformationClassLevel::FILE_FS_FULL_SIZE_INFORMATION => Some(
-                FileSystemInformationClass::FileFsFullSizeInformation(FileFsFullSizeInformation {
-                    total_alloc_units: 1_000_000,
-                    caller_available_alloc_units: 500_000,
-                    actual_available_alloc_units: 500_000,
-                    sectors_per_alloc_unit: 8,
-                    bytes_per_sector: 512,
-                }),
-            ),
+            FileSystemInformationClassLevel::FILE_FS_FULL_SIZE_INFORMATION => {
+                let (total_units, avail_units) = get_disk_stats(&self.base_path);
+                Some(FileSystemInformationClass::FileFsFullSizeInformation(
+                    FileFsFullSizeInformation {
+                        total_alloc_units: total_units,
+                        caller_available_alloc_units: avail_units,
+                        actual_available_alloc_units: avail_units,
+                        sectors_per_alloc_unit: 8,
+                        bytes_per_sector: 512,
+                    },
+                ))
+            }
             _ => None,
         };
 
@@ -879,6 +882,14 @@ impl RustConnRdpdrBackend {
             },
         ))])
     }
+}
+
+/// Returns (total_alloc_units, available_alloc_units) for the filesystem containing `path`.
+///
+/// TODO: Use a safe statvfs wrapper (e.g. `nix` crate) to query real disk space.
+/// Currently returns hardcoded defaults because `unsafe` code is forbidden in this crate.
+fn get_disk_stats(_path: &str) -> (i64, i64) {
+    (1_000_000, 500_000)
 }
 
 /// Converts Unix timestamp (seconds) to Windows FILETIME (100-nanosecond intervals since 1601)

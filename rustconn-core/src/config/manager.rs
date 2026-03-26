@@ -533,6 +533,20 @@ impl ConfigManager {
             })?;
         }
 
+        // Sync data to disk before rename (matches async version)
+        {
+            let file = fs::File::open(&temp_path).map_err(|e| {
+                ConfigError::Write(format!(
+                    "Failed to open {} for sync: {}",
+                    temp_path.display(),
+                    e
+                ))
+            })?;
+            file.sync_all().map_err(|e| {
+                ConfigError::Write(format!("Failed to sync {}: {}", temp_path.display(), e))
+            })?;
+        }
+
         fs::rename(&temp_path, path).map_err(|e| {
             ConfigError::Write(format!(
                 "Failed to rename {} to {}: {}",
@@ -673,7 +687,7 @@ impl ConfigManager {
     ///
     /// Returns an error if the group is invalid.
     pub fn validate_group(group: &ConnectionGroup) -> ConfigResult<()> {
-        if group.name.is_empty() {
+        if group.name.trim().is_empty() {
             return Err(ConfigError::Validation {
                 field: "name".to_string(),
                 reason: "Group name cannot be empty".to_string(),
@@ -689,14 +703,14 @@ impl ConfigManager {
     ///
     /// Returns an error if the snippet is invalid.
     pub fn validate_snippet(snippet: &Snippet) -> ConfigResult<()> {
-        if snippet.name.is_empty() {
+        if snippet.name.trim().is_empty() {
             return Err(ConfigError::Validation {
                 field: "name".to_string(),
                 reason: "Snippet name cannot be empty".to_string(),
             });
         }
 
-        if snippet.command.is_empty() {
+        if snippet.command.trim().is_empty() {
             return Err(ConfigError::Validation {
                 field: "command".to_string(),
                 reason: "Snippet command cannot be empty".to_string(),

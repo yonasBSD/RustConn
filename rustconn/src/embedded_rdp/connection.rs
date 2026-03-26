@@ -323,6 +323,13 @@ impl super::EmbeddedRdpWidget {
             buffer.clear();
         }
 
+        // Resize and clear Cairo-backed buffer to match actual size
+        {
+            let mut cbuf = self.cairo_buffer.borrow_mut();
+            cbuf.resize(actual_width, actual_height);
+            cbuf.clear();
+        }
+
         // Set up event polling for IronRDP
         self.setup_ironrdp_polling(client, generation, effective_scale);
 
@@ -350,6 +357,7 @@ impl super::EmbeddedRdpWidget {
         let rdp_width_ref = self.rdp_width.clone();
         let rdp_height_ref = self.rdp_height.clone();
         let pixel_buffer = self.pixel_buffer.clone();
+        let cairo_buffer = self.cairo_buffer.clone();
         let is_embedded = self.is_embedded.clone();
         let is_ironrdp = self.is_ironrdp.clone();
         let ironrdp_tx = self.ironrdp_command_tx.clone();
@@ -471,6 +479,11 @@ impl super::EmbeddedRdpWidget {
                                     buffer.resize(server_w, server_h);
                                     buffer.clear();
                                 }
+                                {
+                                    let mut cbuf = cairo_buffer.borrow_mut();
+                                    cbuf.resize(server_w, server_h);
+                                    cbuf.clear();
+                                }
 
                                 // Phase 3: Monitor local clipboard changes and
                                 // announce to server via cliprdr
@@ -555,7 +568,17 @@ impl super::EmbeddedRdpWidget {
                                 break;
                             }
                             RdpClientEvent::FrameUpdate { rect, data } => {
-                                // Update pixel buffer with framebuffer data
+                                // Update Cairo-backed buffer (zero-copy path)
+                                let mut cbuf = cairo_buffer.borrow_mut();
+                                cbuf.update_region(
+                                    u32::from(rect.x),
+                                    u32::from(rect.y),
+                                    u32::from(rect.width),
+                                    u32::from(rect.height),
+                                    &data,
+                                    u32::from(rect.width) * 4,
+                                );
+                                // Also update legacy pixel buffer (fallback)
                                 let mut buffer = pixel_buffer.borrow_mut();
                                 buffer.update_region(
                                     u32::from(rect.x),
@@ -572,14 +595,31 @@ impl super::EmbeddedRdpWidget {
                                 height,
                                 data,
                             } => {
-                                // Full screen update
+                                // Full screen update — resize + blit into Cairo buffer
+                                {
+                                    let mut cbuf = cairo_buffer.borrow_mut();
+                                    if cbuf.width() != u32::from(width)
+                                        || cbuf.height() != u32::from(height)
+                                    {
+                                        cbuf.resize(u32::from(width), u32::from(height));
+                                        *rdp_width_ref.borrow_mut() = u32::from(width);
+                                        *rdp_height_ref.borrow_mut() = u32::from(height);
+                                    }
+                                    cbuf.update_region(
+                                        0,
+                                        0,
+                                        u32::from(width),
+                                        u32::from(height),
+                                        &data,
+                                        u32::from(width) * 4,
+                                    );
+                                }
+                                // Also update legacy pixel buffer (fallback)
                                 let mut buffer = pixel_buffer.borrow_mut();
                                 if buffer.width() != u32::from(width)
                                     || buffer.height() != u32::from(height)
                                 {
                                     buffer.resize(u32::from(width), u32::from(height));
-                                    *rdp_width_ref.borrow_mut() = u32::from(width);
-                                    *rdp_height_ref.borrow_mut() = u32::from(height);
                                 }
                                 buffer.update_region(
                                     0,
@@ -600,6 +640,11 @@ impl super::EmbeddedRdpWidget {
                                 );
                                 *rdp_width_ref.borrow_mut() = u32::from(width);
                                 *rdp_height_ref.borrow_mut() = u32::from(height);
+                                {
+                                    let mut cbuf = cairo_buffer.borrow_mut();
+                                    cbuf.resize(u32::from(width), u32::from(height));
+                                    cbuf.fill_solid(0x1E, 0x1E, 0x1E, 0xFF);
+                                }
                                 {
                                     let mut buffer = pixel_buffer.borrow_mut();
                                     buffer.resize(u32::from(width), u32::from(height));
@@ -1097,32 +1142,88 @@ impl super::EmbeddedRdpWidget {
     ) {
         use gtk4::gdk;
 
+        let expected = usize::from(width) * usize::from(height) * 4;
+        if data.len() < expected {
+            tracing::warn!(
+                expected,
+                actual = data.len(),
+                "Cursor bitmap data too small, skipping"
+            );
+            return;
+        }
+
+        // Crop transparent padding from bottom and right edges.
+        // Windows cursors are padded to 32×32 or 64×64 but the visible
+        // content is smaller. The transparent padding can cause rendering
+        // artifacts on some Wayland compositors after downscaling.
+        let w = usize::from(width);
+        let h = usize::from(height);
+        let bpp = 4;
+
+        // Find last row with any non-transparent pixel
+        let crop_h = (0..h)
+            .rev()
+            .find(|&row| {
+                let base = row * w * bpp;
+                (0..w).any(|col| data[base + col * bpp + 3] != 0)
+            })
+            .map_or(1, |row| row + 1);
+
+        // Find last column with any non-transparent pixel
+        let crop_w = (0..w)
+            .rev()
+            .find(|&col| (0..crop_h).any(|row| data[row * w * bpp + col * bpp + 3] != 0))
+            .map_or(1, |col| col + 1);
+
+        // Build cropped RGBA buffer
+        let cropped_size = crop_w * crop_h * bpp;
+        let mut cropped = Vec::with_capacity(cropped_size);
+        for row in 0..crop_h {
+            let src_start = row * w * bpp;
+            let src_end = src_start + crop_w * bpp;
+            cropped.extend_from_slice(&data[src_start..src_end]);
+        }
+
         let scale = cursor_scale;
         if scale > 1.01 {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let logical_w = (f64::from(width) / scale).round().max(1.0) as u16;
+            let logical_w = (crop_w as f64 / scale).round().max(1.0) as u16;
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let logical_h = (f64::from(height) / scale).round().max(1.0) as u16;
+            let logical_h = (crop_h as f64 / scale).round().max(1.0) as u16;
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let hotspot_logical_x = (f64::from(hotspot_x) / scale).round() as i32;
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let hotspot_logical_y = (f64::from(hotspot_y) / scale).round() as i32;
 
-            // Nearest-neighbor downscale (BGRA, 4 bytes per pixel)
-            let src_w = usize::from(width);
+            let src_w = crop_w;
             let dst_w = usize::from(logical_w);
             let dst_h = usize::from(logical_h);
-            let mut scaled = vec![0u8; dst_w * dst_h * 4];
+
+            // Nearest-neighbor downscale with premultiplied alpha + R↔B swap
+            let mut scaled = vec![0u8; dst_w * dst_h * bpp];
             for dy in 0..dst_h {
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 let sy = (dy as f64 * scale) as usize;
                 for dx in 0..dst_w {
                     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     let sx = (dx as f64 * scale) as usize;
-                    let src_off = (sy * src_w + sx) * 4;
-                    let dst_off = (dy * dst_w + dx) * 4;
-                    if src_off + 4 <= data.len() {
-                        scaled[dst_off..dst_off + 4].copy_from_slice(&data[src_off..src_off + 4]);
+                    let src_off = (sy * src_w + sx) * bpp;
+                    let dst_off = (dy * dst_w + dx) * bpp;
+                    if src_off + 4 <= cropped.len() {
+                        let a = u16::from(cropped[src_off + 3]);
+                        if a == 0 {
+                            // transparent — [0,0,0,0]
+                        } else if a == 255 {
+                            scaled[dst_off] = cropped[src_off + 2]; // B
+                            scaled[dst_off + 1] = cropped[src_off + 1]; // G
+                            scaled[dst_off + 2] = cropped[src_off]; // R
+                            scaled[dst_off + 3] = 255;
+                        } else {
+                            scaled[dst_off] = (u16::from(cropped[src_off + 2]) * a / 255) as u8;
+                            scaled[dst_off + 1] = (u16::from(cropped[src_off + 1]) * a / 255) as u8;
+                            scaled[dst_off + 2] = (u16::from(cropped[src_off]) * a / 255) as u8;
+                            scaled[dst_off + 3] = cropped[src_off + 3];
+                        }
                     }
                 }
             }
@@ -1131,22 +1232,22 @@ impl super::EmbeddedRdpWidget {
             let texture = gdk::MemoryTexture::new(
                 i32::from(logical_w),
                 i32::from(logical_h),
-                gdk::MemoryFormat::B8g8r8a8,
+                gdk::MemoryFormat::B8g8r8a8Premultiplied,
                 &bytes,
-                usize::from(logical_w) * 4,
+                usize::from(logical_w) * bpp,
             );
             let cursor =
                 gdk::Cursor::from_texture(&texture, hotspot_logical_x, hotspot_logical_y, None);
             drawing_area.set_cursor(Some(&cursor));
         } else {
-            // No scaling needed (1x display)
-            let bytes = glib::Bytes::from(data);
+            // 1x display — no scaling, use cropped RGBA directly
+            let bytes = glib::Bytes::from(&cropped);
             let texture = gdk::MemoryTexture::new(
-                i32::from(width),
-                i32::from(height),
-                gdk::MemoryFormat::B8g8r8a8,
+                crop_w as i32,
+                crop_h as i32,
+                gdk::MemoryFormat::R8g8b8a8,
                 &bytes,
-                usize::from(width) * 4,
+                crop_w * bpp,
             );
             let cursor = gdk::Cursor::from_texture(
                 &texture,
@@ -1396,6 +1497,9 @@ impl super::EmbeddedRdpWidget {
 
         // Clear pixel buffer
         self.pixel_buffer.borrow_mut().clear();
+
+        // Clear Cairo-backed buffer
+        self.cairo_buffer.borrow_mut().clear();
 
         // Reset state (but keep config for potential reconnect)
         *self.is_embedded.borrow_mut() = false;

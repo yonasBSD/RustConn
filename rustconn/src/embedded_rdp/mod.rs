@@ -54,7 +54,7 @@ mod input;
 mod resize;
 
 // Re-export types for external use
-pub use buffer::{PixelBuffer, WaylandSurfaceHandle};
+pub use buffer::{CairoBackedBuffer, PixelBuffer, WaylandSurfaceHandle};
 pub use launcher::SafeFreeRdpLauncher;
 pub use thread::FreeRdpThread;
 #[cfg(feature = "rdp-embedded")]
@@ -140,6 +140,9 @@ pub struct EmbeddedRdpWidget {
     wl_surface: Rc<RefCell<WaylandSurfaceHandle>>,
     /// Pixel buffer for frame data
     pixel_buffer: Rc<RefCell<PixelBuffer>>,
+    /// Persistent Cairo-backed pixel buffer for zero-copy rendering.
+    /// Used by IronRDP embedded mode to avoid 33MB copies per frame at 4K.
+    cairo_buffer: Rc<RefCell<CairoBackedBuffer>>,
     /// Current connection state
     state: Rc<RefCell<RdpConnectionState>>,
     /// Current configuration
@@ -303,6 +306,7 @@ impl EmbeddedRdpWidget {
         container.append(&drawing_area);
 
         let pixel_buffer = Rc::new(RefCell::new(PixelBuffer::new(1280, 720)));
+        let cairo_buffer = Rc::new(RefCell::new(CairoBackedBuffer::new(1280, 720)));
         let state = Rc::new(RefCell::new(RdpConnectionState::Disconnected));
         let width = Rc::new(RefCell::new(1280u32));
         let height = Rc::new(RefCell::new(720u32));
@@ -327,6 +331,7 @@ impl EmbeddedRdpWidget {
             drawing_area,
             wl_surface: Rc::new(RefCell::new(WaylandSurfaceHandle::new())),
             pixel_buffer,
+            cairo_buffer,
             state,
             config: Rc::new(RefCell::new(None)),
             process: Rc::new(RefCell::new(None)),

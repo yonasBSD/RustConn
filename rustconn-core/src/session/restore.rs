@@ -228,9 +228,18 @@ impl SessionRestoreState {
     /// Deserializes the state from JSON
     ///
     /// # Errors
-    /// Returns an error if deserialization fails
-    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
-        serde_json::from_str(json)
+    /// Returns an error if deserialization fails or the version is incompatible
+    pub fn from_json(json: &str) -> Result<Self, SessionRestoreError> {
+        let state: Self =
+            serde_json::from_str(json).map_err(SessionRestoreError::Deserialization)?;
+        if state.version != RESTORE_STATE_VERSION {
+            tracing::warn!(
+                expected = RESTORE_STATE_VERSION,
+                actual = state.version,
+                "Session restore state version mismatch — attempting best-effort load"
+            );
+        }
+        Ok(state)
     }
 
     /// Saves the state to a file
@@ -254,7 +263,7 @@ impl SessionRestoreState {
     /// Returns an error if reading or parsing fails
     pub fn load_from_file(path: &PathBuf) -> Result<Self, SessionRestoreError> {
         let json = std::fs::read_to_string(path).map_err(SessionRestoreError::Io)?;
-        Self::from_json(&json).map_err(SessionRestoreError::Deserialization)
+        Self::from_json(&json)
     }
 }
 

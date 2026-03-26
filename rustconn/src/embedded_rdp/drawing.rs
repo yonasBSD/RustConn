@@ -24,6 +24,7 @@ impl super::EmbeddedRdpWidget {
     /// The pixel buffer is in BGRA format which matches Cairo's ARGB32 format.
     pub(super) fn setup_drawing(&self) {
         let pixel_buffer = self.pixel_buffer.clone();
+        let cairo_buffer = self.cairo_buffer.clone();
         let state = self.state.clone();
         let is_embedded = self.is_embedded.clone();
         let config = self.config.clone();
@@ -46,27 +47,26 @@ impl super::EmbeddedRdpWidget {
                 // 3. The pixel buffer has valid data
                 let should_render_framebuffer =
                     embedded && current_state == RdpConnectionState::Connected && {
+                        let buffer = cairo_buffer.borrow();
+                        buffer.width() > 0 && buffer.height() > 0 && buffer.has_data()
+                    };
+
+                // Fallback: check old PixelBuffer if CairoBackedBuffer has no data
+                let should_render_fallback = !should_render_framebuffer
+                    && embedded
+                    && current_state == RdpConnectionState::Connected
+                    && {
                         let buffer = pixel_buffer.borrow();
                         buffer.width() > 0 && buffer.height() > 0 && buffer.has_data()
                     };
 
                 if should_render_framebuffer {
-                    // Render the pixel buffer to the DrawingArea
-                    // This is the framebuffer rendering path for IronRDP
-                    let buffer = pixel_buffer.borrow();
+                    // Fast path: use the persistent Cairo surface (zero-copy)
+                    let buffer = cairo_buffer.borrow();
                     let buf_width = buffer.width();
                     let buf_height = buffer.height();
 
-                    // Create a Cairo ImageSurface from the pixel buffer data
-                    // The buffer is in BGRA format which matches Cairo's ARGB32
-                    let data = buffer.data();
-                    if let Ok(surface) = gtk4::cairo::ImageSurface::create_for_data(
-                        data.to_vec(),
-                        gtk4::cairo::Format::ARgb32,
-                        crate::utils::dimension_to_i32(buf_width),
-                        crate::utils::dimension_to_i32(buf_height),
-                        crate::utils::stride_to_i32(buffer.stride()),
-                    ) {
+                    if let Some(surface) = buffer.surface() {
                         // HiDPI fix: The pixel buffer is in device pixels (e.g. 1920×1080
                         // on a 2× display where the widget is 960×540 CSS pixels).
                         // Tell Cairo the surface is already at device resolution so it
@@ -99,7 +99,7 @@ impl super::EmbeddedRdpWidget {
 
                         cr.translate(offset_x, offset_y);
                         cr.scale(scale, scale);
-                        let _ = cr.set_source_surface(&surface, 0.0, 0.0);
+                        let _ = cr.set_source_surface(surface, 0.0, 0.0);
 
                         // Use adaptive filtering: Nearest for 1:1 pixel mapping (sharp),
                         // Bilinear when actual scaling is needed (smooth).
@@ -113,6 +113,57 @@ impl super::EmbeddedRdpWidget {
                         let _ = cr.paint();
 
                         // Restore the transformation matrix
+                        if let Err(e) = cr.restore() {
+                            tracing::warn!(error = %e, "Cairo restore failed");
+                        }
+                    }
+                } else if should_render_fallback {
+                    // Fallback path: old PixelBuffer with data.to_vec() copy
+                    // Used when CairoBackedBuffer is not populated (e.g. FreeRDP path)
+                    let buffer = pixel_buffer.borrow();
+                    let buf_width = buffer.width();
+                    let buf_height = buffer.height();
+
+                    let data = buffer.data();
+                    if let Ok(surface) = gtk4::cairo::ImageSurface::create_for_data(
+                        data.to_vec(),
+                        gtk4::cairo::Format::ARgb32,
+                        crate::utils::dimension_to_i32(buf_width),
+                        crate::utils::dimension_to_i32(buf_height),
+                        crate::utils::stride_to_i32(buffer.stride()),
+                    ) {
+                        let effective_scale = config.borrow().as_ref().map_or_else(
+                            || f64::from(area.scale_factor().max(1)),
+                            |c| c.scale_override.effective_scale(area.scale_factor()),
+                        );
+                        surface.set_device_scale(effective_scale, effective_scale);
+
+                        let css_buf_w = f64::from(buf_width) / effective_scale;
+                        let css_buf_h = f64::from(buf_height) / effective_scale;
+                        let scale_x = f64::from(width) / css_buf_w;
+                        let scale_y = f64::from(height) / css_buf_h;
+                        let scale = scale_x.min(scale_y);
+
+                        let offset_x = css_buf_w.mul_add(-scale, f64::from(width)) / 2.0;
+                        let offset_y = css_buf_h.mul_add(-scale, f64::from(height)) / 2.0;
+
+                        if let Err(e) = cr.save() {
+                            tracing::warn!(error = %e, "Cairo save failed");
+                        }
+
+                        cr.translate(offset_x, offset_y);
+                        cr.scale(scale, scale);
+                        let _ = cr.set_source_surface(&surface, 0.0, 0.0);
+
+                        let filter = if (scale - 1.0).abs() < 0.01 {
+                            gtk4::cairo::Filter::Nearest
+                        } else {
+                            gtk4::cairo::Filter::Bilinear
+                        };
+                        cr.source().set_filter(filter);
+
+                        let _ = cr.paint();
+
                         if let Err(e) = cr.restore() {
                             tracing::warn!(error = %e, "Cairo restore failed");
                         }

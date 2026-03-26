@@ -5,7 +5,7 @@
 //! patterns once, and exposes [`find_matches`](CompiledHighlightRules::find_matches)
 //! to locate all matching regions in a line of terminal output.
 
-use regex::Regex;
+use regex::{Regex, RegexSet};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -52,6 +52,9 @@ struct CompiledRule {
 /// shares the same `id` as a global rule, the per-connection version wins.
 pub struct CompiledHighlightRules {
     rules: Vec<CompiledRule>,
+    /// Pre-compiled `RegexSet` used to quickly determine which rules match a
+    /// given line before running the individual (heavier) `Regex` objects.
+    regex_set: RegexSet,
 }
 
 impl CompiledHighlightRules {
@@ -113,7 +116,14 @@ impl CompiledHighlightRules {
             }
         }
 
-        Self { rules: compiled }
+        // Build a RegexSet from the compiled patterns for fast initial filtering.
+        let regex_set = RegexSet::new(compiled.iter().map(|r| r.pattern.as_str()))
+            .unwrap_or_else(|_| RegexSet::empty());
+
+        Self {
+            rules: compiled,
+            regex_set,
+        }
     }
 
     /// Finds all highlight matches in the given `line`.
@@ -124,7 +134,10 @@ impl CompiledHighlightRules {
     #[must_use]
     pub fn find_matches(&self, line: &str) -> Vec<HighlightMatch> {
         let mut matches = Vec::new();
-        for rule in &self.rules {
+        // Use RegexSet to quickly determine which rules match this line,
+        // then only run the individual regexes for those rules.
+        for idx in self.regex_set.matches(line) {
+            let rule = &self.rules[idx];
             for m in rule.regex.find_iter(line) {
                 matches.push(HighlightMatch {
                     start: m.start(),

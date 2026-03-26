@@ -215,30 +215,6 @@ pub fn get_flatpak_teleport_config_dir() -> Option<std::path::PathBuf> {
     get_flatpak_cli_config_dir("tsh", None, &[])
 }
 
-/// Returns a writable Boundary config directory.
-///
-/// Note: Boundary CLI stores tokens in the system keyring via D-Bus
-/// (`org.freedesktop.secrets`), which works natively in Flatpak.
-/// This function is kept for potential future use if Boundary adds
-/// file-based config that needs a writable directory.
-#[must_use]
-#[allow(dead_code)]
-pub fn get_flatpak_boundary_config_dir() -> Option<std::path::PathBuf> {
-    get_flatpak_cli_config_dir("boundary", None, &[])
-}
-
-/// Returns a writable Cloudflare Tunnel config directory.
-///
-/// Note: For the SSH proxy use case (`cloudflared access ssh`),
-/// cloudflared uses browser-based auth with short-lived tokens and
-/// doesn't need persistent config. This function is kept for potential
-/// future use if tunnel management features are added.
-#[must_use]
-#[allow(dead_code)]
-pub fn get_flatpak_cloudflared_config_dir() -> Option<std::path::PathBuf> {
-    get_flatpak_cli_config_dir("cloudflared", None, &[])
-}
-
 /// Returns a writable OCI CLI config directory.
 #[must_use]
 pub fn get_flatpak_oci_config_dir() -> Option<std::path::PathBuf> {

@@ -224,8 +224,8 @@ impl SessionManager {
 
         // Determine session type based on protocol
         let session_type = match connection.protocol.as_str() {
-            "ssh" => SessionType::Embedded,
-            _ => SessionType::External, // RDP, VNC, SPICE will use native widgets
+            "ssh" | "telnet" | "serial" | "kubernetes" | "mosh" => SessionType::Embedded,
+            _ => SessionType::External, // RDP, VNC, SPICE use native widgets
         };
 
         // Create the session

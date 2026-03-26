@@ -548,8 +548,12 @@ impl EmbeddedSpiceWidget {
             let cmd_sender_click = command_sender.clone();
             let state_click = state.clone();
             let is_embedded_click = is_embedded.clone();
+            let width_click = self.width.clone();
+            let height_click = self.height.clone();
+            let spice_width_click = self.spice_width.clone();
+            let spice_height_click = self.spice_height.clone();
 
-            click_controller.connect_pressed(move |gesture, _n_press, _x, _y| {
+            click_controller.connect_pressed(move |gesture, _n_press, x, y| {
                 let current_state = *state_click.borrow();
                 let embedded = *is_embedded_click.borrow();
 
@@ -562,12 +566,36 @@ impl EmbeddedSpiceWidget {
                         _ => 0,
                     };
 
-                    if let Some(ref sender) = *cmd_sender_click.borrow() {
-                        let _ = sender.send(SpiceClientCommand::PointerEvent {
-                            x: 0,
-                            y: 0,
-                            buttons: button_mask,
-                        });
+                    let widget_w = f64::from(*width_click.borrow());
+                    let widget_h = f64::from(*height_click.borrow());
+                    let spice_w = f64::from(*spice_width_click.borrow());
+                    let spice_h = f64::from(*spice_height_click.borrow());
+
+                    if widget_w > 0.0 && widget_h > 0.0 && spice_w > 0.0 && spice_h > 0.0 {
+                        let scale_x = widget_w / spice_w;
+                        let scale_y = widget_h / spice_h;
+                        let scale = scale_x.min(scale_y);
+
+                        let scaled_w = spice_w * scale;
+                        let scaled_h = spice_h * scale;
+                        let offset_x = (widget_w - scaled_w) / 2.0;
+                        let offset_y = (widget_h - scaled_h) / 2.0;
+
+                        let rel_x = (x - offset_x) / scale;
+                        let rel_y = (y - offset_y) / scale;
+
+                        #[allow(clippy::cast_sign_loss)]
+                        let spice_x = rel_x.clamp(0.0, spice_w - 1.0) as u16;
+                        #[allow(clippy::cast_sign_loss)]
+                        let spice_y = rel_y.clamp(0.0, spice_h - 1.0) as u16;
+
+                        if let Some(ref sender) = *cmd_sender_click.borrow() {
+                            let _ = sender.send(SpiceClientCommand::PointerEvent {
+                                x: spice_x,
+                                y: spice_y,
+                                buttons: button_mask,
+                            });
+                        }
                     }
                 }
             });
@@ -575,20 +603,47 @@ impl EmbeddedSpiceWidget {
             let cmd_sender_release = command_sender.clone();
             let state_release = state.clone();
             let is_embedded_release = is_embedded.clone();
+            let width_release = self.width.clone();
+            let height_release = self.height.clone();
+            let spice_width_release = self.spice_width.clone();
+            let spice_height_release = self.spice_height.clone();
 
-            click_controller.connect_released(move |_gesture, _n_press, _x, _y| {
+            click_controller.connect_released(move |_gesture, _n_press, x, y| {
                 let current_state = *state_release.borrow();
                 let embedded = *is_embedded_release.borrow();
 
-                if embedded
-                    && current_state == SpiceConnectionState::Connected
-                    && let Some(ref sender) = *cmd_sender_release.borrow()
-                {
-                    let _ = sender.send(SpiceClientCommand::PointerEvent {
-                        x: 0,
-                        y: 0,
-                        buttons: 0,
-                    });
+                if embedded && current_state == SpiceConnectionState::Connected {
+                    let widget_w = f64::from(*width_release.borrow());
+                    let widget_h = f64::from(*height_release.borrow());
+                    let spice_w = f64::from(*spice_width_release.borrow());
+                    let spice_h = f64::from(*spice_height_release.borrow());
+
+                    if widget_w > 0.0 && widget_h > 0.0 && spice_w > 0.0 && spice_h > 0.0 {
+                        let scale_x = widget_w / spice_w;
+                        let scale_y = widget_h / spice_h;
+                        let scale = scale_x.min(scale_y);
+
+                        let scaled_w = spice_w * scale;
+                        let scaled_h = spice_h * scale;
+                        let offset_x = (widget_w - scaled_w) / 2.0;
+                        let offset_y = (widget_h - scaled_h) / 2.0;
+
+                        let rel_x = (x - offset_x) / scale;
+                        let rel_y = (y - offset_y) / scale;
+
+                        #[allow(clippy::cast_sign_loss)]
+                        let spice_x = rel_x.clamp(0.0, spice_w - 1.0) as u16;
+                        #[allow(clippy::cast_sign_loss)]
+                        let spice_y = rel_y.clamp(0.0, spice_h - 1.0) as u16;
+
+                        if let Some(ref sender) = *cmd_sender_release.borrow() {
+                            let _ = sender.send(SpiceClientCommand::PointerEvent {
+                                x: spice_x,
+                                y: spice_y,
+                                buttons: 0,
+                            });
+                        }
+                    }
                 }
             });
 

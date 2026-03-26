@@ -184,6 +184,20 @@ pub struct AppState {
     secret_backend_available: Option<bool>,
 }
 
+/// Bundles the parameters needed for blocking credential resolution.
+///
+/// This avoids `clippy::too_many_arguments` on `resolve_credentials_blocking`.
+struct CredentialResolutionContext {
+    connection: Connection,
+    groups: Vec<ConnectionGroup>,
+    kdbx_enabled: bool,
+    kdbx_path: Option<std::path::PathBuf>,
+    kdbx_password: Option<SecretString>,
+    kdbx_key_file: Option<std::path::PathBuf>,
+    secret_settings: rustconn_core::config::SecretSettings,
+    secret_manager: SecretManager,
+}
+
 impl AppState {
     /// Creates a new application state
     ///
@@ -897,16 +911,16 @@ impl AppState {
         // Spawn blocking operation in background thread
         crate::utils::spawn_blocking_with_callback(
             move || {
-                Self::resolve_credentials_blocking(
-                    &connection,
-                    &groups,
+                Self::resolve_credentials_blocking(CredentialResolutionContext {
+                    connection,
+                    groups,
                     kdbx_enabled,
                     kdbx_path,
                     kdbx_password,
                     kdbx_key_file,
                     secret_settings,
                     secret_manager,
-                )
+                })
             },
             callback,
         );
@@ -916,19 +930,20 @@ impl AppState {
     ///
     /// This is extracted from `resolve_credentials` to be callable from a background
     /// thread without needing `&self`.
-    #[allow(clippy::too_many_arguments)]
     fn resolve_credentials_blocking(
-        connection: &Connection,
-        groups: &[ConnectionGroup],
-        kdbx_enabled: bool,
-        kdbx_path: Option<std::path::PathBuf>,
-        kdbx_password: Option<SecretString>,
-        kdbx_key_file: Option<std::path::PathBuf>,
-        secret_settings: rustconn_core::config::SecretSettings,
-        secret_manager: SecretManager,
+        ctx: CredentialResolutionContext,
     ) -> Result<Option<Credentials>, String> {
         use rustconn_core::secret::{KeePassHierarchy, KeePassStatus};
         use secrecy::ExposeSecret;
+
+        let connection = &ctx.connection;
+        let groups = &ctx.groups;
+        let kdbx_enabled = ctx.kdbx_enabled;
+        let kdbx_path = ctx.kdbx_path;
+        let kdbx_password = ctx.kdbx_password;
+        let kdbx_key_file = ctx.kdbx_key_file;
+        let secret_settings = ctx.secret_settings;
+        let secret_manager = ctx.secret_manager;
 
         // For Variable password source — resolve directly via vault backend
         // This bypasses SecretManager's backend list and uses the same
@@ -1258,7 +1273,7 @@ impl AppState {
         // Fall back to the standard resolver for other password sources
         let resolver = CredentialResolver::new(Arc::new(secret_manager), secret_settings);
         let connection = connection.clone();
-        let groups = groups.to_vec();
+        let groups = groups.clone();
 
         // Use thread-local runtime (created lazily per thread)
         crate::async_utils::with_runtime(|rt| {

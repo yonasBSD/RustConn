@@ -44,6 +44,11 @@ impl Protocol for MoshProtocol {
                 "Host cannot be empty".to_string(),
             ));
         }
+        if connection.port == 0 {
+            return Err(ProtocolError::InvalidConfig(
+                "Port cannot be zero".to_string(),
+            ));
+        }
         Ok(())
     }
 
@@ -55,9 +60,10 @@ impl Protocol for MoshProtocol {
         let mut cmd = vec!["mosh".to_string()];
 
         if let ProtocolConfig::Mosh(ref config) = connection.protocol_config {
-            // --ssh="ssh -p PORT"
+            // --ssh "ssh -p PORT"
             if let Some(ssh_port) = config.ssh_port {
-                cmd.push(format!("--ssh=ssh -p {ssh_port}"));
+                cmd.push("--ssh".to_string());
+                cmd.push(format!("ssh -p {ssh_port}"));
             }
 
             // --predict=MODE
@@ -170,7 +176,8 @@ mod tests {
         let connection = create_mosh_connection(config);
         let cmd = protocol.build_command(&connection).unwrap();
         assert_eq!(cmd[0], "mosh");
-        assert!(cmd.contains(&"--ssh=ssh -p 2222".to_string()));
+        assert!(cmd.contains(&"--ssh".to_string()));
+        assert!(cmd.contains(&"ssh -p 2222".to_string()));
         assert!(cmd.contains(&"--predict=always".to_string()));
         assert!(cmd.contains(&"--server=/usr/local/bin/mosh-server".to_string()));
         assert!(cmd.contains(&"-p".to_string()));

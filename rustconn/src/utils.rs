@@ -268,23 +268,40 @@ where
     poll_for_result(rx, callback);
 }
 
-/// Internal helper to poll for results from a background thread
+/// Internal helper to poll for results from a background thread.
+///
+/// Uses `timeout_add_local` with a 16 ms interval (~60 fps) instead of
+/// `idle_add_local_once` to avoid busy-spinning the main loop when the
+/// background thread has not finished yet.
 fn poll_for_result<T, C>(rx: std::sync::mpsc::Receiver<T>, callback: C)
 where
     T: Send + 'static,
     C: FnOnce(T) + 'static,
 {
-    gtk4::glib::idle_add_local_once(move || match rx.try_recv() {
-        Ok(result) => {
-            callback(result);
-        }
-        Err(std::sync::mpsc::TryRecvError::Empty) => {
-            // Not ready yet, schedule another check
-            poll_for_result(rx, callback);
-        }
-        Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-            // Thread panicked or was dropped - log and don't call callback
-            tracing::error!("Background thread disconnected before sending result");
+    // Wrap in Option so the FnOnce callback can be taken out of the FnMut closure.
+    let callback = std::cell::Cell::new(Some(callback));
+    let rx = std::cell::Cell::new(Some(rx));
+
+    gtk4::glib::timeout_add_local(std::time::Duration::from_millis(16), move || {
+        let Some(receiver) = rx.take() else {
+            return gtk4::glib::ControlFlow::Break;
+        };
+        match receiver.try_recv() {
+            Ok(result) => {
+                if let Some(cb) = callback.take() {
+                    cb(result);
+                }
+                gtk4::glib::ControlFlow::Break
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                // Not ready yet — put the receiver back and keep polling.
+                rx.set(Some(receiver));
+                gtk4::glib::ControlFlow::Continue
+            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                tracing::error!("Background thread disconnected before sending result");
+                gtk4::glib::ControlFlow::Break
+            }
         }
     });
 }
@@ -316,7 +333,10 @@ where
     poll_for_result_with_timeout(rx, callback, start, timeout);
 }
 
-/// Internal helper to poll for results with timeout
+/// Internal helper to poll for results with timeout.
+///
+/// Uses `timeout_add_local` with a 16 ms interval (~60 fps) instead of
+/// `idle_add_local_once` to avoid busy-spinning the main loop.
 fn poll_for_result_with_timeout<T, C>(
     rx: std::sync::mpsc::Receiver<T>,
     callback: C,
@@ -326,24 +346,38 @@ fn poll_for_result_with_timeout<T, C>(
     T: Send + 'static,
     C: FnOnce(Option<T>) + 'static,
 {
-    gtk4::glib::idle_add_local_once(move || {
+    let callback = std::cell::Cell::new(Some(callback));
+    let rx = std::cell::Cell::new(Some(rx));
+
+    gtk4::glib::timeout_add_local(std::time::Duration::from_millis(16), move || {
         if start.elapsed() > timeout {
             tracing::warn!("Background operation timed out after {:?}", timeout);
-            callback(None);
-            return;
+            if let Some(cb) = callback.take() {
+                cb(None);
+            }
+            return gtk4::glib::ControlFlow::Break;
         }
 
-        match rx.try_recv() {
+        let Some(receiver) = rx.take() else {
+            return gtk4::glib::ControlFlow::Break;
+        };
+        match receiver.try_recv() {
             Ok(result) => {
-                callback(Some(result));
+                if let Some(cb) = callback.take() {
+                    cb(Some(result));
+                }
+                gtk4::glib::ControlFlow::Break
             }
             Err(std::sync::mpsc::TryRecvError::Empty) => {
-                // Not ready yet, schedule another check
-                poll_for_result_with_timeout(rx, callback, start, timeout);
+                rx.set(Some(receiver));
+                gtk4::glib::ControlFlow::Continue
             }
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 tracing::error!("Background thread disconnected before sending result");
-                callback(None);
+                if let Some(cb) = callback.take() {
+                    cb(None);
+                }
+                gtk4::glib::ControlFlow::Break
             }
         }
     });

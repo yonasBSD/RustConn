@@ -231,10 +231,10 @@ pub fn detect_rdp_client() -> ClientInfo {
     // Try FreeRDP 2.x
     // wlfreerdp for Wayland, xfreerdp for X11
     if let Some(info) = try_detect_client("FreeRDP 2", "wlfreerdp", &["--version"]) {
-        return info.with_min_version("3.0.0");
+        return info.with_min_version("2.0.0");
     }
     if let Some(info) = try_detect_client("FreeRDP 2", "xfreerdp", &["--version"]) {
-        return info.with_min_version("3.0.0");
+        return info.with_min_version("2.0.0");
     }
 
     // Try rdesktop as legacy fallback

@@ -1,6 +1,6 @@
 # RustConn Architecture Guide
 
-**Version 0.10.6** | Last updated: March 2026
+**Version 0.10.7** | Last updated: March 2026
 
 This document describes the internal architecture of RustConn for contributors and maintainers.
 
@@ -311,13 +311,14 @@ where
     T: Send + 'static,
     C: FnOnce(T) + 'static,
 {
-    glib::idle_add_local_once(move || {
-        match rx.try_recv() {
-            Ok(result) => callback(result),
-            Err(TryRecvError::Empty) => poll_for_result(rx, callback),
-            Err(TryRecvError::Disconnected) => {
-                tracing::error!("Background thread disconnected");
+    glib::timeout_add_local(Duration::from_millis(16), move || {
+        match receiver.try_recv() {
+            Ok(result) => {
+                callback(result);
+                glib::ControlFlow::Break
             }
+            Err(TryRecvError::Empty) => glib::ControlFlow::Continue,
+            Err(TryRecvError::Disconnected) => glib::ControlFlow::Break,
         }
     });
 }
@@ -760,7 +761,7 @@ The `detect` module (`rustconn/src/embedded_rdp/detect.rs`) provides unified Fre
 ```rust
 // Single detection function with Wayland-first priority
 let best = detect_best_freerdp();
-// Tries: wlfreerdp3 → wlfreerdp → xfreerdp3 → xfreerdp
+// Tries: wlfreerdp3 → wlfreerdp → sdl-freerdp3 → sdl-freerdp → xfreerdp3 → xfreerdp
 
 // All detection paths delegate to detect_best_freerdp()
 // No more separate Wayland/X11 detection functions
@@ -768,7 +769,7 @@ let best = detect_best_freerdp();
 
 **Backend Priority:**
 - **Embedded:** IronRDP (native Rust, always preferred)
-- **External Wayland-first:** wlfreerdp3 → wlfreerdp → xfreerdp3 → xfreerdp
+- **External Wayland-first:** wlfreerdp3 → wlfreerdp → sdl-freerdp3 → sdl-freerdp → xfreerdp3 → xfreerdp
 
 **Security:** FreeRDP passwords are passed via `/from-stdin` instead of `/p:{password}` command-line argument, preventing exposure via `/proc/PID/cmdline`.
 

@@ -71,6 +71,13 @@ pub fn cmd_add(config_path: Option<&Path>, params: AddParams<'_>) -> Result<(), 
     ConfigManager::validate_connection(&connection)
         .map_err(|e| CliError::Config(format!("Invalid connection: {e}")))?;
 
+    if connections.iter().any(|c| c.name == connection.name) {
+        return Err(CliError::Config(format!(
+            "Connection '{}' already exists. Use a different name or 'update' to modify it.",
+            connection.name
+        )));
+    }
+
     connections.push(connection.clone());
 
     config_manager

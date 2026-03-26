@@ -501,17 +501,7 @@ impl Connection {
     /// Returns the default port for this connection's protocol
     #[must_use]
     pub const fn default_port(&self) -> u16 {
-        match self.protocol {
-            ProtocolType::Ssh => 22,
-            ProtocolType::Rdp => 3389,
-            ProtocolType::Vnc | ProtocolType::Spice => 5900,
-            ProtocolType::Telnet => 23,
-            ProtocolType::ZeroTrust => 0, // No default port for Zero Trust
-            ProtocolType::Serial => 0,    // Serial uses device path, not port
-            ProtocolType::Sftp => 22,
-            ProtocolType::Kubernetes => 0, // Kubernetes uses kubectl, not port
-            ProtocolType::Mosh => 22,
-        }
+        self.protocol.default_port()
     }
 
     /// Gets a custom property by name

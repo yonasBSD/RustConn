@@ -346,14 +346,25 @@ impl PartialEq for SecretSettings {
             && self.kdbx_enabled == other.kdbx_enabled
             && self.kdbx_key_file == other.kdbx_key_file
             && self.kdbx_use_key_file == other.kdbx_use_key_file
+            && self.kdbx_use_password == other.kdbx_use_password
+            && self.kdbx_password_encrypted == other.kdbx_password_encrypted
             && self.kdbx_save_to_keyring == other.kdbx_save_to_keyring
+            && self.bitwarden_password_encrypted == other.bitwarden_password_encrypted
+            && self.bitwarden_use_api_key == other.bitwarden_use_api_key
+            && self.bitwarden_client_id_encrypted == other.bitwarden_client_id_encrypted
+            && self.bitwarden_client_secret_encrypted == other.bitwarden_client_secret_encrypted
             && self.bitwarden_save_to_keyring == other.bitwarden_save_to_keyring
+            && self.onepassword_service_account_token_encrypted
+                == other.onepassword_service_account_token_encrypted
             && self.onepassword_save_to_keyring == other.onepassword_save_to_keyring
+            && self.passbolt_passphrase_encrypted == other.passbolt_passphrase_encrypted
             && self.passbolt_save_to_keyring == other.passbolt_save_to_keyring
             && self.passbolt_server_url == other.passbolt_server_url
             && self.pass_store_dir == other.pass_store_dir
-        // Note: kdbx_password is intentionally excluded from equality comparison
-        // as it's a runtime-only field that shouldn't affect settings equality
+        // Note: runtime-only SecretString fields (kdbx_password, bitwarden_password,
+        // bitwarden_client_id, bitwarden_client_secret, onepassword_service_account_token,
+        // passbolt_passphrase) are intentionally excluded — they are #[serde(skip)]
+        // and not persisted, so they shouldn't affect settings equality.
     }
 }
 

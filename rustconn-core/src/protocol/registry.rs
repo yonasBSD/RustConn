@@ -79,6 +79,10 @@ impl ProtocolRegistry {
             ProtocolType::Spice => "spice",
             ProtocolType::Telnet => "telnet",
             ProtocolType::Serial => "serial",
+            // ZeroTrust is intentionally not registered in the registry.
+            // It delegates to provider-specific protocols (AWS SSM, gcloud IAP,
+            // Cloudflare Tunnel, etc.) at connection time, so there is no single
+            // protocol handler for it. This lookup will return None.
             ProtocolType::ZeroTrust => "zerotrust",
             ProtocolType::Sftp => "sftp",
             ProtocolType::Kubernetes => "kubernetes",

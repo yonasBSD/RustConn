@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.10.6
+Version:        0.10.7
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,9 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Wed Mar 26 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.7-0
+- See CHANGELOG.md for full release notes
+
 * Tue Mar 24 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.6-0
 - Fixed Passbolt CLI integration broken with CLI 0.4.2 — serde
   deserialization failed on lowercase JSON fields; added rename

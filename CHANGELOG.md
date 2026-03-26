@@ -7,7 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.6] - 2026-03-25
+## [0.10.7] - 2026-03-26
+
+### Changed
+- **RDP default quality mode** — new RDP connections now default to Quality (RemoteFX) instead of Balanced; existing connections with explicitly saved Balanced or Speed settings are not affected
+
+### Fixed
+- **SPICE fallback viewer reported as failed** — `connect_with_fallback()` returned an error even when the external SPICE viewer launched successfully; now returns `Ok(())` so the GUI correctly shows the connected state
+- **SPICE embedded mouse clicks at wrong position** — click and release events sent coordinates (0,0) instead of the actual cursor position; now applies the same widget-to-framebuffer coordinate transformation as mouse motion
+- **RDP file import ignores gateway port** — `.rdp` parser read gateway port from `gatewayaccesstoken` instead of the standard `gatewayport` field; gateway connections now use the correct port
+- **Session type misclassified for terminal protocols** — only SSH was classified as embedded; Telnet, Serial, Kubernetes, and MOSH sessions are now correctly classified as terminal-embedded
+- **MOSH `--ssh` argument not parsed correctly** — `--ssh=ssh -p PORT` was passed as a single argument; now split into `--ssh` and `ssh -p PORT` as two separate arguments for correct parsing
+- **MOSH connections accepted port 0** — `validate_connection()` now rejects port 0, consistent with SSH and other protocols
+- **Config file corruption on power failure** — synchronous `save_toml_file` now calls `sync_all()` before atomic rename, matching the async version's durability guarantee
+- **CLI `delete` auto-confirms in non-interactive mode** — piped input no longer auto-confirms destructive operations; use `--force` to bypass confirmation in scripts
+- **CLI `add` allows duplicate connection names** — now returns an error if a connection with the same name already exists
+- **CLI `group delete` leaves orphaned connections** — connections belonging to a deleted group now have their `group_id` cleared
+- **CLI `update` uses case-sensitive exact match** — now uses `find_connection` for case-insensitive and fuzzy matching, consistent with other commands
+- **FreeRDP 2.x flagged as version-incompatible** — detection entries for `wlfreerdp`/`xfreerdp` (2.x) had `min_version("3.0.0")`; corrected to `"2.0.0"`
+- **External window saves default size instead of current** — `setup_close_handler` now uses `window.width()`/`height()` to capture actual dimensions after user resize
+- **Cluster dialog buttons break on layout change** — Select All / Deselect All buttons are now stored as struct fields instead of being found via fragile `parent()` traversal
+- **Whitespace-only group and snippet names accepted** — `validate_group` and `validate_snippet` now trim names before checking emptiness
+- **Tray dirty-check hash collision** — replaced simple timestamp sum with `DefaultHasher` combining connection IDs and timestamps
+- **`Connection::default_port` duplicated `ProtocolType::default_port`** — now delegates to `self.protocol.default_port()`
+
+### Security
+- **Script credential resolver password not zeroed** — intermediate `String` holding the password from script output is now zeroed via `zeroize::Zeroize` after wrapping in `SecretString`
+- **Encrypted credential changes not detected** — `SecretSettings::PartialEq` now includes all `*_encrypted` fields so save-if-changed logic detects credential updates
+
+### Improved
+- **Highlight rules performance** — `CompiledHighlightRules` now uses `RegexSet` for fast initial filtering before running individual regexes; avoids executing every pattern on every terminal line
+- **Command palette sort performance** — `SearchEngine` is now created once before sorting instead of inside every comparator call
+- **GTK main loop polling** — `poll_for_result` uses `timeout_add_local` at 16ms intervals instead of `idle_add_local_once` to avoid busy-spinning
+- **Terminal themes cached** — `all_themes()` and `theme_names()` use `OnceLock` to avoid repeated allocation
+- **Fuzzy search allocation** — `fuzzy_score_optimized` replaced `to_lowercase()` with allocation-free case-insensitive search
+- **Export runs on background thread** — large exports no longer freeze the UI
+- **CLI download default allocation** — reduced from 10MB to 1MB for small downloads
+- **Group descendant collection** — `collect_descendant_groups` uses `HashSet` for O(1) lookups instead of O(n) `Vec::contains`
+- **`parse_args` supports quoted strings** — uses `shell_words::split()` so RDP arguments with spaces and quotes are parsed correctly
+- **Tray menu translated** — all tray menu strings wrapped in `i18n()`
+- **Password generator tips translated** — security tip strings wrapped in `i18n()`
+- **Session restore version validation** — `from_json` now warns on version mismatch for forward compatibility
+- **ZeroTrust protocol registry documented** — `get_by_type()` explains that ZeroTrust delegates to provider-specific protocols
+- **Wayland subsurface code documented** — dead Wayland native paths annotated as future extension points
+- **Duplicate CSS rules removed** — `.status-connected` and `.status-connecting` were defined twice in sidebar CSS
+- **Dead Flatpak config helpers removed** — unused `get_flatpak_boundary_config_dir` and `get_flatpak_cloudflared_config_dir`
+- **`CredentialResolutionContext` struct** — replaces 8-argument function with a bundled context struct
+- **Embedded RDP 4K performance** — replaced per-frame 33MB pixel buffer clone (`data.to_vec()`) with a persistent Cairo `ImageSurface` that is updated in-place via `surface.data()` + `mark_dirty_rectangle()`; eliminates the main bottleneck that caused near-slideshow rendering at 4K resolution; old `PixelBuffer` path kept as fallback for FreeRDP external mode
+- **RDP frame extraction optimized** — `extract_region_data` replaced per-pixel copy+swap loop with row-based `memcpy` + bulk R↔B channel swap; full-frame fast path avoids row-by-row copy when region covers entire image; LLVM auto-vectorizes the swap loop into SIMD on x86_64
+- **RDP cursor artifacts (random pixels below cursor)** — cursor bitmaps from IronRDP are padded to 32×32 or 64×64 with transparent rows; on HiDPI the downscale + compositor upscale caused color bleeding at transparency edges; now crops transparent padding before downscale and uses premultiplied alpha (`B8g8r8a8Premultiplied`) to prevent bleed; R↔B channel swap moved from session layer to cursor handler to avoid double-swap
+
+## [0.10.6] - 2026-03-24
 
 ### Fixed
 - **Passbolt CLI integration broken with CLI 0.4.2** — `PassboltResourceDetail` deserialization failed because serde looked for `"_id"`, `"_name"`, `"_uri"`, `"_description"` instead of lowercase `"id"`, `"name"`, `"uri"`, `"description"` returned by Passbolt CLI 0.4.2; added `serde(rename)` for all underscore-prefixed fields; made `_id` and `_name` optional since `get resource` no longer returns `id`; added `folder_parent_id` field; same fix applied to `PassboltResource` for `_username` and `_uri` ([#69](https://github.com/totoshko88/RustConn/issues/69))

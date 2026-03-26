@@ -259,21 +259,27 @@ pub fn show_password_generator_dialog(parent: Option<&impl IsA<gtk4::Window>>) {
 
     let tips = [
         (
-            "Use 16+ characters",
-            "For critical accounts like banking, email",
+            i18n("Use 16+ characters"),
+            i18n("For critical accounts like banking, email"),
         ),
         (
-            "Never reuse passwords",
-            "Each service should have unique password",
+            i18n("Never reuse passwords"),
+            i18n("Each service should have unique password"),
         ),
-        ("Use password manager", "Don't store in plain text files"),
-        ("Enable 2FA", "Add extra layer of security when available"),
+        (
+            i18n("Use password manager"),
+            i18n("Don't store in plain text files"),
+        ),
+        (
+            i18n("Enable 2FA"),
+            i18n("Add extra layer of security when available"),
+        ),
     ];
 
     for (title, subtitle) in tips {
         let tip_row = adw::ActionRow::builder()
-            .title(title)
-            .subtitle(subtitle)
+            .title(&title)
+            .subtitle(&subtitle)
             .build();
 
         let icon = gtk4::Image::from_icon_name("object-select-symbolic");

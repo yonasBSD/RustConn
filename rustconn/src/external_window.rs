@@ -134,7 +134,8 @@ impl ExternalWindow {
         self.window.connect_close_request(move |_window| {
             // Get current geometry before closing
             let geometry = if let Some(win) = window_weak.upgrade() {
-                let (width, height) = win.default_size();
+                let width = win.width();
+                let height = win.height();
                 // Note: On Wayland, we can't reliably get window position
                 // We'll use 0,0 as placeholder - the size is what matters most
                 Some(WindowGeometry::new(0, 0, width, height))

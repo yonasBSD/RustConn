@@ -247,12 +247,6 @@ impl DropIndicator {
                 border-radius: 6px;
             }
             
-            .status-connected {
-                color: @success_color;
-            }
-            .status-connecting {
-                color: @warning_color;
-            }
             ",
         );
 

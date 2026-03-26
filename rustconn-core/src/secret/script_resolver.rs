@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use secrecy::SecretString;
 use tracing::{debug, warn};
+use zeroize::Zeroize;
 
 use crate::error::{SecretError, SecretResult};
 use crate::models::Credentials;
@@ -81,9 +82,9 @@ pub async fn resolve_script(command: &str) -> SecretResult<Option<Credentials>> 
         )));
     }
 
-    // Read stdout, trim, wrap in SecretString, then clear the buffer
+    // Read stdout, trim, wrap in SecretString, then clear buffers
     let mut raw = output.stdout;
-    let trimmed = String::from_utf8_lossy(&raw).trim().to_string();
+    let mut trimmed = String::from_utf8_lossy(&raw).trim().to_string();
 
     // Zero out the raw buffer for security
     raw.fill(0);
@@ -93,7 +94,8 @@ pub async fn resolve_script(command: &str) -> SecretResult<Option<Credentials>> 
         return Ok(None);
     }
 
-    let password = SecretString::from(trimmed);
+    let password = SecretString::from(trimmed.as_str());
+    trimmed.zeroize();
 
     Ok(Some(Credentials {
         username: None,

@@ -229,8 +229,8 @@ impl SpiceClient {
                     "Using external viewer: {viewer}"
                 )));
 
-                // Return special error to indicate fallback was used
-                Err(SpiceClientError::NativeClientNotAvailable)
+                // Fallback launched successfully — report success
+                Ok(())
             }
             SpiceViewerLaunchResult::NoViewerFound => Err(SpiceClientError::ConnectionFailed(
                 "No SPICE viewer found (remote-viewer, virt-viewer, or spicy)".to_string(),

@@ -6,7 +6,7 @@ use rustconn_core::config::ConfigManager;
 
 use crate::commands::add::parse_auth_method;
 use crate::error::CliError;
-use crate::util::create_config_manager;
+use crate::util::{create_config_manager, find_connection};
 
 /// Parameters for the `update` command
 pub struct UpdateParams<'a> {
@@ -31,10 +31,10 @@ pub fn cmd_update(config_path: Option<&Path>, params: UpdateParams<'_>) -> Resul
         .load_connections()
         .map_err(|e| CliError::Config(format!("Failed to load connections: {e}")))?;
 
-    let index = connections
-        .iter()
-        .position(|c| c.name == params.name || c.id.to_string() == params.name)
-        .ok_or_else(|| CliError::ConnectionNotFound(params.name.to_string()))?;
+    let index = {
+        let conn = find_connection(&connections, params.name)?;
+        connections.iter().position(|c| c.id == conn.id).unwrap()
+    };
 
     let connection = &mut connections[index];
 

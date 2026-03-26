@@ -3,6 +3,7 @@
 //! This module defines color themes for VTE terminals.
 
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 
 /// RGB color representation
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -54,17 +55,22 @@ pub struct TerminalTheme {
 }
 
 impl TerminalTheme {
-    /// Gets all available themes
+    /// Gets all available themes (cached after first call)
     #[must_use]
     pub fn all_themes() -> Vec<Self> {
-        vec![
-            Self::dark_theme(),
-            Self::light_theme(),
-            Self::solarized_dark_theme(),
-            Self::solarized_light_theme(),
-            Self::monokai_theme(),
-            Self::dracula_theme(),
-        ]
+        static THEMES: OnceLock<Vec<TerminalTheme>> = OnceLock::new();
+        THEMES
+            .get_or_init(|| {
+                vec![
+                    Self::dark_theme(),
+                    Self::light_theme(),
+                    Self::solarized_dark_theme(),
+                    Self::solarized_light_theme(),
+                    Self::monokai_theme(),
+                    Self::dracula_theme(),
+                ]
+            })
+            .clone()
     }
 
     /// Gets theme by name
@@ -73,10 +79,13 @@ impl TerminalTheme {
         Self::all_themes().into_iter().find(|t| t.name == name)
     }
 
-    /// Gets all theme names
+    /// Gets all theme names (cached after first call)
     #[must_use]
     pub fn theme_names() -> Vec<String> {
-        Self::all_themes().into_iter().map(|t| t.name).collect()
+        static NAMES: OnceLock<Vec<String>> = OnceLock::new();
+        NAMES
+            .get_or_init(|| Self::all_themes().into_iter().map(|t| t.name).collect())
+            .clone()
     }
 
     /// Dark theme (default)

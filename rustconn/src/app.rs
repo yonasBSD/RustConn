@@ -286,13 +286,21 @@ fn update_tray_state(tray: &TrayManager, state: &SharedAppState, last_state: &mu
     }
 
     // Update recent connections only if connection list has changed
-    // Use a simple hash of connection count + last_connected timestamps as dirty check
-    let connections_hash = state_ref
-        .list_connections()
-        .iter()
-        .filter(|c| c.last_connected.is_some())
-        .map(|c| c.last_connected.map_or(0, |t| t.timestamp()))
-        .sum::<i64>();
+    // Use DefaultHasher for a proper dirty check instead of a simple sum
+    let connections_hash = {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        for c in state_ref
+            .list_connections()
+            .iter()
+            .filter(|c| c.last_connected.is_some())
+        {
+            c.id.hash(&mut hasher);
+            c.last_connected.map(|t| t.timestamp()).hash(&mut hasher);
+        }
+        hasher.finish() as i64
+    };
 
     if last_state.connections_hash != connections_hash {
         let mut connections: Vec<_> = state_ref

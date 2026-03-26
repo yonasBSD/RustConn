@@ -684,12 +684,14 @@ impl ConnectionManager {
 
     /// Collects a group and all its descendant groups
     fn collect_descendant_groups(&self, group_id: Uuid) -> Vec<Uuid> {
+        let mut seen = std::collections::HashSet::new();
+        seen.insert(group_id);
         let mut result = vec![group_id];
         let mut to_process = vec![group_id];
 
         while let Some(current_id) = to_process.pop() {
             for (id, group) in &self.groups {
-                if group.parent_id == Some(current_id) && !result.contains(id) {
+                if group.parent_id == Some(current_id) && seen.insert(*id) {
                     result.push(*id);
                     to_process.push(*id);
                 }
