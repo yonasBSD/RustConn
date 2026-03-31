@@ -114,6 +114,10 @@ pub enum Commands {
         /// "starred-symbolic")
         #[arg(long)]
         icon: Option<String>,
+
+        /// Custom SSH agent socket path (overrides global and auto-detected socket)
+        #[arg(long, value_name = "PATH")]
+        ssh_agent_socket: Option<String>,
     },
 
     /// Export connections to external format
@@ -211,6 +215,10 @@ pub enum Commands {
         /// "starred-symbolic")
         #[arg(long)]
         icon: Option<String>,
+
+        /// Custom SSH agent socket path (overrides global and auto-detected socket)
+        #[arg(long, value_name = "PATH")]
+        ssh_agent_socket: Option<String>,
     },
 
     /// Send Wake-on-LAN magic packet

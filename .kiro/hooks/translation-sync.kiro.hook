@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Translation Sync",
+  "description": "When Rust source files in the GUI crate are edited, checks if new i18n() calls were added and ensures POTFILES.in includes the file and the .pot template is up to date",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "rustconn/src/**/*.rs"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A Rust source file in rustconn/src/ was edited. Perform these checks:\n\n1. Check if the edited file contains any `i18n(` calls (translation macro).\n2. If it does, verify the file is listed in `po/POTFILES.in`. If NOT listed, add it in alphabetical order within the appropriate section (GUI application source files).\n3. If a new file was added to POTFILES.in, inform the developer that they should run `po/update-pot.sh` to regenerate the .pot template and `python3 po/fill_translations.py` to sync .po files.\n\nIf the file has no `i18n()` calls, do nothing."
+  }
+}

@@ -54,6 +54,9 @@ pub fn cmd_show(config_path: Option<&Path>, name: &str) -> Result<(), CliError> 
             if let Some(ref jump) = config.proxy_jump {
                 println!("  Proxy Jump: {jump}");
             }
+            if let Some(ref socket) = config.ssh_agent_socket {
+                println!("  SSH Agent Socket: {socket}");
+            }
         }
         rustconn_core::models::ProtocolConfig::Rdp(ref config) => {
             if let Some(ref domain) = connection.domain {
@@ -86,6 +89,11 @@ pub fn cmd_show(config_path: Option<&Path>, name: &str) -> Result<(), CliError> 
                 },
                 config.flow_control.display_name(),
             );
+        }
+        rustconn_core::models::ProtocolConfig::Sftp(ref config) => {
+            if let Some(ref socket) = config.ssh_agent_socket {
+                println!("  SSH Agent Socket: {socket}");
+            }
         }
         _ => {}
     }

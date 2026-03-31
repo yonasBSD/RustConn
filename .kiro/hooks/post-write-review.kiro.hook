@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Post-Write Review",
+  "description": "Unified post-write review for .rs files: checks i18n coverage in GUI code, protocol architecture rules, and credential security patterns. Skips non-.rs files silently.",
+  "shortName": "post-write-review",
+  "version": "1",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": ["write"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A file was just written. If it does NOT end with `.rs`, do nothing.\n\nIf it IS a `.rs` file, run the applicable checks below. A file may match multiple checks.\n\n---\n\n**Check A — i18n (only for files in `rustconn/src/`):**\nScan for user-facing strings not wrapped in `i18n()` or `i18n_f()`. Look for `.set_label(\"...\")`, `.set_title(\"...\")`, `.set_tooltip_text(Some(\"...\"))`, `.set_placeholder_text(Some(\"...\"))`, `Button::with_label(\"...\")`, alert/toast messages with hardcoded English text. Ignore: log/tracing messages, CSS class names, icon names, action names, technical identifiers, strings already using `i18n()`.\n\n**Check B — Protocol architecture (only for files in `rustconn-core/src/protocol/`, `rustconn-core/src/connection/`, `rustconn/src/dialogs/connection/`, `rustconn/src/embedded_*.rs`, `rustconn/src/session/`):**\nVerify: (1) Business logic is in rustconn-core, GTK widgets in rustconn. (2) If adding a new protocol: ProtocolType enum updated, capabilities defined, default_port set. (3) User-visible strings use i18n(). (4) CLI handler exists or note it's missing.\n\n**Check C — Credential security (only for files in `rustconn-core/src/secret/`, `rustconn-core/src/credentials/`, `rustconn/src/dialogs/password*.rs`, or files containing `SecretString`, `password`, `credential`, `keyring`, `kdbx`, `bitwarden`, `onepassword`, `passbolt`):**\nVerify: (1) Passwords use `secrecy::SecretString`, not plain String. (2) Intermediate password Strings call `.zeroize()`. (3) No tracing/println/dbg! with password/secret/token variables. (4) No `Command::new().arg(password)` — use stdin pipe instead. (5) Error messages don't include secret values.\n\n---\n\nOnly report findings for checks that matched. If no checks matched or all passed, say nothing."
+  }
+}

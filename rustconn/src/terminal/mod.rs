@@ -1016,6 +1016,7 @@ impl TerminalNotebook {
         argv: &[&str],
         envv: Option<&[&str]>,
         working_directory: Option<&str>,
+        ssh_agent_socket: Option<&str>,
     ) -> bool {
         let terminals = self.terminals.borrow();
         let Some(terminal) = terminals.get(&session_id) else {
@@ -1048,10 +1049,14 @@ impl TerminalNotebook {
             env_vec.push(glib::GString::from(format!("PATH={extended_path}")));
         }
 
-        // Inject SSH agent env from OnceLock if RustConn started its
-        // own agent (Rust 2024 forbids set_var, so the process env may
-        // not contain the correct SSH_AUTH_SOCK).
-        if let Some(agent_info) = rustconn_core::sftp::get_agent_info() {
+        // Inject SSH agent env: custom socket override takes priority,
+        // then OnceLock agent info, then inherited environment.
+        if let Some(custom_socket) = ssh_agent_socket {
+            env_vec.retain(|e| !e.starts_with("SSH_AUTH_SOCK="));
+            env_vec.push(glib::GString::from(format!(
+                "SSH_AUTH_SOCK={custom_socket}"
+            )));
+        } else if let Some(agent_info) = rustconn_core::sftp::get_agent_info() {
             env_vec.retain(|e| !e.starts_with("SSH_AUTH_SOCK="));
             env_vec.push(glib::GString::from(format!(
                 "SSH_AUTH_SOCK={}",
@@ -1281,6 +1286,7 @@ impl TerminalNotebook {
         identity_file: Option<&str>,
         extra_args: &[&str],
         use_waypipe: bool,
+        ssh_agent_socket: Option<&str>,
     ) -> bool {
         let mut argv = if use_waypipe {
             vec!["waypipe", "ssh"]
@@ -1320,7 +1326,7 @@ impl TerminalNotebook {
         };
         argv.push(&destination);
 
-        self.spawn_command(session_id, &argv, None, None)
+        self.spawn_command(session_id, &argv, None, None, ssh_agent_socket)
     }
 
     /// Spawns a Telnet command in the terminal
@@ -1372,7 +1378,7 @@ impl TerminalNotebook {
         argv.push(host);
         let port_str = port.to_string();
         argv.push(&port_str);
-        self.spawn_command(session_id, &argv, None, None)
+        self.spawn_command(session_id, &argv, None, None, None)
     }
 
     /// Spawns a serial connection using picocom in the terminal tab.
@@ -1381,7 +1387,7 @@ impl TerminalNotebook {
     /// directly in the VTE terminal (no shell wrapper).
     pub fn spawn_serial(&self, session_id: Uuid, command: &[String]) -> bool {
         let argv: Vec<&str> = command.iter().map(String::as_str).collect();
-        self.spawn_command(session_id, &argv, None, None)
+        self.spawn_command(session_id, &argv, None, None, None)
     }
 
     /// Closes a terminal tab by session ID

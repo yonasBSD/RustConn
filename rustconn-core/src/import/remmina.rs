@@ -268,6 +268,7 @@ impl RemminaImporter {
                         sftp_enabled: false,
                         port_forwards: Vec::new(),
                         waypipe: false,
+                        ssh_agent_socket: None,
                     }),
                     22u16,
                 )

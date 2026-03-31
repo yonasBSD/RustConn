@@ -20,6 +20,7 @@ pub struct UpdateParams<'a> {
     pub device: Option<&'a str>,
     pub baud_rate: Option<u32>,
     pub icon: Option<&'a str>,
+    pub ssh_agent_socket: Option<&'a str>,
 }
 
 /// Update connection command handler
@@ -88,6 +89,21 @@ pub fn cmd_update(config_path: Option<&Path>, params: UpdateParams<'_>) -> Resul
             }
             if params.baud_rate.is_some() {
                 tracing::warn!("--baud-rate is only applicable to Serial connections");
+            }
+        }
+    }
+
+    // Update SSH agent socket for SSH/SFTP connections
+    if let Some(socket) = params.ssh_agent_socket {
+        match connection.protocol_config {
+            rustconn_core::models::ProtocolConfig::Ssh(ref mut cfg) => {
+                cfg.ssh_agent_socket = Some(socket.to_string());
+            }
+            rustconn_core::models::ProtocolConfig::Sftp(ref mut cfg) => {
+                cfg.ssh_agent_socket = Some(socket.to_string());
+            }
+            _ => {
+                tracing::warn!("--ssh-agent-socket is only applicable to SSH/SFTP connections");
             }
         }
     }

@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Pre-Write Guard",
+  "description": "Unified pre-write gate for .rs files: blocks GTK imports in rustconn-core/rustconn-cli and blocks unsafe code anywhere (workspace lint: forbid)",
+  "shortName": "pre-write-guard",
+  "version": "1",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["write"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A file is about to be written. If the file does NOT end with `.rs`, allow the write to proceed — no checks needed.\n\nIf the file IS a `.rs` file, run BOTH checks:\n\n**Check 1 — Crate boundary (rustconn-core and rustconn-cli are GUI-free):**\nIf the file is inside `rustconn-core/` or `rustconn-cli/`, verify the content does NOT contain any of: `use gtk4`, `use adw`, `use vte4`, `use libadwaita`, `gtk4::`, `adw::`, `vte4::`. If a violation is found, REFUSE the write and suggest moving the GUI code to the `rustconn/` crate instead.\n\n**Check 2 — Unsafe code forbidden:**\nCheck the content for: `unsafe {`, `unsafe fn`, `unsafe impl`, `unsafe trait`, `#[allow(unsafe_code)]`, `#![allow(unsafe_code)]`. The workspace has `unsafe_code = \"forbid\"` in Cargo.toml. If found, REFUSE the write: \"RustConn forbids unsafe code. Rewrite without unsafe blocks.\"\n\nIf BOTH checks pass, allow the write to proceed."
+  }
+}

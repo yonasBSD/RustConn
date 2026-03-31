@@ -149,6 +149,7 @@ pub struct ConnectionDialog {
     ssh_compression: CheckButton,
     ssh_startup_entry: Entry,
     ssh_options_entry: Entry,
+    ssh_agent_socket_entry: adw::EntryRow,
     ssh_port_forwards: Rc<RefCell<Vec<rustconn_core::models::PortForward>>>,
     ssh_port_forwards_list: gtk4::ListBox,
     // RDP fields
@@ -471,6 +472,7 @@ impl ConnectionDialog {
             mosh_port_range_entry,
             mosh_predict_dropdown,
             mosh_server_binary_entry,
+            ssh_agent_socket_entry,
         ) = ssh::create_ssh_options();
 
         // Add port forwarding group to SSH options panel
@@ -791,6 +793,7 @@ impl ConnectionDialog {
             &ssh_compression,
             &ssh_startup_entry,
             &ssh_options_entry,
+            &ssh_agent_socket_entry,
             &ssh_port_forwards,
             &rdp_client_mode_dropdown,
             &rdp_performance_mode_dropdown,
@@ -948,6 +951,7 @@ impl ConnectionDialog {
             ssh_compression,
             ssh_startup_entry,
             ssh_options_entry,
+            ssh_agent_socket_entry,
             ssh_port_forwards,
             ssh_port_forwards_list,
             rdp_client_mode_dropdown,
@@ -1805,6 +1809,7 @@ impl ConnectionDialog {
         ssh_compression: &CheckButton,
         ssh_startup_entry: &Entry,
         ssh_options_entry: &Entry,
+        ssh_agent_socket_entry: &adw::EntryRow,
         ssh_port_forwards: &Rc<RefCell<Vec<rustconn_core::models::PortForward>>>,
         rdp_client_mode_dropdown: &DropDown,
         rdp_performance_mode_dropdown: &DropDown,
@@ -1949,6 +1954,7 @@ impl ConnectionDialog {
         let ssh_compression = ssh_compression.clone();
         let ssh_startup_entry = ssh_startup_entry.clone();
         let ssh_options_entry = ssh_options_entry.clone();
+        let ssh_agent_socket_entry = ssh_agent_socket_entry.clone();
         let ssh_port_forwards = ssh_port_forwards.clone();
         let rdp_client_mode_dropdown = rdp_client_mode_dropdown.clone();
         let rdp_width_spin = rdp_width_spin.clone();
@@ -2106,6 +2112,7 @@ impl ConnectionDialog {
                 ssh_compression: &ssh_compression,
                 ssh_startup_entry: &ssh_startup_entry,
                 ssh_options_entry: &ssh_options_entry,
+                ssh_agent_socket_entry: &ssh_agent_socket_entry,
                 ssh_port_forwards: &ssh_port_forwards,
                 rdp_client_mode_dropdown: &rdp_client_mode_dropdown,
                 rdp_width_spin: &rdp_width_spin,
@@ -5552,6 +5559,11 @@ impl ConnectionDialog {
             self.ssh_startup_entry.set_text(cmd);
         }
 
+        // Load per-connection SSH agent socket
+        if let Some(ref socket) = ssh.ssh_agent_socket {
+            self.ssh_agent_socket_entry.set_text(socket);
+        }
+
         // Format custom options as "Key=Value, Key2=Value2"
         if !ssh.custom_options.is_empty() {
             let opts: Vec<String> = ssh
@@ -6513,6 +6525,7 @@ struct ConnectionDialogData<'a> {
     ssh_compression: &'a CheckButton,
     ssh_startup_entry: &'a Entry,
     ssh_options_entry: &'a Entry,
+    ssh_agent_socket_entry: &'a adw::EntryRow,
     ssh_port_forwards: &'a Rc<RefCell<Vec<rustconn_core::models::PortForward>>>,
     rdp_client_mode_dropdown: &'a DropDown,
     rdp_performance_mode_dropdown: &'a DropDown,
@@ -7395,6 +7408,15 @@ impl ConnectionDialogData<'_> {
 
         let custom_options = Self::parse_custom_options(&self.ssh_options_entry.text());
 
+        let ssh_agent_socket = {
+            let text = self.ssh_agent_socket_entry.text();
+            if text.trim().is_empty() {
+                None
+            } else {
+                Some(text.trim().to_string())
+            }
+        };
+
         SshConfig {
             auth_method,
             key_path,
@@ -7412,6 +7434,7 @@ impl ConnectionDialogData<'_> {
             startup_command,
             sftp_enabled: true,
             port_forwards: self.ssh_port_forwards.borrow().clone(),
+            ssh_agent_socket,
         }
     }
 

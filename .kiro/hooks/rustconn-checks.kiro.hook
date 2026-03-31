@@ -1,14 +1,14 @@
 {
   "enabled": true,
   "name": "RustConn Quality Checks",
-  "description": "Після завершення роботи агента автоматично запускає cargo fmt, clippy та тести. Виправляє помилки якщо знайдені.",
-  "version": "1",
+  "description": "On-demand full quality gate: runs cargo fmt, clippy, and tests. Fixes clippy issues if found.",
+  "shortName": "rustconn-checks",
+  "version": "2",
   "when": {
     "type": "userTriggered"
   },
   "then": {
     "type": "askAgent",
-    "prompt": "Делегуй перевірки в general-task-execution сабагент з наступним промптом: \"Виконай послідовно в workspace root: 1) cargo fmt --check — якщо є помилки, запусти cargo fmt і повідом. 2) cargo clippy --all-targets — має бути 0 warnings, якщо є — покажи їх. 3) cargo test --workspace (timeout 180s) — покажи summary. УВАГА: property tests з argon2 в debug mode біжать ~120с — це нормально, чекай завершення. Поверни короткий звіт: pass/fail для кожного кроку + помилки якщо є.\" Після отримання результату: якщо є помилки clippy — виправ їх і перезапусти перевірку. Якщо тести падають (failed > 0) — повідом користувача. Timeout на тестах НЕ є помилкою якщо 0 failed."
-  },
-  "shortName": "rustconn-checks"
+    "prompt": "Run the following checks sequentially in the workspace root:\n\n1. `cargo fmt --check` — if formatting errors found, run `cargo fmt --all` to fix them and report what changed.\n\n2. `cargo clippy --all-targets -- -D warnings` — must produce 0 warnings. If warnings found, fix them and re-run clippy to confirm.\n\n3. `cargo test --workspace` (allow up to 300s — property tests with argon2 take ~120s in debug mode, this is normal) — report the test summary.\n\nProvide a short pass/fail report for each step. If clippy has warnings, fix them and re-run. If tests fail (failed > 0), report the failures to the developer. A timeout with 0 failures is NOT an error."
+  }
 }

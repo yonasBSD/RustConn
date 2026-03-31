@@ -1,13 +1,12 @@
 {
   "enabled": true,
   "name": "Pre-commit fmt & clippy",
-  "description": "Перед виконанням git commit або git push автоматично запускає cargo fmt та clippy, щоб уникнути CI failures.",
-  "version": "1",
+  "description": "Before git commit or git push, automatically runs cargo fmt and clippy to prevent CI failures",
+  "shortName": "pre-commit-checks",
+  "version": "2",
   "when": {
     "type": "preToolUse",
-    "toolTypes": [
-      "shell"
-    ]
+    "toolTypes": ["shell"]
   },
   "then": {
     "type": "askAgent",

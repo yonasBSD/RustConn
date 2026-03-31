@@ -57,6 +57,106 @@ pub fn apply_agent_env(cmd: &mut std::process::Command) {
     }
 }
 
+/// Result of validating a socket path.
+///
+/// Used by the GUI to provide real-time feedback on socket path entries.
+/// Validation is advisory — only `NotAbsolute` is a hard warning; `NotFound`
+/// is informational because the socket may be created later.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SocketPathValidation {
+    /// Path is valid and the socket file exists.
+    Valid,
+    /// Path is absolute but the socket file doesn't exist (non-blocking warning).
+    NotFound,
+    /// Path is not absolute (does not start with `/`).
+    NotAbsolute,
+    /// Path is empty (no validation needed).
+    Empty,
+}
+
+/// Validates a socket path and returns a [`SocketPathValidation`] result.
+///
+/// - Empty string → `Empty`
+/// - Non-absolute (doesn't start with `/`) → `NotAbsolute`
+/// - Absolute but file doesn't exist → `NotFound`
+/// - Absolute and file exists → `Valid`
+#[must_use]
+pub fn validate_socket_path(path: &str) -> SocketPathValidation {
+    if path.is_empty() {
+        return SocketPathValidation::Empty;
+    }
+    if !path.starts_with('/') {
+        return SocketPathValidation::NotAbsolute;
+    }
+    if std::path::Path::new(path).exists() {
+        SocketPathValidation::Valid
+    } else {
+        SocketPathValidation::NotFound
+    }
+}
+
+/// Resolves the SSH agent socket path using the priority chain:
+/// per-connection → global setting → OnceLock agent info → None (inherit env).
+///
+/// Returns `Some(path)` if an override should be applied, `None` if the
+/// child process should inherit `SSH_AUTH_SOCK` from the parent environment.
+///
+/// Empty strings are filtered out internally, so callers don't need to
+/// distinguish `Some("")` from `None`.
+#[must_use]
+pub fn resolve_ssh_agent_socket(
+    per_connection: Option<&str>,
+    global_setting: Option<&str>,
+) -> Option<String> {
+    // Per-connection override (highest priority)
+    if let Some(path) = per_connection {
+        if !path.is_empty() {
+            return Some(path.to_string());
+        }
+    }
+
+    // Global setting (second priority)
+    if let Some(path) = global_setting {
+        if !path.is_empty() {
+            return Some(path.to_string());
+        }
+    }
+
+    // OnceLock agent info (third priority)
+    if let Some(info) = AGENT_INFO.get() {
+        if !info.socket_path.is_empty() {
+            return Some(info.socket_path.clone());
+        }
+    }
+
+    // None — inherit SSH_AUTH_SOCK from parent environment
+    None
+}
+
+/// Applies `SSH_AUTH_SOCK` to a [`std::process::Command`] using the priority chain.
+///
+/// Uses [`resolve_ssh_agent_socket`] to determine the socket path. If an
+/// override is found, sets `SSH_AUTH_SOCK` on the command. Otherwise falls
+/// back to the existing [`apply_agent_env`] behavior (OnceLock only).
+pub fn apply_agent_env_with_overrides(
+    cmd: &mut std::process::Command,
+    per_connection: Option<&str>,
+    global_setting: Option<&str>,
+) {
+    if let Some(socket_path) = resolve_ssh_agent_socket(per_connection, global_setting) {
+        cmd.env("SSH_AUTH_SOCK", &socket_path);
+        // Also set SSH_AGENT_PID if available from OnceLock
+        if let Some(info) = AGENT_INFO.get() {
+            if let Some(ref pid) = info.pid {
+                cmd.env("SSH_AGENT_PID", pid);
+            }
+        }
+    } else {
+        // No overrides — fall back to existing behavior
+        apply_agent_env(cmd);
+    }
+}
+
 /// Builds an SFTP URI for the given connection.
 ///
 /// Format: `sftp://[user@]host[:port]`
@@ -537,5 +637,103 @@ mod tests {
     #[test]
     fn test_shell_escape_with_single_quote() {
         assert_eq!(shell_escape("it's"), "'it'\\''s'");
+    }
+
+    // --- Task 2.4: validate_socket_path tests ---
+
+    #[test]
+    fn test_validate_socket_path_empty() {
+        assert_eq!(validate_socket_path(""), SocketPathValidation::Empty);
+    }
+
+    #[test]
+    fn test_validate_socket_path_not_absolute() {
+        assert_eq!(
+            validate_socket_path("relative/path"),
+            SocketPathValidation::NotAbsolute
+        );
+    }
+
+    #[test]
+    fn test_validate_socket_path_not_found() {
+        assert_eq!(
+            validate_socket_path("/nonexistent/socket.sock"),
+            SocketPathValidation::NotFound
+        );
+    }
+
+    #[test]
+    fn test_validate_socket_path_valid() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock_path = dir.path().join("test.sock");
+        std::fs::write(&sock_path, b"").unwrap();
+        let path_str = sock_path.to_str().unwrap();
+        assert_eq!(validate_socket_path(path_str), SocketPathValidation::Valid);
+    }
+
+    // --- Task 2.5: resolve_ssh_agent_socket tests ---
+
+    #[test]
+    fn test_resolve_per_connection_wins() {
+        let result = resolve_ssh_agent_socket(
+            Some("/per/conn.sock"),
+            Some("/global.sock"),
+        );
+        assert_eq!(result, Some("/per/conn.sock".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_global_when_no_per_connection() {
+        let result = resolve_ssh_agent_socket(None, Some("/global.sock"));
+        assert_eq!(result, Some("/global.sock".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_empty_per_connection_falls_through() {
+        let result = resolve_ssh_agent_socket(Some(""), Some("/global.sock"));
+        assert_eq!(result, Some("/global.sock".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_empty_strings_treated_as_none() {
+        // Both empty — should fall through to OnceLock or None
+        let result = resolve_ssh_agent_socket(Some(""), Some(""));
+        // OnceLock may or may not be set in test env; just verify
+        // empty strings don't produce a result themselves
+        if let Some(ref path) = result {
+            // If we got something, it must be from OnceLock (non-empty)
+            assert!(!path.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_resolve_all_none_without_oncelock() {
+        // When OnceLock is not set and no overrides, result depends on
+        // whether AGENT_INFO was set by another test. We verify the
+        // function doesn't panic and returns a consistent result.
+        let result = resolve_ssh_agent_socket(None, None);
+        // Result is either None (no OnceLock) or Some(path) from OnceLock
+        if let Some(ref path) = result {
+            assert!(!path.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_resolve_per_connection_overrides_everything() {
+        // Per-connection should win regardless of global
+        let result = resolve_ssh_agent_socket(
+            Some("/custom/agent.sock"),
+            Some("/global/agent.sock"),
+        );
+        assert_eq!(result, Some("/custom/agent.sock".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_empty_global_falls_through() {
+        let result = resolve_ssh_agent_socket(None, Some(""));
+        // Empty global should be treated as None, falling through to OnceLock
+        if let Some(ref path) = result {
+            assert!(!path.is_empty());
+        }
     }
 }

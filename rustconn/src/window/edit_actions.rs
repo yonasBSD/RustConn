@@ -398,7 +398,7 @@ impl MainWindow {
                 let dl = downloads.clone();
                 glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
                     let argv: Vec<&str> = mc_clone.iter().map(String::as_str).collect();
-                    nb.spawn_command(session_id, &argv, None, Some(&dl));
+                    nb.spawn_command(session_id, &argv, None, Some(&dl), None);
                 });
 
                 if let Some(info) = notebook_clone.get_session_info(session_id) {
@@ -679,7 +679,7 @@ impl MainWindow {
             let downloads_clone = downloads.clone();
             glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
                 let argv: Vec<&str> = mc_args_clone.iter().map(String::as_str).collect();
-                notebook_clone.spawn_command(session_id, &argv, None, Some(&downloads_clone));
+                notebook_clone.spawn_command(session_id, &argv, None, Some(&downloads_clone), None);
             });
 
             // Mark as connected and increment session count

@@ -19,6 +19,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::i18n::i18n;
+use rustconn_core::sftp::{validate_socket_path, SocketPathValidation};
 
 /// Return type for SSH options creation
 ///
@@ -56,6 +57,7 @@ pub type SshOptionsWidgets = (
     Entry,                 // mosh_port_range_entry
     DropDown,              // mosh_predict_dropdown
     Entry,                 // mosh_server_binary_entry
+    adw::EntryRow,         // ssh_agent_socket_entry
 );
 
 /// Creates the SSH options panel using libadwaita components following GNOME HIG.
@@ -87,6 +89,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         compression,
         startup_entry,
         options_entry,
+        ssh_agent_socket_entry,
     ) = create_session_group();
     content.append(&session_group);
 
@@ -148,6 +151,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         mosh_port_range_entry,
         mosh_predict_dropdown,
         mosh_server_binary_entry,
+        ssh_agent_socket_entry,
     )
 }
 
@@ -464,6 +468,7 @@ fn create_session_group() -> (
     CheckButton,
     Entry,
     Entry,
+    adw::EntryRow,
 ) {
     let session_group = adw::PreferencesGroup::builder()
         .title(i18n("Session"))
@@ -507,6 +512,36 @@ fn create_session_group() -> (
         .build();
     session_group.add(&options_row);
 
+    // SSH Agent Socket entry
+    let ssh_agent_socket_entry = adw::EntryRow::builder()
+        .title(&i18n("SSH Agent Socket"))
+        .build();
+    ssh_agent_socket_entry.set_tooltip_text(Some(&i18n(
+        "Overrides global setting and auto-detected socket for this connection",
+    )));
+
+    // Real-time validation feedback
+    ssh_agent_socket_entry.connect_changed(|entry| {
+        let text = entry.text();
+        let path = text.as_str();
+        entry.remove_css_class("success");
+        entry.remove_css_class("warning");
+        entry.remove_css_class("error");
+        match validate_socket_path(path) {
+            SocketPathValidation::Empty => {}
+            SocketPathValidation::Valid => {
+                entry.add_css_class("success");
+            }
+            SocketPathValidation::NotFound => {
+                entry.add_css_class("warning");
+            }
+            SocketPathValidation::NotAbsolute => {
+                entry.add_css_class("error");
+            }
+        }
+    });
+    session_group.add(&ssh_agent_socket_entry);
+
     (
         session_group,
         agent_forwarding,
@@ -515,6 +550,7 @@ fn create_session_group() -> (
         compression,
         startup_entry,
         options_entry,
+        ssh_agent_socket_entry,
     )
 }
 

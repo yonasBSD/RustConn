@@ -1,15 +1,15 @@
 {
   "enabled": true,
   "name": "Test After Spec Task",
-  "description": "Запускає cargo test після завершення кожного spec task для раннього виявлення регресій",
-  "version": "1",
+  "description": "Runs cargo test after each spec task completes to catch regressions early",
+  "shortName": "post-task-tests",
+  "version": "2",
   "when": {
     "type": "postTaskExecution"
   },
   "then": {
     "type": "runCommand",
     "command": "cargo test --workspace --no-fail-fast 2>&1 | tail -20",
-    "timeout": 180
-  },
-  "shortName": "post-task-tests"
+    "timeout": 300
+  }
 }

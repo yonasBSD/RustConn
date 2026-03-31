@@ -3653,7 +3653,7 @@ impl MainWindow {
 
         // Get user's default shell
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-        notebook.spawn_command(session_id, &[&shell], None, None);
+        notebook.spawn_command(session_id, &[&shell], None, None, None);
 
         // Per spec (Requirement 1): New connections ALWAYS create independent Root_Tabs
         // Register session for potential drag-and-drop, but don't show in split pane

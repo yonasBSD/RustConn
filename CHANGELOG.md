@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.9] - 2026-03-31
+
+### Added
+- **Custom SSH agent socket override** — users can now specify a custom `SSH_AUTH_SOCK` path at two levels: a global setting in Settings → SSH Agent tab (applies to all connections) and a per-connection override in Connection Dialog → SSH tab (overrides global and auto-detected socket); resolves the Flatpak limitation where `--socket=ssh-auth` hard-overwrites `SSH_AUTH_SOCK`, preventing use of alternative agents like KeePassXC or Bitwarden SSH agent ([#71](https://github.com/totoshko88/RustConn/issues/71))
+- **CLI `--ssh-agent-socket`** — `rustconn-cli add` and `update` commands accept `--ssh-agent-socket <PATH>` to set per-connection SSH agent socket; `show` command displays the value when set
+- **Socket path validation** — real-time feedback in both Settings and Connection dialogs: green for valid socket, yellow for path not found (non-blocking), red for non-absolute path
+- **Flatpak: alternative SSH agent socket access** — added `--filesystem` permissions for GPG agent (`xdg-run/gnupg`), Bitwarden SSH agent (`home/.var/app/com.bitwarden.desktop/data`), and custom sockets (`xdg-run/ssh-agent`) in Flatpak and Flathub manifests
+
+### Dependencies
+- **Updated**: aws-lc-sys 0.39.0→0.39.1, cc 1.2.57→1.2.58, cmake 0.1.57→0.1.58, hybrid-array 0.4.8→0.4.9, mio 1.1.1→1.2.0, simd-adler32 0.3.8→0.3.9, uuid 1.22.0→1.23.0, winnow 1.0.0→1.0.1, zerocopy 0.8.47→0.8.48, zune-jpeg 0.5.14→0.5.15
+
 ## [0.10.8] - 2026-03-27
 
 ### Fixed

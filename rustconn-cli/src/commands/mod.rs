@@ -56,6 +56,7 @@ pub fn dispatch(config_path: Option<&Path>, command: Commands) -> Result<(), Cli
             device,
             baud_rate,
             icon,
+            ssh_agent_socket,
         } => add::cmd_add(
             config_path,
             add::AddParams {
@@ -69,6 +70,7 @@ pub fn dispatch(config_path: Option<&Path>, command: Commands) -> Result<(), Cli
                 device: device.as_deref(),
                 baud_rate,
                 icon: icon.as_deref(),
+                ssh_agent_socket: ssh_agent_socket.as_deref(),
             },
         ),
         Commands::Export { format, output } => {
@@ -89,6 +91,7 @@ pub fn dispatch(config_path: Option<&Path>, command: Commands) -> Result<(), Cli
             device,
             baud_rate,
             icon,
+            ssh_agent_socket,
         } => update::cmd_update(
             config_path,
             update::UpdateParams {
@@ -102,6 +105,7 @@ pub fn dispatch(config_path: Option<&Path>, command: Commands) -> Result<(), Cli
                 device: device.as_deref(),
                 baud_rate,
                 icon: icon.as_deref(),
+                ssh_agent_socket: ssh_agent_socket.as_deref(),
             },
         ),
         Commands::Wol {

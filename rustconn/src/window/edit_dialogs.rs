@@ -1093,6 +1093,7 @@ fn start_quick_ssh(
         None,
         &[],
         false,
+        None,
     );
 }
 

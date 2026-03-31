@@ -47,6 +47,10 @@ pub struct AppSettings {
     /// Saved smart folders for dynamic connection grouping
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub smart_folders: Vec<SmartFolder>,
+    /// Global custom SSH agent socket path.
+    /// Overrides auto-detected SSH_AUTH_SOCK for all connections.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_agent_socket: Option<String>,
 }
 
 /// Terminal-related settings

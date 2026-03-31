@@ -118,6 +118,7 @@ pub struct SettingsDialog {
     ssh_agent_error_label: Label,
     ssh_agent_refresh_button: Button,
     ssh_agent_available_keys_list: gtk4::ListBox,
+    ssh_agent_custom_socket_entry: adw::EntryRow,
     ssh_agent_manager: Rc<RefCell<SshAgentManager>>,
     // Monitoring settings
     monitoring_widgets: MonitoringPageWidgets,
@@ -199,6 +200,7 @@ impl SettingsDialog {
             ssh_agent_error_label,
             ssh_agent_refresh_button,
             ssh_agent_available_keys_list,
+            ssh_agent_custom_socket_entry,
         ) = create_ssh_agent_page();
 
         let clients_page = create_clients_page();
@@ -497,6 +499,7 @@ impl SettingsDialog {
             ssh_agent_error_label,
             ssh_agent_refresh_button,
             ssh_agent_available_keys_list,
+            ssh_agent_custom_socket_entry,
             ssh_agent_manager,
             monitoring_widgets,
             keybindings_overrides,
@@ -701,6 +704,13 @@ impl SettingsDialog {
             &self.ssh_agent_manager,
         );
 
+        // Load custom SSH agent socket path
+        if let Some(ref socket_path) = settings.ssh_agent_socket {
+            self.ssh_agent_custom_socket_entry.set_text(socket_path);
+        } else {
+            self.ssh_agent_custom_socket_entry.set_text("");
+        }
+
         // Populate available keys list with working buttons
         populate_available_keys_list(
             &self.ssh_agent_available_keys_list,
@@ -792,6 +802,9 @@ impl SettingsDialog {
 
         // Highlight rules
         let highlight_rules_clone = self.highlight_rules.clone();
+
+        // SSH agent custom socket entry
+        let ssh_agent_custom_socket_entry_clone = self.ssh_agent_custom_socket_entry.clone();
 
         // Store callback reference
         let on_save_callback = self.on_save.clone();
@@ -918,6 +931,15 @@ impl SettingsDialog {
                     .cloned()
                     .collect(),
                 smart_folders: settings_clone.borrow().smart_folders.clone(),
+                ssh_agent_socket: {
+                    let text = ssh_agent_custom_socket_entry_clone.text();
+                    let trimmed = text.trim();
+                    if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed.to_string())
+                    }
+                },
             };
 
             // Update stored settings

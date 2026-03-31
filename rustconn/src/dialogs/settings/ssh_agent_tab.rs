@@ -7,6 +7,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Label, ListBox, Orientation};
 use libadwaita as adw;
+use rustconn_core::sftp::{validate_socket_path, SocketPathValidation};
 use rustconn_core::ssh_agent::SshAgentManager;
 use std::cell::RefCell;
 use std::path::Path;
@@ -26,7 +27,8 @@ pub fn create_ssh_agent_page() -> (
     gtk4::Widget,
     Label,
     Button,
-    ListBox, // available_keys_list
+    ListBox,            // available_keys_list
+    adw::EntryRow,      // custom_socket_entry
 ) {
     let page = adw::PreferencesPage::builder()
         .title(i18n("SSH Agent"))
@@ -82,6 +84,44 @@ pub fn create_ssh_agent_page() -> (
     let control_row = adw::ActionRow::builder().title(i18n("Controls")).build();
     control_row.add_suffix(&buttons_box);
     status_group.add(&control_row);
+
+    // Custom SSH agent socket path entry
+    let custom_socket_entry = adw::EntryRow::builder()
+        .title(i18n("Custom SSH Agent Socket Path"))
+        .build();
+    custom_socket_entry.set_show_apply_button(false);
+    // Subtitle via tooltip since EntryRow doesn't have .set_subtitle()
+    custom_socket_entry
+        .set_tooltip_text(Some(&i18n("Overrides auto-detected SSH_AUTH_SOCK for all connections")));
+    // Use the text property's placeholder
+    custom_socket_entry.set_text("");
+    // Set placeholder via the underlying editable
+    let editable = custom_socket_entry.clone();
+    editable.set_text("");
+
+    // Real-time validation feedback (Task 4.2)
+    custom_socket_entry.connect_changed(|entry| {
+        let text = entry.text();
+        let path = text.as_str();
+        // Remove previous validation classes
+        entry.remove_css_class("success");
+        entry.remove_css_class("warning");
+        entry.remove_css_class("error");
+        match validate_socket_path(path) {
+            SocketPathValidation::Empty => {}
+            SocketPathValidation::Valid => {
+                entry.add_css_class("success");
+            }
+            SocketPathValidation::NotFound => {
+                entry.add_css_class("warning");
+            }
+            SocketPathValidation::NotAbsolute => {
+                entry.add_css_class("error");
+            }
+        }
+    });
+
+    status_group.add(&custom_socket_entry);
 
     page.add(&status_group);
 
@@ -148,6 +188,7 @@ pub fn create_ssh_agent_page() -> (
         ssh_agent_error_label,
         ssh_agent_refresh_button,
         available_keys_list,
+        custom_socket_entry,
     )
 }
 

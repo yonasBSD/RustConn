@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Dependency Audit",
+  "description": "On-demand audit of Cargo dependencies and bundled CLI tool versions. Checks for available updates, security advisories, and CLI version drift.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Run a comprehensive dependency audit:\n\n1. **Cargo dependency updates** — Run `cargo update --dry-run 2>&1` and summarize which crates have updates available. Group by: patch updates (safe), minor updates (review), major updates (breaking).\n\n2. **Security audit** — If `cargo audit` is available, run it. If not, skip and note it's not installed.\n\n3. **CLI version check** — If `scripts/check-cli-versions.sh` exists, run it. Otherwise, read `rustconn-core/src/cli_download.rs` and list the pinned CLI tool versions (kubectl, tailscale, cloudflared, boundary, teleport, bitwarden-cli, 1password-cli, passbolt-cli). Note that a weekly GitHub Action (`check-cli-versions.yml`) also monitors these.\n\n4. **Summary** — Provide a concise report:\n   - Number of outdated crates (patch/minor/major)\n   - Any security advisories\n   - Any CLI tools with known newer versions\n   - Recommended actions\n\nDo NOT automatically apply updates — just report findings. The developer decides what to update."
+  }
+}

@@ -514,6 +514,7 @@ fn start_ssh_connection_internal(
             identity_file.as_deref(),
             &extra_refs,
             use_waypipe,
+            None,
         );
     }
 
@@ -1497,7 +1498,7 @@ pub fn start_zerotrust_connection(
     // Spawn the Zero Trust command through shell
     let spawn_command = rustconn_core::flatpak::wrap_host_command(&full_command);
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-    notebook.spawn_command(session_id, &[&shell, "-c", &spawn_command], None, None);
+    notebook.spawn_command(session_id, &[&shell, "-c", &spawn_command], None, None, None);
 
     Some(session_id)
 }
@@ -1791,7 +1792,7 @@ pub fn start_kubernetes_connection(
     // Spawn kubectl via shell
     let spawn_command = rustconn_core::flatpak::wrap_host_command(&kubectl_command);
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-    notebook.spawn_command(session_id, &[&shell, "-c", &spawn_command], None, None);
+    notebook.spawn_command(session_id, &[&shell, "-c", &spawn_command], None, None, None);
 
     // --- Auto-recording for Kubernetes ---
     if conn.session_recording_enabled {
@@ -2013,7 +2014,7 @@ fn start_mosh_connection_internal(
 
     // Spawn mosh — uses exec (no shell wrapper needed)
     let argv: Vec<&str> = command.iter().map(String::as_str).collect();
-    notebook.spawn_command(session_id, &argv, None, None);
+    notebook.spawn_command(session_id, &argv, None, None, None);
 
     // --- Auto-recording for MOSH ---
     if conn.session_recording_enabled {

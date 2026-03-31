@@ -801,6 +801,10 @@ pub struct SshConfig {
     /// Wraps the SSH command with `waypipe ssh` for Wayland display forwarding
     #[serde(default)]
     pub waypipe: bool,
+    /// Custom SSH agent socket path override for this connection.
+    /// When set, overrides both the global setting and auto-detected socket.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_agent_socket: Option<String>,
 }
 
 fn default_true() -> bool {
