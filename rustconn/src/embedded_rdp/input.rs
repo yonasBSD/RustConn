@@ -91,9 +91,12 @@ impl super::EmbeddedRdpWidget {
                         pressed: true,
                     });
                 }
+                // Stop propagation so GTK doesn't also handle the key
+                // (e.g. arrow keys moving widget focus instead of going to RDP)
+                gdk::glib::Propagation::Stop
+            } else {
+                gdk::glib::Propagation::Proceed
             }
-
-            gdk::glib::Propagation::Proceed
         });
 
         let state = self.state.clone();
