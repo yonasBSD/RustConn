@@ -321,17 +321,29 @@ pub fn toggle_protocol_filter(
     update_search_with_filters(&filters, search_entry, programmatic_flag);
 }
 
-/// Highlights matching text with Pango markup
-pub fn highlight_match(text: &str, query: &str) -> String {
+/// Compiles a case-insensitive regex for the given search query.
+///
+/// Returns `None` if the query is empty or the regex fails to compile.
+/// Callers should compile once per query change and pass the result to
+/// [`highlight_match`] for each list item.
+#[must_use]
+pub fn compile_highlight_regex(query: &str) -> Option<regex::Regex> {
     if query.trim().is_empty() {
-        return glib::markup_escape_text(text).to_string();
+        return None;
     }
+    let escaped = regex::escape(query);
+    regex::RegexBuilder::new(&format!("(?i){escaped}"))
+        .build()
+        .ok()
+}
 
-    // Escape the query for regex usage
-    let escaped_query = regex::escape(query);
-    let regex = match regex::RegexBuilder::new(&format!("(?i){}", escaped_query)).build() {
-        Ok(r) => r,
-        Err(_) => return glib::markup_escape_text(text).to_string(),
+/// Highlights matching text with Pango markup.
+///
+/// Pass a pre-compiled regex from [`compile_highlight_regex`] to avoid
+/// recompiling on every list item.
+pub fn highlight_match(text: &str, regex: Option<&regex::Regex>) -> String {
+    let Some(regex) = regex else {
+        return glib::markup_escape_text(text).to_string();
     };
 
     let mut last_end = 0;
@@ -341,12 +353,9 @@ pub fn highlight_match(text: &str, query: &str) -> String {
         let start = mat.start();
         let end = mat.end();
 
-        let before = &text[last_end..start];
-        let matched = &text[start..end];
-
-        result.push_str(&glib::markup_escape_text(before));
+        result.push_str(&glib::markup_escape_text(&text[last_end..start]));
         result.push_str("<b>");
-        result.push_str(&glib::markup_escape_text(matched));
+        result.push_str(&glib::markup_escape_text(&text[start..end]));
         result.push_str("</b>");
 
         last_end = end;
@@ -362,37 +371,48 @@ mod tests {
 
     #[test]
     fn test_highlight_match() {
+        let re = |q| compile_highlight_regex(q);
+
         // Simple match
-        assert_eq!(highlight_match("Hello World", "ell"), "H<b>ell</b>o World");
+        assert_eq!(
+            highlight_match("Hello World", re("ell").as_ref()),
+            "H<b>ell</b>o World"
+        );
 
         // Case insensitive
         assert_eq!(
-            highlight_match("Hello World", "world"),
+            highlight_match("Hello World", re("world").as_ref()),
             "Hello <b>World</b>"
         );
 
         // No match
-        assert_eq!(highlight_match("No match", "foo"), "No match");
+        assert_eq!(highlight_match("No match", re("foo").as_ref()), "No match");
 
         // Match at start
         assert_eq!(
-            highlight_match("Start match", "start"),
+            highlight_match("Start match", re("start").as_ref()),
             "<b>Start</b> match"
         );
 
         // Match at end
-        assert_eq!(highlight_match("End match", "match"), "End <b>match</b>");
+        assert_eq!(
+            highlight_match("End match", re("match").as_ref()),
+            "End <b>match</b>"
+        );
 
         // Multiple matches
         assert_eq!(
-            highlight_match("foo bar foo", "foo"),
+            highlight_match("foo bar foo", re("foo").as_ref()),
             "<b>foo</b> bar <b>foo</b>"
         );
 
         // HTML escaping
         assert_eq!(
-            highlight_match("<b>Bold</b>", "old"),
+            highlight_match("<b>Bold</b>", re("old").as_ref()),
             "&lt;b&gt;B<b>old</b>&lt;/b&gt;"
         );
+
+        // None regex (empty query)
+        assert_eq!(highlight_match("Hello", None), "Hello");
     }
 }

@@ -54,16 +54,13 @@ pub struct RustConnRdpdrBackend {
     dir_entries: HashMap<u32, Vec<String>>,
     /// Map of file IDs to pending directory change notifications
     pending_notifications: HashMap<u32, PendingNotification>,
-    /// Map of file IDs to file locks (stored for future fcntl integration)
-    #[allow(dead_code)]
-    file_locks: HashMap<u32, Vec<FileLock>>,
     /// Directory watcher for change notifications
     dir_watcher: Option<DirectoryWatcher>,
 }
 
 /// Pending directory change notification
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
+#[allow(dead_code)] // Fields read via Debug in trace! logging
 struct PendingNotification {
     /// Device IO request header
     device_io_request: ironrdp::rdpdr::pdu::efs::DeviceIoRequest,
@@ -71,18 +68,6 @@ struct PendingNotification {
     watch_tree: bool,
     /// Completion filter
     completion_filter: u32,
-}
-
-/// File lock information
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-struct FileLock {
-    /// Lock offset
-    offset: u64,
-    /// Lock length
-    length: u64,
-    /// Exclusive lock
-    exclusive: bool,
 }
 
 impl_as_any!(RustConnRdpdrBackend);
@@ -120,7 +105,6 @@ impl RustConnRdpdrBackend {
             file_paths: HashMap::new(),
             dir_entries: HashMap::new(),
             pending_notifications: HashMap::new(),
-            file_locks: HashMap::new(),
             dir_watcher,
         }
     }
@@ -136,18 +120,6 @@ impl RustConnRdpdrBackend {
     fn to_unix_path(&self, windows_path: &str) -> String {
         let unix_path = windows_path.replace('\\', "/");
         format!("{}{}", self.base_path, unix_path.trim_start_matches('/'))
-    }
-
-    /// Notifies pending watchers about a directory change
-    ///
-    /// This should be called when a file operation modifies a directory.
-    /// Returns any pending notification responses that should be sent.
-    #[allow(dead_code)]
-    #[allow(clippy::unused_self)]
-    fn notify_directory_change(&self, _path: &str) -> Vec<SvcMessage> {
-        // Directory changes are now handled by the DirectoryWatcher
-        // This method is kept for potential manual notifications
-        Vec::new()
     }
 
     /// Polls the directory watcher for pending change notifications

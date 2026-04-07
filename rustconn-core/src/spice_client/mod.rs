@@ -104,7 +104,6 @@ pub fn build_spice_viewer_args(config: &SpiceClientConfig) -> Vec<String> {
     args.push(uri);
 
     // Full screen option (not enabled by default for embedded-like behavior)
-    // args.push("--full-screen".to_string());
 
     // Title
     args.push("--title".to_string());

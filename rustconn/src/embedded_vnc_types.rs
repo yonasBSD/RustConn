@@ -111,8 +111,8 @@ pub struct VncConfig {
     pub host: String,
     /// Target port (default: 5900)
     pub port: u16,
-    /// Password for authentication
-    pub password: Option<String>,
+    /// Password for authentication (stored securely, zeroized on drop)
+    pub password: Option<secrecy::SecretString>,
     /// Desired width in pixels
     pub width: u32,
     /// Desired height in pixels
@@ -166,7 +166,7 @@ impl VncConfig {
     /// Sets the password
     #[must_use]
     pub fn with_password(mut self, password: impl Into<String>) -> Self {
-        self.password = Some(password.into());
+        self.password = Some(secrecy::SecretString::new(password.into().into()));
         self
     }
 
@@ -231,6 +231,10 @@ impl VncConfig {
     }
 }
 
+/// Maximum supported VNC dimension per axis (16384×16384 = 1 GB buffer max).
+/// Protects against OOM from a malicious server claiming absurd resolution.
+const MAX_VNC_DIMENSION: u32 = 16384;
+
 /// Pixel buffer for VNC frame data
 ///
 /// This struct holds the pixel data received from the VNC server
@@ -250,16 +254,29 @@ pub struct VncPixelBuffer {
 }
 
 impl VncPixelBuffer {
-    /// Creates a new pixel buffer with the specified dimensions
+    /// Creates a new pixel buffer with the specified dimensions.
+    ///
+    /// Dimensions are clamped to [`MAX_VNC_DIMENSION`] to prevent OOM
+    /// from a malicious server.
     #[must_use]
     pub fn new(width: u32, height: u32) -> Self {
+        let clamped_w = width.min(MAX_VNC_DIMENSION);
+        let clamped_h = height.min(MAX_VNC_DIMENSION);
+        if clamped_w != width || clamped_h != height {
+            tracing::warn!(
+                requested_width = width,
+                requested_height = height,
+                max = MAX_VNC_DIMENSION,
+                "VNC server requested resolution exceeding maximum, clamping"
+            );
+        }
         let bpp = 32; // BGRA = 32 bits per pixel
-        let stride = width * 4; // 4 bytes per pixel
-        let size = (stride * height) as usize;
+        let stride = clamped_w * 4; // 4 bytes per pixel
+        let size = (stride * clamped_h) as usize;
         Self {
             data: vec![0; size],
-            width,
-            height,
+            width: clamped_w,
+            height: clamped_h,
             stride,
             bpp,
         }
@@ -300,8 +317,12 @@ impl VncPixelBuffer {
         &mut self.data
     }
 
-    /// Resizes the buffer to new dimensions
+    /// Resizes the buffer to new dimensions.
+    ///
+    /// Dimensions are clamped to [`MAX_VNC_DIMENSION`] to prevent OOM.
     pub fn resize(&mut self, width: u32, height: u32) {
+        let width = width.min(MAX_VNC_DIMENSION);
+        let height = height.min(MAX_VNC_DIMENSION);
         self.width = width;
         self.height = height;
         self.stride = width * 4;

@@ -348,9 +348,10 @@ proptest! {
         let result = convert_to_bgra(&input_data, PixelFormat::Bgra, width, height);
 
         prop_assert!(result.is_some(), "BGRA conversion should succeed");
+        let cow = result.unwrap();
         prop_assert_eq!(
-            result.unwrap(),
-            input_data,
+            cow.as_ref(),
+            input_data.as_slice(),
             "BGRA to BGRA should be identity"
         );
     }

@@ -239,12 +239,15 @@ pub fn bind_list_item(
     // Pin icon is after the label
     let pin_icon = label.next_sibling().and_downcast::<Image>();
 
+    // Pre-compile highlight regex once per bind (not per label)
+    let highlight_re = crate::sidebar::search::compile_highlight_regex(query);
+
     // Helper to set text with highlighting
     let set_label_text = |label: &Label, text: &str| {
-        if query.is_empty() {
+        if highlight_re.is_none() {
             label.set_text(text);
         } else {
-            let markup = crate::sidebar::search::highlight_match(text, query);
+            let markup = crate::sidebar::search::highlight_match(text, highlight_re.as_ref());
             label.set_markup(&markup);
         }
     };

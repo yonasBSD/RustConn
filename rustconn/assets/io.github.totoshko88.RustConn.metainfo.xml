@@ -103,6 +103,37 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.12" date="2026-04-07">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01012---2026-04-07</url>
+      <description>
+        <p>Technical audit release: security hardening, performance optimizations, and dead code cleanup.</p>
+        <ul>
+          <li>VNC password stored as SecretString — zeroized on drop, protected from accidental logging</li>
+          <li>VNC pixel buffer max resolution guard — prevents OOM from malicious server</li>
+          <li>RDP 4K frame conversion zero-copy — eliminates 33 MB allocation per frame for BGRA</li>
+          <li>Sidebar search highlight regex cached — compiled once per query change</li>
+          <li>Log sanitization custom patterns pre-compiled at construction time</li>
+          <li>Removed ~1050 lines of unused wayland_surface.rs stub module</li>
+          <li>Removed deprecated OpenTelemetry tracing variant and RDPDR dead code stubs</li>
+          <li>Dependencies: gtk4 0.11.2, glib 0.22.4, pango 0.22.4, zip 8.5.1</li>
+          <li>CLI downloads: TigerVNC 1.16.2 (security fix), Teleport 18.7.3, Bitwarden CLI 2026.3.0</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.10.11" date="2026-04-05">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01011---2026-04-05</url>
+      <description>
+        <p>RDP Mouse Jiggler, Connect All in Folder, Host Online Check, Terminal Activity Monitor.</p>
+        <ul>
+          <li>RDP Mouse Jiggler — prevents idle disconnect with periodic mouse movements</li>
+          <li>Connect All in Folder — open all connections in a group at once</li>
+          <li>Copy Username / Copy Password from sidebar context menu</li>
+          <li>Host Online Check — TCP probe with auto-connect when host comes online</li>
+          <li>WoL + Auto-Connect — polls and auto-connects when host is ready</li>
+          <li>Terminal Activity Monitor — per-session activity and silence detection</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.10" date="2026-04-04">
       <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01010---2026-04-04</url>
       <description>
