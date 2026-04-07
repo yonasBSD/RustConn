@@ -1089,7 +1089,8 @@ impl EmbeddedVncWidget {
             .with_view_only(config.view_only);
 
         let vnc_config = if let Some(ref password) = config.password {
-            vnc_config.with_password(password)
+            use secrecy::ExposeSecret;
+            vnc_config.with_password(password.expose_secret())
         } else {
             vnc_config
         };
@@ -1859,7 +1860,16 @@ mod tests {
 
         assert_eq!(config.host, "server.example.com");
         assert_eq!(config.port, 5901);
-        assert_eq!(config.password, Some("secret".to_string()));
+        {
+            use secrecy::ExposeSecret;
+            assert_eq!(
+                config
+                    .password
+                    .as_ref()
+                    .map(|p| p.expose_secret().to_string()),
+                Some("secret".to_string())
+            );
+        }
         assert_eq!(config.width, 1920);
         assert_eq!(config.height, 1080);
         assert_eq!(config.encoding, Some("tight".to_string()));

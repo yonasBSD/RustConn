@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+## [0.10.12] - 2026-04-07
+
+### Security
+- **VNC password stored as `SecretString`** — `VncConfig.password` changed from plain `String` to `secrecy::SecretString`, matching RDP/SSH/SPICE credential handling; password is now zeroized on drop and protected from accidental logging via `Debug` trait
+- **VNC pixel buffer max resolution guard** — `VncPixelBuffer::new()` and `resize()` now clamp dimensions to 16384×16384 (1 GB max), preventing OOM from a malicious VNC server claiming absurd resolution
+
+### Improved
+- **RDP 4K frame conversion zero-copy** — `convert_to_bgra()` now returns `Cow<[u8]>` instead of `Vec<u8>`; when pixel data is already in BGRA format (the common IronRDP case), the function returns a borrowed slice instead of cloning the entire frame buffer (33 MB at 4K per frame)
+- **Sidebar search highlight regex cached** — `highlight_match()` now accepts a pre-compiled `Regex` via new `compile_highlight_regex()` helper; the regex is compiled once per query change instead of once per visible list item per keystroke
+- **Log sanitization custom patterns pre-compiled** — `SanitizeConfig` now pre-compiles custom regex patterns at construction time instead of recompiling on every call to `sanitize_output()`; affects every line of terminal output when session logging is enabled
+- **Log sanitization redundant `to_lowercase()` removed** — `SENSITIVE_PATTERNS` are already lowercase constants; removed unnecessary `pattern.to_lowercase()` allocation on every pattern comparison
+
+### Dead code cleanup
+- **Removed `wayland_surface.rs`** — ~1050-line stub module with no callers; all types (`WaylandSubsurface`, `EmbeddedRenderer`, `ShmBuffer`, `DamageRect`, `RenderingMode`) were unused; native Wayland subsurface support can be restored from git history when needed
+- **Removed `TracingOutput::OpenTelemetry` variant** — deprecated placeholder that was never constructed; match arm fell back to stderr
+- **Removed RDPDR `FileLock` struct and `notify_directory_change()` stub** — dead code placeholders for unimplemented fcntl integration
+- **Removed commented-out code** — `set_allow_bold` (VTE4 incompatible), `--full-screen` SPICE arg
+
+### Dependencies
+- **Updated**: fastrand 2.4.0→2.4.1, gdk4 0.11.1→0.11.2, gdk4-sys 0.11.1→0.11.2, gio 0.22.2→0.22.4, glib 0.22.3→0.22.4, gtk4 0.11.1→0.11.2, gtk4-sys 0.11.1→0.11.2, libz-sys 1.1.26→1.1.28, pango 0.22.0→0.22.4, zip 8.5.0→8.5.1
+- **CLI downloads** — TigerVNC 1.16.1→1.16.2 (security fix for x0vncserver), Teleport 18.7.2→18.7.3, Bitwarden CLI 2026.2.0→2026.3.0
+
 ## [0.10.11] - 2026-04-05
 
 ### Added

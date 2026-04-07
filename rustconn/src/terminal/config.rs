@@ -40,9 +40,6 @@ pub fn configure_terminal_with_settings(terminal: &Terminal, settings: &Terminal
     terminal.set_allow_hyperlink(settings.allow_hyperlinks);
     terminal.set_mouse_autohide(settings.mouse_autohide);
 
-    // Bold text - VTE4 doesn't have set_allow_bold, remove this setting
-    // terminal.set_allow_bold(settings.allow_bold);
-
     // Bell
     terminal.set_audible_bell(settings.audible_bell);
 

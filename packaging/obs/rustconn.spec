@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.10.11
+Version:        0.10.12
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,12 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Mon Apr 07 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.12-0
+- Technical audit: VNC SecretString, pixel buffer guard, RDP zero-copy,
+  sidebar regex cache, sanitization optimization, dead code cleanup
+- Dependencies: gtk4 0.11.2, glib 0.22.4, pango 0.22.4, zip 8.5.1
+- CLI downloads: TigerVNC 1.16.2, Teleport 18.7.3, Bitwarden CLI 2026.3.0
+
 * Sat Apr 04 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.11-0
 - RDP Mouse Jiggler — prevents idle disconnect with periodic mouse movements
 - Connect All in Folder — open all connections in a group at once

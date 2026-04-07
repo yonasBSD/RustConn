@@ -195,10 +195,14 @@ impl PixelFormat {
     }
 }
 
+use std::borrow::Cow;
+
 /// Converts framebuffer data from one pixel format to BGRA
 ///
 /// This function converts pixel data from various formats to BGRA,
 /// which is the native format for Cairo/GTK rendering.
+///
+/// For the common BGRA case, returns a zero-copy borrowed slice.
 ///
 /// # Arguments
 ///
@@ -216,7 +220,7 @@ pub fn convert_to_bgra(
     format: PixelFormat,
     width: u16,
     height: u16,
-) -> Option<Vec<u8>> {
+) -> Option<Cow<'_, [u8]>> {
     let pixel_count = width as usize * height as usize;
     let expected_size = pixel_count * format.bytes_per_pixel();
 
@@ -226,8 +230,8 @@ pub fn convert_to_bgra(
 
     match format {
         PixelFormat::Bgra => {
-            // Already in BGRA format, just clone
-            Some(data[..expected_size].to_vec())
+            // Already in BGRA format — zero-copy borrow
+            Some(Cow::Borrowed(&data[..expected_size]))
         }
         PixelFormat::Rgba => {
             // Convert RGBA to BGRA (swap R and B)
@@ -238,7 +242,7 @@ pub fn convert_to_bgra(
                 result.push(chunk[0]); // R
                 result.push(chunk[3]); // A
             }
-            Some(result)
+            Some(Cow::Owned(result))
         }
         PixelFormat::Rgb => {
             // Convert RGB to BGRA (swap R and B, add alpha)
@@ -249,7 +253,7 @@ pub fn convert_to_bgra(
                 result.push(chunk[0]); // R
                 result.push(255); // A (fully opaque)
             }
-            Some(result)
+            Some(Cow::Owned(result))
         }
         PixelFormat::Bgr => {
             // Convert BGR to BGRA (add alpha)
@@ -260,7 +264,7 @@ pub fn convert_to_bgra(
                 result.push(chunk[2]); // R
                 result.push(255); // A (fully opaque)
             }
-            Some(result)
+            Some(Cow::Owned(result))
         }
         PixelFormat::Rgb565 => {
             // Convert RGB565 to BGRA
@@ -277,7 +281,7 @@ pub fn convert_to_bgra(
                 result.push((r << 3) | (r >> 2)); // R
                 result.push(255); // A
             }
-            Some(result)
+            Some(Cow::Owned(result))
         }
     }
 }
@@ -352,7 +356,7 @@ pub fn create_frame_update_with_conversion(
     format: PixelFormat,
 ) -> RdpClientEvent {
     match convert_to_bgra(data, format, width, height) {
-        Some(bgra_data) => create_frame_update(x, y, width, height, bgra_data),
+        Some(bgra_data) => create_frame_update(x, y, width, height, bgra_data.into_owned()),
         None => RdpClientEvent::Error(format!(
             "Failed to convert framebuffer data from {format:?} format"
         )),
@@ -725,10 +729,10 @@ mod tests {
 
     #[test]
     fn test_convert_bgra_passthrough() {
-        // BGRA should pass through unchanged
+        // BGRA should pass through unchanged (zero-copy Cow::Borrowed)
         let data = vec![0, 1, 2, 3, 4, 5, 6, 7]; // 2 pixels
         let result = convert_to_bgra(&data, PixelFormat::Bgra, 2, 1);
-        assert_eq!(result, Some(data));
+        assert_eq!(result.as_deref(), Some(data.as_slice()));
     }
 
     #[test]
@@ -737,7 +741,7 @@ mod tests {
         let rgba = vec![255, 128, 64, 200];
         let result = convert_to_bgra(&rgba, PixelFormat::Rgba, 1, 1);
         // BGRA: B=64, G=128, R=255, A=200
-        assert_eq!(result, Some(vec![64, 128, 255, 200]));
+        assert_eq!(result.as_deref(), Some(vec![64, 128, 255, 200].as_slice()));
     }
 
     #[test]
@@ -746,7 +750,7 @@ mod tests {
         let rgb = vec![255, 128, 64];
         let result = convert_to_bgra(&rgb, PixelFormat::Rgb, 1, 1);
         // BGRA: B=64, G=128, R=255, A=255
-        assert_eq!(result, Some(vec![64, 128, 255, 255]));
+        assert_eq!(result.as_deref(), Some(vec![64, 128, 255, 255].as_slice()));
     }
 
     #[test]
@@ -755,7 +759,7 @@ mod tests {
         let bgr = vec![64, 128, 255];
         let result = convert_to_bgra(&bgr, PixelFormat::Bgr, 1, 1);
         // BGRA: B=64, G=128, R=255, A=255
-        assert_eq!(result, Some(vec![64, 128, 255, 255]));
+        assert_eq!(result.as_deref(), Some(vec![64, 128, 255, 255].as_slice()));
     }
 
     #[test]

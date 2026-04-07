@@ -1,3 +1,23 @@
+rustconn (0.10.12-1) unstable; urgency=medium
+
+  * [Security] VNC password stored as SecretString — zeroized on drop,
+    protected from accidental logging
+  * [Security] VNC pixel buffer max resolution guard — clamp to 16384x16384
+    preventing OOM from malicious VNC server
+  * [Improved] RDP 4K frame conversion zero-copy — convert_to_bgra() returns
+    Cow<[u8]> instead of Vec<u8>, avoiding 33 MB clone per frame
+  * [Improved] Sidebar search highlight regex cached — compiled once per
+    query change instead of once per visible item per keystroke
+  * [Improved] Log sanitization custom patterns pre-compiled at construction
+    time instead of recompiling on every sanitize_output() call
+  * [Improved] Log sanitization redundant to_lowercase() removed
+  * [Dead code] Removed wayland_surface.rs (~1050 lines)
+  * [Dead code] Removed TracingOutput::OpenTelemetry variant
+  * [Dead code] Removed RDPDR FileLock struct and notify_directory_change() stub
+  * [Dead code] Removed commented-out code (set_allow_bold, --full-screen)
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Tue, 07 Apr 2026 12:00:00 +0000
+
 rustconn (0.10.11-1) unstable; urgency=medium
 
   * RDP Mouse Jiggler — prevents idle disconnect with periodic mouse movements

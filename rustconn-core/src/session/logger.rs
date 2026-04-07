@@ -769,7 +769,7 @@ static COMPILED_SENSITIVE_PATTERNS: LazyLock<Vec<regex::Regex>> = LazyLock::new(
 });
 
 /// Configuration for log sanitization
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct SanitizeConfig {
     /// Whether sanitization is enabled
     pub enabled: bool,
@@ -779,7 +779,20 @@ pub struct SanitizeConfig {
     pub custom_patterns: Vec<String>,
     /// Whether to sanitize entire lines containing sensitive prompts
     pub sanitize_full_lines: bool,
+    /// Pre-compiled custom regex patterns (built from `custom_patterns`)
+    compiled_custom: Vec<regex::Regex>,
 }
+
+impl PartialEq for SanitizeConfig {
+    fn eq(&self, other: &Self) -> bool {
+        self.enabled == other.enabled
+            && self.replacement == other.replacement
+            && self.custom_patterns == other.custom_patterns
+            && self.sanitize_full_lines == other.sanitize_full_lines
+    }
+}
+
+impl Eq for SanitizeConfig {}
 
 impl Default for SanitizeConfig {
     fn default() -> Self {
@@ -788,6 +801,7 @@ impl Default for SanitizeConfig {
             replacement: String::from("[REDACTED]"),
             custom_patterns: Vec::new(),
             sanitize_full_lines: true,
+            compiled_custom: Vec::new(),
         }
     }
 }
@@ -815,10 +829,14 @@ impl SanitizeConfig {
         self
     }
 
-    /// Adds a custom pattern to sanitize
+    /// Adds a custom pattern to sanitize and pre-compiles it
     #[must_use]
     pub fn with_custom_pattern(mut self, pattern: impl Into<String>) -> Self {
-        self.custom_patterns.push(pattern.into());
+        let p = pattern.into();
+        if let Ok(re) = regex::Regex::new(&p) {
+            self.compiled_custom.push(re);
+        }
+        self.custom_patterns.push(p);
         self
     }
 
@@ -863,7 +881,7 @@ pub fn sanitize_output(output: &str, config: &SanitizeConfig) -> String {
             .map(|line| {
                 let line_lower = line.to_lowercase();
                 for pattern in SENSITIVE_PATTERNS {
-                    if line_lower.contains(&pattern.to_lowercase()) {
+                    if line_lower.contains(pattern) {
                         return config.replacement.clone();
                     }
                 }
@@ -884,13 +902,11 @@ pub fn sanitize_output(output: &str, config: &SanitizeConfig) -> String {
             .to_string();
     }
 
-    // Apply custom patterns
-    for pattern_str in &config.custom_patterns {
-        if let Ok(re) = regex::Regex::new(pattern_str) {
-            result = re
-                .replace_all(&result, config.replacement.as_str())
-                .to_string();
-        }
+    // Apply pre-compiled custom patterns
+    for re in &config.compiled_custom {
+        result = re
+            .replace_all(&result, config.replacement.as_str())
+            .to_string();
     }
 
     result
@@ -905,7 +921,7 @@ pub fn contains_sensitive_prompt(line: &str) -> bool {
     let line_lower = line.to_lowercase();
     SENSITIVE_PATTERNS
         .iter()
-        .any(|pattern| line_lower.contains(&pattern.to_lowercase()))
+        .any(|pattern| line_lower.contains(pattern))
 }
 
 #[cfg(test)]

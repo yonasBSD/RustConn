@@ -462,18 +462,18 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         install_method: InstallMethod::Download,
         // SourceForge direct download URL (follows redirects)
         download_url: Some(
-            "https://sourceforge.net/projects/tigervnc/files/stable/1.16.1/\
-             tigervnc-1.16.1.x86_64.tar.gz/download",
+            "https://sourceforge.net/projects/tigervnc/files/stable/1.16.2/\
+             tigervnc-1.16.2.x86_64.tar.gz/download",
         ),
         aarch64_url: None,
         checksum: ChecksumPolicy::Static(
-            "e27114dcd7e23896094e654dc21fc6e4eb313e6e346598aa389ff95fd765c6c4",
+            "5b70c84baefc09a030cfc78315c34ccb55b2a0dde4092b7da67a1962c5f0dea6",
         ),
         pip_package: None,
         size_hint: "~5 MB",
         binary_name: "vncviewer",
         install_subdir: "tigervnc",
-        pinned_version: Some("1.16.1"),
+        pinned_version: Some("1.16.2"),
         works_in_sandbox: false,
     },
     // Zero Trust CLIs
@@ -577,14 +577,14 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         description: "For Teleport access",
         category: ComponentCategory::ZeroTrust,
         install_method: InstallMethod::Download,
-        download_url: Some("https://cdn.teleport.dev/teleport-v18.7.2-linux-amd64-bin.tar.gz"),
-        aarch64_url: Some("https://cdn.teleport.dev/teleport-v18.7.2-linux-arm64-bin.tar.gz"),
+        download_url: Some("https://cdn.teleport.dev/teleport-v18.7.3-linux-amd64-bin.tar.gz"),
+        aarch64_url: Some("https://cdn.teleport.dev/teleport-v18.7.3-linux-arm64-bin.tar.gz"),
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~100 MB",
         binary_name: "tsh",
         install_subdir: "teleport",
-        pinned_version: Some("18.7.2"),
+        pinned_version: Some("18.7.3"),
         works_in_sandbox: true,
     },
     DownloadableComponent {
@@ -680,7 +680,7 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         install_method: InstallMethod::Download,
         download_url: Some(
             "https://github.com/bitwarden/clients/releases/download/\
-             cli-v2026.2.0/bw-linux-2026.2.0.zip",
+             cli-v2026.3.0/bw-linux-2026.3.0.zip",
         ),
         aarch64_url: None,
         checksum: ChecksumPolicy::SkipLatest,
@@ -688,7 +688,7 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         size_hint: "~50 MB",
         binary_name: "bw",
         install_subdir: "bitwarden",
-        pinned_version: Some("2026.2.0"),
+        pinned_version: Some("2026.3.0"),
         works_in_sandbox: true,
     },
     DownloadableComponent {
