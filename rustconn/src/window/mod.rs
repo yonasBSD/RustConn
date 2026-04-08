@@ -3239,7 +3239,16 @@ impl MainWindow {
 
             // Auto-reconnect: poll host and reconnect when it comes back online
             // Only for non-intentional disconnects (failures, not user-initiated)
+            // Skip auto-reconnect for SSH authentication failures (exit code 255)
+            // because the host is reachable but credentials are wrong — polling
+            // would instantly trigger reconnect creating an infinite loop.
+            let is_ssh_auth_failure = exit_code == 255
+                && notebook_clone
+                    .get_session_info(session_id)
+                    .is_some_and(|info| info.protocol == "ssh");
+
             if is_failure
+                && !is_ssh_auth_failure
                 && let Ok(state_ref) = state_clone.try_borrow()
                 && let Some(conn) = state_ref.get_connection(connection_id)
             {

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+## [0.10.13] - 2026-04-08
+
+### Fixed
+- **SSH auto-reconnect infinite loop** — when an SSH session failed with "Permission denied" (exit code 255), the auto-reconnect polling detected the host as online (TCP port open) and immediately triggered a reconnect, which failed again with the same auth error, creating an exponential loop of sessions. Fixed by skipping auto-reconnect for SSH authentication failures (exit code 255); the user can still reconnect manually via the overlay button
+- **Duplicate `child-exited` handlers for SSH/Telnet** — `setup_child_exited_handler` was called twice per session (before and after spawn), registering two GLib signal handlers. Each exit event fired both handlers, spawning two parallel auto-reconnect polls per failure cycle and doubling the session count on every iteration
+
+### Dependencies
+- FreeRDP 3.24.0 → 3.24.1 (security fix: CVE patches for credential zeroing, codec fixes)
+- Boundary CLI 0.21.1 → 0.21.2 (search sorting flags)
+- tokio 1.51.0 → 1.51.1, toml_edit 0.25.10 → 0.25.11
+
 ## [0.10.12] - 2026-04-07
 
 ### Security

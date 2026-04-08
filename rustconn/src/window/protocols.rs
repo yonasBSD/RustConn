@@ -567,9 +567,6 @@ fn start_ssh_connection_internal(
         });
     }
 
-    // Wire up child exited callback for session cleanup (second call for terminal monitoring)
-    MainWindow::setup_child_exited_handler(state, notebook, sidebar, session_id, connection_id);
-
     // --- SSH status detection: mark sidebar "connected" once terminal output appears ---
     // For jump host connections, also check terminal text for SSH failure patterns
     // to avoid false positives (jump host connects but destination times out).
@@ -1311,9 +1308,6 @@ fn start_telnet_connection_internal(
         backspace_sends,
         delete_sends,
     );
-
-    // Wire up child exited callback (second call for terminal monitoring)
-    MainWindow::setup_child_exited_handler(state, notebook, sidebar, session_id, connection_id);
 
     // --- Auto-recording for Telnet ---
     if conn.session_recording_enabled {

@@ -1,3 +1,11 @@
+rustconn (0.10.13-1) unstable; urgency=medium
+
+  * Fixed SSH auto-reconnect infinite loop on authentication failures
+  * Fixed duplicate child-exited signal handlers for SSH and Telnet sessions
+  * FreeRDP 3.24.0 → 3.24.1 (security fix), Boundary CLI 0.21.1 → 0.21.2
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Tue, 08 Apr 2026 12:00:00 +0000
+
 rustconn (0.10.12-1) unstable; urgency=medium
 
   * [Security] VNC password stored as SecretString

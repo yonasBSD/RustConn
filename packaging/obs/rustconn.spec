@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.10.12
+Version:        0.10.13
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,11 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Tue Apr 08 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.13-0
+- Fixed SSH auto-reconnect infinite loop on authentication failures
+- Fixed duplicate child-exited signal handlers for SSH and Telnet sessions
+- FreeRDP 3.24.0 → 3.24.1 (security fix), Boundary CLI 0.21.1 → 0.21.2
+
 * Mon Apr 07 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.12-0
 - Technical audit: VNC SecretString, pixel buffer guard, RDP zero-copy,
   sidebar regex cache, sanitization optimization, dead code cleanup

@@ -103,6 +103,17 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.13" date="2026-04-08">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01013---2026-04-08</url>
+      <description>
+        <p>Bugfix release: fixes SSH auto-reconnect infinite loop.</p>
+        <ul>
+          <li>Fixed SSH auto-reconnect infinite loop on authentication failures (Permission denied)</li>
+          <li>Fixed duplicate child-exited signal handlers for SSH and Telnet sessions</li>
+          <li>FreeRDP 3.24.0 → 3.24.1 (security fix), Boundary CLI 0.21.1 → 0.21.2</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.12" date="2026-04-07">
       <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01012---2026-04-07</url>
       <description>

@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue Apr 08 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.13
+
+- [Fixed] SSH auto-reconnect infinite loop on authentication failures
+- [Fixed] Duplicate child-exited signal handlers for SSH and Telnet sessions
+- [Dependencies] FreeRDP 3.24.0 → 3.24.1 (security fix), Boundary CLI 0.21.1 → 0.21.2
+
+-------------------------------------------------------------------
 Mon Apr 07 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.12
 
 - [Security] VNC password stored as SecretString
