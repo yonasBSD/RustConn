@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.10.13
+Version:        0.10.14
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,17 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Wed Apr 09 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.14-0
+- Version bump to 0.10.14
+- Improved: Success notifications use Toast instead of modal dialogs
+- Improved: Sidebar context menus migrated to PopoverMenu
+- Improved: Accessible labels for status icons and split panels
+- Improved: Fixed missing i18n for export/connection test dialogs
+- Fixed: Sidebar context menu missing Delete action
+- Removed unused CSS classes
+- Documented RDP file transfer (shared folders and clipboard)
+- Complete translations for all 15 languages (be, cs, da, de, es, fr, it, kk, nl, pl, pt, sk, sv, uk, uz)
+
 * Tue Apr 08 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.13-0
 - Fixed SSH auto-reconnect infinite loop on authentication failures
 - Fixed duplicate child-exited signal handlers for SSH and Telnet sessions

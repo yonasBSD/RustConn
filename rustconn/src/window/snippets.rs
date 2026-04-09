@@ -14,12 +14,17 @@ use crate::dialogs::SnippetDialog;
 use crate::i18n::i18n;
 use crate::state::SharedAppState;
 use crate::terminal::TerminalNotebook;
+use crate::window::SharedToastOverlay;
 
 /// Type alias for shared terminal notebook
 pub type SharedNotebook = Rc<TerminalNotebook>;
 
 /// Shows the new snippet dialog
-pub fn show_new_snippet_dialog(window: &gtk4::Window, state: SharedAppState) {
+pub fn show_new_snippet_dialog(
+    window: &gtk4::Window,
+    state: SharedAppState,
+    toast: SharedToastOverlay,
+) {
     let dialog = SnippetDialog::new(Some(&window.clone().upcast()));
 
     let window_clone = window.clone();
@@ -29,14 +34,10 @@ pub fn show_new_snippet_dialog(window: &gtk4::Window, state: SharedAppState) {
         {
             match state_mut.create_snippet(snippet) {
                 Ok(_) => {
-                    alert::show_success(
-                        &window_clone,
-                        &i18n("Snippet Created"),
-                        &i18n("Snippet has been saved successfully."),
-                    );
+                    toast.show_success(&i18n("Snippet has been saved successfully."));
                 }
                 Err(e) => {
-                    alert::show_error(&window_clone, &i18n("Error Creating Snippet"), &e);
+                    crate::alert::show_error(&window_clone, &i18n("Error Creating Snippet"), &e);
                 }
             }
         }

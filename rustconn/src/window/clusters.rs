@@ -3,17 +3,18 @@
 //! This module contains methods for managing connection clusters,
 //! including cluster dialogs and related functionality.
 
-use crate::alert;
 use crate::i18n::{i18n, i18n_f};
 use gtk4::prelude::*;
 use std::rc::Rc;
 use uuid::Uuid;
 
 use super::MainWindow;
+use crate::alert;
 use crate::dialogs::{ClusterDialog, ClusterListDialog};
 use crate::sidebar::ConnectionSidebar;
 use crate::state::SharedAppState;
 use crate::terminal::TerminalNotebook;
+use crate::window::SharedToastOverlay;
 
 /// Type alias for shared terminal notebook
 pub type SharedNotebook = Rc<TerminalNotebook>;
@@ -26,6 +27,7 @@ pub fn show_new_cluster_dialog(
     window: &gtk4::Window,
     state: SharedAppState,
     notebook: SharedNotebook,
+    toast: SharedToastOverlay,
 ) {
     let dialog = ClusterDialog::new(Some(&window.clone().upcast()));
 
@@ -49,14 +51,10 @@ pub fn show_new_cluster_dialog(
         {
             match state_mut.create_cluster(cluster) {
                 Ok(_) => {
-                    alert::show_success(
-                        &window_clone,
-                        &i18n("Cluster Created"),
-                        &i18n("Cluster has been saved successfully."),
-                    );
+                    toast.show_success(&i18n("Cluster has been saved successfully."));
                 }
                 Err(e) => {
-                    alert::show_error(&window_clone, &i18n("Error Creating Cluster"), &e);
+                    crate::alert::show_error(&window_clone, &i18n("Error Creating Cluster"), &e);
                 }
             }
         }
@@ -71,6 +69,7 @@ pub fn show_new_cluster_dialog_with_selection(
     state: SharedAppState,
     notebook: SharedNotebook,
     selected_ids: Vec<Uuid>,
+    toast: SharedToastOverlay,
 ) {
     let dialog = ClusterDialog::new(Some(&window.clone().upcast()));
 
@@ -97,14 +96,10 @@ pub fn show_new_cluster_dialog_with_selection(
         {
             match state_mut.create_cluster(cluster) {
                 Ok(_) => {
-                    alert::show_success(
-                        &window_clone,
-                        &i18n("Cluster Created"),
-                        &i18n("Cluster has been saved successfully."),
-                    );
+                    toast.show_success(&i18n("Cluster has been saved successfully."));
                 }
                 Err(e) => {
-                    alert::show_error(&window_clone, &i18n("Error Creating Cluster"), &e);
+                    crate::alert::show_error(&window_clone, &i18n("Error Creating Cluster"), &e);
                 }
             }
         }

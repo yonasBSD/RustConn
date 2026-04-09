@@ -824,6 +824,7 @@ impl MainWindow {
         let state_clone = state.clone();
         let notebook_clone = terminal_notebook.clone();
         let sidebar_clone = sidebar.clone();
+        let toast_clone = self.toast_overlay.clone();
         cluster_from_selection_action.connect_activate(move |_, _| {
             if let Some(win) = window_weak.upgrade() {
                 let selected_ids = sidebar_clone.get_selected_ids();
@@ -835,6 +836,7 @@ impl MainWindow {
                     state_clone.clone(),
                     notebook_clone.clone(),
                     selected_ids,
+                    toast_clone.clone(),
                 );
             }
         });
@@ -853,9 +855,14 @@ impl MainWindow {
         let new_snippet_action = gio::SimpleAction::new("new-snippet", None);
         let window_weak = window.downgrade();
         let state_clone = state.clone();
+        let toast_clone = self.toast_overlay.clone();
         new_snippet_action.connect_activate(move |_, _| {
             if let Some(win) = window_weak.upgrade() {
-                snippets::show_new_snippet_dialog(win.upcast_ref(), state_clone.clone());
+                snippets::show_new_snippet_dialog(
+                    win.upcast_ref(),
+                    state_clone.clone(),
+                    toast_clone.clone(),
+                );
             }
         });
         window.add_action(&new_snippet_action);
@@ -995,12 +1002,14 @@ impl MainWindow {
         let window_weak = window.downgrade();
         let state_clone = state.clone();
         let notebook_clone = terminal_notebook.clone();
+        let toast_clone = self.toast_overlay.clone();
         new_cluster_action.connect_activate(move |_, _| {
             if let Some(win) = window_weak.upgrade() {
                 clusters::show_new_cluster_dialog(
                     win.upcast_ref(),
                     state_clone.clone(),
                     notebook_clone.clone(),
+                    toast_clone.clone(),
                 );
             }
         });
@@ -4067,10 +4076,13 @@ impl MainWindow {
                 // Show success notification
                 alert::show_success(
                     &window_clone,
-                    "Export Complete",
-                    &format!(
-                        "Successfully exported {} connection(s).\n{} skipped.",
-                        export_result.exported_count, export_result.skipped_count
+                    &crate::i18n::i18n("Export Complete"),
+                    &crate::i18n::i18n_f(
+                        "Successfully exported {} connection(s). {} skipped.",
+                        &[
+                            &export_result.exported_count.to_string(),
+                            &export_result.skipped_count.to_string(),
+                        ],
                     ),
                 );
             }

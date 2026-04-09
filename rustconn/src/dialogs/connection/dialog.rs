@@ -9,7 +9,7 @@
 use super::logging_tab;
 use super::ssh;
 use crate::alert;
-use crate::i18n::i18n;
+use crate::i18n::{i18n, i18n_f};
 use adw::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{
@@ -1418,8 +1418,11 @@ impl ConnectionDialog {
                             let latency = test_result.latency_ms.unwrap_or(0);
                             alert::show_success(
                                 &window_clone,
-                                "Connection Test Successful",
-                                &format!("Connection successful! Latency: {}ms", latency),
+                                &i18n("Connection Test Successful"),
+                                &i18n_f(
+                                    "Connection successful! Latency: {}ms",
+                                    &[&latency.to_string()],
+                                ),
                             );
                         }
                         Some(test_result) => {

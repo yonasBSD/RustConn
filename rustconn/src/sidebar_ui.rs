@@ -6,9 +6,12 @@
 use crate::i18n::i18n;
 use gtk4::gdk;
 use gtk4::prelude::*;
-use gtk4::{Box as GtkBox, Button, Orientation};
+use gtk4::{Box as GtkBox, Button, Orientation, gio};
 
 /// Shows the context menu for a connection item with group awareness
+///
+/// Uses `PopoverMenu` with `gio::Menu` for native GNOME HIG compliance,
+/// keyboard navigation, and screen reader accessibility.
 #[allow(clippy::fn_params_excessive_bools)]
 pub fn show_context_menu_for_item(
     widget: &impl IsA<gtk4::Widget>,
@@ -19,318 +22,129 @@ pub fn show_context_menu_for_item(
     is_connected: bool,
     is_recording: bool,
 ) {
-    // Get the root window to access actions
     let Some(root) = widget.root() else { return };
     let Some(window) = root.downcast_ref::<gtk4::ApplicationWindow>() else {
         return;
     };
 
-    // Create a custom popover with buttons instead of PopoverMenu
-    // This ensures actions are properly activated
-    let popover = gtk4::Popover::new();
+    let menu = gio::Menu::new();
 
-    let menu_box = GtkBox::new(Orientation::Vertical, 0);
-    menu_box.set_margin_top(6);
-    menu_box.set_margin_bottom(6);
-    menu_box.set_margin_start(6);
-    menu_box.set_margin_end(6);
-
-    // Helper to create menu button
-    let create_menu_button = |label: &str| -> Button {
-        let btn = Button::with_label(label);
-        btn.set_has_frame(false);
-        btn.add_css_class("flat");
-        btn.set_halign(gtk4::Align::Start);
-        btn
-    };
-
-    let popover_ref = popover.downgrade();
-
-    // Use lookup_action and activate on the window (which implements ActionMap)
-    let window_clone = window.clone();
-
-    if !is_group {
-        let connect_btn = create_menu_button(&i18n("Connect"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        connect_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("connect") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&connect_btn);
-
-        // Pin/Unpin toggle
-        let pin_btn = create_menu_button(&i18n("Pin / Unpin"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        pin_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("toggle-pin") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&pin_btn);
-
-        // New Connection (pre-selects group of this connection)
-        let new_conn_ctx_btn = create_menu_button(&i18n("New Connection"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        new_conn_ctx_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("new-connection-from-context") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&new_conn_ctx_btn);
-    }
-
-    // New Connection in Group (groups only)
     if is_group {
-        let new_conn_btn = create_menu_button(&i18n("New Connection in Group"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        new_conn_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("new-connection-in-group") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&new_conn_btn);
+        // Group actions
+        let group_section = gio::Menu::new();
+        group_section.append(
+            Some(&i18n("New Connection in Group")),
+            Some("win.new-connection-in-group"),
+        );
+        group_section.append(Some(&i18n("Connect All")), Some("win.connect-all-in-group"));
+        menu.append_section(None, &group_section);
 
-        // Connect All — open all connections in this group
-        let connect_all_btn = create_menu_button(&i18n("Connect All"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        connect_all_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("connect-all-in-group") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&connect_all_btn);
-    }
-
-    let edit_btn = create_menu_button(&i18n("Edit"));
-    let win = window_clone.clone();
-    let popover_c = popover_ref.clone();
-    edit_btn.connect_clicked(move |_| {
-        if let Some(p) = popover_c.upgrade() {
-            p.popdown();
-        }
-        if let Some(action) = win.lookup_action("edit-connection") {
-            action.activate(None);
-        }
-    });
-    menu_box.append(&edit_btn);
-
-    // Rename option (for both connections and groups)
-    let rename_btn = create_menu_button(&i18n("Rename"));
-    let win = window_clone.clone();
-    let popover_c = popover_ref.clone();
-    rename_btn.connect_clicked(move |_| {
-        if let Some(p) = popover_c.upgrade() {
-            p.popdown();
-        }
-        if let Some(action) = win.lookup_action("rename-item") {
-            action.activate(None);
-        }
-    });
-    menu_box.append(&rename_btn);
-
-    if !is_group {
-        let duplicate_btn = create_menu_button(&i18n("Duplicate"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        duplicate_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("duplicate-connection") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&duplicate_btn);
-
-        let move_btn = create_menu_button(&i18n("Move to Group..."));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        move_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("move-to-group") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&move_btn);
-
-        // Copy Username
-        let copy_user_btn = create_menu_button(&i18n("Copy Username"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        copy_user_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("copy-username") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&copy_user_btn);
-
-        // Copy Password
-        let copy_pass_btn = create_menu_button(&i18n("Copy Password"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        copy_pass_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("copy-password") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&copy_pass_btn);
-
-        // Run Snippet option - opens snippet picker for the selected connection
-        let snippet_btn = create_menu_button(&i18n("Run Snippet..."));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        snippet_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("run-snippet-for-connection") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&snippet_btn);
-
-        // Wake On LAN option
-        let wol_btn = create_menu_button(&i18n("Wake On LAN"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        wol_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("wake-on-lan") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&wol_btn);
-
-        // Check if Online option
-        let check_online_btn = create_menu_button(&i18n("Check if Online"));
-        let win = window_clone.clone();
-        let popover_c = popover_ref.clone();
-        check_online_btn.connect_clicked(move |_| {
-            if let Some(p) = popover_c.upgrade() {
-                p.popdown();
-            }
-            if let Some(action) = win.lookup_action("check-host-online") {
-                action.activate(None);
-            }
-        });
-        menu_box.append(&check_online_btn);
-
-        // Open SFTP option (SSH connections only)
-        if is_ssh {
-            let sftp_btn = create_menu_button(&i18n("Open SFTP"));
-            let win = window_clone.clone();
-            let popover_c = popover_ref.clone();
-            sftp_btn.connect_clicked(move |_| {
-                if let Some(p) = popover_c.upgrade() {
-                    p.popdown();
-                }
-                if let Some(action) = win.lookup_action("open-sftp") {
-                    action.activate(None);
-                }
-            });
-            menu_box.append(&sftp_btn);
-        }
-    }
-
-    // Recording buttons (only for non-group connected sessions)
-    if !is_group && is_connected {
-        if is_recording {
-            let stop_btn = create_menu_button(&i18n("Stop Recording"));
-            stop_btn.add_css_class("destructive-action");
-            stop_btn.set_tooltip_text(Some(&i18n("Stop recording this session")));
-            let win = window_clone.clone();
-            let popover_c = popover_ref.clone();
-            stop_btn.connect_clicked(move |_| {
-                if let Some(p) = popover_c.upgrade() {
-                    p.popdown();
-                }
-                if let Some(action) = win.lookup_action("stop-recording") {
-                    action.activate(None);
-                }
-            });
-            menu_box.append(&stop_btn);
-        } else {
-            let start_btn = create_menu_button(&i18n("Start Recording"));
-            start_btn.set_tooltip_text(Some(&i18n("Start recording this session")));
-            let win = window_clone.clone();
-            let popover_c = popover_ref.clone();
-            start_btn.connect_clicked(move |_| {
-                if let Some(p) = popover_c.upgrade() {
-                    p.popdown();
-                }
-                if let Some(action) = win.lookup_action("start-recording") {
-                    action.activate(None);
-                }
-            });
-            menu_box.append(&start_btn);
-        }
-    }
-
-    let delete_btn = create_menu_button(&i18n("Delete"));
-    delete_btn.add_css_class("destructive-action");
-    delete_btn.add_css_class("context-menu-destructive");
-    let win = window_clone;
-    let popover_c = popover_ref;
-    delete_btn.connect_clicked(move |_| {
-        if let Some(p) = popover_c.upgrade() {
-            p.popdown();
-        }
-        if let Some(action) = win.lookup_action("delete-connection") {
-            action.activate(None);
-        }
-    });
-    menu_box.append(&delete_btn);
-
-    popover.set_child(Some(&menu_box));
-
-    // Attach popover to the window
-    popover.set_parent(window);
-
-    // Calculate absolute position for the popover
-    let widget_bounds = widget.compute_bounds(window);
-    #[allow(clippy::cast_possible_truncation)]
-    let (popup_x, popup_y) = if let Some(bounds) = widget_bounds {
-        (bounds.x() as i32 + x as i32, bounds.y() as i32 + y as i32)
+        let edit_section = gio::Menu::new();
+        edit_section.append(Some(&i18n("Edit")), Some("win.edit-connection"));
+        edit_section.append(Some(&i18n("Rename")), Some("win.rename-item"));
+        menu.append_section(None, &edit_section);
     } else {
-        (x as i32, y as i32)
+        // Connection actions section
+        let connect_section = gio::Menu::new();
+        connect_section.append(Some(&i18n("Connect")), Some("win.connect"));
+        connect_section.append(Some(&i18n("Pin / Unpin")), Some("win.toggle-pin"));
+        menu.append_section(None, &connect_section);
+
+        // Edit section
+        let edit_section = gio::Menu::new();
+        edit_section.append(
+            Some(&i18n("New Connection")),
+            Some("win.new-connection-from-context"),
+        );
+        edit_section.append(Some(&i18n("Edit")), Some("win.edit-connection"));
+        edit_section.append(Some(&i18n("Rename")), Some("win.rename-item"));
+        edit_section.append(Some(&i18n("Duplicate")), Some("win.duplicate-connection"));
+        edit_section.append(Some(&i18n("Move to Group...")), Some("win.move-to-group"));
+        menu.append_section(None, &edit_section);
+
+        // Clipboard section
+        let clipboard_section = gio::Menu::new();
+        clipboard_section.append(Some(&i18n("Copy Username")), Some("win.copy-username"));
+        clipboard_section.append(Some(&i18n("Copy Password")), Some("win.copy-password"));
+        menu.append_section(None, &clipboard_section);
+
+        // Tools section
+        let tools_section = gio::Menu::new();
+        tools_section.append(
+            Some(&i18n("Run Snippet...")),
+            Some("win.run-snippet-for-connection"),
+        );
+        tools_section.append(Some(&i18n("Wake On LAN")), Some("win.wake-on-lan"));
+        tools_section.append(
+            Some(&i18n("Check if Online")),
+            Some("win.check-host-online"),
+        );
+        if is_ssh {
+            tools_section.append(Some(&i18n("Open SFTP")), Some("win.open-sftp"));
+        }
+        menu.append_section(None, &tools_section);
+
+        // Recording section (only for connected sessions)
+        if is_connected {
+            let recording_section = gio::Menu::new();
+            if is_recording {
+                recording_section.append(Some(&i18n("Stop Recording")), Some("win.stop-recording"));
+            } else {
+                recording_section
+                    .append(Some(&i18n("Start Recording")), Some("win.start-recording"));
+            }
+            menu.append_section(None, &recording_section);
+        }
+    }
+
+    // Delete section (always last, visually separated)
+    let delete_section = gio::Menu::new();
+    delete_section.append(Some(&i18n("Delete")), Some("win.delete-connection"));
+    menu.append_section(None, &delete_section);
+
+    show_popover_menu(widget, window, &menu, x, y);
+}
+
+/// Shows the context menu for empty space in the sidebar
+pub fn show_empty_space_context_menu(widget: &impl IsA<gtk4::Widget>, x: f64, y: f64) {
+    let Some(root) = widget.root() else { return };
+    let Some(window) = root.downcast_ref::<gtk4::ApplicationWindow>() else {
+        return;
     };
 
-    popover.set_pointing_to(Some(&gdk::Rectangle::new(popup_x, popup_y, 1, 1)));
-    popover.set_autohide(true);
-    popover.set_has_arrow(true);
+    let menu = gio::Menu::new();
 
-    // Connect to closed signal to unparent the popover
+    let create_section = gio::Menu::new();
+    create_section.append(Some(&i18n("Quick Connect")), Some("win.quick-connect"));
+    create_section.append(Some(&i18n("New Connection")), Some("win.new-connection"));
+    create_section.append(Some(&i18n("New Group")), Some("win.new-group"));
+    menu.append_section(None, &create_section);
+
+    let io_section = gio::Menu::new();
+    io_section.append(Some(&i18n("Import...")), Some("win.import"));
+    io_section.append(Some(&i18n("Export...")), Some("win.export"));
+    menu.append_section(None, &io_section);
+
+    show_popover_menu(widget, window, &menu, x, y);
+}
+
+/// Creates and shows a `PopoverMenu` from a `gio::Menu` at the given coordinates
+fn show_popover_menu(
+    widget: &impl IsA<gtk4::Widget>,
+    _window: &gtk4::ApplicationWindow,
+    menu: &gio::Menu,
+    x: f64,
+    y: f64,
+) {
+    let popover = gtk4::PopoverMenu::from_model(Some(menu));
+    popover.set_parent(widget);
+
+    #[allow(clippy::cast_possible_truncation)]
+    let rect = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
+    popover.set_pointing_to(Some(&rect));
+    popover.set_autohide(true);
+    popover.set_has_arrow(false);
+
     popover.connect_closed(|p| {
         p.unparent();
     });
@@ -360,7 +174,6 @@ pub fn create_bulk_actions_bar() -> GtkBox {
     bar.set_margin_bottom(4);
     bar.add_css_class("bulk-actions-bar");
 
-    // New Group button (highlighted as create action)
     let new_group_button = Button::with_label(&i18n("New Group"));
     new_group_button.set_tooltip_text(Some(&i18n("Create a new group")));
     new_group_button.set_action_name(Some("win.new-group"));
@@ -369,7 +182,6 @@ pub fn create_bulk_actions_bar() -> GtkBox {
         .update_property(&[gtk4::accessible::Property::Label(&i18n("Create new group"))]);
     bar.append(&new_group_button);
 
-    // Move to Group button
     let move_button = Button::with_label(&i18n("Move to Group..."));
     move_button.set_tooltip_text(Some(&i18n("Move selected items to a group")));
     move_button.set_action_name(Some("win.move-selected-to-group"));
@@ -378,7 +190,6 @@ pub fn create_bulk_actions_bar() -> GtkBox {
     ))]);
     bar.append(&move_button);
 
-    // Create Cluster button
     let cluster_button = Button::with_label(&i18n("Create Cluster"));
     cluster_button.set_tooltip_text(Some(&i18n("Create a cluster from selected connections")));
     cluster_button.set_action_name(Some("win.cluster-from-selection"));
@@ -387,7 +198,6 @@ pub fn create_bulk_actions_bar() -> GtkBox {
     ))]);
     bar.append(&cluster_button);
 
-    // Select All button
     let select_all_button = Button::with_label(&i18n("Select All"));
     select_all_button.set_tooltip_text(Some(&i18n("Select all items (Ctrl+A)")));
     select_all_button.set_action_name(Some("win.select-all"));
@@ -396,14 +206,12 @@ pub fn create_bulk_actions_bar() -> GtkBox {
     ))]);
     bar.append(&select_all_button);
 
-    // Clear Selection button
     let clear_button = Button::with_label(&i18n("Clear"));
     clear_button.set_tooltip_text(Some(&i18n("Clear selection (Escape)")));
     clear_button.set_action_name(Some("win.clear-selection"));
     clear_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Clear selection"))]);
     bar.append(&clear_button);
 
-    // Delete button (rightmost, destructive)
     let delete_button = Button::with_label(&i18n("Delete"));
     delete_button.set_tooltip_text(Some(&i18n("Delete all selected items")));
     delete_button.set_action_name(Some("win.delete-selected"));
@@ -428,7 +236,6 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     toolbar.set_margin_bottom(6);
     toolbar.set_halign(gtk4::Align::Center);
 
-    // Group operations button
     let group_ops_button = Button::from_icon_name("view-list-symbolic");
     group_ops_button.set_tooltip_text(Some(&i18n("Group Operations Mode")));
     group_ops_button.set_action_name(Some("win.group-operations"));
@@ -437,7 +244,6 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     ))]);
     toolbar.append(&group_ops_button);
 
-    // Connection History button
     let history_button = Button::from_icon_name("document-open-recent-symbolic");
     history_button.set_tooltip_text(Some(&i18n("Connection History")));
     history_button.set_action_name(Some("win.show-history"));
@@ -446,7 +252,6 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     ))]);
     toolbar.append(&history_button);
 
-    // Sort alphabetically button
     let sort_button = Button::from_icon_name("view-sort-ascending-symbolic");
     sort_button.set_tooltip_text(Some(&i18n("Sort Alphabetically")));
     sort_button.set_action_name(Some("win.sort-connections"));
@@ -455,7 +260,6 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     ))]);
     toolbar.append(&sort_button);
 
-    // Sort by recent usage button
     let sort_recent_button = Button::from_icon_name("document-open-recent-symbolic");
     sort_recent_button.set_tooltip_text(Some(&i18n("Sort by Recent Usage")));
     sort_recent_button.set_action_name(Some("win.sort-recent"));
@@ -464,7 +268,6 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     ))]);
     toolbar.append(&sort_recent_button);
 
-    // Import button
     let import_button = Button::from_icon_name("document-open-symbolic");
     import_button.set_tooltip_text(Some(&i18n("Import Connections (Ctrl+I)")));
     import_button.set_action_name(Some("win.import"));
@@ -473,7 +276,6 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     ))]);
     toolbar.append(&import_button);
 
-    // Export button
     let export_button = Button::from_icon_name("document-save-symbolic");
     export_button.set_tooltip_text(Some(&i18n("Export Connections")));
     export_button.set_action_name(Some("win.export"));
@@ -482,7 +284,6 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     ))]);
     toolbar.append(&export_button);
 
-    // Password vault button - shows integration status
     let keepass_button = Button::from_icon_name("dialog-password-symbolic");
     keepass_button.set_tooltip_text(Some(&i18n("Open Password Vault")));
     keepass_button.set_action_name(Some("win.open-keepass"));
@@ -493,130 +294,4 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     toolbar.append(&keepass_button);
 
     (toolbar, keepass_button)
-}
-
-/// Shows the context menu for empty space in the sidebar
-pub fn show_empty_space_context_menu(widget: &impl IsA<gtk4::Widget>, x: f64, y: f64) {
-    let Some(root) = widget.root() else { return };
-    let Some(window) = root.downcast_ref::<gtk4::ApplicationWindow>() else {
-        return;
-    };
-
-    let popover = gtk4::Popover::new();
-
-    let menu_box = GtkBox::new(Orientation::Vertical, 0);
-    menu_box.set_margin_top(6);
-    menu_box.set_margin_bottom(6);
-    menu_box.set_margin_start(6);
-    menu_box.set_margin_end(6);
-
-    // Helper to create menu button
-    let create_menu_button = |label: &str| -> Button {
-        let btn = Button::with_label(label);
-        btn.set_has_frame(false);
-        btn.add_css_class("flat");
-        btn.set_halign(gtk4::Align::Start);
-        btn
-    };
-
-    let popover_ref = popover.downgrade();
-    let window_clone = window.clone();
-
-    // Quick Connect
-    let quick_connect_btn = create_menu_button(&i18n("Quick Connect"));
-    let win = window_clone.clone();
-    let popover_c = popover_ref.clone();
-    quick_connect_btn.connect_clicked(move |_| {
-        if let Some(p) = popover_c.upgrade() {
-            p.popdown();
-        }
-        if let Some(action) = win.lookup_action("quick-connect") {
-            action.activate(None);
-        }
-    });
-    menu_box.append(&quick_connect_btn);
-
-    // New Connection
-    let new_conn_btn = create_menu_button(&i18n("New Connection"));
-    let win = window_clone.clone();
-    let popover_c = popover_ref.clone();
-    new_conn_btn.connect_clicked(move |_| {
-        if let Some(p) = popover_c.upgrade() {
-            p.popdown();
-        }
-        if let Some(action) = win.lookup_action("new-connection") {
-            action.activate(None);
-        }
-    });
-    menu_box.append(&new_conn_btn);
-
-    // New Group
-    let new_group_btn = create_menu_button(&i18n("New Group"));
-    let win = window_clone.clone();
-    let popover_c = popover_ref.clone();
-    new_group_btn.connect_clicked(move |_| {
-        if let Some(p) = popover_c.upgrade() {
-            p.popdown();
-        }
-        if let Some(action) = win.lookup_action("new-group") {
-            action.activate(None);
-        }
-    });
-    menu_box.append(&new_group_btn);
-
-    // Separator
-    let sep = gtk4::Separator::new(Orientation::Horizontal);
-    sep.set_margin_top(6);
-    sep.set_margin_bottom(6);
-    menu_box.append(&sep);
-
-    // Import
-    let import_btn = create_menu_button(&i18n("Import..."));
-    let win = window_clone.clone();
-    let popover_c = popover_ref.clone();
-    import_btn.connect_clicked(move |_| {
-        if let Some(p) = popover_c.upgrade() {
-            p.popdown();
-        }
-        if let Some(action) = win.lookup_action("import") {
-            action.activate(None);
-        }
-    });
-    menu_box.append(&import_btn);
-
-    // Export
-    let export_btn = create_menu_button(&i18n("Export..."));
-    let win = window_clone;
-    let popover_c = popover_ref;
-    export_btn.connect_clicked(move |_| {
-        if let Some(p) = popover_c.upgrade() {
-            p.popdown();
-        }
-        if let Some(action) = win.lookup_action("export") {
-            action.activate(None);
-        }
-    });
-    menu_box.append(&export_btn);
-
-    popover.set_child(Some(&menu_box));
-    popover.set_parent(window);
-
-    // Calculate position
-    let widget_bounds = widget.compute_bounds(window);
-    #[allow(clippy::cast_possible_truncation)]
-    let (popup_x, popup_y) = if let Some(bounds) = widget_bounds {
-        (bounds.x() as i32 + x as i32, bounds.y() as i32 + y as i32)
-    } else {
-        (x as i32, y as i32)
-    };
-
-    popover.set_pointing_to(Some(&gdk::Rectangle::new(popup_x, popup_y, 1, 1)));
-    popover.set_autohide(true);
-    popover.set_has_arrow(true);
-
-    popover.connect_closed(|p| {
-        p.unparent();
-    });
-
-    popover.popup();
 }

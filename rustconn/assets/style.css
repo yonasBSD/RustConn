@@ -57,12 +57,6 @@
     border-left: 4px solid #e01b24;
 }
 
-/* Tab header color indicators by ColorId index (0-5) */
-/* Requirement 6.2: Color_ID displayed as indicator in tab header */
-/* NOTE: These classes are not currently applied from Rust code. */
-/* The split view redesign uses split-panel-color-* instead. */
-/* Kept as reference for potential future tab header indicators. */
-
 /* Empty panel placeholder styling */
 /* Requirement 4.1: Empty panel displays placeholder with Select Tab button */
 .empty-panel-placeholder {
@@ -93,21 +87,10 @@
 }
 
 /* ============================================================
- * Legacy Split View Styles (for backward compatibility)
+ * Split Pane Color Indicators
+ * Applied via SPLIT_PANE_COLORS in split_view/bridge.rs
  * ============================================================ */
 
-/* Split view pane styles */
-.focused-pane {
-    border: 2px solid @accent_color;
-    border-radius: 4px;
-}
-
-.unfocused-pane {
-    border: 1px solid @borders;
-    border-radius: 4px;
-}
-/* Legacy split pane color indicators - applied to pane containers */
-/* These show which pane a session belongs to */
 .split-color-blue {
     border-left: 4px solid #3584e4;
 }
@@ -127,8 +110,7 @@
     border-left: 4px solid #f66151;
 }
 
-/* Legacy tab color indicators - applied to tab content containers */
-/* These color the left border of the tab content to match pane color */
+/* Tab color indicators - applied to tab content containers */
 .tab-split-blue {
     border-left: 3px solid #3584e4;
     padding-left: 6px;
@@ -154,51 +136,9 @@
     padding-left: 6px;
 }
 
-/* Note: :has() pseudoclass is not supported in GTK4 CSS */
-/* Tab indicator colors are applied directly via CSS classes on the tab content */
-
 /* Pane placeholder styles */
 .dim-label {
     opacity: 0.6;
-}
-
-/* Session tab styles removed — not applied from Rust code */
-
-.tab-icon {
-    opacity: 0.8;
-}
-
-.tab-label {
-    margin-left: 4px;
-    margin-right: 4px;
-}
-
-.tab-label-disconnected {
-    margin-left: 4px;
-    margin-right: 4px;
-    color: @error_color;
-}
-
-.tab-close-button {
-    min-width: 20px;
-    min-height: 20px;
-    padding: 2px;
-    opacity: 0.6;
-}
-
-.tab-close-button:hover {
-    opacity: 1.0;
-    background-color: alpha(@error_color, 0.15);
-}
-
-/* Notebook tab styling for many tabs */
-notebook > header > tabs > tab {
-    min-width: 40px;
-    padding: 4px 8px;
-}
-
-notebook > header > tabs > tab label {
-    min-width: 0;
 }
 
 /* Quick Filter button styles */
@@ -236,15 +176,12 @@ notebook > header > tabs > tab label {
     box-shadow: 0 0 0 2px alpha(@accent_color, 0.4);
 }
 
-/* Floating controls removed — not applied from Rust code */
-
 /* VNC display placeholder */
 .vnc-display {
     background-color: @view_bg_color;
 }
 
-/* Toast notification styles removed — RustConn uses adw::Toast directly */
-
+/* Toast type indicators — left border color by severity */
 .toast-info {
     border-left: 4px solid @accent_bg_color;
 }
@@ -306,8 +243,6 @@ label.warning {
     min-width: 24px;
 }
 
-/* Empty state styles removed — not applied from Rust code */
-
 /* ============================================================
  * Connection Status Styles
  * ============================================================ */
@@ -324,7 +259,6 @@ label.warning {
 }
 
 /* Connecting status - pulsing effect via opacity transition */
-/* Note: GTK4 CSS doesn't support @keyframes, using opacity for visual feedback */
 .status-connecting {
     color: @accent_color;
     opacity: 0.7;
@@ -335,8 +269,6 @@ label.warning {
     color: @error_color;
     opacity: 1.0;
 }
-
-/* Enhanced drag-drop visual feedback — applied via sidebar/view.rs */
 
 /* Status indicator styles for settings dialog */
 .success {
@@ -431,8 +363,6 @@ label.error {
     border: 1px dashed @accent_color;
     border-radius: 4px;
 }
-
-/* Tab styles for sessions in split view removed — not applied from Rust code */
 
 /* ============================================================
  * Terminal Activity Monitor — Tab Indicator Styles

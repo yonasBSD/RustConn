@@ -860,6 +860,9 @@ impl SplitViewAdapter {
         // Apply base panel styling
         container.add_css_class("split-panel");
 
+        // Accessibility: label the panel for screen readers
+        container.update_property(&[gtk4::accessible::Property::Label(&i18n("Terminal panel"))]);
+
         // Apply color border styling based on ColorId
         // The CSS class format is `split-panel-color-N` where N is the color index
         if let Some(color_id) = self.model.borrow().color_id() {

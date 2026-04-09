@@ -396,20 +396,19 @@ pub fn bind_list_item(
                     icon.set_icon_name(Some("object-select-symbolic"));
                     icon.set_visible(true);
                     icon.add_css_class("status-connected");
-                    // Accessibility: announce status change
-                    icon.update_property(&[gtk4::accessible::Property::Label("Connected")]);
+                    icon.update_property(&[gtk4::accessible::Property::Label(&i18n("Connected"))]);
                 } else if status == "connecting" {
                     icon.set_icon_name(Some("network-transmit-receive-symbolic"));
                     icon.set_visible(true);
                     icon.add_css_class("status-connecting");
-                    // Accessibility: announce status change
-                    icon.update_property(&[gtk4::accessible::Property::Label("Connecting")]);
+                    icon.update_property(&[gtk4::accessible::Property::Label(&i18n("Connecting"))]);
                 } else if status == "failed" {
                     icon.set_icon_name(Some("dialog-error-symbolic"));
                     icon.set_visible(true);
                     icon.add_css_class("status-failed");
-                    // Accessibility: announce status change
-                    icon.update_property(&[gtk4::accessible::Property::Label("Connection failed")]);
+                    icon.update_property(&[gtk4::accessible::Property::Label(&i18n(
+                        "Connection failed",
+                    ))]);
                 } else {
                     icon.set_visible(false);
                     icon.update_property(&[gtk4::accessible::Property::Label("")]);

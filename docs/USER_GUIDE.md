@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.10.13** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.10.14** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -292,6 +292,30 @@ Prevents idle disconnect by sending periodic mouse movements to the remote RDP s
 - Configure in Connection Dialog → RDP → Features: enable **Mouse Jiggler** and set the interval (10–600 seconds, default 60)
 - Auto-starts when the RDP session connects, auto-stops on disconnect
 - Works with both IronRDP embedded and FreeRDP external modes
+
+### RDP File Transfer
+
+RustConn provides two methods for transferring files to and from RDP sessions:
+
+**Shared Folders (Drive Redirection):**
+
+Map local directories into the remote session. Files appear as network drives (`\\tsclient\<share_name>`) inside the remote desktop.
+
+1. Open Connection Dialog → RDP → Shared Folders
+2. Add a local directory and give it a share name
+3. Connect — the folder is accessible in Windows Explorer under "This PC → Network Locations"
+
+Works with both IronRDP embedded and FreeRDP external modes.
+
+**Clipboard File Transfer (IronRDP embedded mode only):**
+
+When the remote Windows user copies files to the clipboard (Ctrl+C in Explorer), RustConn detects the file list and shows a **"Save N Files"** button in the RDP toolbar.
+
+1. On the remote desktop, select files and press Ctrl+C
+2. The "Save N Files" button appears in the RustConn toolbar
+3. Click it and choose a local folder — files are downloaded from the remote clipboard
+
+This uses the RDP clipboard channel (`CF_HDROP` / `FILEDESCRIPTORW` format) and works without shared folders. Progress is tracked per-file. Only available in embedded mode (IronRDP), not with FreeRDP external.
 
 ---
 

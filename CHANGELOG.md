@@ -5,9 +5,23 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.10.14] - 2026-04-09
 
-### Added
+### Dead code cleanup
+- **Removed unused CSS classes** — removed `.tab-icon`, `.tab-label`, `.tab-label-disconnected`, `.tab-close-button` (replaced by AdwTabView), `.focused-pane`/`.unfocused-pane` (replaced by `.focused-panel`), `notebook > header > tabs > tab` selector (no longer using GtkNotebook), and stale comment placeholders; updated section headers for clarity
+
+### Improved
+- **Success notifications use Toast instead of modal dialogs** — snippet creation, cluster creation now show non-blocking `adw::Toast` instead of `adw::AlertDialog` (GNOME HIG compliance); remaining `show_success` calls with detailed counts (import/export/delete) kept as alerts
+- **Fixed missing i18n for export/connection test dialogs** — `"Export Complete"`, `"Connection Test Successful"`, and `"Connection successful! Latency: Xms"` were hardcoded English; now wrapped in `i18n()`/`i18n_f()` for proper localization
+- **Accessible labels for status icons and split panels** — sidebar connection status icons (`Connected`, `Connecting`, `Connection failed`) now use `i18n()` for localized screen reader announcements; split panel containers have accessible `"Terminal panel"` label
+- **Sidebar context menus migrated to PopoverMenu** — replaced manual `Button`-based `Popover` with `PopoverMenu` + `gio::Menu` for both connection/group and empty-space context menus; provides native GNOME HIG look, keyboard arrow navigation, and screen reader accessibility out of the box
+
+### Fixed
+- **Sidebar context menu missing Delete action** — context menu for both connections and groups was cut off at the bottom, hiding the Delete item; fixed by attaching popover to the clicked widget instead of the window, allowing GTK to properly calculate available space and scroll long menus
+
+### Documentation
+- **RDP File Transfer** — added User Guide section documenting shared folders (drive redirection) and clipboard file transfer (IronRDP embedded mode "Save Files" button)
+- **Complete translations for all 15 languages** — filled all empty/fuzzy translations for be, cs, da, de, es, fr, it, kk, nl, pl, pt, sk, sv, uk, uz; fixed broken PO headers in 10 files; updated version to 0.10.14
 
 ## [0.10.13] - 2026-04-08
 
