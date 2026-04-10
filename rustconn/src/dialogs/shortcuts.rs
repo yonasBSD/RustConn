@@ -29,15 +29,27 @@ const SHORTCUTS: &[ShortcutEntry] = &[
         category: "Connections",
     },
     ShortcutEntry {
-        accel: "<Control>g",
-        keys: "Ctrl+G",
+        accel: "<Control><Shift>n",
+        keys: "Ctrl+Shift+N",
         description: "New group",
+        category: "Connections",
+    },
+    ShortcutEntry {
+        accel: "<Control><Shift>q",
+        keys: "Ctrl+Shift+Q",
+        description: "Quick connect",
         category: "Connections",
     },
     ShortcutEntry {
         accel: "<Control>i",
         keys: "Ctrl+I",
         description: "Import connections",
+        category: "Connections",
+    },
+    ShortcutEntry {
+        accel: "<Control><Shift>e",
+        keys: "Ctrl+Shift+E",
+        description: "Export connections",
         category: "Connections",
     },
     ShortcutEntry {
@@ -126,12 +138,18 @@ const SHORTCUTS: &[ShortcutEntry] = &[
         category: "Terminal",
     },
     ShortcutEntry {
-        accel: "<Control>t",
-        keys: "Ctrl+T",
+        accel: "<Control><Shift>t",
+        keys: "Ctrl+Shift+T",
         description: "Open local shell",
         category: "Terminal",
     },
     // Split view shortcuts
+    ShortcutEntry {
+        accel: "<Control><Shift>h",
+        keys: "Ctrl+Shift+H",
+        description: "Split horizontal",
+        category: "Split View",
+    },
     ShortcutEntry {
         accel: "<Control><Shift>s",
         keys: "Ctrl+Shift+S",
@@ -139,37 +157,55 @@ const SHORTCUTS: &[ShortcutEntry] = &[
         category: "Split View",
     },
     ShortcutEntry {
-        accel: "<Control><Shift>h",
-        keys: "Ctrl+Shift+H",
-        description: "Split horizontal",
+        accel: "<Control><Shift>x",
+        keys: "Ctrl+Shift+X",
+        description: "Close pane",
+        category: "Split View",
+    },
+    ShortcutEntry {
+        accel: "<Control>grave",
+        keys: "Ctrl+`",
+        description: "Focus next pane",
         category: "Split View",
     },
     // Navigation shortcuts
     ShortcutEntry {
         accel: "<Control>f",
         keys: "Ctrl+F",
-        description: "Focus search",
+        description: "Search",
         category: "Navigation",
     },
     ShortcutEntry {
-        accel: "<Control>l",
-        keys: "Ctrl+L",
+        accel: "<Control>1",
+        keys: "Ctrl+1",
         description: "Focus sidebar",
         category: "Navigation",
     },
     ShortcutEntry {
-        accel: "<Control>grave",
-        keys: "Ctrl+`",
+        accel: "<Control>2",
+        keys: "Ctrl+2",
         description: "Focus terminal",
         category: "Navigation",
     },
-    // Application shortcuts
+    ShortcutEntry {
+        accel: "<Control>p",
+        keys: "Ctrl+P",
+        description: "Command palette",
+        category: "Navigation",
+    },
+    ShortcutEntry {
+        accel: "<Control><Shift>p",
+        keys: "Ctrl+Shift+P",
+        description: "Command palette (commands)",
+        category: "Navigation",
+    },
     ShortcutEntry {
         accel: "<Control>comma",
         keys: "Ctrl+,",
         description: "Open settings",
-        category: "Application",
+        category: "Navigation",
     },
+    // Application shortcuts
     ShortcutEntry {
         accel: "<Control>q",
         keys: "Ctrl+Q",
@@ -179,13 +215,49 @@ const SHORTCUTS: &[ShortcutEntry] = &[
     ShortcutEntry {
         accel: "<Control>question",
         keys: "Ctrl+?",
-        description: "Show keyboard shortcuts",
+        description: "Keyboard shortcuts",
         category: "Application",
     },
     ShortcutEntry {
         accel: "F1",
         keys: "F1",
-        description: "Show about dialog",
+        description: "Keyboard shortcuts",
+        category: "Application",
+    },
+    ShortcutEntry {
+        accel: "F11",
+        keys: "F11",
+        description: "Toggle fullscreen",
+        category: "Application",
+    },
+    ShortcutEntry {
+        accel: "F9",
+        keys: "F9",
+        description: "Toggle sidebar",
+        category: "Application",
+    },
+    ShortcutEntry {
+        accel: "<Control>h",
+        keys: "Ctrl+H",
+        description: "Connection history",
+        category: "Application",
+    },
+    ShortcutEntry {
+        accel: "<Control><Shift>i",
+        keys: "Ctrl+Shift+I",
+        description: "Statistics",
+        category: "Application",
+    },
+    ShortcutEntry {
+        accel: "<Control>g",
+        keys: "Ctrl+G",
+        description: "Password generator",
+        category: "Application",
+    },
+    ShortcutEntry {
+        accel: "<Control><Shift>l",
+        keys: "Ctrl+Shift+L",
+        description: "Wake On LAN",
         category: "Application",
     },
 ];

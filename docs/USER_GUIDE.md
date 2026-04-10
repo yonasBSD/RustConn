@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.10.14** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.10.15** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -2345,12 +2345,15 @@ Note: Sidebar-scoped shortcuts (F2, Delete, Ctrl+E, Ctrl+D, Ctrl+C, Ctrl+V, Ctrl
 | Ctrl+N | New Connection |
 | Ctrl+Shift+N | New Group |
 | Ctrl+Shift+Q | Quick Connect |
-| Ctrl+E | Edit Connection |
+| Ctrl+I | Import |
+| Ctrl+Shift+E | Export |
+| Ctrl+E | Edit Connection (sidebar) |
 | F2 | Rename |
 | Delete | Delete |
 | Ctrl+D | Duplicate |
 | Ctrl+C / Ctrl+V | Copy / Paste |
 | Ctrl+M | Move to Group |
+| Enter | Connect to selected |
 
 ### Terminal
 
@@ -2360,8 +2363,9 @@ Note: Sidebar-scoped shortcuts (F2, Delete, Ctrl+E, Ctrl+D, Ctrl+C, Ctrl+V, Ctrl
 | Ctrl+Shift+V | Paste |
 | Ctrl+Shift+F | Terminal Search |
 | Ctrl+Shift+W | Close Tab |
-| Ctrl+Tab | Next Tab |
-| Ctrl+Shift+Tab | Previous Tab |
+| Ctrl+Tab / Ctrl+PageDown | Next Tab |
+| Ctrl+Shift+Tab / Ctrl+PageUp | Previous Tab |
+| Ctrl+Shift+T | Local Shell |
 
 ### Terminal Keybinding Modes
 
@@ -2388,14 +2392,20 @@ These settings apply to all terminal sessions (SSH, Telnet, Serial, Kubernetes, 
 
 | Shortcut | Action |
 |----------|--------|
-| Ctrl+F | Search |
+| Ctrl+F / Ctrl+K | Search |
 | Ctrl+P | Command Palette (Connections) |
 | Ctrl+Shift+P | Command Palette (Commands) |
+| Ctrl+1 / Alt+1 | Focus Sidebar |
+| Ctrl+2 / Alt+2 | Focus Terminal |
 | Ctrl+I | Import |
 | Ctrl+Shift+E | Export |
 | Ctrl+, | Settings |
 | F11 | Toggle Fullscreen |
 | F9 | Toggle Sidebar |
+| Ctrl+H | Connection History |
+| Ctrl+Shift+I | Statistics |
+| Ctrl+G | Password Generator |
+| Ctrl+Shift+L | Wake On LAN |
 | Ctrl+? / F1 | Keyboard Shortcuts |
 | Ctrl+Q | Quit |
 
@@ -3496,6 +3506,27 @@ RUST_LOG=rustconn_core::secret=debug rustconn
 4. Check container name if pod has multiple containers
 5. For busybox mode: ensure the target container has `/bin/sh` available
 6. **Flatpak users:** `kubectl` must be installed via Flatpak Components — the host binary is not accessible inside the sandbox
+
+### Terminal Clear Not Working (Ctrl+L / `clear` command)
+
+RustConn uses the VTE terminal emulator (libvte), which handles screen clearing differently from standalone terminals like GNOME Terminal or Konsole.
+
+**Ctrl+L behavior:**
+Bash readline sends a form-feed character on Ctrl+L. VTE responds by scrolling the current screen content into the scrollback buffer and placing the cursor at the top — rather than erasing the screen in place. This is a known upstream VTE behavior (not a RustConn bug). You can still scroll up to see previous output.
+
+**`clear` command not working (Flatpak):**
+The `clear` binary from ncurses-utils may not be present in the Flatpak sandbox. RustConn bundles a minimal `clear` replacement that sends ANSI escape sequences directly. If you are on an older Flatpak build that lacks this wrapper, you can clear the screen manually:
+
+```bash
+# Clear visible screen and scrollback buffer
+printf '\033[H\033[2J\033[3J'
+
+# Or add an alias to your ~/.bashrc
+alias clear='printf "\033[H\033[2J\033[3J"'
+```
+
+**Native (non-Flatpak) installs:**
+Ensure `ncurses-utils` (or `ncurses-bin` on Debian/Ubuntu) is installed — it provides the `clear` and `tput` commands.
 
 ### Flatpak Permissions
 

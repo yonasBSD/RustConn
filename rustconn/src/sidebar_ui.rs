@@ -5,6 +5,7 @@
 
 use crate::i18n::i18n;
 use gtk4::gdk;
+use gtk4::glib;
 use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Orientation, gio};
 
@@ -131,13 +132,42 @@ pub fn show_empty_space_context_menu(widget: &impl IsA<gtk4::Widget>, x: f64, y:
 /// Creates and shows a `PopoverMenu` from a `gio::Menu` at the given coordinates
 fn show_popover_menu(
     widget: &impl IsA<gtk4::Widget>,
-    _window: &gtk4::ApplicationWindow,
+    window: &gtk4::ApplicationWindow,
     menu: &gio::Menu,
     x: f64,
     y: f64,
 ) {
     let popover = gtk4::PopoverMenu::from_model(Some(menu));
     popover.set_parent(widget);
+
+    // Explicitly proxy window actions into the popover's action group.
+    // PopoverMenu resolves "win.action-name" by walking up the widget tree,
+    // but widgets inside a ListView/TreeExpander may not propagate actions
+    // to the ApplicationWindow correctly. Creating a local action group
+    // that delegates to the window's actions fixes this.
+    let action_group = gio::SimpleActionGroup::new();
+    let window_weak = window.downgrade();
+
+    // Collect all action names from the menu model so we proxy exactly
+    // what the menu needs — no hardcoded list required.
+    let mut action_names = Vec::new();
+    collect_action_names(menu, &mut action_names);
+
+    for name in &action_names {
+        let win = window_weak.clone();
+        let action_name = name.clone();
+        let action = gio::SimpleAction::new(name, None);
+        action.connect_activate(move |_, _| {
+            if let Some(w) = win.upgrade()
+                && let Some(a) = w.lookup_action(&action_name)
+            {
+                a.activate(None);
+            }
+        });
+        action_group.add_action(&action);
+    }
+
+    popover.insert_action_group("win", Some(&action_group));
 
     #[allow(clippy::cast_possible_truncation)]
     let rect = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
@@ -150,6 +180,32 @@ fn show_popover_menu(
     });
 
     popover.popup();
+}
+
+/// Recursively collects action names (without the "win." prefix) from a `gio::Menu`.
+fn collect_action_names(menu: &gio::Menu, out: &mut Vec<String>) {
+    let n = menu.n_items();
+    for i in 0..n {
+        // Check for a direct action on this item
+        if let Some(action) = menu.item_attribute_value(i, "action", Some(glib::VariantTy::STRING))
+            && let Some(s) = action.str()
+        {
+            if let Some(name) = s.strip_prefix("win.") {
+                out.push(name.to_string());
+            }
+        }
+        // Recurse into sub-menus / sections
+        if let Some(link) = menu.item_link(i, "section") {
+            if let Some(sub) = link.downcast_ref::<gio::Menu>() {
+                collect_action_names(sub, out);
+            }
+        }
+        if let Some(link) = menu.item_link(i, "submenu") {
+            if let Some(sub) = link.downcast_ref::<gio::Menu>() {
+                collect_action_names(sub, out);
+            }
+        }
+    }
 }
 
 /// Returns the appropriate icon name for a protocol string

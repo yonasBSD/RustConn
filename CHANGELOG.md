@@ -5,6 +5,21 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.15] - 2026-04-10
+
+### Fixed
+- **`clear` command not working in Flatpak** — the `clear` binary from ncurses-utils was missing inside the Flatpak sandbox; added a minimal ANSI escape sequence wrapper (`\033[H\033[2J\033[3J`) to all three Flatpak manifests so `clear` works out of the box ([#25](https://github.com/totoshko88/RustConn/issues/25))
+- **Sidebar context menu items not working** — after migration to `PopoverMenu` in v0.10.14, clicking menu items did nothing because the popover lacked access to the window's action group; fixed by explicitly proxying `win.*` actions into the popover via `insert_action_group()` ([#75](https://github.com/totoshko88/RustConn/issues/75))
+- **Keyboard shortcuts dialog showed wrong bindings** — 19 discrepancies between the shortcuts help dialog (`shortcuts.rs`) and the actual GTK accelerators (`keybindings.rs`): Ctrl+G was labeled "New group" (actually Password Generator), Ctrl+T was labeled "Open local shell" (actually Ctrl+Shift+T), Ctrl+\` was labeled "Focus terminal" (actually Focus Next Pane), F1 was labeled "Show about dialog" (actually Keyboard Shortcuts); all corrected to match the real bindings
+- **Shortcuts dialog missing entries** — added 13 missing shortcuts: Quick Connect, Export, Command Palette, Focus Terminal, Close Pane, Connection History, Statistics, Password Generator, Wake On LAN, Toggle Fullscreen, Toggle Sidebar, and alternative accelerators
+
+### Improved
+- **FreeRDP stays at 3.24.1** — 3.24.2 release assets not yet published upstream; keeping 3.24.1 which includes all prior security fixes
+
+### Documentation
+- **Keyboard shortcuts fully synchronized** — User Guide shortcuts tables now match the actual keybindings registry; added missing entries for Ctrl+K (Search), Ctrl+PageDown/PageUp (tab switching), Ctrl+Shift+T (Local Shell), Ctrl+H (History), Ctrl+G (Password Generator), Ctrl+Shift+I (Statistics), Ctrl+Shift+L (Wake On LAN)
+- **Terminal clear troubleshooting** — added User Guide section explaining VTE's Ctrl+L behavior (scrolls instead of erasing) and workarounds for `clear` command in Flatpak
+
 ## [0.10.14] - 2026-04-09
 
 ### Dead code cleanup

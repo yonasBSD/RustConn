@@ -163,6 +163,13 @@ modules:
       # like "7;6M7;6m" on every click. Removing XM prevents the
       # negotiation so VTE falls back to X10/normal mouse mode.
       - infocmp -x -1 xterm-256color | sed 's/xterm-256color/rustconn-256color/' | sed '/XM=/d' | tic -x -o /app/share/terminfo -
+      # Ensure `clear` is available inside the sandbox.
+      # GNOME Platform runtime may not include ncurses-utils, so we
+      # create a minimal shell wrapper that uses ANSI escape sequences
+      # directly — no ncurses dependency required.
+      - |
+        printf '%s\n' '#!/bin/sh' '# clear — minimal replacement using ANSI escape sequences' '# Clears visible screen and scrollback buffer (E3 equivalent).' 'printf "\033[H\033[2J\033[3J"' > /app/bin/clear
+      - chmod 755 /app/bin/clear
     sources: []
 
   - name: freerdp

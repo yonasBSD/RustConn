@@ -103,17 +103,17 @@
     <control>touch</control>
   </supports>
   <releases>
-    <release version="0.10.14" date="2026-04-09">
+    <release version="0.10.15" date="2026-04-10">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01015---2026-04-10</url>
       <description>
-        <p>Version 0.10.14 — UI polish and GNOME HIG improvements:</p>
+        <p>Flatpak clear command fix, keyboard shortcuts dialog corrections, and FreeRDP security update.</p>
         <ul>
-          <li>Success notifications use non-blocking Toast instead of modal dialogs</li>
-          <li>Sidebar context menus migrated to native PopoverMenu with keyboard navigation</li>
-          <li>Accessible labels for split panels and connection status icons</li>
-          <li>Fixed sidebar context menu missing Delete action</li>
-          <li>Fixed missing i18n for export and connection test dialogs</li>
-          <li>Removed unused CSS classes</li>
-          <li>Documented RDP file transfer (shared folders and clipboard)</li>
+          <li>Fixed clear command not working in Flatpak — ANSI escape sequence wrapper added (#25)</li>
+          <li>Fixed keyboard shortcuts dialog showing wrong bindings — 19 discrepancies corrected</li>
+          <li>Added 13 missing shortcuts to the shortcuts help dialog</li>
+          <li>FreeRDP updated to 3.24.2 (CVE fixes for client-side vulnerabilities)</li>
+          <li>User Guide keyboard shortcuts tables fully synchronized with actual keybindings</li>
+          <li>Added terminal clear troubleshooting section to User Guide</li>
         </ul>
       </description>
     </release>
