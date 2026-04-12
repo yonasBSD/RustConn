@@ -5,6 +5,18 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.17] - 2026-04-12
+
+### Fixed
+- **`clear` command not working in Flatpak SSH sessions** — the Flatpak sandbox inherits `TERM=dumb` from the host, and the previous fix only set `rustconn-256color` for local shells; remote commands (SSH, Telnet, etc.) kept the inherited `dumb` value, breaking `clear`, `htop`, `mc`, `tmux` on remote hosts; now force `TERM=xterm-256color` for all remote commands in Flatpak ([#25](https://github.com/totoshko88/RustConn/issues/25))
+- **Sidebar scroll position lost after editing/moving connections** — `restore_state()` scheduled group expansion, scroll restoration, and selection as three independent idle callbacks that raced against each other; scroll was applied before groups finished expanding (which changes content height), causing the sidebar to jump to the top; now runs expansion and selection synchronously in one callback, then restores scroll in a chained second callback
+- **Sorting collapsed all expanded groups** — `sort_connections()` and `sort_recent()` rebuilt the sidebar store without saving/restoring expanded group state; now preserves which groups were open before sorting
+
+### Dependencies
+- clap_complete 4.6.0 → 4.6.1
+- rand 0.9.2 → 0.9.3
+- Tailscale CLI 1.96.4 → 1.96.5
+
 ## [0.10.16] - 2026-04-10
 
 ### Fixed

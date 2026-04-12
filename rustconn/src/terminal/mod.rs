@@ -1227,6 +1227,8 @@ impl TerminalNotebook {
         // and other remote connections, the remote host won't have this
         // terminfo entry, causing "Unknown terminal" errors in htop, mc, etc.
         // We detect this by checking if the command is ssh/mosh/telnet.
+        // For remote commands in Flatpak, force xterm-256color because the
+        // sandbox may inherit TERM=dumb which breaks clear/htop/mc (#25).
         let is_remote_command = argv
             .first()
             .map(|cmd| {
@@ -1260,6 +1262,13 @@ impl TerminalNotebook {
             if !env_vec.iter().any(|e| e.starts_with("TERMINFO_DIRS=")) {
                 env_vec.push(glib::GString::from("TERMINFO_DIRS=/app/share/terminfo:"));
             }
+        } else if rustconn_core::flatpak::is_flatpak() && is_remote_command {
+            // Remote hosts don't have the custom rustconn-256color terminfo,
+            // and the Flatpak sandbox may inherit TERM=dumb which breaks
+            // ncurses programs (clear, htop, mc, tmux). Force xterm-256color
+            // which is universally available on remote systems. (#25)
+            env_vec.retain(|e| !e.starts_with("TERM="));
+            env_vec.push(glib::GString::from("TERM=xterm-256color"));
         } else if !env_vec.iter().any(|e| e.starts_with("TERM=")) {
             env_vec.push(glib::GString::from("TERM=xterm-256color"));
         }

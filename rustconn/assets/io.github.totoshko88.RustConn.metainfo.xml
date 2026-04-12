@@ -103,6 +103,17 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.17" date="2026-04-12">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01017---2026-04-12</url>
+      <description>
+        <p>Flatpak SSH terminal fix and sidebar state preservation.</p>
+        <ul>
+          <li>Fixed clear command not working in Flatpak SSH sessions — forces TERM=xterm-256color for all remote commands (#25)</li>
+          <li>Fixed sidebar scroll position lost after editing/moving connections — chained idle callbacks prevent race</li>
+          <li>Fixed sorting collapsed all expanded groups — expanded state now preserved across sort operations</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.16" date="2026-04-10">
       <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01016---2026-04-10</url>
       <description>

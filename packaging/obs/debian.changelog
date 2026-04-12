@@ -1,3 +1,16 @@
+rustconn (0.10.17-1) unstable; urgency=medium
+
+  * [Fixed] clear command not working in Flatpak SSH sessions — Flatpak
+    sandbox inherits TERM=dumb from host; now forces TERM=xterm-256color
+    for all remote commands in Flatpak (#25)
+  * [Fixed] Sidebar scroll position lost after editing/moving connections —
+    restore_state() idle callbacks raced; now runs expansion synchronously
+    then restores scroll in a chained callback
+  * [Fixed] Sorting collapsed all expanded groups — sort_connections() and
+    sort_recent() now preserve expanded group state
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Sun, 12 Apr 2026 12:00:00 +0000
+
 rustconn (0.10.16-1) unstable; urgency=medium
 
   * [Fixed] Sidebar context menu actions still not working — PopoverMenu

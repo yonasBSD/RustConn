@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Sun Apr 12 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.17
+
+- Update to version 0.10.17
+- [Fixed] clear command not working in Flatpak SSH sessions — Flatpak
+  sandbox inherits TERM=dumb from host; now forces TERM=xterm-256color
+  for all remote commands in Flatpak (#25)
+- [Fixed] Sidebar scroll position lost after editing/moving connections —
+  restore_state() idle callbacks raced; now runs expansion synchronously
+  then restores scroll in a chained callback
+- [Fixed] Sorting collapsed all expanded groups — sort_connections() and
+  sort_recent() now preserve expanded group state
+
+-------------------------------------------------------------------
 Fri Apr 10 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.16
 
 - Update to version 0.10.16

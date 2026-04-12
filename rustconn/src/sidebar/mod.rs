@@ -1343,21 +1343,56 @@ impl ConnectionSidebar {
     /// Expands the previously expanded groups, restores scroll position,
     /// and re-selects the previously selected item.
     pub fn restore_state(&self, state: &TreeState) {
-        // Restore expanded groups
-        self.apply_expanded_groups(&state.expanded_groups);
-
-        // Restore scroll position using idle_add to ensure tree is ready
+        // Restore expanded groups, scroll position, and selection in a single
+        // deferred callback so that scroll restoration happens AFTER groups
+        // have been fully expanded (which changes content height).
+        let expanded_groups = state.expanded_groups.clone();
         let scroll_position = state.scroll_position;
+        let selected_id = state.selected_id;
+        let tree_model = self.tree_model.clone();
         let scrolled_window = self.scrolled_window.clone();
-        glib::idle_add_local_once(move || {
-            let adj = scrolled_window.vadjustment();
-            adj.set_value(scroll_position);
-        });
+        let selection_model = self.selection_model.clone();
 
-        // Restore selection
-        if let Some(selected_id) = state.selected_id {
-            self.select_item_by_id(selected_id);
-        }
+        glib::idle_add_local_once(move || {
+            // 1. Expand groups first (synchronously within this callback)
+            if !expanded_groups.is_empty() {
+                Self::apply_expanded_state_recursive(&tree_model, &expanded_groups);
+            }
+
+            // 2. Restore selection
+            if let Some(sel_id) = selected_id {
+                let item_id_str = sel_id.to_string();
+                let n_items = tree_model.n_items();
+                for i in 0..n_items {
+                    if let Some(row) = tree_model
+                        .item(i)
+                        .and_then(|o| o.downcast::<gtk4::TreeListRow>().ok())
+                        && let Some(item) =
+                            row.item().and_then(|o| o.downcast::<ConnectionItem>().ok())
+                        && item.id() == item_id_str
+                    {
+                        let sel = selection_model.borrow();
+                        match &*sel {
+                            SelectionModelWrapper::Single(s) => {
+                                s.set_selected(i);
+                            }
+                            SelectionModelWrapper::Multi(m) => {
+                                m.unselect_all();
+                                m.select_item(i, false);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // 3. Restore scroll position AFTER groups are expanded and layout is updated
+            let scrolled_window_inner = scrolled_window.clone();
+            glib::idle_add_local_once(move || {
+                let adj = scrolled_window_inner.vadjustment();
+                adj.set_value(scroll_position);
+            });
+        });
     }
 
     /// Gets the IDs of all expanded groups in the tree
@@ -1442,6 +1477,7 @@ impl ConnectionSidebar {
     /// Selects an item by its UUID
     ///
     /// Searches through the tree model to find and select the item with the given ID.
+    #[allow(dead_code)] // Public API — used by restore_state inline, kept for external callers
     pub fn select_item_by_id(&self, item_id: Uuid) {
         let tree_model = self.tree_model.clone();
         let selection_model = self.selection_model.clone();

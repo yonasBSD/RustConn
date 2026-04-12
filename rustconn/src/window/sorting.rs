@@ -49,8 +49,14 @@ pub fn sort_connections(state: &SharedAppState, sidebar: &SharedSidebar) {
         }
     }
 
+    // Save expanded groups before rebuild so open groups stay open
+    let expanded = sidebar.get_expanded_groups();
+
     // Rebuild the sidebar to reflect the new sort order
     rebuild_sidebar_sorted(state, sidebar);
+
+    // Restore expanded groups
+    sidebar.apply_expanded_groups(&expanded);
 }
 
 /// Sorts connections by recent usage (most recently used first)
@@ -62,8 +68,14 @@ pub fn sort_recent(state: &SharedAppState, sidebar: &SharedSidebar) {
         tracing::error!(%e, "Failed to sort by recent");
     }
 
+    // Save expanded groups before rebuild so open groups stay open
+    let expanded = sidebar.get_expanded_groups();
+
     // Rebuild the sidebar to reflect the new sort order
     rebuild_sidebar_sorted(state, sidebar);
+
+    // Restore expanded groups
+    sidebar.apply_expanded_groups(&expanded);
 }
 
 /// Rebuilds the sidebar with sorted items
