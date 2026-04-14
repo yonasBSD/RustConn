@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 - bitflags 2.11.0 → 2.11.1
 - clap_complete 4.6.1 → 4.6.2
-- FreeRDP 3.24.1 → 3.24.2 (security: 4 High, 2 Moderate CVEs)
+- FreeRDP 3.24.0 → 3.24.1 (security fixes)
 - hyper-rustls 0.27.8 → 0.27.9
 - rand 0.9.3 → 0.9.4
 - rayon 1.11.0 → 1.12.0
