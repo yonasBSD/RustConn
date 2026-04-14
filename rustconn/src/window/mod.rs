@@ -121,11 +121,12 @@ impl MainWindow {
         {
             let state_ref = state.borrow();
             let settings = state_ref.settings();
-            let sidebar_width = settings.ui.sidebar_width.unwrap_or(280);
-            overlay_split_view.set_max_sidebar_width(f64::from(sidebar_width.clamp(150, 500)));
+            let sidebar_width = settings.ui.sidebar_width.unwrap_or(300);
+            overlay_split_view
+                .set_max_sidebar_width(f64::from(sidebar_width.max(360).clamp(360, 600)));
         }
-        overlay_split_view.set_min_sidebar_width(150.0);
-        overlay_split_view.set_sidebar_width_fraction(0.25);
+        overlay_split_view.set_min_sidebar_width(360.0);
+        overlay_split_view.set_sidebar_width_fraction(0.3);
         overlay_split_view.set_enable_show_gesture(true);
         overlay_split_view.set_enable_hide_gesture(true);
         overlay_split_view.set_pin_sidebar(true);
@@ -168,6 +169,7 @@ impl MainWindow {
         if let Ok(state_ref) = state.try_borrow() {
             terminal_notebook
                 .set_color_tabs_by_protocol(state_ref.settings().ui.color_tabs_by_protocol);
+            sidebar.set_filter_visible(state_ref.settings().ui.show_protocol_filters);
         }
 
         // Set up callback for when SSH tabs are closed via TabView
@@ -577,6 +579,7 @@ impl MainWindow {
         let state_clone = state.clone();
         let notebook_clone = notebook.clone();
         let monitoring_clone = self.monitoring.clone();
+        let sidebar_clone = sidebar.clone();
         settings_action.connect_activate(move |_, _| {
             if let Some(win) = window_weak.upgrade() {
                 Self::show_settings_dialog(
@@ -584,6 +587,7 @@ impl MainWindow {
                     state_clone.clone(),
                     notebook_clone.clone(),
                     monitoring_clone.clone(),
+                    sidebar_clone.clone(),
                 );
             }
         });
@@ -1355,6 +1359,22 @@ impl MainWindow {
             split_view_clone.set_show_sidebar(!visible);
         });
         window.add_action(&toggle_sidebar_action);
+
+        // Toggle protocol filters visibility
+        let toggle_filters_action = gio::SimpleAction::new("toggle-protocol-filters", None);
+        let sidebar_clone = sidebar.clone();
+        let state_clone = state.clone();
+        toggle_filters_action.connect_activate(move |_, _| {
+            let new_visible = !sidebar_clone.is_filter_visible();
+            sidebar_clone.set_filter_visible(new_visible);
+            // Persist the setting
+            if let Ok(mut state_mut) = state_clone.try_borrow_mut() {
+                let mut settings = state_mut.settings().clone();
+                settings.ui.show_protocol_filters = new_visible;
+                let _ = state_mut.update_settings(settings);
+            }
+        });
+        window.add_action(&toggle_filters_action);
 
         // F9 keyboard shortcut for toggle-sidebar
         let app = window.application().and_downcast::<adw::Application>();
@@ -3639,6 +3659,7 @@ impl MainWindow {
         state: SharedAppState,
         notebook: SharedNotebook,
         monitoring: Rc<crate::monitoring::MonitoringCoordinator>,
+        sidebar: SharedSidebar,
     ) {
         let mut dialog = SettingsDialog::new(None);
 
@@ -3667,6 +3688,9 @@ impl MainWindow {
 
                 // Apply protocol tab coloring setting
                 notebook.set_color_tabs_by_protocol(settings.ui.color_tabs_by_protocol);
+
+                // Apply protocol filter visibility setting
+                sidebar.set_filter_visible(settings.ui.show_protocol_filters);
 
                 // Apply monitoring settings to active bars
                 monitoring.apply_settings_to_all(&settings.monitoring);

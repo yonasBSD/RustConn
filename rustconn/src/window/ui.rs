@@ -98,6 +98,22 @@ pub fn create_header_bar() -> adw::HeaderBar {
         .update_property(&[gtk4::accessible::Property::Label(&i18n("Split Horizontal"))]);
     header_bar.pack_end(&split_horizontal_button);
 
+    // Shell button — prominent, icon + label, accent color, leftmost in right group
+    let shell_button = Button::new();
+    let shell_box = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
+    let shell_icon = gtk4::Image::from_icon_name("utilities-terminal-symbolic");
+    shell_icon.set_pixel_size(16);
+    let shell_label = Label::new(Some(&i18n("Shell")));
+    shell_box.append(&shell_icon);
+    shell_box.append(&shell_label);
+    shell_button.set_child(Some(&shell_box));
+    shell_button.set_tooltip_text(Some(&i18n("Local Shell (Ctrl+Shift+T)")));
+    shell_button.set_action_name(Some("win.local-shell"));
+    shell_button.add_css_class("suggested-action");
+    shell_button.add_css_class("pill");
+    shell_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Open Local Shell"))]);
+    header_bar.pack_end(&shell_button);
+
     header_bar
 }
 

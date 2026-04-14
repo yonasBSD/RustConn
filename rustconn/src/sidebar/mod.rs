@@ -31,7 +31,7 @@ use crate::sidebar_ui;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::ObjectSubclassIsExt;
 use gtk4::{
-    Box as GtkBox, Button, DropTarget, EventControllerKey, GestureClick, Label, ListItem, ListView,
+    Box as GtkBox, Button, DropTarget, EventControllerKey, GestureClick, ListItem, ListView,
     Orientation, PolicyType, ScrolledWindow, SearchEntry, SignalListItemFactory, TreeExpander,
     TreeListModel, TreeListRow, Widget, gdk, gio, glib,
 };
@@ -95,6 +95,8 @@ pub struct ConnectionSidebar {
     /// Callback to check if a connection has an active recording session
     /// Takes a connection ID string and returns true if recording is active
     recording_checker: Rc<RefCell<Option<Box<dyn Fn(&str) -> bool>>>>,
+    /// Protocol filter bar container (visibility toggled by settings)
+    filter_box: GtkBox,
 }
 
 impl ConnectionSidebar {
@@ -102,8 +104,8 @@ impl ConnectionSidebar {
     #[must_use]
     pub fn new() -> Self {
         let container = GtkBox::new(Orientation::Vertical, 0);
-        // Reduced from 200px to 160px for better mobile/narrow window support
-        container.set_width_request(160);
+        // Minimum sidebar width — fits bottom toolbar, search bar, and nested items
+        container.set_width_request(360);
         container.add_css_class("sidebar");
 
         // Search box with entry and help button
@@ -156,7 +158,18 @@ impl ConnectionSidebar {
 
         search_box.append(&help_button);
 
-        // Quick Filter bar: filters left (expand to fill), Shell pinned right
+        // Filter toggle button — shows/hides protocol filter bar via window action
+        let filter_toggle = Button::from_icon_name("view-list-bullet-symbolic");
+        filter_toggle.set_tooltip_text(Some(&i18n("Toggle protocol filters")));
+        filter_toggle.add_css_class("flat");
+        filter_toggle.set_action_name(Some("win.toggle-protocol-filters"));
+        filter_toggle.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Toggle protocol filters",
+        ))]);
+
+        search_box.append(&filter_toggle);
+
+        // Quick Filter bar: filters left (expand to fill)
         let filter_box = GtkBox::new(Orientation::Horizontal, 4);
         filter_box.set_margin_start(4);
         filter_box.set_margin_end(4);
@@ -250,24 +263,7 @@ impl ConnectionSidebar {
         protocol_group.append(&zerotrust_filter);
         protocol_group.append(&kubernetes_filter);
 
-        // Local Shell button — pinned to the right, icon + label, pill style
-        let local_shell_btn = Button::new();
-        let shell_box = GtkBox::new(Orientation::Horizontal, 4);
-        let shell_icon = gtk4::Image::from_icon_name("utilities-terminal-symbolic");
-        shell_icon.set_pixel_size(16);
-        let shell_label = Label::new(Some(&i18n("Shell")));
-        shell_box.append(&shell_icon);
-        shell_box.append(&shell_label);
-        local_shell_btn.set_child(Some(&shell_box));
-        local_shell_btn.set_tooltip_text(Some(&i18n("Local Shell (Ctrl+Shift+T)")));
-        local_shell_btn.set_action_name(Some("win.local-shell"));
-        local_shell_btn.add_css_class("suggested-action");
-        local_shell_btn.add_css_class("pill");
-        local_shell_btn.set_halign(gtk4::Align::End);
-        local_shell_btn.update_property(&[gtk4::accessible::Property::Label("Open Local Shell")]);
-
         filter_box.append(&protocol_group);
-        filter_box.append(&local_shell_btn);
 
         // Store filter buttons for later reference
         let protocol_filter_buttons = Rc::new(RefCell::new(std::collections::HashMap::new()));
@@ -814,6 +810,7 @@ impl ConnectionSidebar {
             protocol_filter_buttons,
             keepass_button,
             recording_checker,
+            filter_box,
         }
     }
 
@@ -1534,6 +1531,32 @@ impl ConnectionSidebar {
                     .set_tooltip_text(Some(&i18n("Password Vault Disabled")));
             }
         }
+    }
+
+    /// Sets the visibility of the protocol filter bar
+    ///
+    /// When hidden, active filters are cleared to avoid confusion.
+    pub fn set_filter_visible(&self, visible: bool) {
+        self.filter_box.set_visible(visible);
+        if !visible {
+            // Clear active filters when hiding to avoid hidden filtering
+            self.active_protocol_filters.borrow_mut().clear();
+            for button in self.protocol_filter_buttons.borrow().values() {
+                button.remove_css_class("suggested-action");
+                button.remove_css_class("filter-active-multiple");
+            }
+            // Clear search entry if it contains only protocol filter text
+            let text = self.search_entry.text();
+            if text.starts_with("proto:") || text.starts_with("p:") {
+                self.search_entry.set_text("");
+            }
+        }
+    }
+
+    /// Returns whether the filter bar is currently visible
+    #[must_use]
+    pub fn is_filter_visible(&self) -> bool {
+        self.filter_box.is_visible()
     }
 }
 

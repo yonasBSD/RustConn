@@ -71,8 +71,8 @@ modules:
       - -Ddocs=false
     sources:
       - type: archive
-        url: https://download.gnome.org/sources/vte/0.80/vte-0.80.0.tar.xz
-        sha256: 267f63739765e568cf8113d0e2ee8f593028946187854bebe268c778e62647c8
+        url: https://download.gnome.org/sources/vte/0.80/vte-0.80.3.tar.xz
+        sha256: 2e596fd3fbeabb71531662224e71f6a2c37f684426136d62854627276ef4f699
 
   - name: inetutils
     buildsystem: autotools
@@ -198,8 +198,8 @@ modules:
       - -DWITH_RDTK=OFF
     sources:
       - type: archive
-        url: https://github.com/FreeRDP/FreeRDP/releases/download/3.24.0/freerdp-3.24.0.tar.gz
-        sha256: 168011bd58eae8d898842ef39c6c9bf5761ab617a68ccad80d623a3e535d0367
+        url: https://github.com/FreeRDP/FreeRDP/releases/download/3.24.2/freerdp-3.24.2.tar.gz
+        sha256: 0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5
 
   - name: waypipe
     buildsystem: meson

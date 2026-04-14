@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.10.18** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.10.19** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -1945,19 +1945,38 @@ Settings → Interface page → Appearance → **Color tabs by protocol**
 
 ## Tab Grouping
 
-Organize open tabs into named groups with color-coded indicators.
+Organize open tabs into named groups with a visible `[GroupName]` prefix in the tab title.
 
 ### Assign a Tab to a Group
 
 1. Right-click a tab in the tab bar
-2. Select **Assign to Group**
-3. Choose an existing group or type a new name (e.g. "Production", "Staging")
+2. Select **Set Group...**
+3. Pick an existing group from the pill buttons, or type a new group name
+4. Click **Apply**
+
+The tab title changes to `[GroupName] ConnectionName` and the tooltip shows the group name.
 
 ### Remove from Group
 
 - Right-click a grouped tab → **Remove from Group**
 
-Groups are visual only — they add a colored label to the tab title. Each group gets a unique color from a rotating palette. Groups are session-scoped and not persisted.
+The `[GroupName]` prefix and tooltip annotation are removed. Protocol or split view color indicators are unaffected.
+
+### Close All in Group
+
+- Right-click a grouped tab → **Close All in Group**
+- A confirmation dialog shows the number of tabs and group name
+- Confirm to close all tabs belonging to that group at once
+
+### Group vs Split View Colors
+
+Tab groups use a **title prefix** (`[Production] Server1`) while split view uses a **colored indicator icon** and CSS border. These two systems are independent — you can see both the group name and the split pane color on the same tab simultaneously.
+
+### Monitor Mode Toggle
+
+- Right-click any tab → **Monitor: Off/Activity/Silence** to cycle monitoring mode
+
+Groups are visual only — they are session-scoped and not persisted across restarts.
 
 ---
 

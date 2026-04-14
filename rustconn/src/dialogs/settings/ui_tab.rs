@@ -23,6 +23,7 @@ pub fn create_ui_page() -> (
     adw::SpinRow,
     DropDown,
     CheckButton,
+    CheckButton,
 ) {
     let page = adw::PreferencesPage::builder()
         .title(i18n("Interface"))
@@ -113,6 +114,16 @@ pub fn create_ui_page() -> (
         .build();
     color_tabs_row.add_prefix(&color_tabs_by_protocol);
     appearance_group.add(&color_tabs_row);
+
+    // Show protocol filters toggle
+    let show_protocol_filters = CheckButton::builder().valign(gtk4::Align::Center).build();
+    let show_filters_row = adw::ActionRow::builder()
+        .title(i18n("Show protocol filters"))
+        .subtitle(i18n("Display protocol filter bar in sidebar"))
+        .activatable_widget(&show_protocol_filters)
+        .build();
+    show_filters_row.add_prefix(&show_protocol_filters);
+    appearance_group.add(&show_filters_row);
 
     page.add(&appearance_group);
 
@@ -242,6 +253,7 @@ pub fn create_ui_page() -> (
         max_age_row,
         startup_action_dropdown,
         color_tabs_by_protocol,
+        show_protocol_filters,
     )
 }
 
@@ -284,6 +296,7 @@ pub fn load_ui_settings(
     max_age_row: &adw::SpinRow,
     startup_action_dropdown: &DropDown,
     color_tabs_by_protocol: &CheckButton,
+    show_protocol_filters: &CheckButton,
     settings: &UiSettings,
     connections: &[&Connection],
 ) {
@@ -329,6 +342,8 @@ pub fn load_ui_settings(
 
     color_tabs_by_protocol.set_active(settings.color_tabs_by_protocol);
 
+    show_protocol_filters.set_active(settings.show_protocol_filters);
+
     // Populate startup action dropdown with connections
     let entries = build_startup_entries(connections);
     let mut labels: Vec<String> = vec![i18n("Do nothing"), i18n("Local Shell")];
@@ -364,6 +379,7 @@ pub fn collect_ui_settings(
     max_age_row: &adw::SpinRow,
     startup_action_dropdown: &DropDown,
     color_tabs_by_protocol: &CheckButton,
+    show_protocol_filters: &CheckButton,
     connections: &[&Connection],
 ) -> UiSettings {
     let mut selected_scheme = ColorScheme::System;
@@ -423,5 +439,6 @@ pub fn collect_ui_settings(
         search_history: Vec::new(), // Preserve existing history from current settings
         startup_action,
         color_tabs_by_protocol: color_tabs_by_protocol.is_active(),
+        show_protocol_filters: show_protocol_filters.is_active(),
     }
 }

@@ -74,7 +74,6 @@ impl Default for TrayState {
 #[cfg(feature = "tray")]
 mod tray_impl {
     use super::*;
-    use crate::i18n::{i18n, i18n_f};
     use ksni::blocking::{Handle, TrayMethods};
     use ksni::{Icon, MenuItem, Tray, menu::StandardItem};
     use std::sync::mpsc::Sender;
@@ -86,34 +85,23 @@ mod tray_impl {
     /// Render SVG to ARGB32 pixmap for tray icon
     /// Returns Vec<Icon> with rendered icon at specified size
     pub fn render_svg_to_pixmap(size: u32) -> Vec<Icon> {
-        // Parse SVG
         let tree = match resvg::usvg::Tree::from_data(ICON_SVG, &resvg::usvg::Options::default()) {
             Ok(tree) => tree,
             Err(_) => return Vec::new(),
         };
-
-        // Create pixmap
         let mut pixmap = match resvg::tiny_skia::Pixmap::new(size, size) {
             Some(p) => p,
             None => return Vec::new(),
         };
-
-        // Calculate transform to fit SVG into target size
         let svg_size = tree.size();
         let scale = (size as f32 / svg_size.width()).min(size as f32 / svg_size.height());
         let transform = resvg::tiny_skia::Transform::from_scale(scale, scale);
-
-        // Render SVG to pixmap
         resvg::render(&tree, transform, &mut pixmap.as_mut());
-
-        // Convert from RGBA to ARGB (StatusNotifierItem format)
-        // tiny_skia uses premultiplied RGBA, we need ARGB in network byte order
         let rgba_data = pixmap.data();
         let argb_data: Vec<u8> = rgba_data
             .chunks_exact(4)
-            .flat_map(|rgba| [rgba[3], rgba[0], rgba[1], rgba[2]]) // RGBA -> ARGB
+            .flat_map(|rgba| [rgba[3], rgba[0], rgba[1], rgba[2]])
             .collect();
-
         vec![Icon {
             width: size as i32,
             height: size as i32,
@@ -125,43 +113,32 @@ mod tray_impl {
     pub struct RustConnTray {
         pub state: Arc<Mutex<TrayState>>,
         pub sender: Sender<TrayMessage>,
-        /// Pre-rendered icon pixmap
         pub icon_pixmap: Vec<Icon>,
     }
 
     impl Tray for RustConnTray {
         fn icon_name(&self) -> String {
-            // Return empty - we use icon_pixmap instead
             String::new()
         }
-
         fn icon_theme_path(&self) -> String {
             String::new()
         }
-
         fn icon_pixmap(&self) -> Vec<Icon> {
-            // Return pre-rendered ARGB32 icon
             self.icon_pixmap.clone()
         }
-
         fn title(&self) -> String {
             "RustConn".to_string()
         }
-
         fn tool_tip(&self) -> ksni::ToolTip {
             let state = match self.state.lock() {
-                Ok(state) => state,
-                Err(e) => {
-                    tracing::warn!("Tray state mutex poisoned in tool_tip");
-                    e.into_inner()
-                }
+                Ok(s) => s,
+                Err(e) => e.into_inner(),
             };
             let description = if state.active_sessions > 0 {
                 format!("{} active session(s)", state.active_sessions)
             } else {
                 "No active sessions".to_string()
             };
-
             ksni::ToolTip {
                 icon_name: String::new(),
                 icon_pixmap: Vec::new(),
@@ -169,56 +146,43 @@ mod tray_impl {
                 description,
             }
         }
-
         fn id(&self) -> String {
             "io.github.totoshko88.RustConn".to_string()
         }
-
-        /// Handle left-click on the tray icon - toggle window visibility
         fn activate(&mut self, _x: i32, _y: i32) {
             let _ = self.sender.send(TrayMessage::ToggleWindow);
         }
 
         fn menu(&self) -> Vec<MenuItem<Self>> {
-            // Clone state data to avoid holding lock during menu construction
+            // Read state — lock is held briefly just to clone data.
             let (window_visible, recent_connections, active_sessions) = {
-                match self.state.lock() {
-                    Ok(state) => (
-                        state.window_visible,
-                        state.recent_connections.clone(),
-                        state.active_sessions,
-                    ),
-                    Err(e) => {
-                        // Poisoned lock - recover with defaults
-                        let state = e.into_inner();
-                        (
-                            state.window_visible,
-                            state.recent_connections.clone(),
-                            state.active_sessions,
-                        )
-                    }
-                }
+                let state = match self.state.lock() {
+                    Ok(s) => s,
+                    Err(e) => e.into_inner(),
+                };
+                (
+                    state.window_visible,
+                    state.recent_connections.clone(),
+                    state.active_sessions,
+                )
             };
 
             let mut items: Vec<MenuItem<Self>> = Vec::new();
 
-            // Toggle window visibility
-            let label = if window_visible {
-                i18n("Hide Window")
+            let toggle_label = if window_visible {
+                "Hide Window"
             } else {
-                i18n("Show Window")
+                "Show Window"
             };
             items.push(MenuItem::Standard(StandardItem {
-                label,
+                label: toggle_label.to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::ToggleWindow);
                 }),
                 ..Default::default()
             }));
-
             items.push(MenuItem::Separator);
 
-            // Recent connections submenu
             if !recent_connections.is_empty() {
                 let recent_items: Vec<MenuItem<Self>> = recent_connections
                     .iter()
@@ -234,58 +198,48 @@ mod tray_impl {
                         })
                     })
                     .collect();
-
                 items.push(MenuItem::SubMenu(ksni::menu::SubMenu {
-                    label: i18n("Recent Connections"),
+                    label: "Recent Connections".to_string(),
                     submenu: recent_items,
                     ..Default::default()
                 }));
-
                 items.push(MenuItem::Separator);
             }
 
-            // Quick connect
             items.push(MenuItem::Standard(StandardItem {
-                label: i18n("Quick Connect..."),
+                label: "Quick Connect...".to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::QuickConnect);
                 }),
                 ..Default::default()
             }));
-
-            // Local Shell
             items.push(MenuItem::Standard(StandardItem {
-                label: i18n("Local Shell"),
+                label: "Local Shell".to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::LocalShell);
                 }),
                 ..Default::default()
             }));
-
             items.push(MenuItem::Separator);
 
-            // Session count (informational)
             if active_sessions > 0 {
                 items.push(MenuItem::Standard(StandardItem {
-                    label: i18n_f("{} Active Session(s)", &[&active_sessions.to_string()]),
+                    label: format!("{active_sessions} Active Session(s)"),
                     enabled: false,
                     ..Default::default()
                 }));
                 items.push(MenuItem::Separator);
             }
 
-            // About
             items.push(MenuItem::Standard(StandardItem {
-                label: i18n("About"),
+                label: "About".to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::About);
                 }),
                 ..Default::default()
             }));
-
-            // Quit
             items.push(MenuItem::Standard(StandardItem {
-                label: i18n("Quit"),
+                label: "Quit".to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.sender.send(TrayMessage::Quit);
                 }),
@@ -301,27 +255,20 @@ mod tray_impl {
         state: Arc<Mutex<TrayState>>,
         receiver: Receiver<TrayMessage>,
         handle: Handle<RustConnTray>,
-        /// Track if update is needed to avoid excessive D-Bus calls
         needs_update: Arc<Mutex<bool>>,
     }
 
     impl TrayManager {
-        /// Creates a new tray manager and starts the tray icon service
         #[must_use]
         pub fn new() -> Option<Self> {
             let (sender, receiver) = mpsc::channel();
             let state = Arc::new(Mutex::new(TrayState::default()));
-
-            // Render SVG to 32x32 ARGB32 pixmap
             let icon_pixmap = render_svg_to_pixmap(32);
-
             let tray = RustConnTray {
                 state: Arc::clone(&state),
                 sender,
                 icon_pixmap,
             };
-
-            // Use blocking spawn from ksni 0.3
             let handle = tray.spawn().ok()?;
 
             Some(Self {
@@ -332,15 +279,17 @@ mod tray_impl {
             })
         }
 
-        /// Trigger a menu update on the D-Bus service
         fn trigger_update(&self) {
-            // Only update if there are actual changes
             if let Ok(mut needs) = self.needs_update.lock()
                 && *needs
             {
                 let _ = self.handle.update(|_| {});
                 *needs = false;
             }
+        }
+
+        pub fn force_refresh(&self) {
+            let _ = self.handle.update(|_| {});
         }
 
         pub fn set_active_sessions(&self, count: u32) {
@@ -396,7 +345,6 @@ pub use tray_impl::TrayManager;
 mod tray_stub {
     use super::*;
 
-    /// No-op tray manager when the `tray` feature is disabled.
     pub struct TrayManager;
 
     impl TrayManager {
@@ -404,13 +352,10 @@ mod tray_stub {
         pub fn new() -> Option<Self> {
             None
         }
-
         pub fn set_active_sessions(&self, _count: u32) {}
-
         pub fn set_recent_connections(&self, _connections: Vec<(Uuid, String)>) {}
-
         pub fn set_window_visible(&self, _visible: bool) {}
-
+        pub fn force_refresh(&self) {}
         pub fn try_recv(&self) -> Option<TrayMessage> {
             None
         }
@@ -438,14 +383,10 @@ mod tests {
     fn test_render_svg_to_pixmap_32x32() {
         let icons = render_svg_to_pixmap(32);
         assert_eq!(icons.len(), 1, "Should render exactly one icon");
-
         let icon = &icons[0];
         assert_eq!(icon.width, 32);
         assert_eq!(icon.height, 32);
-        // ARGB32: 4 bytes per pixel, 32x32 = 4096 bytes
         assert_eq!(icon.data.len(), 4096);
-
-        // Check that icon has visible pixels (non-zero alpha)
         let has_visible = icon.data.chunks(4).any(|argb| argb[0] > 0);
         assert!(has_visible, "Icon should have visible pixels");
     }
@@ -454,7 +395,6 @@ mod tests {
     fn test_render_svg_to_pixmap_64x64() {
         let icons = render_svg_to_pixmap(64);
         assert_eq!(icons.len(), 1);
-
         let icon = &icons[0];
         assert_eq!(icon.width, 64);
         assert_eq!(icon.height, 64);

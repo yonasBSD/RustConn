@@ -477,6 +477,9 @@ pub struct UiSettings {
     /// Color tab indicators by protocol type
     #[serde(default)]
     pub color_tabs_by_protocol: bool,
+    /// Show protocol filter bar in sidebar
+    #[serde(default)]
+    pub show_protocol_filters: bool,
 }
 
 impl UiSettings {
@@ -575,6 +578,7 @@ impl Default for UiSettings {
             search_history: Vec::new(),
             startup_action: StartupAction::default(),
             color_tabs_by_protocol: false,
+            show_protocol_filters: false,
         }
     }
 }

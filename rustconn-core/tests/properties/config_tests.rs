@@ -496,6 +496,7 @@ fn arb_full_settings() -> impl Strategy<Value = AppSettings> {
                         search_history: Vec::new(),
                         startup_action: rustconn_core::config::StartupAction::default(),
                         color_tabs_by_protocol: false,
+                        show_protocol_filters: false,
                     },
                     connection: rustconn_core::ConnectionSettings::default(),
                     global_variables: Vec::new(),

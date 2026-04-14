@@ -5,6 +5,38 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.19] - 2026-04-15
+
+### Added
+- **Shell button in header bar** — moved the Local Shell button from the sidebar filter bar to the main header bar as a prominent accent-colored pill button with icon and label; always visible even when sidebar is hidden ([#76](https://github.com/totoshko88/RustConn/issues/76))
+- **Optional protocol filter bar** — protocol filters can now be toggled on/off via a button in the search bar or in Settings → Interface → "Show protocol filters"; state is persisted across sessions; hidden by default for a cleaner interface ([#76](https://github.com/totoshko88/RustConn/issues/76))
+- **Toggle protocol filters action** — `win.toggle-protocol-filters` window action with sidebar toggle button that persists visibility state to config
+- **Tab group chooser dialog** — "Set Group..." dialog now shows existing groups as clickable pill buttons for quick selection, with a text field for creating new groups; no more manual retyping of group names
+- **Close All in Group** — new context menu action on grouped tabs; shows a confirmation dialog with tab count and group name, then closes all tabs belonging to that group
+- **Group name in tab tooltip** — hovering over a grouped tab now shows `[GroupName]` in the tooltip, visible even when split view colors are active
+- **Group name as tab title prefix** — tab groups now display as a `[GroupName]` prefix in the tab title instead of a colored indicator icon; this separates group identity from split view / protocol color indicators, so both are visible simultaneously
+
+### Fixed
+- **Terminal not auto-focused after connection** — newly opened SSH session tabs now automatically grab keyboard focus so the user can type immediately; uses idle callback with selected-page guard to prevent focus-stealing when multiple tabs open concurrently ([#79](https://github.com/totoshko88/RustConn/issues/79))
+- **SIGSEGV on rapid right-click on tab** — triple right-clicking a terminal tab caused a segfault because each click created a new popover without unparenting the previous one; now tracks the active popover and tears it down before creating a new one
+- **Tray menu labels empty when "Minimize to tray" enabled** — the ksni tray `menu()` callback runs on a D-Bus worker thread where `gettext` is not initialised, causing `i18n()` to return empty strings; tray menu now uses plain English labels to avoid the thread-safety issue; window visibility is synced via periodic polling so the Show/Hide toggle stays correct
+- **Tab group color conflict with split view** — tab groups and split view previously competed for the same `indicator_icon` slot; groups now use a title prefix while split view keeps the colored indicator, eliminating the conflict
+
+### Improved
+- **Wider sidebar** — increased minimum sidebar width from 160px to 360px for better readability of nested items and long hostnames; increased OverlaySplitView max from 280px to 360px default with up to 600px maximum
+- **Filter bar cleanup on hide** — active protocol filters are automatically cleared when the filter bar is hidden to prevent invisible filtering confusion
+
+### Dependencies
+- bitflags 2.11.0 → 2.11.1
+- clap_complete 4.6.1 → 4.6.2
+- FreeRDP 3.24.1 → 3.24.2 (security: 4 High, 2 Moderate CVEs)
+- hyper-rustls 0.27.8 → 0.27.9
+- rand 0.9.3 → 0.9.4
+- rayon 1.11.0 → 1.12.0
+- rustls-webpki 0.103.11 → 0.103.12
+- tokio 1.51.1 → 1.52.0
+- VTE 0.80.0 → 0.80.3
+
 ## [0.10.18] - 2026-04-13
 
 ### Added

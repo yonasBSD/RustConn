@@ -118,7 +118,26 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
         // Update tray with initial state
         let mut initial_cache = TrayStateCache::default();
         update_tray_state(&tray, &state, &mut initial_cache);
+        tray.force_refresh();
         *tray_manager.borrow_mut() = Some(tray);
+    }
+
+    // Schedule delayed force-refreshes so the D-Bus host caches our menu.
+    // The host may not be ready immediately after spawn(), so we retry
+    // at 500ms and 2s to cover both fast and slow host registration.
+    {
+        let tray_500ms = tray_manager.clone();
+        glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
+            if let Some(tray) = tray_500ms.borrow().as_ref() {
+                tray.force_refresh();
+            }
+        });
+        let tray_2s = tray_manager.clone();
+        glib::timeout_add_local_once(std::time::Duration::from_secs(2), move || {
+            if let Some(tray) = tray_2s.borrow().as_ref() {
+                tray.force_refresh();
+            }
+        });
     }
 
     // Set up application actions
@@ -425,16 +444,22 @@ fn setup_tray_polling(
     });
 
     // --- Slow state sync (2 seconds) ---
-    // Updates session count and recent connections with dirty-flag tracking.
+    // Updates session count, recent connections, and window visibility
+    // with dirty-flag tracking.
     let state_clone = state;
     let tray_for_state = tray_manager;
     let state_cache = std::rc::Rc::new(std::cell::RefCell::new(TrayStateCache::default()));
+    let window_for_state = window.gtk_window().downgrade();
 
     glib::timeout_add_local(std::time::Duration::from_secs(2), move || {
         let tray_ref = tray_for_state.borrow();
         let Some(tray) = tray_ref.as_ref() else {
             return glib::ControlFlow::Continue;
         };
+        // Sync window visibility so tray menu shows correct Show/Hide label
+        if let Some(win) = window_for_state.upgrade() {
+            tray.set_window_visible(win.is_visible());
+        }
         update_tray_state(tray, &state_clone, &mut state_cache.borrow_mut());
         glib::ControlFlow::Continue
     });

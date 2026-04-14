@@ -1790,10 +1790,7 @@ impl SplitViewBridge {
                 i18n("Embedded SSH, RDP, VNC, SPICE"),
             ),
             ("security-high-symbolic", i18n("Secure credential storage")),
-            (
-                "utilities-system-monitor-symbolic",
-                i18n("Remote host monitoring"),
-            ),
+            ("speedometer-symbolic", i18n("Remote host monitoring")),
             ("view-refresh-symbolic", i18n("Session restore & reconnect")),
             ("system-run-symbolic", i18n("Expect automation & tasks")),
             ("folder-symbolic", i18n("Groups, tags, and templates")),

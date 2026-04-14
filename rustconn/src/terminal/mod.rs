@@ -327,40 +327,51 @@ impl TerminalNotebook {
     /// The menu is shown on right-click via `adw::TabView::set_menu_model`.
     /// The `setup-menu` signal stores the target page so actions can find it.
     fn setup_tab_context_menu(&self) {
-        // Build the initial GMenu model for tab context menu
-        // The monitor section label is updated dynamically in connect_setup_menu
-        let menu = Rc::new(RefCell::new(Self::build_tab_context_menu(None)));
-        self.tab_view.set_menu_model(Some(&*menu.borrow()));
+        // Stable GMenu instance — set as the TabView menu model once.
+        // The `connect_setup_menu` callback clears and re-populates its
+        // items before each show.  Because the *same* GMenu object stays
+        // registered, the popover's reference is never invalidated — this
+        // prevents the SIGSEGV that occurred when `set_menu_model()` was
+        // called repeatedly with a brand-new GMenu each time.
+        let menu = gio::Menu::new();
+        self.tab_view.set_menu_model(Some(&menu));
 
         // Shared cell to store the page that was right-clicked
         let context_page: Rc<RefCell<Option<adw::TabPage>>> = Rc::new(RefCell::new(None));
 
-        // When the context menu is about to show, store the target page
-        // and rebuild the menu model with the current monitor mode label
         let context_page_setup = context_page.clone();
         let sessions_for_menu = self.sessions.clone();
+        let session_info_for_menu = self.session_info.clone();
         let activity_for_menu = self.activity_coordinator.clone();
-        let tab_view_for_menu = self.tab_view.clone();
         let menu_for_setup = menu;
         self.tab_view.connect_setup_menu(move |_tab_view, page| {
             *context_page_setup.borrow_mut() = page.cloned();
 
-            // Determine the current monitor mode for the right-clicked tab
-            let current_mode = page.and_then(|page| {
-                let sessions = sessions_for_menu.borrow();
-                let session_id = sessions
-                    .iter()
-                    .find(|(_, p)| *p == page)
-                    .map(|(id, _)| *id)?;
-                let coordinator = activity_for_menu.borrow();
-                let coordinator = coordinator.as_ref()?;
-                coordinator.get_mode(session_id)
-            });
+            // Determine the current monitor mode and group membership for the right-clicked tab
+            let (current_mode, has_group) = page
+                .map(|page| {
+                    let sessions = sessions_for_menu.borrow();
+                    let session_id = sessions.iter().find(|(_, p)| *p == page).map(|(id, _)| *id);
+                    let mode = session_id.and_then(|sid| {
+                        let coordinator = activity_for_menu.borrow();
+                        let coordinator = coordinator.as_ref()?;
+                        coordinator.get_mode(sid)
+                    });
+                    let in_group = session_id
+                        .and_then(|sid| {
+                            session_info_for_menu
+                                .borrow()
+                                .get(&sid)
+                                .and_then(|i| i.tab_group.clone())
+                        })
+                        .is_some();
+                    (mode, in_group)
+                })
+                .unwrap_or((None, false));
 
-            // Rebuild menu with updated monitor label
-            let new_menu = Self::build_tab_context_menu(current_mode);
-            *menu_for_setup.borrow_mut() = new_menu.clone();
-            tab_view_for_menu.set_menu_model(Some(&new_menu));
+            // Mutate the existing menu in-place (clear + re-populate)
+            menu_for_setup.remove_all();
+            Self::populate_tab_context_menu(&menu_for_setup, current_mode, has_group);
         });
 
         // Create action group
@@ -372,8 +383,8 @@ impl TerminalNotebook {
         let session_info = self.session_info.clone();
         let sessions = self.sessions.clone();
         let tab_group_manager = self.tab_group_manager.clone();
-        let split_manager = self.split_manager.clone();
-        let session_tab_ids = self.session_tab_ids.clone();
+        let _split_manager = self.split_manager.clone();
+        let _session_tab_ids = self.session_tab_ids.clone();
 
         set_group_action.connect_activate(move |_, _| {
             let target_page = context_page_set.borrow().clone();
@@ -394,13 +405,56 @@ impl TerminalNotebook {
             // Build the group chooser dialog
             let dialog = adw::AlertDialog::builder()
                 .heading(i18n("Set Tab Group"))
-                .body(i18n("Enter a group name for this tab"))
                 .build();
 
+            let content_box = GtkBox::new(Orientation::Vertical, 12);
+
+            // Show existing groups as clickable buttons
+            let known_groups = tab_group_manager.borrow().group_names();
             let entry = gtk4::Entry::builder()
-                .placeholder_text(i18n("e.g. Production, Staging"))
+                .placeholder_text(i18n("New group name..."))
                 .hexpand(true)
                 .build();
+
+            if known_groups.is_empty() {
+                let label = gtk4::Label::new(Some(&i18n("Enter a group name for this tab")));
+                label.set_halign(gtk4::Align::Start);
+                label.add_css_class("dim-label");
+                content_box.append(&label);
+            } else {
+                let groups_label = gtk4::Label::new(Some(&i18n("Existing groups:")));
+                groups_label.set_halign(gtk4::Align::Start);
+                groups_label.add_css_class("dim-label");
+                content_box.append(&groups_label);
+
+                let flow_box = gtk4::FlowBox::new();
+                flow_box.set_selection_mode(gtk4::SelectionMode::None);
+                flow_box.set_max_children_per_line(4);
+                flow_box.set_min_children_per_line(1);
+                flow_box.set_row_spacing(6);
+                flow_box.set_column_spacing(6);
+                flow_box.set_homogeneous(false);
+
+                let mut sorted_groups = known_groups;
+                sorted_groups.sort();
+
+                for group_name in &sorted_groups {
+                    let btn = gtk4::Button::with_label(group_name);
+                    btn.add_css_class("pill");
+                    let entry_clone = entry.clone();
+                    let name = group_name.clone();
+                    btn.connect_clicked(move |_| {
+                        entry_clone.set_text(&name);
+                    });
+                    flow_box.append(&btn);
+                }
+                content_box.append(&flow_box);
+
+                let or_label = gtk4::Label::new(Some(&i18n("or enter a new name:")));
+                or_label.set_halign(gtk4::Align::Start);
+                or_label.add_css_class("dim-label");
+                content_box.append(&or_label);
+            }
 
             // Pre-fill with current group if any
             if let Some(info) = session_info.borrow().get(&session_id)
@@ -409,7 +463,8 @@ impl TerminalNotebook {
                 entry.set_text(group);
             }
 
-            dialog.set_extra_child(Some(&entry));
+            content_box.append(&entry);
+            dialog.set_extra_child(Some(&content_box));
             dialog.add_response("cancel", &i18n("Cancel"));
             dialog.add_response("apply", &i18n("Apply"));
             dialog.set_response_appearance("apply", adw::ResponseAppearance::Suggested);
@@ -421,8 +476,6 @@ impl TerminalNotebook {
             let session_info_clone = session_info.clone();
             let tab_group_manager_clone = tab_group_manager.clone();
             let sessions_clone = sessions.clone();
-            let split_manager_clone = split_manager.clone();
-            let session_tab_ids_clone = session_tab_ids.clone();
 
             dialog.connect_response(None, move |_dialog, response| {
                 if response != "apply" {
@@ -442,20 +495,30 @@ impl TerminalNotebook {
                     info.tab_color_index = Some(color_index);
                 }
 
-                // Apply visual indicator (check split color priority)
-                let has_split_color = session_tab_ids_clone
-                    .borrow()
-                    .get(&session_id)
-                    .and_then(|tab_id| split_manager_clone.borrow().get_tab_color(*tab_id))
-                    .is_some();
+                // Apply group label prefix to tab title (independent of split indicator)
+                if let Some(page) = sessions_clone.borrow().get(&session_id) {
+                    let current_title = page.title().to_string();
+                    let base_title = current_title
+                        .find("] ")
+                        .and_then(|pos| {
+                            if current_title.starts_with('[') {
+                                Some(&current_title[pos + 2..])
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(&current_title);
+                    page.set_title(&format!("[{group_name}] {base_title}"));
+                }
 
-                if !has_split_color
-                    && let Some(page) = sessions_clone.borrow().get(&session_id)
-                    && let Some((r, g, b)) = TabGroupManager::color_rgb(color_index)
-                    && let Some(icon) = Self::create_protocol_color_icon(r, g, b, 16)
-                {
-                    page.set_indicator_icon(Some(&icon));
-                    page.set_indicator_activatable(false);
+                // Update tooltip to include group name
+                if let Some(page) = sessions_clone.borrow().get(&session_id) {
+                    let current_tooltip = page.tooltip().unwrap_or_default();
+                    let base_tooltip = current_tooltip
+                        .as_str()
+                        .rsplit_once("\n[")
+                        .map_or(current_tooltip.as_str(), |(base, _)| base);
+                    page.set_tooltip(&format!("{base_tooltip}\n[{group_name}]"));
                 }
 
                 tracing::debug!(
@@ -512,30 +575,142 @@ impl TerminalNotebook {
                 }
             };
 
-            // Restore appropriate indicator
+            // Restore appropriate indicator — group no longer uses indicator_icon,
+            // so just restore protocol color if enabled
             let has_split_color = session_tab_ids
                 .borrow()
                 .get(&session_id)
                 .and_then(|tab_id| split_manager.borrow().get_tab_color(*tab_id))
                 .is_some();
 
-            if !has_split_color && let Some(page) = sessions.borrow().get(&session_id) {
-                if *color_tabs_by_protocol.borrow() {
-                    if let Some(ref proto) = protocol {
-                        let (r, g, b) = rustconn_core::get_protocol_color_rgb(proto);
-                        if let Some(icon) = Self::create_protocol_color_icon(r, g, b, 16) {
-                            page.set_indicator_icon(Some(&icon));
-                            page.set_indicator_activatable(false);
-                        }
-                    }
-                } else {
-                    page.set_indicator_icon(gio::Icon::NONE);
+            if !has_split_color
+                && *color_tabs_by_protocol.borrow()
+                && let Some(ref proto) = protocol
+                && let Some(page) = sessions.borrow().get(&session_id)
+            {
+                let (r, g, b) = rustconn_core::get_protocol_color_rgb(proto);
+                if let Some(icon) = Self::create_protocol_color_icon(r, g, b, 16) {
+                    page.set_indicator_icon(Some(&icon));
+                    page.set_indicator_activatable(false);
+                }
+            }
+
+            // Remove group label prefix from tab title
+            if let Some(page) = sessions.borrow().get(&session_id) {
+                let current_title = page.title().to_string();
+                if let Some(pos) = current_title.find("] ")
+                    && current_title.starts_with('[')
+                {
+                    page.set_title(&current_title[pos + 2..]);
+                }
+            }
+
+            // Restore original tooltip (remove group suffix)
+            if let Some(page) = sessions.borrow().get(&session_id) {
+                let tooltip = page.tooltip().unwrap_or_default();
+                let tooltip_str = tooltip.as_str();
+                if let Some(base) = tooltip_str.rsplit_once("\n[") {
+                    page.set_tooltip(base.0);
                 }
             }
 
             tracing::debug!(session_id = %session_id, "Tab removed from group via context menu");
         });
         action_group.add_action(&remove_group_action);
+
+        // "Close All in Group" action — closes all tabs belonging to the same group
+        let close_all_group_action = gio::SimpleAction::new("close-all-in-group", None);
+        let context_page_close_group = context_page.clone();
+        let sessions_for_close_group = self.sessions.clone();
+        let session_info_for_close_group = self.session_info.clone();
+        let tab_view_for_close_group = self.tab_view.clone();
+
+        close_all_group_action.connect_activate(move |_, _| {
+            let target_page = context_page_close_group.borrow().clone();
+            let Some(target_page) = target_page else {
+                return;
+            };
+            // Find the group name of the right-clicked tab
+            let group_name = {
+                let sessions_ref = sessions_for_close_group.borrow();
+                let session_id = sessions_ref
+                    .iter()
+                    .find(|(_, p)| *p == &target_page)
+                    .map(|(id, _)| *id);
+                session_id.and_then(|sid| {
+                    session_info_for_close_group
+                        .borrow()
+                        .get(&sid)
+                        .and_then(|i| i.tab_group.clone())
+                })
+            };
+            let Some(group_name) = group_name else {
+                return;
+            };
+
+            // Collect all session IDs in this group
+            let sessions_to_close: Vec<Uuid> = {
+                let info_ref = session_info_for_close_group.borrow();
+                let sessions_ref = sessions_for_close_group.borrow();
+                info_ref
+                    .iter()
+                    .filter(|(_, info)| info.tab_group.as_deref() == Some(group_name.as_str()))
+                    .filter_map(|(sid, _)| sessions_ref.get(sid).map(|page| (*sid, page.clone())))
+                    .map(|(sid, _)| sid)
+                    .collect()
+            };
+
+            // Show confirmation dialog
+            let count = sessions_to_close.len();
+            if count == 0 {
+                return;
+            }
+
+            let confirm = adw::AlertDialog::builder()
+                .heading(i18n("Close All in Group"))
+                .body(i18n_f(
+                    "Close {} tabs in group '{}'?",
+                    &[&count.to_string(), &group_name],
+                ))
+                .build();
+            confirm.add_response("cancel", &i18n("Cancel"));
+            confirm.add_response("close", &i18n("Close"));
+            confirm.set_response_appearance("close", adw::ResponseAppearance::Destructive);
+            confirm.set_default_response(Some("cancel"));
+            confirm.set_close_response("cancel");
+
+            let sessions_for_confirm = sessions_for_close_group.clone();
+            let tab_view_for_confirm = tab_view_for_close_group.clone();
+            confirm.connect_response(None, move |_dialog, response| {
+                if response != "close" {
+                    return;
+                }
+                // Collect pages first, then drop the borrow before calling close_page.
+                // close_page triggers connect_close_page which also borrows sessions.
+                let pages: Vec<adw::TabPage> = {
+                    let sessions_ref = sessions_for_confirm.borrow();
+                    sessions_to_close
+                        .iter()
+                        .filter_map(|sid| sessions_ref.get(sid).cloned())
+                        .collect()
+                };
+                for page in &pages {
+                    tab_view_for_confirm.close_page(page);
+                }
+                tracing::debug!(
+                    group = group_name,
+                    count,
+                    "Closed all tabs in group via context menu"
+                );
+            });
+
+            if let Some(root) = target_page.child().root()
+                && let Some(window) = root.downcast_ref::<gtk4::Window>()
+            {
+                confirm.present(Some(window));
+            }
+        });
+        action_group.add_action(&close_all_group_action);
 
         // "Close Tab" action
         let close_action = gio::SimpleAction::new("close", None);
@@ -582,24 +757,37 @@ impl TerminalNotebook {
         });
         action_group.add_action(&cycle_monitor_action);
 
-        // Attach action group to the TabView widget
+        // Attach action group to the TabView widget and TabBar
+        // The TabBar needs the action group because the context menu popover
+        // is parented to the TabBar, and GTK looks up actions by walking
+        // up the widget tree from the popover's parent.
         self.tab_view
             .insert_action_group("tab", Some(&action_group));
+        self.tab_bar.insert_action_group("tab", Some(&action_group));
     }
 
-    /// Builds the GMenu model for the tab context menu.
+    /// Populates the tab context menu model in-place.
     ///
-    /// The monitor section label reflects the current mode when provided.
-    fn build_tab_context_menu(
+    /// The caller must pass an existing `gio::Menu` that has already been set
+    /// as the `TabView` menu model.  This avoids replacing the model object
+    /// (which would invalidate the popover's reference and cause a SIGSEGV on
+    /// rapid repeated right-clicks).
+    fn populate_tab_context_menu(
+        menu: &gio::Menu,
         current_mode: Option<rustconn_core::activity_monitor::MonitorMode>,
-    ) -> gio::Menu {
+        has_group: bool,
+    ) {
         use rustconn_core::activity_monitor::MonitorMode;
-
-        let menu = gio::Menu::new();
 
         let group_section = gio::Menu::new();
         group_section.append(Some(&i18n("Set Group...")), Some("tab.set-group"));
         group_section.append(Some(&i18n("Remove from Group")), Some("tab.remove-group"));
+        if has_group {
+            group_section.append(
+                Some(&i18n("Close All in Group")),
+                Some("tab.close-all-in-group"),
+            );
+        }
         menu.append_section(None, &group_section);
 
         // Monitor section with current mode in label
@@ -612,8 +800,6 @@ impl TerminalNotebook {
         let close_section = gio::Menu::new();
         close_section.append(Some(&i18n("Close Tab")), Some("tab.close"));
         menu.append_section(None, &close_section);
-
-        menu
     }
 
     /// Creates the welcome tab content - uses the full welcome screen with features
@@ -750,6 +936,7 @@ impl TerminalNotebook {
 
         // Store session data
         self.sessions.borrow_mut().insert(session_id, page.clone());
+        let terminal_for_focus = terminal.clone();
         self.terminals.borrow_mut().insert(session_id, terminal);
 
         self.session_info.borrow_mut().insert(
@@ -770,6 +957,19 @@ impl TerminalNotebook {
 
         // Select the new page
         self.tab_view.set_selected_page(&page);
+
+        // Auto-focus the terminal so the user can type immediately (#79).
+        // Use idle_add_local_once so the focus request runs after the page
+        // is fully mapped, and only if this page is still selected (avoids
+        // focus-stealing when multiple tabs open in quick succession).
+        let tab_view_focus = self.tab_view.clone();
+        let page_focus = page.clone();
+        let terminal_focus = terminal_for_focus;
+        glib::idle_add_local_once(move || {
+            if tab_view_focus.selected_page().as_ref() == Some(&page_focus) {
+                terminal_focus.grab_focus();
+            }
+        });
 
         // Apply protocol color indicator if enabled
         if *self.color_tabs_by_protocol.borrow() {
@@ -1726,16 +1926,6 @@ impl TerminalNotebook {
             if self.get_session_split_color(session_id).is_some() {
                 return;
             }
-            // Don't override group colors — group takes priority over protocol
-            if self
-                .session_info
-                .borrow()
-                .get(&session_id)
-                .and_then(|i| i.tab_group.as_ref())
-                .is_some()
-            {
-                return;
-            }
             let (r, g, b) = rustconn_core::get_protocol_color_rgb(protocol);
             if let Some(icon) = Self::create_protocol_color_icon(r, g, b, 16) {
                 page.set_indicator_icon(Some(&icon));
@@ -1749,16 +1939,6 @@ impl TerminalNotebook {
         if let Some(page) = self.sessions.borrow().get(&session_id) {
             // Don't clear if split color is active
             if self.get_session_split_color(session_id).is_some() {
-                return;
-            }
-            // Don't clear if group color is active
-            if self
-                .session_info
-                .borrow()
-                .get(&session_id)
-                .and_then(|i| i.tab_group.as_ref())
-                .is_some()
-            {
                 return;
             }
             page.set_indicator_icon(gio::Icon::NONE);
@@ -2276,10 +2456,17 @@ impl TerminalNotebook {
             info.tab_color_index = Some(color_index);
         }
 
-        // Apply visual indicator (group color takes priority over protocol color,
-        // but split color still takes priority over group color)
-        if self.get_session_split_color(session_id).is_none() {
-            self.apply_group_color(session_id, color_index);
+        // Apply group label prefix to tab title (independent of split/protocol indicator)
+        self.apply_group_color(session_id, color_index);
+
+        // Update tooltip to include group name
+        if let Some(page) = self.sessions.borrow().get(&session_id) {
+            let current_tooltip = page.tooltip().unwrap_or_default();
+            let base_tooltip = current_tooltip
+                .as_str()
+                .rsplit_once("\n[")
+                .map_or(current_tooltip.as_str(), |(base, _)| base);
+            page.set_tooltip(&format!("{base_tooltip}\n[{group_name}]"));
         }
 
         tracing::debug!(session_id = %session_id, group = group_name, color_index, "Tab assigned to group");
@@ -2293,19 +2480,15 @@ impl TerminalNotebook {
             info.tab_color_index = None;
         }
 
-        // Restore protocol color or clear indicator
-        if self.get_session_split_color(session_id).is_none() {
-            if *self.color_tabs_by_protocol.borrow() {
-                if let Some(protocol) = self
-                    .session_info
-                    .borrow()
-                    .get(&session_id)
-                    .map(|i| i.protocol.clone())
-                {
-                    self.apply_protocol_color(session_id, &protocol);
-                }
-            } else {
-                self.clear_group_color(session_id);
+        // Remove group label prefix from tab title
+        self.clear_group_color(session_id);
+
+        // Restore original tooltip (remove group suffix)
+        if let Some(page) = self.sessions.borrow().get(&session_id) {
+            let tooltip = page.tooltip().unwrap_or_default();
+            let tooltip_str = tooltip.as_str();
+            if let Some(base) = tooltip_str.rsplit_once("\n[") {
+                page.set_tooltip(base.0);
             }
         }
 
@@ -2329,21 +2512,38 @@ impl TerminalNotebook {
         self.tab_group_manager.borrow().group_names()
     }
 
-    /// Applies a group color indicator to a tab.
-    fn apply_group_color(&self, session_id: Uuid, color_index: usize) {
+    /// Applies a group label prefix to a tab title.
+    fn apply_group_color(&self, session_id: Uuid, _color_index: usize) {
         if let Some(page) = self.sessions.borrow().get(&session_id)
-            && let Some((r, g, b)) = TabGroupManager::color_rgb(color_index)
-            && let Some(icon) = Self::create_protocol_color_icon(r, g, b, 16)
+            && let Some(info) = self.session_info.borrow().get(&session_id)
+            && let Some(ref group_name) = info.tab_group
         {
-            page.set_indicator_icon(Some(&icon));
-            page.set_indicator_activatable(false);
+            let current_title = page.title().to_string();
+            // Remove any existing group prefix first
+            let base_title = current_title
+                .find("] ")
+                .and_then(|pos| {
+                    if current_title.starts_with('[') {
+                        Some(&current_title[pos + 2..])
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(&current_title);
+            page.set_title(&format!("[{group_name}] {base_title}"));
         }
     }
 
-    /// Clears a group color indicator from a tab.
+    /// Removes a group label prefix from a tab title.
     fn clear_group_color(&self, session_id: Uuid) {
         if let Some(page) = self.sessions.borrow().get(&session_id) {
-            page.set_indicator_icon(gio::Icon::NONE);
+            let current_title = page.title().to_string();
+            // Strip "[GroupName] " prefix if present
+            if let Some(pos) = current_title.find("] ")
+                && current_title.starts_with('[')
+            {
+                page.set_title(&current_title[pos + 2..]);
+            }
         }
     }
 

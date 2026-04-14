@@ -106,11 +106,25 @@ fn setup_keyboard_shortcuts(terminal: &Terminal) {
 pub fn setup_context_menu_on_container(container: &impl IsA<gtk4::Widget>, terminal: &Terminal) {
     use gtk4::PopoverMenu;
     use gtk4::gio;
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     let click_controller = gtk4::GestureClick::new();
     click_controller.set_button(3); // Right click
     let term_menu = terminal.clone();
+
+    // Track the active popover so we can tear it down before creating a new one.
+    // This prevents SIGSEGV when the user clicks rapidly (e.g. triple right-click)
+    // because GTK does not allow multiple popovers parented to the same widget.
+    let active_popover: Rc<RefCell<Option<PopoverMenu>>> = Rc::new(RefCell::new(None));
+
     click_controller.connect_pressed(move |gesture, _, x, y| {
+        // Dismiss and unparent any previous popover first
+        if let Some(prev) = active_popover.borrow_mut().take() {
+            prev.popdown();
+            prev.unparent();
+        }
+
         let menu = gio::Menu::new();
 
         // Clipboard section
@@ -152,7 +166,16 @@ pub fn setup_context_menu_on_container(container: &impl IsA<gtk4::Widget>, termi
 
         let rect = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
         popover.set_pointing_to(Some(&rect));
+
+        // Clean up popover reference when closed
+        let active_popover_close = active_popover.clone();
+        popover.connect_closed(move |pop| {
+            pop.unparent();
+            *active_popover_close.borrow_mut() = None;
+        });
+
         popover.popup();
+        *active_popover.borrow_mut() = Some(popover);
 
         // Claim the gesture to prevent pane context menu from also showing
         gesture.set_state(gtk4::EventSequenceState::Claimed);
