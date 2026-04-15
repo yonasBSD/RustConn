@@ -184,7 +184,7 @@ pub fn default_keybindings() -> Vec<KeybindingDef> {
             Connections,
         ),
         // Navigation
-        KeybindingDef::new("win.search", "<Control>f|<Control>k", "Search", Navigation),
+        KeybindingDef::new("win.search", "<Control>f", "Search", Navigation),
         KeybindingDef::new(
             "win.focus-sidebar",
             "<Control>1|<Alt>1",

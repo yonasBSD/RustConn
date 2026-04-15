@@ -103,6 +103,20 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.21" date="2026-04-15">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01021---2026-04-15</url>
+      <description>
+        <p>Security hardening, sidebar UX fixes, and accessibility improvements:</p>
+        <ul>
+          <li>Machine key encryption hardened — HKDF-SHA256 derivation, removed predictable fallback</li>
+          <li>Groups expand/collapse on double-click anywhere on the row</li>
+          <li>Ctrl+K no longer hijacks terminal (nano, etc.) — only Ctrl+F for search</li>
+          <li>Right-click context menu works on all SSH profiles</li>
+          <li>Filter bar opens below search box instead of above</li>
+          <li>Sidebar accessible labels localized for screen readers</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.20" date="2026-04-15">
       <description>
         <p>Bug fixes for RDP shared folders, Tailscale CLI download, and SSH port forwarding UI:</p>

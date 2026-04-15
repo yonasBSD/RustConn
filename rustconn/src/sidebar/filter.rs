@@ -21,7 +21,7 @@ pub fn create_filter_button(protocol: &str, icon_name: &str, tooltip: &str) -> B
     button.add_css_class("filter-button");
 
     // Accessibility: set descriptive label for screen readers
-    let accessible_label = format!("Filter by {protocol} protocol");
+    let accessible_label = crate::i18n::i18n_f("Filter by {} protocol", &[protocol]);
     button.update_property(&[gtk4::accessible::Property::Label(&accessible_label)]);
 
     button

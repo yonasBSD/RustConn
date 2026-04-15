@@ -1,3 +1,16 @@
+rustconn (0.10.21-1) unstable; urgency=medium
+
+  * [Security] Machine key encryption hardened — removed predictable
+    hostname+username fallback; /etc/machine-id uses HKDF-SHA256;
+    .machine-key created with 0600 permissions (#83)
+  * [Fixed] Groups expand/collapse on double-click entire row (#83)
+  * [Fixed] Ctrl+K no longer hijacks terminal — only Ctrl+F for search (#83)
+  * [Fixed] Right-click context menu works on all SSH profiles (#83)
+  * [Fixed] Filter bar opens below search box, not above (#83)
+  * [Improved] Sidebar accessible labels localized for screen readers
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Tue, 15 Apr 2026 22:00:00 +0200
+
 rustconn (0.10.20-1) unstable; urgency=medium
 
   * Tab group chooser dialog with existing group selection

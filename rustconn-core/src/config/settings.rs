@@ -819,6 +819,14 @@ impl SecretSettings {
     /// In Flatpak sandbox `/etc/machine-id` is inaccessible, so we first
     /// try an app-specific key file stored in the XDG data directory.
     fn get_machine_key() -> Vec<u8> {
+        /// Key length type for HKDF output (32 bytes = 256 bits)
+        struct HkdfKeyLen;
+        impl ring::hkdf::KeyType for HkdfKeyLen {
+            fn len(&self) -> usize {
+                32
+            }
+        }
+
         // 1. Try app-specific key file in XDG data dir (works in Flatpak)
         if let Some(data_dir) = dirs::data_dir() {
             let key_file = data_dir.join("rustconn").join(".machine-key");
@@ -832,23 +840,45 @@ impl SecretSettings {
             if std::fs::create_dir_all(data_dir.join("rustconn")).is_ok() {
                 let key = uuid::Uuid::new_v4().to_string();
                 if std::fs::write(&key_file, &key).is_ok() {
+                    // Restrict permissions to owner-only (0600)
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        let _ = std::fs::set_permissions(
+                            &key_file,
+                            std::fs::Permissions::from_mode(0o600),
+                        );
+                    }
                     return key.into_bytes();
                 }
             }
         }
 
-        // 2. Try /etc/machine-id (works outside Flatpak)
+        // 2. Try /etc/machine-id with HKDF derivation (works outside Flatpak)
         if let Ok(machine_id) = std::fs::read_to_string("/etc/machine-id") {
-            return machine_id.trim().as_bytes().to_vec();
+            let trimmed = machine_id.trim();
+            if !trimmed.is_empty() {
+                // Derive app-specific key via HKDF to avoid sharing raw machine-id
+                let salt =
+                    ring::hkdf::Salt::new(ring::hkdf::HKDF_SHA256, b"rustconn-machine-key-v1");
+                let prk = salt.extract(trimmed.as_bytes());
+                if let Ok(okm) = prk.expand(&[b"encryption" as &[u8]], HkdfKeyLen) {
+                    let mut derived = vec![0u8; 32];
+                    if okm.fill(&mut derived).is_ok() {
+                        return derived;
+                    }
+                }
+                // If HKDF fails, use raw machine-id as before
+                return trimmed.as_bytes().to_vec();
+            }
         }
 
-        // 3. Fallback to hostname + username
-        let hostname = hostname::get().map_or_else(
-            |_| "rustconn".to_string(),
-            |h| h.to_string_lossy().to_string(),
+        // 3. No fallback — refuse to encrypt with predictable key
+        tracing::error!(
+            "Cannot derive encryption key: no .machine-key file and /etc/machine-id unavailable. \
+             Credential encryption will not work."
         );
-        let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
-        format!("{hostname}-{username}-rustconn-key").into_bytes()
+        Vec::new()
     }
 
     /// Legacy XOR cipher for decrypting old-format credentials

@@ -5,6 +5,25 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.21] - 2026-04-16
+
+### Security
+- **Machine key encryption hardened** — removed predictable `hostname+username` fallback from `get_machine_key()`; `/etc/machine-id` fallback now uses HKDF-SHA256 with app-specific salt; `.machine-key` file created with `0600` permissions
+
+### Fixed
+- **Groups expand/collapse on double-click** — double-clicking anywhere on a group row now toggles expand/collapse, not just the expander icon ([#83](https://github.com/totoshko88/RustConn/issues/83))
+- **Ctrl+K no longer hijacks terminal** — removed `Ctrl+K` from the global search shortcut; only `Ctrl+F` focuses the search box now, so `Ctrl+K` passes through to terminal applications like nano ([#83](https://github.com/totoshko88/RustConn/issues/83))
+- **Right-click context menu on all SSH profiles** — set gesture propagation phase to `Capture` so the right-click handler fires before `TreeExpander` internal handlers that could swallow the event ([#83](https://github.com/totoshko88/RustConn/issues/83))
+- **Filter bar opens below search box** — swapped layout order so protocol filters appear below the search entry instead of above it, preventing UI jump ([#83](https://github.com/totoshko88/RustConn/issues/83))
+
+### Improved
+- **Sidebar accessible labels localized** — wrapped `"Search connections"`, `"Search syntax help"`, `"Connection list"`, and `"Filter by {protocol} protocol"` in `i18n()` / `i18n_f()` for screen reader localization
+
+### Dependencies
+- aws-lc-rs 1.16.2 → 1.16.3
+- aws-lc-sys 0.39.1 → 0.40.0
+- clap 4.6.0 → 4.6.1
+
 ## [0.10.20] - 2026-04-15
 
 ### Fixed

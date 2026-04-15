@@ -111,6 +111,9 @@ pub fn setup_list_item(
     // Note: is_group will be determined at bind time via list_item data
     let gesture = GestureClick::new();
     gesture.set_button(gdk::BUTTON_SECONDARY);
+    // Use CAPTURE phase so the gesture fires before TreeExpander's internal
+    // handlers, which can swallow the event for some items (issue #83 point 3).
+    gesture.set_propagation_phase(gtk4::PropagationPhase::Capture);
     let list_item_weak = list_item.downgrade();
     gesture.connect_pressed(move |gesture, _n_press, x, y| {
         if let Some(widget) = gesture.widget() {

@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.10.20
+Version:        0.10.21
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,14 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Tue Apr 15 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.21-0
+- [Security] Machine key encryption hardened — HKDF-SHA256 for machine-id
+- [Fixed] Groups expand/collapse on double-click entire row (#83)
+- [Fixed] Ctrl+K no longer hijacks terminal (#83)
+- [Fixed] Right-click context menu on all SSH profiles (#83)
+- [Fixed] Filter bar opens below search box (#83)
+- [Improved] Sidebar accessible labels localized
+
 * Tue Apr 14 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.20-0
 - Tab group chooser dialog with existing group selection
 - Close All in Group context menu action

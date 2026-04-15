@@ -121,7 +121,9 @@ impl ConnectionSidebar {
         search_entry.set_placeholder_text(Some(&i18n("Search... (? for help)")));
         search_entry.set_hexpand(true);
         // Accessibility: set label for screen readers
-        search_entry.update_property(&[gtk4::accessible::Property::Label("Search connections")]);
+        search_entry.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Search connections",
+        ))]);
         search_box.append(&search_entry);
 
         // Search pending spinner (hidden by default)
@@ -145,7 +147,9 @@ impl ConnectionSidebar {
         let help_button = Button::from_icon_name("dialog-question-symbolic");
         help_button.set_tooltip_text(Some(&i18n("Search syntax help")));
         help_button.add_css_class("flat");
-        help_button.update_property(&[gtk4::accessible::Property::Label("Search syntax help")]);
+        help_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Search syntax help",
+        ))]);
 
         // Create search help popover
         let help_popover = search::create_search_help_popover();
@@ -397,8 +401,8 @@ impl ConnectionSidebar {
             });
         }
 
-        container.append(&filter_box);
         container.append(&search_box);
+        container.append(&filter_box);
 
         // Responsive: hide less common protocol filters on narrow sidebar
         // Only needed without AdwWrapBox — WrapBox wraps automatically
@@ -562,7 +566,7 @@ impl ConnectionSidebar {
         list_view.add_css_class("navigation-sidebar");
 
         // Set accessibility properties
-        list_view.update_property(&[gtk4::accessible::Property::Label("Connection list")]);
+        list_view.update_property(&[gtk4::accessible::Property::Label(&i18n("Connection list"))]);
         list_view.set_focusable(true);
         list_view.set_can_focus(true);
 

@@ -1661,17 +1661,38 @@ impl MainWindow {
         let split_view_clone = split_view.clone();
         let monitoring_clone = self.monitoring.clone();
         let activity_clone_sidebar = self.activity_coordinator.clone();
-        sidebar.list_view().connect_activate(move |_, position| {
-            Self::connect_at_position_with_split(
-                &state_clone,
-                &sidebar_clone,
-                &notebook_clone,
-                &split_view_clone,
-                &monitoring_clone,
-                position,
-                Some(&activity_clone_sidebar),
-            );
-        });
+        sidebar
+            .list_view()
+            .connect_activate(move |list_view, position| {
+                // Get the item at position from the tree model
+                let tree_model = sidebar_clone.tree_model();
+                if let Some(item) = tree_model.item(position)
+                    && let Some(row) = item.downcast_ref::<gtk4::TreeListRow>()
+                    && let Some(conn_item) = row
+                        .item()
+                        .and_then(|i| i.downcast::<crate::sidebar::ConnectionItem>().ok())
+                    && conn_item.is_group()
+                {
+                    // Toggle expand/collapse for groups on double-click
+                    row.set_expanded(!row.is_expanded());
+                    // Re-select the row after toggle so it stays highlighted
+                    if let Some(model) = list_view.model()
+                        && let Some(sel) = model.downcast_ref::<gtk4::SingleSelection>()
+                    {
+                        sel.set_selected(position);
+                    }
+                    return;
+                }
+                Self::connect_at_position_with_split(
+                    &state_clone,
+                    &sidebar_clone,
+                    &notebook_clone,
+                    &split_view_clone,
+                    &monitoring_clone,
+                    position,
+                    Some(&activity_clone_sidebar),
+                );
+            });
 
         // Connect TabView page selection - per spec, do NOT auto-fill split panes
         // Split view is shown ONLY when selected session is displayed in a split pane
