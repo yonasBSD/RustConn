@@ -1,23 +1,25 @@
 //! Filter logic for the sidebar
-use gtk4::Button;
 use gtk4::prelude::*;
+use gtk4::Button;
 
-/// Creates a protocol filter button with icon only (no text label)
+/// Creates a protocol filter button with icon (pill style)
 ///
 /// # Arguments
+/// * `protocol` - Protocol name used for accessible label
 /// * `icon_name` - GTK icon name for the button
 /// * `tooltip` - Tooltip text for the button
-/// * `protocol` - Protocol name used for accessible label
 ///
 /// # Accessibility
 /// Sets proper accessible label and role for screen readers.
+/// Tooltip provides text context for sighted users; accessible label
+/// provides it for screen readers — following GNOME HIG icon-only button pattern.
 pub fn create_filter_button(protocol: &str, icon_name: &str, tooltip: &str) -> Button {
     let button = Button::new();
     let icon = gtk4::Image::from_icon_name(icon_name);
-    icon.set_pixel_size(14);
+    icon.set_pixel_size(16);
     button.set_child(Some(&icon));
     button.set_tooltip_text(Some(tooltip));
-    button.add_css_class("flat");
+    button.add_css_class("pill");
     button.add_css_class("filter-button");
 
     // Accessibility: set descriptive label for screen readers

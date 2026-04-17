@@ -35,7 +35,6 @@ use gtk4::{
     Orientation, PolicyType, ScrolledWindow, SearchEntry, SignalListItemFactory, TreeExpander,
     TreeListModel, TreeListRow, Widget, gdk, gio, glib,
 };
-#[cfg(feature = "adw-1-6")]
 use libadwaita as adw;
 use rustconn_core::Debouncer;
 use rustconn_core::connection::{LazyGroupLoader, SelectionState as CoreSelectionState};
@@ -95,7 +94,9 @@ pub struct ConnectionSidebar {
     /// Callback to check if a connection has an active recording session
     /// Takes a connection ID string and returns true if recording is active
     recording_checker: Rc<RefCell<Option<Box<dyn Fn(&str) -> bool>>>>,
-    /// Protocol filter bar container (visibility toggled by settings)
+    /// Protocol filter bar revealer (animated show/hide, toggled by settings)
+    filter_revealer: gtk4::Revealer,
+    /// Inner filter box (child of revealer, holds protocol buttons)
     filter_box: GtkBox,
 }
 
@@ -402,7 +403,20 @@ impl ConnectionSidebar {
         }
 
         container.append(&search_box);
-        container.append(&filter_box);
+
+        // Wrap filter_box in a Revealer for animated show/hide
+        let filter_revealer = gtk4::Revealer::builder()
+            .transition_type(gtk4::RevealerTransitionType::SlideDown)
+            .transition_duration(200)
+            .reveal_child(false)
+            .child(&filter_box)
+            .build();
+        container.append(&filter_revealer);
+
+        // Separator between filters and connection list
+        let separator = gtk4::Separator::new(Orientation::Horizontal);
+        separator.add_css_class("spacer");
+        container.append(&separator);
 
         // Responsive: hide less common protocol filters on narrow sidebar
         // Only needed without AdwWrapBox — WrapBox wraps automatically
@@ -780,11 +794,14 @@ impl ConnectionSidebar {
 
         list_view.add_controller(list_view_drop_target);
 
-        container.append(&overlay);
-
-        // Add bottom toolbar with secondary actions
+        // Add bottom toolbar with secondary actions via ToolbarView for raised style
         let (bottom_toolbar, keepass_button) = sidebar_ui::create_sidebar_bottom_toolbar();
-        container.append(&bottom_toolbar);
+        let toolbar_view = adw::ToolbarView::new();
+        toolbar_view.set_content(Some(&overlay));
+        toolbar_view.add_bottom_bar(&bottom_toolbar);
+        toolbar_view.set_bottom_bar_style(adw::ToolbarStyle::Raised);
+        toolbar_view.set_vexpand(true);
+        container.append(&toolbar_view);
 
         // Create debouncer for search with 100ms delay
         let search_debouncer = Rc::new(Debouncer::for_search());
@@ -814,6 +831,7 @@ impl ConnectionSidebar {
             protocol_filter_buttons,
             keepass_button,
             recording_checker,
+            filter_revealer,
             filter_box,
         }
     }
@@ -1541,7 +1559,7 @@ impl ConnectionSidebar {
     ///
     /// When hidden, active filters are cleared to avoid confusion.
     pub fn set_filter_visible(&self, visible: bool) {
-        self.filter_box.set_visible(visible);
+        self.filter_revealer.set_reveal_child(visible);
         if !visible {
             // Clear active filters when hiding to avoid hidden filtering
             self.active_protocol_filters.borrow_mut().clear();
@@ -1560,7 +1578,7 @@ impl ConnectionSidebar {
     /// Returns whether the filter bar is currently visible
     #[must_use]
     pub fn is_filter_visible(&self) -> bool {
-        self.filter_box.is_visible()
+        self.filter_revealer.reveals_child()
     }
 }
 

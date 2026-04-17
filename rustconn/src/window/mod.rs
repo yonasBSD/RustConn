@@ -1924,17 +1924,21 @@ impl MainWindow {
             .collect();
         let groups: Vec<_> = state_ref.list_groups().iter().cloned().cloned().collect();
 
-        // Check for special multiple protocol filter syntax
-        if let Some(protocols_str) = query.strip_prefix("protocols:") {
-            // Handle multiple protocol filters with OR logic
-            let protocol_names: Vec<&str> = protocols_str.split(',').collect();
+        // Check for single protocol filter syntax (protocol:rdp, proto:ssh, p:vnc)
+        let single_protocol = query
+            .strip_prefix("protocol:")
+            .or_else(|| query.strip_prefix("proto:"))
+            .or_else(|| query.strip_prefix("p:"));
+
+        if let Some(protocol_name) = single_protocol {
+            // Handle single protocol filter — direct filtering without scoring
+            let protocol_names: Vec<&str> = vec![protocol_name.trim()];
             let mut filtered_connections = Vec::new();
 
             for conn in &connections {
                 let protocol = get_protocol_string(&conn.protocol_config);
                 let protocol_lower = protocol.to_lowercase();
 
-                // Check if connection matches any of the selected protocols
                 if protocol_names
                     .iter()
                     .any(|p| p.to_lowercase() == protocol_lower)
@@ -1943,7 +1947,33 @@ impl MainWindow {
                 }
             }
 
-            // Display filtered connections
+            for conn in filtered_connections {
+                let protocol = get_protocol_string(&conn.protocol_config);
+                let item = ConnectionItem::new_connection(
+                    &conn.id.to_string(),
+                    &conn.name,
+                    &protocol,
+                    &conn.host,
+                );
+                store.append(&item);
+            }
+        } else if let Some(protocols_str) = query.strip_prefix("protocols:") {
+            // Handle multiple protocol filters with OR logic
+            let protocol_names: Vec<&str> = protocols_str.split(',').collect();
+            let mut filtered_connections = Vec::new();
+
+            for conn in &connections {
+                let protocol = get_protocol_string(&conn.protocol_config);
+                let protocol_lower = protocol.to_lowercase();
+
+                if protocol_names
+                    .iter()
+                    .any(|p| p.to_lowercase() == protocol_lower)
+                {
+                    filtered_connections.push(conn);
+                }
+            }
+
             for conn in filtered_connections {
                 let protocol = get_protocol_string(&conn.protocol_config);
                 let item = ConnectionItem::new_connection(

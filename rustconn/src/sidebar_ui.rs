@@ -283,7 +283,6 @@ pub fn create_sidebar_bottom_toolbar() -> (GtkBox, Button) {
     let toolbar = GtkBox::new(Orientation::Horizontal, 4);
     toolbar.set_margin_start(8);
     toolbar.set_margin_end(8);
-    toolbar.set_margin_top(6);
     toolbar.set_margin_bottom(6);
     toolbar.set_halign(gtk4::Align::Center);
 

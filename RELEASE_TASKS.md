@@ -733,6 +733,143 @@ fn decrypt_credential(data: &[u8], machine_key: &[u8]) -> Result<Vec<u8>, String
 
 ---
 
+### TASK-021: Sidebar UX — pill-фільтри, animated revealer, ToolbarView
+
+**Пріоритет:** 🟠 Високий | **Оцінка:** 3-4 год | **Область:** UX / GNOME HIG  
+**Файли:** `rustconn/src/sidebar/mod.rs`, `rustconn/src/sidebar/filter.rs`, `rustconn/src/sidebar_ui.rs`, `rustconn/assets/style.css`
+
+**Проблема:**  
+Візуальна неконсистентність між сайдбаром і рештою інтерфейсу:
+1. Панель фільтрів протоколів — ряд дрібних іконок без підписів, без чіткого візуального зв'язку з пошуком, без анімації появи/зникнення
+2. Нижній тулбар — плоский `GtkBox` з іконками без візуального розділення від списку з'єднань (немає тіні/бордера як у GNOME Files)
+3. Фільтри з'являються/зникають різко (`set_visible`) замість плавної анімації
+
+**Що зробити:**
+
+#### Крок 1: Animated Revealer для фільтрів
+
+Замінити `filter_box.set_visible()` на `gtk4::Revealer` з анімацією:
+
+```rust
+// rustconn/src/sidebar/mod.rs — в конструкторі, замість container.append(&filter_box):
+let filter_revealer = gtk4::Revealer::builder()
+    .transition_type(gtk4::RevealerTransitionType::SlideDown)
+    .transition_duration(200)
+    .reveal_child(false) // hidden by default (settings control initial state)
+    .child(&filter_box)
+    .build();
+container.append(&filter_revealer);
+```
+
+Оновити `set_filter_visible()` та `is_filter_visible()`:
+```rust
+pub fn set_filter_visible(&self, visible: bool) {
+    self.filter_revealer.set_reveal_child(visible);
+    if !visible {
+        // existing cleanup logic...
+    }
+}
+
+pub fn is_filter_visible(&self) -> bool {
+    self.filter_revealer.reveals_child()
+}
+```
+
+Замінити поле `filter_box: GtkBox` на `filter_revealer: gtk4::Revealer` в struct `ConnectionSidebar`.
+
+#### Крок 2: Pill-кнопки для фільтрів
+
+Змінити `create_filter_button()` в `filter.rs` — додати текстовий label поруч з іконкою:
+
+```rust
+pub fn create_filter_button(protocol: &str, icon_name: &str, tooltip: &str) -> Button {
+    let button = Button::new();
+    let content_box = GtkBox::new(Orientation::Horizontal, 4);
+    let icon = gtk4::Image::from_icon_name(icon_name);
+    icon.set_pixel_size(14);
+    content_box.append(&icon);
+    let label = gtk4::Label::new(Some(protocol));
+    label.add_css_class("caption");
+    content_box.append(&label);
+    button.set_child(Some(&content_box));
+    button.set_tooltip_text(Some(tooltip));
+    button.add_css_class("pill");
+    button.add_css_class("filter-button");
+    // ... accessible label як раніше
+    button
+}
+```
+
+CSS для pill-стилю (`style.css`):
+```css
+/* Pill-style filter buttons */
+.filter-button.pill {
+    border-radius: 999px;
+    padding: 2px 8px;
+    min-height: 24px;
+}
+```
+
+#### Крок 3: Separator між фільтрами і списком
+
+```rust
+// Після filter_revealer, перед overlay:
+let separator = gtk4::Separator::new(Orientation::Horizontal);
+separator.add_css_class("spacer");
+container.append(&separator);
+```
+
+#### Крок 4: ToolbarView для нижнього тулбару
+
+Замінити пряме `container.append(&bottom_toolbar)` на `adw::ToolbarView`:
+
+```rust
+// rustconn/src/sidebar/mod.rs — замість:
+//   container.append(&overlay);
+//   container.append(&bottom_toolbar);
+// Використати:
+let toolbar_view = adw::ToolbarView::new();
+toolbar_view.set_content(Some(&overlay));
+toolbar_view.add_bottom_bar(&bottom_toolbar);
+toolbar_view.set_bottom_bar_style(adw::ToolbarStyle::Raised);
+toolbar_view.set_vexpand(true);
+container.append(&toolbar_view);
+```
+
+Це дасть нативну тінь зверху тулбару як у GNOME Files/Nautilus.
+
+**Зміни в sidebar_ui.rs:**
+- Видалити `margin_top: 6` з `create_sidebar_bottom_toolbar()` — `ToolbarView` сам додає відступ
+- Додати `add_css_class("toolbar")` на контейнер тулбару для GNOME HIG стилю
+
+**Зміни в struct `ConnectionSidebar`:**
+- Замінити `filter_box: GtkBox` → `filter_revealer: gtk4::Revealer`
+- Зберегти `filter_box` як приватне поле якщо потрібен доступ до дочірніх кнопок (або отримувати через `revealer.child()`)
+
+**Порядок виконання:**
+1. Крок 1 (Revealer) — найменш ризикований, чисто структурна зміна
+2. Крок 3 (Separator) — один рядок
+3. Крок 4 (ToolbarView) — потребує перевірки що overlay vexpand працює правильно
+4. Крок 2 (Pill-кнопки) — найбільш візуально помітна зміна, потребує ручного тестування ширини
+
+**Ризик:** Середній — зміни чисто візуальні, але потребують ручного тестування:
+- Перевірити що revealer анімація не ламає layout при швидкому toggle
+- Перевірити що ToolbarView не з'їдає простір scrolled window
+- Перевірити pill-кнопки при вузькому сайдбарі (360px мінімум) — WrapBox має переносити
+- Перевірити що drag-and-drop overlay працює з ToolbarView
+
+**Тестування:** Ручне — `cargo run -p rustconn`, перевірити:
+- [ ] Фільтри плавно з'являються/зникають при натисканні toggle
+- [ ] Pill-кнопки показують іконку + назву протоколу
+- [ ] Pill-кнопки переносяться на новий рядок при вузькому сайдбарі (adw-1-7)
+- [ ] Нижній тулбар має тінь зверху (raised style)
+- [ ] Separator видимий між фільтрами і списком
+- [ ] Drag-and-drop працює як раніше
+- [ ] Scroll списку з'єднань займає весь доступний простір
+- [ ] Group operations mode працює як раніше
+
+---
+
 ## Зведена таблиця
 
 | # | Задача | Релiз | Пріоритет | Оцінка | Область |
@@ -748,12 +885,13 @@ fn decrypt_credential(data: &[u8], machine_key: &[u8]) -> Result<Vec<u8>, String
 | 009 | Адаптивність діалогу підключення | v0.12.0 | 🟡 | 4-6 год | UX / Responsive |
 | 010 | VNC security warnings | v0.12.0 | 🟡 | 4-8 год | Security / UX |
 | 011 | Accessible relations у widget builders | v0.12.0 | 🟡 | 2-3 год | A11Y |
-| 012 | Runtime warning для block_on_async | v0.12.0 | 🟡 | 1 год | Architecture |
+| 012 | Runtime warning для block_on_async | v0.11.0 | 🟡 | 1 год | Architecture |
 | 013 | cargo audit у CI | v0.12.0 | 🟡 | 2-3 год | Security / CI |
-| 014 | Локалізація констант та port descriptions | Backlog | 🟢 | 1-2 год | i18n |
-| 015 | Desktop entry переклади | Backlog | 🟢 | 30 хв | i18n |
-| 016 | Accessible label Command Palette list | Backlog | 🟢 | 15 хв | A11Y |
+| 014 | Локалізація констант та port descriptions | v0.11.0 | 🟢 | 1-2 год | i18n |
+| 015 | Desktop entry переклади | v0.11.0 | 🟢 | 30 хв | i18n |
+| 016 | Accessible label Command Palette list | v0.11.0 | 🟢 | 15 хв | A11Y |
 | 017 | Звузити tokio features | Backlog | 🟢 | 1 год | Build / DX |
 | 018 | Документувати модель загроз | Backlog | 🟢 | 2-4 год | Security / Docs |
 | 019 | Шифрування записів сесій | Backlog | 🟢 | 4-8 год | Security |
 | 020 | Видалити XOR-шифр повністю | v0.12.0 | 🟢 | 1 год | Security |
+| 021 | Sidebar UX: pill-фільтри, revealer, ToolbarView | v0.11.0 | 🟠 | 3-4 год | UX / HIG |

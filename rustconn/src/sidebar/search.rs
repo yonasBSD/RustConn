@@ -323,15 +323,33 @@ pub fn toggle_protocol_filter(
 
 /// Compiles a case-insensitive regex for the given search query.
 ///
-/// Returns `None` if the query is empty or the regex fails to compile.
-/// Callers should compile once per query change and pass the result to
-/// [`highlight_match`] for each list item.
+/// Returns `None` if the query is empty, is a pure protocol/operator filter
+/// (e.g. `protocol:ssh`, `protocols:rdp,vnc`, `group:name`, `#tag`),
+/// or the regex fails to compile.
+///
+/// Only free-text portions of the query produce highlighting so that
+/// protocol pill-filter results are shown without spurious bold fragments.
 #[must_use]
 pub fn compile_highlight_regex(query: &str) -> Option<regex::Regex> {
-    if query.trim().is_empty() {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
         return None;
     }
-    let escaped = regex::escape(query);
+
+    // Pure operator queries — no text to highlight
+    if trimmed.starts_with("protocol:")
+        || trimmed.starts_with("protocols:")
+        || trimmed.starts_with("proto:")
+        || trimmed.starts_with("p:")
+        || trimmed.starts_with("group:")
+        || trimmed.starts_with("g:")
+        || trimmed.starts_with('#')
+        || trimmed.starts_with('@')
+    {
+        return None;
+    }
+
+    let escaped = regex::escape(trimmed);
     regex::RegexBuilder::new(&format!("(?i){escaped}"))
         .build()
         .ok()
@@ -414,5 +432,19 @@ mod tests {
 
         // None regex (empty query)
         assert_eq!(highlight_match("Hello", None), "Hello");
+
+        // Protocol filter queries produce no highlighting
+        assert!(compile_highlight_regex("protocol:rdp").is_none());
+        assert!(compile_highlight_regex("protocols:ssh,mosh").is_none());
+        assert!(compile_highlight_regex("proto:vnc").is_none());
+        assert!(compile_highlight_regex("p:ssh").is_none());
+        assert!(compile_highlight_regex("group:servers").is_none());
+        assert!(compile_highlight_regex("g:prod").is_none());
+        assert!(compile_highlight_regex("#mytag").is_none());
+        assert!(compile_highlight_regex("@admin").is_none());
+
+        // Free-text queries still produce highlighting
+        assert!(compile_highlight_regex("myserver").is_some());
+        assert!(compile_highlight_regex("rd").is_some());
     }
 }
