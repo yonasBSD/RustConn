@@ -228,11 +228,14 @@ fn ensure_x11_renderer_fallback() {
     // Replace the current process image with GSK_RENDERER=cairo.
     // exec() only returns on error — in that case we just continue
     // with the default renderer.
-    let _err = std::process::Command::new(exe)
+    let err = std::process::Command::new(exe)
         .args(&args[1..])
         .env("GSK_RENDERER", "cairo")
         .env("_RUSTCONN_GSK_SET", "1")
         .exec();
+
+    // exec() only returns on error — fall through to default renderer
+    tracing::warn!(?err, "GSK_RENDERER re-exec failed; using default renderer");
 }
 
 fn main() -> gtk4::glib::ExitCode {
