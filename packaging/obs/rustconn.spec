@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.10.21
+Version:        0.10.22
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,13 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu Apr 17 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.22-0
+- [Fixed] Terminal context menu Copy/Paste now works (#84)
+- [Fixed] No more gdk_clipboard_write_async assertion on Copy
+- [Fixed] Blank menus on X11 — Cairo renderer fallback (#85)
+- [Improved] Context menu labels localized
+- [Dependencies] pxfm 0.1.29, tokio 1.52.1, uuid 1.23.1
+
 * Tue Apr 15 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.21-0
 - [Security] Machine key encryption hardened — HKDF-SHA256 for machine-id
 - [Fixed] Groups expand/collapse on double-click entire row (#83)

@@ -185,9 +185,66 @@ fn print_usage() {
     );
 }
 
+/// Falls back to the Cairo GSK renderer on pure X11 sessions.
+///
+/// GTK4's default NGL (OpenGL) renderer has known issues with popover
+/// initial paint on some X11 compositors — menus appear blank until the
+/// pointer hovers over them (#85, affects MATE, XFCE, older Mutter).
+///
+/// If `GSK_RENDERER` is not already set by the user and the session is
+/// X11 (no `WAYLAND_DISPLAY`), this function re-executes the process
+/// with `GSK_RENDERER=cairo`.  The re-exec happens before GTK or tokio
+/// start, so it is safe.  A sentinel env var prevents infinite loops.
+fn ensure_x11_renderer_fallback() {
+    use std::os::unix::process::CommandExt;
+
+    // Skip if user explicitly chose a renderer
+    if std::env::var("GSK_RENDERER").is_ok() {
+        return;
+    }
+
+    // Skip on Wayland — NGL works fine there
+    if std::env::var("WAYLAND_DISPLAY").is_ok() {
+        return;
+    }
+
+    // Only act when running on X11
+    if std::env::var("DISPLAY").is_err() {
+        return;
+    }
+
+    // Sentinel: we already re-execed once
+    if std::env::var("_RUSTCONN_GSK_SET").ok().as_deref() == Some("1") {
+        return;
+    }
+
+    let exe = match std::env::current_exe() {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    let args: Vec<String> = std::env::args().collect();
+
+    // Replace the current process image with GSK_RENDERER=cairo.
+    // exec() only returns on error — in that case we just continue
+    // with the default renderer.
+    let _err = std::process::Command::new(exe)
+        .args(&args[1..])
+        .env("GSK_RENDERER", "cairo")
+        .env("_RUSTCONN_GSK_SET", "1")
+        .exec();
+}
+
 fn main() -> gtk4::glib::ExitCode {
     // Initialize internationalization (gettext)
     i18n::init();
+
+    // Work around blank popover/menu rendering on X11 with GTK4's default
+    // NGL renderer.  On some X11 compositors (MATE, XFCE, older Mutter)
+    // popovers appear empty until the pointer moves over them (#85).
+    // Re-exec with GSK_RENDERER=cairo before GTK starts (same pattern as
+    // the language re-exec in i18n.rs).  Wayland sessions are unaffected.
+    ensure_x11_renderer_fallback();
 
     // Apply saved language from config BEFORE GTK starts.
     // This must happen early so that all gettext() calls during UI construction

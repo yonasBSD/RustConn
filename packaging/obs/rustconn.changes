@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Thu Apr 17 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.22
+
+- [Fixed] Terminal context menu Copy/Paste now works — use VTE native
+  context menu API instead of custom GestureClick popover (#84)
+- [Fixed] No more gdk_clipboard_write_async assertion on Copy
+- [Fixed] Blank menus on X11 (MATE, XFCE) — auto-detect X11 and fall
+  back to Cairo GSK renderer via process re-exec (#85)
+- [Improved] Context menu labels localized (Copy, Paste, Select All)
+- [Dependencies] pxfm 0.1.28 → 0.1.29, tokio 1.52.0 → 1.52.1,
+  uuid 1.23.0 → 1.23.1
+
+-------------------------------------------------------------------
 Tue Apr 15 2026 Anton Isaiev <totoshko88@gmail.com> - 0.10.21
 
 - [Security] Machine key encryption hardened — removed predictable

@@ -1,3 +1,16 @@
+rustconn (0.10.22-1) unstable; urgency=medium
+
+  * [Fixed] Terminal context menu Copy/Paste now works — use VTE native
+    context menu API instead of custom GestureClick popover (#84)
+  * [Fixed] No more gdk_clipboard_write_async assertion on Copy
+  * [Fixed] Blank menus on X11 (MATE, XFCE) — auto-detect X11 and fall
+    back to Cairo GSK renderer via process re-exec (#85)
+  * [Improved] Context menu labels localized (Copy, Paste, Select All)
+  * [Dependencies] pxfm 0.1.28 → 0.1.29, tokio 1.52.0 → 1.52.1,
+    uuid 1.23.0 → 1.23.1
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Thu, 17 Apr 2026 22:00:00 +0200
+
 rustconn (0.10.21-1) unstable; urgency=medium
 
   * [Security] Machine key encryption hardened — removed predictable

@@ -103,6 +103,18 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.10.22" date="2026-04-17">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01022---2026-04-17</url>
+      <description>
+        <p>Version 0.10.22 — Terminal context menu fix:</p>
+        <ul>
+          <li>Fixed terminal context menu Copy/Paste not working (#84)</li>
+          <li>Fixed gdk_clipboard_write_async assertion on Copy</li>
+          <li>Fixed blank menus on X11 desktops like MATE and XFCE (#85)</li>
+          <li>Context menu labels now localized (Copy, Paste, Select All)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.21" date="2026-04-15">
       <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#01021---2026-04-15</url>
       <description>

@@ -5,6 +5,21 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.22] - 2026-04-17
+
+### Fixed
+- **Terminal context menu Copy/Paste now works** — replaced custom `GestureClick` popover with VTE's native `set_context_menu_model()` API; the old approach broke clipboard actions because the popover stole focus from VTE before callbacks could run ([#84](https://github.com/totoshko88/RustConn/issues/84))
+- **No more `gdk_clipboard_write_async` assertion** — Copy action now caches selected text via `text_selected()` before VTE clears the selection on right-click, preventing the `mime_type != NULL` GDK critical warning
+- **Blank menus on X11 (MATE, XFCE)** — GTK4's NGL renderer causes popovers to render blank until hovered on some X11 compositors; RustConn now auto-detects X11 sessions and falls back to the Cairo renderer via process re-exec ([#85](https://github.com/totoshko88/RustConn/issues/85))
+
+### Improved
+- **Context menu labels localized** — Copy, Paste, Select All strings now wrapped in `i18n()` for translation
+
+### Dependencies
+- pxfm 0.1.28 → 0.1.29
+- tokio 1.52.0 → 1.52.1
+- uuid 1.23.0 → 1.23.1
+
 ## [0.10.21] - 2026-04-16
 
 ### Security

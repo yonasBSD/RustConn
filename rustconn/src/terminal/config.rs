@@ -97,90 +97,89 @@ fn setup_keyboard_shortcuts(terminal: &Terminal) {
     terminal.add_controller(controller);
 }
 
-/// Sets up context menu for right-click on a container widget.
+/// Sets up context menu using VTE's native `set_context_menu_model` API.
 ///
-/// The `GestureClick` is attached to `container` (not the VTE terminal)
-/// to avoid interfering with VTE's internal mouse event handling.
-/// Adding gesture controllers directly to the VTE widget can cause
-/// mouse escape sequences to leak as text artifacts in ncurses apps.
+/// VTE 0.76+ handles right-click internally: it preserves the text
+/// selection, positions the popover correctly, and routes actions through
+/// the widget hierarchy. The previous approach (a `GestureClick` on the
+/// container) broke Copy/Paste because the popover stole focus from VTE
+/// before the action callbacks could run (#84).
+///
+/// Copy uses `text_selected()` to snapshot the selection text before VTE
+/// clears it, avoiding the `gdk_clipboard_write_async: mime_type != NULL`
+/// assertion that `copy_clipboard_format` triggers on an empty selection.
 pub fn setup_context_menu_on_container(container: &impl IsA<gtk4::Widget>, terminal: &Terminal) {
-    use gtk4::PopoverMenu;
     use gtk4::gio;
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    let click_controller = gtk4::GestureClick::new();
-    click_controller.set_button(3); // Right click
-    let term_menu = terminal.clone();
+    // Cache the last selection so Copy still works after VTE clears it
+    // on right-click.
+    let last_selection: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
 
-    // Track the active popover so we can tear it down before creating a new one.
-    // This prevents SIGSEGV when the user clicks rapidly (e.g. triple right-click)
-    // because GTK does not allow multiple popovers parented to the same widget.
-    let active_popover: Rc<RefCell<Option<PopoverMenu>>> = Rc::new(RefCell::new(None));
-
-    click_controller.connect_pressed(move |gesture, _, x, y| {
-        // Dismiss and unparent any previous popover first
-        if let Some(prev) = active_popover.borrow_mut().take() {
-            prev.popdown();
-            prev.unparent();
+    // Snapshot selection whenever it changes (including when it appears
+    // and when VTE clears it on right-click).
+    let sel = last_selection.clone();
+    let term_sel = terminal.clone();
+    terminal.connect_selection_changed(move |_| {
+        if term_sel.has_selection() {
+            *sel.borrow_mut() = term_sel
+                .text_selected(vte4::Format::Text)
+                .map(|s| s.to_string());
         }
-
-        let menu = gio::Menu::new();
-
-        // Clipboard section
-        let clipboard_section = gio::Menu::new();
-        clipboard_section.append(Some("Copy"), Some("terminal.copy"));
-        clipboard_section.append(Some("Paste"), Some("terminal.paste"));
-        clipboard_section.append(Some("Select All"), Some("terminal.select-all"));
-        menu.append_section(None, &clipboard_section);
-
-        let popover = PopoverMenu::from_model(Some(&menu));
-        popover.set_parent(&term_menu);
-        popover.set_has_arrow(false);
-
-        // Create action group for the menu
-        let action_group = gio::SimpleActionGroup::new();
-
-        let term_copy = term_menu.clone();
-        let action_copy = gio::SimpleAction::new("copy", None);
-        action_copy.connect_activate(move |_, _| {
-            term_copy.copy_clipboard_format(vte4::Format::Text);
-        });
-        action_group.add_action(&action_copy);
-
-        let term_paste = term_menu.clone();
-        let action_paste = gio::SimpleAction::new("paste", None);
-        action_paste.connect_activate(move |_, _| {
-            term_paste.paste_clipboard();
-        });
-        action_group.add_action(&action_paste);
-
-        let term_select = term_menu.clone();
-        let action_select = gio::SimpleAction::new("select-all", None);
-        action_select.connect_activate(move |_, _| {
-            term_select.select_all();
-        });
-        action_group.add_action(&action_select);
-
-        term_menu.insert_action_group("terminal", Some(&action_group));
-
-        let rect = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
-        popover.set_pointing_to(Some(&rect));
-
-        // Clean up popover reference when closed
-        let active_popover_close = active_popover.clone();
-        popover.connect_closed(move |pop| {
-            pop.unparent();
-            *active_popover_close.borrow_mut() = None;
-        });
-
-        popover.popup();
-        *active_popover.borrow_mut() = Some(popover);
-
-        // Claim the gesture to prevent pane context menu from also showing
-        gesture.set_state(gtk4::EventSequenceState::Claimed);
+        // When selection is cleared we intentionally keep the cached
+        // value so the Copy action can still use it.
     });
-    container.add_controller(click_controller);
+
+    // Build the menu model (shared across all right-click invocations)
+    let menu = gio::Menu::new();
+    let clipboard_section = gio::Menu::new();
+    clipboard_section.append(Some(&crate::i18n::i18n("Copy")), Some("terminal.copy"));
+    clipboard_section.append(Some(&crate::i18n::i18n("Paste")), Some("terminal.paste"));
+    clipboard_section.append(
+        Some(&crate::i18n::i18n("Select All")),
+        Some("terminal.select-all"),
+    );
+    menu.append_section(None, &clipboard_section);
+
+    // Register the action group on the container so VTE's popover can
+    // resolve "terminal.*" actions by walking up the widget tree.
+    let action_group = gio::SimpleActionGroup::new();
+
+    let term_copy = terminal.clone();
+    let sel_copy = last_selection;
+    let action_copy = gio::SimpleAction::new("copy", None);
+    action_copy.connect_activate(move |_, _| {
+        // Prefer live selection; fall back to cached snapshot.
+        if term_copy.has_selection() {
+            term_copy.copy_clipboard_format(vte4::Format::Text);
+        } else if let Some(ref text) = *sel_copy.borrow() {
+            let display = term_copy.display();
+            display.clipboard().set_text(text);
+        }
+    });
+    action_group.add_action(&action_copy);
+
+    let term_paste = terminal.clone();
+    let action_paste = gio::SimpleAction::new("paste", None);
+    action_paste.connect_activate(move |_, _| {
+        term_paste.paste_clipboard();
+    });
+    action_group.add_action(&action_paste);
+
+    let term_select = terminal.clone();
+    let action_select = gio::SimpleAction::new("select-all", None);
+    action_select.connect_activate(move |_, _| {
+        term_select.select_all();
+    });
+    action_group.add_action(&action_select);
+
+    // Install on the container (parent of VTE) so the action group is
+    // reachable from VTE's internally-created popover.
+    container.insert_action_group("terminal", Some(&action_group));
+
+    // Let VTE handle the right-click popover natively.
+    terminal.set_context_menu_model(Some(&menu));
 }
 
 /// Converts Color to gdk::RGBA
