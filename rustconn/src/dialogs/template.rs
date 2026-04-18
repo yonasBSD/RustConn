@@ -2399,6 +2399,8 @@ impl TemplateDialog {
             port_forwards: Vec::new(),
             waypipe: false,
             ssh_agent_socket: None,
+            keep_alive_interval: None,
+            keep_alive_count_max: None,
         };
 
         if !custom_options_text.is_empty() {

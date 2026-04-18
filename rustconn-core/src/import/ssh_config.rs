@@ -46,6 +46,8 @@ impl SshConfigImporter {
         let mut result = ImportResult::new();
         let mut current_host: Option<String> = None;
         let mut current_options: HashMap<String, String> = HashMap::new();
+        // Global defaults from `Host *` entries
+        let mut global_defaults: HashMap<String, String> = HashMap::new();
 
         for (line_num, line) in content.lines().enumerate() {
             let line = line.trim();
@@ -70,12 +72,17 @@ impl SshConfigImporter {
             if key_lower == "host" {
                 // Save previous host if any
                 if let Some(host_pattern) = current_host.take() {
-                    self.process_host_entry(
-                        &host_pattern,
-                        &current_options,
-                        source_path,
-                        &mut result,
-                    );
+                    if host_pattern == "*" {
+                        // Collect global defaults (later Host * blocks merge in)
+                        for (k, v) in &current_options {
+                            if !global_defaults.contains_key(k) {
+                                global_defaults.insert(k.clone(), v.clone());
+                            }
+                        }
+                    } else {
+                        let merged = Self::merge_with_defaults(&current_options, &global_defaults);
+                        self.process_host_entry(&host_pattern, &merged, source_path, &mut result);
+                    }
                 }
 
                 // Start new host entry
@@ -89,10 +96,35 @@ impl SshConfigImporter {
 
         // Process last host entry
         if let Some(host_pattern) = current_host {
-            self.process_host_entry(&host_pattern, &current_options, source_path, &mut result);
+            if host_pattern == "*" {
+                for (k, v) in &current_options {
+                    if !global_defaults.contains_key(k) {
+                        global_defaults.insert(k.clone(), v.clone());
+                    }
+                }
+            } else {
+                let merged = Self::merge_with_defaults(&current_options, &global_defaults);
+                self.process_host_entry(&host_pattern, &merged, source_path, &mut result);
+            }
         }
 
         result
+    }
+
+    /// Merges host-specific options with global `Host *` defaults.
+    /// Host-specific values take priority over defaults.
+    fn merge_with_defaults(
+        host_options: &HashMap<String, String>,
+        defaults: &HashMap<String, String>,
+    ) -> HashMap<String, String> {
+        if defaults.is_empty() {
+            return host_options.clone();
+        }
+        let mut merged = defaults.clone();
+        for (k, v) in host_options {
+            merged.insert(k.clone(), v.clone());
+        }
+        merged
     }
 
     /// Parses a single line into key-value pair
@@ -206,6 +238,12 @@ impl SshConfigImporter {
             port_forwards: Vec::new(),
             waypipe: false,
             ssh_agent_socket: None,
+            keep_alive_interval: options
+                .get("serveraliveinterval")
+                .and_then(|v| v.parse::<u32>().ok()),
+            keep_alive_count_max: options
+                .get("serveralivecountmax")
+                .and_then(|v| v.parse::<u32>().ok()),
         };
 
         // Create connection
@@ -229,6 +267,13 @@ impl SshConfigImporter {
         &self,
         options: &HashMap<String, String>,
     ) -> HashMap<String, String> {
+        // Keys that are mapped to dedicated SshConfig fields and should NOT
+        // be duplicated in custom_options:
+        //   - serveraliveinterval → keep_alive_interval
+        //   - serveralivecountmax → keep_alive_count_max
+        //   - compression → compression (bool field)
+        let dedicated_field_keys = ["serveraliveinterval", "serveralivecountmax", "compression"];
+
         let recognized_keys = [
             "serveraliveinterval",
             "serveralivecountmax",
@@ -244,6 +289,7 @@ impl SshConfigImporter {
         options
             .iter()
             .filter(|(k, _)| recognized_keys.contains(&k.as_str()))
+            .filter(|(k, _)| !dedicated_field_keys.contains(&k.as_str()))
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect()
     }
@@ -408,8 +454,39 @@ Host *.example.com
 ";
 
         let result = importer.parse_config(config, "test");
+        // Host * is consumed as defaults (not skipped), *.example.com is skipped
         assert_eq!(result.connections.len(), 0);
-        assert_eq!(result.skipped.len(), 2);
+        assert_eq!(result.skipped.len(), 1);
+    }
+
+    #[test]
+    fn test_host_star_defaults_applied() {
+        let importer = SshConfigImporter::new();
+        let config = r"
+Host *
+    ServerAliveInterval 60
+    ServerAliveCountMax 5
+    Compression yes
+
+Host myserver
+    HostName 192.168.1.100
+    User admin
+    ServerAliveCountMax 10
+";
+
+        let result = importer.parse_config(config, "test");
+        assert_eq!(result.connections.len(), 1);
+
+        let conn = &result.connections[0];
+        if let ProtocolConfig::Ssh(ssh_config) = &conn.protocol_config {
+            // Inherited from Host *
+            assert_eq!(ssh_config.keep_alive_interval, Some(60));
+            assert!(ssh_config.compression);
+            // Overridden by host-specific value
+            assert_eq!(ssh_config.keep_alive_count_max, Some(10));
+        } else {
+            panic!("Expected SSH config");
+        }
     }
 
     #[test]
@@ -491,21 +568,27 @@ Host keepalive-server
 
         let conn = &result.connections[0];
         if let ProtocolConfig::Ssh(ssh_config) = &conn.protocol_config {
-            // These should be in custom_options
-            assert_eq!(
-                ssh_config.custom_options.get("serveraliveinterval"),
-                Some(&"60".to_string())
+            // keep-alive and compression are mapped to dedicated fields
+            assert_eq!(ssh_config.keep_alive_interval, Some(60));
+            assert_eq!(ssh_config.keep_alive_count_max, Some(3));
+            assert!(ssh_config.compression);
+
+            // These should NOT be in custom_options (mapped to dedicated fields)
+            assert!(
+                !ssh_config
+                    .custom_options
+                    .contains_key("serveraliveinterval")
             );
-            assert_eq!(
-                ssh_config.custom_options.get("serveralivecountmax"),
-                Some(&"3".to_string())
+            assert!(
+                !ssh_config
+                    .custom_options
+                    .contains_key("serveralivecountmax")
             );
+            assert!(!ssh_config.custom_options.contains_key("compression"));
+
+            // These should still be in custom_options
             assert_eq!(
                 ssh_config.custom_options.get("tcpkeepalive"),
-                Some(&"yes".to_string())
-            );
-            assert_eq!(
-                ssh_config.custom_options.get("compression"),
                 Some(&"yes".to_string())
             );
             assert_eq!(

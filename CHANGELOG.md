@@ -5,6 +5,27 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-04-18
+
+### Fixed
+- **Reconnect preserves tab position** — clicking "Reconnect" on a disconnected session now opens the new tab at the same position in the tab bar instead of appending it to the end; fixes workflow disruption when managing 10+ SSH sessions ([#89](https://github.com/totoshko88/RustConn/issues/89))
+- **Context menu handoff between items** — right-clicking a second sidebar item while a context menu is already open now correctly closes the first menu and opens the new one; previously the second menu failed to appear due to GTK4 popover lifecycle conflicts ([#87](https://github.com/totoshko88/RustConn/issues/87))
+- **Stale highlight on right-click** — right-clicking multiple sidebar items in succession no longer leaves residual selection highlights on previously clicked rows; the context menu gesture now claims the event sequence to prevent GTK4 from applying sticky `:active` / `:focus-within` pseudo-classes to row widgets
+- **Context menu requires single right-click** — switching the context menu between sidebar items now works with a single right-click instead of requiring two clicks (first to dismiss, second to open); achieved by disabling `autohide` on the popover and managing dismissal explicitly via gesture handlers
+
+### Improved
+- **Context menu layout follows GNOME HIG** — sidebar context menu items reordered to match GNOME Files conventions: primary action (Connect) at top, organisation (Rename / Duplicate / Move) next, utilities (Copy credentials, SFTP, WOL) in the middle, creation and properties (New Connection, Edit) before the destructive action (Delete) at the bottom
+
+### Improved
+- **`SshOptionsWidgets` tuple replaced with named struct** — the 24-element tuple type alias in `ssh.rs` is now a proper struct with named fields; adding new SSH options is a single-point change instead of updating ~6 destructuring sites across `dialog.rs`
+- **Split view context menu shares popover lifecycle with sidebar** — split view panel right-click menu now uses the same `ACTIVE_POPOVER` tracking as the sidebar; right-clicking panel B while panel A's menu is open correctly closes the first menu; also fixes cross-component conflicts where a sidebar menu and split view menu could fight for the GTK4 popover grab; menu labels now wrapped in `i18n()` for localization
+- **Auto-reconnect guard for closed tabs** — polling callback now checks if the session still exists in `sessions_map` before triggering reconnect; prevents creating an orphan tab if the user manually closes the tab while background polling is active
+- **SSH config importer applies `Host *` defaults** — `Host *` entries in `~/.ssh/config` are now parsed as global defaults and merged into each host entry (host-specific values take priority); previously `Host *` was skipped entirely, losing settings like `ServerAliveInterval 60` that apply to all hosts
+
+### Added
+- **SSH Keep-Alive settings** — dedicated `Keep-Alive Interval` and `Keep-Alive Count` spin rows in the SSH Connection options group; generates `-o ServerAliveInterval=N` and `-o ServerAliveCountMax=M` flags to prevent idle disconnects caused by firewalls or server timeouts; new connections default to 60s interval / 3 retries; custom_options take precedence if the same key is set manually ([#88](https://github.com/totoshko88/RustConn/issues/88))
+- **SSH Config import/export for Keep-Alive** — `ServerAliveInterval` and `ServerAliveCountMax` from `~/.ssh/config` are now mapped to dedicated fields instead of only `custom_options`; exporter outputs them as separate directives with deduplication
+
 ## [0.11.0] - 2026-04-18
 
 ### Added

@@ -1993,7 +1993,7 @@ impl AppState {
         // Trim to max entries (keep most recent)
         if self.history_entries.len() > max_entries {
             self.history_entries
-                .sort_by(|a, b| b.started_at.cmp(&a.started_at));
+                .sort_by_key(|b| std::cmp::Reverse(b.started_at));
             self.history_entries.truncate(max_entries);
         }
     }

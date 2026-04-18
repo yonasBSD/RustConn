@@ -274,7 +274,7 @@ impl CommandPaletteDialog {
     fn filter_commands(query: &str) -> Vec<PaletteItem> {
         let mut cmds = builtin_commands();
         if query.is_empty() {
-            cmds.sort_by(|a, b| b.priority.cmp(&a.priority));
+            cmds.sort_by_key(|b| std::cmp::Reverse(b.priority));
         } else {
             let engine = SearchEngine::new();
             cmds.retain(|item| engine.fuzzy_score(query, &item.label) > 0.0);
@@ -366,7 +366,7 @@ impl CommandPaletteDialog {
         if query.is_empty() {
             // Show recent connections (sorted by last_connected desc)
             let mut recent: Vec<_> = connections.to_vec();
-            recent.sort_by(|a, b| b.last_connected.cmp(&a.last_connected));
+            recent.sort_by_key(|b| std::cmp::Reverse(b.last_connected));
             recent.truncate(20);
             return recent.iter().map(|c| Self::connection_to_item(c)).collect();
         }

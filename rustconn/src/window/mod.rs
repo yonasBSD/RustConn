@@ -180,8 +180,9 @@ impl MainWindow {
         });
 
         // Set up reconnect callback for VTE sessions
-        // When user clicks "Reconnect" in a disconnected tab, close the old tab
-        // and launch a new connection to the same host
+        // When user clicks "Reconnect" in a disconnected tab, preserve the tab
+        // position by noting it, closing the old tab, launching a new connection,
+        // and moving the new tab to the original position.
         {
             let state_for_reconnect = state.clone();
             let notebook_for_reconnect = terminal_notebook.clone();
@@ -193,11 +194,25 @@ impl MainWindow {
                 tracing::info!(
                     %session_id,
                     %connection_id,
-                    "Reconnecting session from tab"
+                    "Reconnecting session in-place"
                 );
+
+                // Remember the tab position before closing
+                let tab_position = {
+                    let sessions = notebook_for_reconnect.sessions_map();
+                    let sessions_ref = sessions.borrow();
+                    sessions_ref
+                        .get(&session_id)
+                        .map(|page| notebook_for_reconnect.tab_view().page_position(page))
+                };
+
                 // Close the disconnected tab
                 notebook_for_reconnect.close_tab(session_id);
-                // Launch a new connection
+
+                // Remember tab count before launching new connection
+                let tabs_before = notebook_for_reconnect.tab_view().n_pages();
+
+                // Launch a new connection (creates a new tab at the end)
                 Self::start_connection_with_credential_resolution(
                     state_for_reconnect.clone(),
                     notebook_for_reconnect.clone(),
@@ -207,6 +222,18 @@ impl MainWindow {
                     connection_id,
                     Some(activity_for_reconnect.clone()),
                 );
+
+                // Move the newly created tab to the original position
+                if let Some(original_pos) = tab_position {
+                    let tabs_after = notebook_for_reconnect.tab_view().n_pages();
+                    // Only reorder if a new tab was actually added
+                    if tabs_after > tabs_before {
+                        let new_page = notebook_for_reconnect.tab_view().nth_page(tabs_after - 1);
+                        notebook_for_reconnect
+                            .tab_view()
+                            .reorder_page(&new_page, original_pos);
+                    }
+                }
             });
         }
 
@@ -3367,6 +3394,20 @@ impl MainWindow {
                         // Clean up the cancel token
                         notebook_cleanup.cancel_poll(session_id);
                         if matches!(result, Ok(true)) {
+                            // Guard: if the user closed the tab while polling
+                            // was active, the session no longer exists — skip
+                            // reconnect to avoid creating an orphan tab.
+                            let session_exists = notebook_cleanup
+                                .sessions_map()
+                                .borrow()
+                                .contains_key(&session_id);
+                            if !session_exists {
+                                tracing::debug!(
+                                    %session_id,
+                                    "Tab closed during polling, skipping reconnect"
+                                );
+                                return;
+                            }
                             tracing::info!(
                                 %connection_id,
                                 "Host is back online, triggering reconnect"

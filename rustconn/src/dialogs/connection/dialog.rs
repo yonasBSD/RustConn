@@ -151,6 +151,8 @@ pub struct ConnectionDialog {
     ssh_startup_entry: Entry,
     ssh_options_entry: Entry,
     ssh_agent_socket_entry: adw::EntryRow,
+    ssh_keep_alive_interval: adw::SpinRow,
+    ssh_keep_alive_count_max: adw::SpinRow,
     ssh_port_forwards: Rc<RefCell<Vec<rustconn_core::models::PortForward>>>,
     ssh_port_forwards_list: gtk4::ListBox,
     // RDP fields
@@ -460,39 +462,38 @@ impl ConnectionDialog {
             .build();
 
         // SSH options
-        let (
-            ssh_box,
-            ssh_content_box,
-            ssh_auth_dropdown,
-            ssh_key_source_dropdown,
-            ssh_key_entry,
-            ssh_key_button,
-            ssh_agent_key_dropdown,
-            ssh_jump_host_dropdown,
-            ssh_proxy_entry,
-            ssh_identities_only,
-            ssh_control_master,
-            ssh_agent_forwarding,
-            ssh_waypipe,
-            ssh_x11_forwarding,
-            ssh_compression,
-            ssh_startup_entry,
-            ssh_options_entry,
-            mosh_settings_group,
-            mosh_port_range_entry,
-            mosh_predict_dropdown,
-            mosh_server_binary_entry,
-            ssh_agent_socket_entry,
-        ) = ssh::create_ssh_options();
+        let ssh_widgets = ssh::create_ssh_options();
+        let ssh_auth_dropdown = ssh_widgets.auth_dropdown;
+        let ssh_key_source_dropdown = ssh_widgets.key_source_dropdown;
+        let ssh_key_entry = ssh_widgets.key_entry;
+        let ssh_key_button = ssh_widgets.key_button;
+        let ssh_agent_key_dropdown = ssh_widgets.agent_key_dropdown;
+        let ssh_jump_host_dropdown = ssh_widgets.jump_host_dropdown;
+        let ssh_proxy_entry = ssh_widgets.proxy_entry;
+        let ssh_identities_only = ssh_widgets.identities_only;
+        let ssh_control_master = ssh_widgets.control_master;
+        let ssh_agent_forwarding = ssh_widgets.agent_forwarding;
+        let ssh_waypipe = ssh_widgets.waypipe;
+        let ssh_x11_forwarding = ssh_widgets.x11_forwarding;
+        let ssh_compression = ssh_widgets.compression;
+        let ssh_startup_entry = ssh_widgets.startup_entry;
+        let ssh_options_entry = ssh_widgets.options_entry;
+        let mosh_settings_group = ssh_widgets.mosh_group;
+        let mosh_port_range_entry = ssh_widgets.mosh_port_range_entry;
+        let mosh_predict_dropdown = ssh_widgets.mosh_predict_dropdown;
+        let mosh_server_binary_entry = ssh_widgets.mosh_server_binary_entry;
+        let ssh_agent_socket_entry = ssh_widgets.ssh_agent_socket_entry;
+        let ssh_keep_alive_interval = ssh_widgets.keep_alive_interval;
+        let ssh_keep_alive_count_max = ssh_widgets.keep_alive_count_max;
 
         // Add port forwarding group to SSH options panel
         {
             let pf_group =
                 ssh::create_port_forwarding_group(&ssh_port_forwards_list, &ssh_port_forwards);
-            ssh_content_box.append(&pf_group);
+            ssh_widgets.content.append(&pf_group);
         }
 
-        protocol_stack.add_named(&ssh_box, Some("ssh"));
+        protocol_stack.add_named(&ssh_widgets.container, Some("ssh"));
 
         // RDP options
         let (
@@ -805,6 +806,8 @@ impl ConnectionDialog {
             &ssh_startup_entry,
             &ssh_options_entry,
             &ssh_agent_socket_entry,
+            &ssh_keep_alive_interval,
+            &ssh_keep_alive_count_max,
             &ssh_port_forwards,
             &rdp_client_mode_dropdown,
             &rdp_performance_mode_dropdown,
@@ -971,6 +974,8 @@ impl ConnectionDialog {
             ssh_startup_entry,
             ssh_options_entry,
             ssh_agent_socket_entry,
+            ssh_keep_alive_interval,
+            ssh_keep_alive_count_max,
             ssh_port_forwards,
             ssh_port_forwards_list,
             rdp_client_mode_dropdown,
@@ -1840,6 +1845,8 @@ impl ConnectionDialog {
         ssh_startup_entry: &Entry,
         ssh_options_entry: &Entry,
         ssh_agent_socket_entry: &adw::EntryRow,
+        ssh_keep_alive_interval: &adw::SpinRow,
+        ssh_keep_alive_count_max: &adw::SpinRow,
         ssh_port_forwards: &Rc<RefCell<Vec<rustconn_core::models::PortForward>>>,
         rdp_client_mode_dropdown: &DropDown,
         rdp_performance_mode_dropdown: &DropDown,
@@ -1993,6 +2000,8 @@ impl ConnectionDialog {
         let ssh_startup_entry = ssh_startup_entry.clone();
         let ssh_options_entry = ssh_options_entry.clone();
         let ssh_agent_socket_entry = ssh_agent_socket_entry.clone();
+        let ssh_keep_alive_interval = ssh_keep_alive_interval.clone();
+        let ssh_keep_alive_count_max = ssh_keep_alive_count_max.clone();
         let ssh_port_forwards = ssh_port_forwards.clone();
         let rdp_client_mode_dropdown = rdp_client_mode_dropdown.clone();
         let rdp_width_spin = rdp_width_spin.clone();
@@ -2159,6 +2168,8 @@ impl ConnectionDialog {
                 ssh_startup_entry: &ssh_startup_entry,
                 ssh_options_entry: &ssh_options_entry,
                 ssh_agent_socket_entry: &ssh_agent_socket_entry,
+                ssh_keep_alive_interval: &ssh_keep_alive_interval,
+                ssh_keep_alive_count_max: &ssh_keep_alive_count_max,
                 ssh_port_forwards: &ssh_port_forwards,
                 rdp_client_mode_dropdown: &rdp_client_mode_dropdown,
                 rdp_width_spin: &rdp_width_spin,
@@ -4604,7 +4615,7 @@ impl ConnectionDialog {
                 .iter()
                 .filter(|r| r.enabled && !r.pattern.is_empty())
                 .collect();
-            sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority));
+            sorted_rules.sort_by_key(|b| std::cmp::Reverse(b.priority));
 
             for rule in sorted_rules {
                 match regex::Regex::new(&rule.pattern) {
@@ -5710,6 +5721,18 @@ impl ConnectionDialog {
             self.ssh_agent_socket_entry.set_text(socket);
         }
 
+        // Load keep-alive settings
+        if let Some(interval) = ssh.keep_alive_interval {
+            self.ssh_keep_alive_interval.set_value(f64::from(interval));
+        } else {
+            self.ssh_keep_alive_interval.set_value(0.0);
+        }
+        if let Some(count) = ssh.keep_alive_count_max {
+            self.ssh_keep_alive_count_max.set_value(f64::from(count));
+        } else {
+            self.ssh_keep_alive_count_max.set_value(3.0);
+        }
+
         // Format custom options as "Key=Value, Key2=Value2"
         if !ssh.custom_options.is_empty() {
             let opts: Vec<String> = ssh
@@ -6689,6 +6712,8 @@ struct ConnectionDialogData<'a> {
     ssh_startup_entry: &'a Entry,
     ssh_options_entry: &'a Entry,
     ssh_agent_socket_entry: &'a adw::EntryRow,
+    ssh_keep_alive_interval: &'a adw::SpinRow,
+    ssh_keep_alive_count_max: &'a adw::SpinRow,
     ssh_port_forwards: &'a Rc<RefCell<Vec<rustconn_core::models::PortForward>>>,
     rdp_client_mode_dropdown: &'a DropDown,
     rdp_performance_mode_dropdown: &'a DropDown,
@@ -7633,6 +7658,25 @@ impl ConnectionDialogData<'_> {
             }
         };
 
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let keep_alive_interval = {
+            let val = self.ssh_keep_alive_interval.value() as u32;
+            if val == 0 { None } else { Some(val) }
+        };
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let keep_alive_count_max = {
+            let val = self.ssh_keep_alive_count_max.value() as u32;
+            // Only store if keep-alive interval is set and count differs from default (3)
+            if keep_alive_interval.is_some() && val != 3 {
+                Some(val)
+            } else if keep_alive_interval.is_some() {
+                // Store default explicitly when interval is set
+                Some(val)
+            } else {
+                None
+            }
+        };
+
         SshConfig {
             auth_method,
             key_path,
@@ -7651,6 +7695,8 @@ impl ConnectionDialogData<'_> {
             sftp_enabled: true,
             port_forwards: self.ssh_port_forwards.borrow().clone(),
             ssh_agent_socket,
+            keep_alive_interval,
+            keep_alive_count_max,
         }
     }
 

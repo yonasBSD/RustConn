@@ -7,6 +7,53 @@ use crate::i18n::i18n;
 use gtk4::gdk;
 use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Label, Orientation, Separator};
+use std::cell::RefCell;
+
+thread_local! {
+    /// Tracks the currently open context menu popover across the entire application.
+    /// When a new context menu is requested (sidebar or split view), the previous
+    /// one is closed first to prevent GTK4 popover lifecycle conflicts (issue #87).
+    static ACTIVE_POPOVER: RefCell<Option<gtk4::Popover>> = const { RefCell::new(None) };
+}
+
+/// Closes and unparents any currently active context menu popover.
+///
+/// Call this before creating a new popover to prevent GTK4 grab conflicts
+/// where two popovers compete for the event grab (issue #87).
+pub fn close_active_popover() {
+    ACTIVE_POPOVER.with(|cell| {
+        // Take the popover out first, releasing the borrow, so that the
+        // synchronous `connect_closed` callback (which calls
+        // `clear_active_popover`) does not hit a double-borrow panic.
+        let popover = cell.borrow_mut().take();
+        if let Some(old) = popover {
+            old.popdown();
+            old.unparent();
+        }
+    });
+}
+
+/// Registers a popover as the currently active context menu.
+///
+/// The popover's `connect_closed` handler should call [`clear_active_popover`]
+/// to clean up the reference.
+pub fn set_active_popover(popover: &gtk4::Popover) {
+    ACTIVE_POPOVER.with(|cell| {
+        *cell.borrow_mut() = Some(popover.clone());
+    });
+}
+
+/// Clears the active popover reference if it matches the given popover.
+///
+/// Called from `connect_closed` handlers to avoid stale references.
+pub fn clear_active_popover(popover: &gtk4::Popover) {
+    ACTIVE_POPOVER.with(|cell| {
+        let mut active = cell.borrow_mut();
+        if active.as_ref().is_some_and(|a| a == popover) {
+            *active = None;
+        }
+    });
+}
 
 /// A single item in the context menu.
 enum ContextMenuItem {
@@ -44,26 +91,27 @@ pub fn show_context_menu_for_item(
     let mut items: Vec<ContextMenuItem> = Vec::new();
 
     if is_group {
-        items.push(ContextMenuItem::action(
-            &i18n("New Connection in Group"),
-            "new-connection-in-group",
-        ));
+        // § Primary actions
         items.push(ContextMenuItem::action(
             &i18n("Connect All"),
             "connect-all-in-group",
         ));
+        // § Organisation
         items.push(ContextMenuItem::Separator);
-        items.push(ContextMenuItem::action(&i18n("Edit"), "edit-connection"));
         items.push(ContextMenuItem::action(&i18n("Rename"), "rename-item"));
-    } else {
-        items.push(ContextMenuItem::action(&i18n("Connect"), "connect"));
-        items.push(ContextMenuItem::action(&i18n("Pin / Unpin"), "toggle-pin"));
+        // § Creation / properties (GNOME HIG: properties-like items before delete)
         items.push(ContextMenuItem::Separator);
         items.push(ContextMenuItem::action(
-            &i18n("New Connection"),
-            "new-connection-from-context",
+            &i18n("New Connection in Group"),
+            "new-connection-in-group",
         ));
         items.push(ContextMenuItem::action(&i18n("Edit"), "edit-connection"));
+    } else {
+        // § Primary actions
+        items.push(ContextMenuItem::action(&i18n("Connect"), "connect"));
+        items.push(ContextMenuItem::action(&i18n("Pin / Unpin"), "toggle-pin"));
+        // § Organisation
+        items.push(ContextMenuItem::Separator);
         items.push(ContextMenuItem::action(&i18n("Rename"), "rename-item"));
         items.push(ContextMenuItem::action(
             &i18n("Duplicate"),
@@ -73,6 +121,7 @@ pub fn show_context_menu_for_item(
             &i18n("Move to Group..."),
             "move-to-group",
         ));
+        // § Utilities (copy, tools, network)
         items.push(ContextMenuItem::Separator);
         items.push(ContextMenuItem::action(
             &i18n("Copy Username"),
@@ -82,19 +131,18 @@ pub fn show_context_menu_for_item(
             &i18n("Copy Password"),
             "copy-password",
         ));
-        items.push(ContextMenuItem::Separator);
         items.push(ContextMenuItem::action(
             &i18n("Run Snippet..."),
             "run-snippet-for-connection",
         ));
+        if is_ssh {
+            items.push(ContextMenuItem::action(&i18n("Open SFTP"), "open-sftp"));
+        }
         items.push(ContextMenuItem::action(&i18n("Wake On LAN"), "wake-on-lan"));
         items.push(ContextMenuItem::action(
             &i18n("Check if Online"),
             "check-host-online",
         ));
-        if is_ssh {
-            items.push(ContextMenuItem::action(&i18n("Open SFTP"), "open-sftp"));
-        }
         if is_connected {
             items.push(ContextMenuItem::Separator);
             if is_recording {
@@ -109,6 +157,13 @@ pub fn show_context_menu_for_item(
                 ));
             }
         }
+        // § Creation / properties (GNOME HIG: properties-like items before delete)
+        items.push(ContextMenuItem::Separator);
+        items.push(ContextMenuItem::action(
+            &i18n("New Connection"),
+            "new-connection-from-context",
+        ));
+        items.push(ContextMenuItem::action(&i18n("Edit"), "edit-connection"));
     }
 
     // Delete section (always last, visually separated)
@@ -143,6 +198,21 @@ pub fn show_empty_space_context_menu(widget: &impl IsA<gtk4::Widget>, x: f64, y:
 /// Creates and shows a `Popover` with button items that directly activate
 /// window actions. This bypasses `PopoverMenu` action-resolution issues
 /// inside `ListView` / `TreeExpander` widget hierarchies.
+///
+/// The popover uses `autohide = false` so that GTK4 does not grab the
+/// pointer.  This allows a right-click on a *different* sidebar row to
+/// immediately fire its `GestureClick`, which calls
+/// [`close_active_popover`] before opening a new menu — giving seamless
+/// "click another item → old menu closes, new menu opens" behaviour
+/// without the double-click problem caused by autohide consuming the
+/// first click.
+///
+/// Dismissal is handled by:
+/// - [`close_active_popover`] (called at the start of every context-menu
+///   request and by the `GestureClick` on the `ScrolledWindow` for
+///   empty-space clicks).
+/// - Each button's click handler closing the popover before activating
+///   the action.
 fn show_popover(
     widget: &impl IsA<gtk4::Widget>,
     window: &gtk4::ApplicationWindow,
@@ -150,6 +220,8 @@ fn show_popover(
     x: f64,
     y: f64,
 ) {
+    close_active_popover();
+
     let popover = gtk4::Popover::new();
     popover.set_parent(widget);
 
@@ -171,7 +243,6 @@ fn show_popover(
                 let action_name = action.clone();
                 let popover_weak = popover.downgrade();
                 button.connect_clicked(move |_| {
-                    // Close the popover first, then activate the action
                     if let Some(p) = popover_weak.upgrade() {
                         p.popdown();
                     }
@@ -193,13 +264,18 @@ fn show_popover(
     #[allow(clippy::cast_possible_truncation)]
     let rect = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
     popover.set_pointing_to(Some(&rect));
-    popover.set_autohide(true);
+    // Disable autohide so GTK4 does not grab the pointer.  The gesture
+    // on the next right-clicked row will call close_active_popover()
+    // before opening a new menu, giving seamless menu switching.
+    popover.set_autohide(false);
     popover.set_has_arrow(false);
 
     popover.connect_closed(|p| {
         p.unparent();
+        clear_active_popover(p);
     });
 
+    set_active_popover(&popover);
     popover.popup();
 }
 

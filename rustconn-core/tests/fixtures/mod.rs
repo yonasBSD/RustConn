@@ -36,6 +36,8 @@ pub fn sample_ssh_connection_with_key() -> Connection {
         port_forwards: Vec::new(),
         waypipe: false,
         ssh_agent_socket: None,
+        keep_alive_interval: None,
+        keep_alive_count_max: None,
     };
 
     let mut conn = Connection::new(
@@ -73,6 +75,8 @@ pub fn sample_ssh_connection_custom_port() -> Connection {
         port_forwards: Vec::new(),
         waypipe: false,
         ssh_agent_socket: None,
+        keep_alive_interval: None,
+        keep_alive_count_max: None,
     };
 
     let mut conn = Connection::new(
@@ -108,6 +112,8 @@ pub fn sample_ssh_connection_with_proxy() -> Connection {
         port_forwards: Vec::new(),
         waypipe: false,
         ssh_agent_socket: None,
+        keep_alive_interval: None,
+        keep_alive_count_max: None,
     };
 
     let mut conn = Connection::new(

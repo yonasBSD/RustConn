@@ -103,6 +103,20 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.11.1" date="2026-04-18">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#0111---2026-04-18</url>
+      <description>
+        <p>Bug fixes, context menu UX improvements, and SSH keep-alive support:</p>
+        <ul>
+          <li>Reconnect preserves tab position instead of appending to end</li>
+          <li>Context menu handoff between sidebar items fixed</li>
+          <li>Stale highlight on right-click no longer persists</li>
+          <li>Context menu switches between items with a single right-click</li>
+          <li>Context menu layout reordered to follow GNOME HIG conventions</li>
+          <li>SSH Keep-Alive settings (ServerAliveInterval, ServerAliveCountMax)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.11.0" date="2026-04-18">
       <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#0110---2026-04-17</url>
       <description>

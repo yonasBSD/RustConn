@@ -345,7 +345,7 @@ fn update_tray_state(tray: &TrayManager, state: &SharedAppState, last_state: &mu
             .filter(|c| c.last_connected.is_some())
             .map(|c| (c.id, c.name.clone(), c.last_connected))
             .collect();
-        connections.sort_by(|a, b| b.2.cmp(&a.2));
+        connections.sort_by_key(|b| std::cmp::Reverse(b.2));
         let recent: Vec<_> = connections
             .into_iter()
             .take(10)

@@ -21,45 +21,39 @@ use std::rc::Rc;
 use crate::i18n::i18n;
 use rustconn_core::sftp::{SocketPathValidation, validate_socket_path};
 
-/// Return type for SSH options creation
+/// Named struct for SSH options widgets.
 ///
-/// Contains all the widgets needed for SSH configuration:
-/// - Container box
-/// - Auth method dropdown
-/// - Key source dropdown
-/// - Key file entry and browse button
-/// - Agent key dropdown
-/// - Jump host dropdown
-/// - Proxy entry
-/// - Various checkbuttons for options
-/// - Startup command and custom options entries
-/// - MOSH settings group (hidden by default, shown when protocol is MOSH)
-/// - MOSH-specific widgets: port range entry, predict dropdown, server binary entry
-#[allow(clippy::type_complexity)]
-pub type SshOptionsWidgets = (
-    GtkBox,
-    GtkBox,                // content box (for appending additional groups)
-    DropDown,              // auth_dropdown
-    DropDown,              // key_source_dropdown
-    Entry,                 // key_entry
-    Button,                // key_button
-    DropDown,              // agent_key_dropdown
-    DropDown,              // jump_host_dropdown
-    Entry,                 // proxy_entry
-    CheckButton,           // identities_only
-    CheckButton,           // control_master
-    CheckButton,           // agent_forwarding
-    CheckButton,           // waypipe
-    CheckButton,           // x11_forwarding
-    CheckButton,           // compression
-    Entry,                 // startup_entry
-    Entry,                 // options_entry
-    adw::PreferencesGroup, // mosh_group (hidden by default)
-    Entry,                 // mosh_port_range_entry
-    DropDown,              // mosh_predict_dropdown
-    Entry,                 // mosh_server_binary_entry
-    adw::EntryRow,         // ssh_agent_socket_entry
-);
+/// Contains all the widgets needed for SSH configuration.
+/// Adding a new SSH option requires only adding a field here and in
+/// `create_ssh_options()` — no more 24-element tuple destructuring.
+pub struct SshOptionsWidgets {
+    pub container: GtkBox,
+    /// Content box for appending additional groups (e.g. Port Forwarding)
+    pub content: GtkBox,
+    pub auth_dropdown: DropDown,
+    pub key_source_dropdown: DropDown,
+    pub key_entry: Entry,
+    pub key_button: Button,
+    pub agent_key_dropdown: DropDown,
+    pub jump_host_dropdown: DropDown,
+    pub proxy_entry: Entry,
+    pub identities_only: CheckButton,
+    pub control_master: CheckButton,
+    pub agent_forwarding: CheckButton,
+    pub waypipe: CheckButton,
+    pub x11_forwarding: CheckButton,
+    pub compression: CheckButton,
+    pub startup_entry: Entry,
+    pub options_entry: Entry,
+    /// MOSH settings group (hidden by default, shown when protocol is MOSH)
+    pub mosh_group: adw::PreferencesGroup,
+    pub mosh_port_range_entry: Entry,
+    pub mosh_predict_dropdown: DropDown,
+    pub mosh_server_binary_entry: Entry,
+    pub ssh_agent_socket_entry: adw::EntryRow,
+    pub keep_alive_interval: adw::SpinRow,
+    pub keep_alive_count_max: adw::SpinRow,
+}
 
 /// Creates the SSH options panel using libadwaita components following GNOME HIG.
 ///
@@ -77,8 +71,15 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
     content.append(&auth_group);
 
     // === Connection Options Group ===
-    let (connection_group, jump_host_dropdown, proxy_entry, identities_only, control_master) =
-        create_connection_group();
+    let (
+        connection_group,
+        jump_host_dropdown,
+        proxy_entry,
+        identities_only,
+        control_master,
+        keep_alive_interval,
+        keep_alive_count_max,
+    ) = create_connection_group();
     content.append(&connection_group);
 
     // === Session Group ===
@@ -131,7 +132,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
 
     content.append(&mosh_group);
 
-    (
+    SshOptionsWidgets {
         container,
         content,
         auth_dropdown,
@@ -154,7 +155,9 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         mosh_predict_dropdown,
         mosh_server_binary_entry,
         ssh_agent_socket_entry,
-    )
+        keep_alive_interval,
+        keep_alive_count_max,
+    }
 }
 
 /// Creates the Authentication preferences group
@@ -409,6 +412,8 @@ fn create_connection_group() -> (
     Entry,
     CheckButton,
     CheckButton,
+    adw::SpinRow,
+    adw::SpinRow,
 ) {
     let connection_group = adw::PreferencesGroup::builder()
         .title(i18n("Connection"))
@@ -451,12 +456,30 @@ fn create_connection_group() -> (
         .build();
     connection_group.add(&control_master_row);
 
+    // Keep-Alive Interval (ServerAliveInterval)
+    // 0 = disabled, range 0..3600, default 60 for new connections
+    let keep_alive_adjustment = gtk4::Adjustment::new(60.0, 0.0, 3600.0, 1.0, 10.0, 0.0);
+    let keep_alive_interval = adw::SpinRow::new(Some(&keep_alive_adjustment), 1.0, 0);
+    keep_alive_interval.set_title(&i18n("Keep-Alive Interval"));
+    keep_alive_interval.set_subtitle(&i18n("Seconds between keep-alive packets (0 = disabled)"));
+    connection_group.add(&keep_alive_interval);
+
+    // Keep-Alive Count Max (ServerAliveCountMax)
+    // 0 = disabled, range 0..100
+    let keep_alive_count_adjustment = gtk4::Adjustment::new(3.0, 0.0, 100.0, 1.0, 5.0, 0.0);
+    let keep_alive_count_max = adw::SpinRow::new(Some(&keep_alive_count_adjustment), 1.0, 0);
+    keep_alive_count_max.set_title(&i18n("Keep-Alive Count"));
+    keep_alive_count_max.set_subtitle(&i18n("Disconnect after this many unanswered packets"));
+    connection_group.add(&keep_alive_count_max);
+
     (
         connection_group,
         jump_host_dropdown,
         proxy_entry,
         identities_only,
         control_master,
+        keep_alive_interval,
+        keep_alive_count_max,
     )
 }
 

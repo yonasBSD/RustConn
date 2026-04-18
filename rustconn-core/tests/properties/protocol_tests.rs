@@ -60,6 +60,8 @@ fn arb_ssh_config() -> impl Strategy<Value = SshConfig> {
                     port_forwards: Vec::new(),
                     waypipe: false,
                     ssh_agent_socket: None,
+                    keep_alive_interval: None,
+                    keep_alive_count_max: None,
                 }
             },
         )
@@ -815,6 +817,8 @@ fn arb_ssh_config_with_identities_only() -> impl Strategy<Value = SshConfig> {
                     port_forwards: Vec::new(),
                     waypipe: false,
                     ssh_agent_socket: None,
+                    keep_alive_interval: None,
+                    keep_alive_count_max: None,
                 }
             },
         )
@@ -853,6 +857,8 @@ fn arb_ssh_config_with_agent_fingerprint() -> impl Strategy<Value = SshConfig> {
                 port_forwards: Vec::new(),
                 waypipe: false,
                 ssh_agent_socket: None,
+                keep_alive_interval: None,
+                keep_alive_count_max: None,
             }
         })
 }
@@ -1011,6 +1017,8 @@ fn arb_ssh_config_with_file_key_source() -> impl Strategy<Value = SshConfig> {
                     port_forwards: Vec::new(),
                     waypipe: false,
                     ssh_agent_socket: None,
+                    keep_alive_interval: None,
+                    keep_alive_count_max: None,
                 }
             },
         )
@@ -1048,6 +1056,8 @@ fn arb_ssh_config_with_agent_key_source() -> impl Strategy<Value = SshConfig> {
                     port_forwards: Vec::new(),
                     waypipe: false,
                     ssh_agent_socket: None,
+                    keep_alive_interval: None,
+                    keep_alive_count_max: None,
                 }
             },
         )
@@ -1579,6 +1589,8 @@ fn arb_ssh_config_with_port_forwards() -> impl Strategy<Value = SshConfig> {
             port_forwards,
             waypipe: false,
             ssh_agent_socket: None,
+            keep_alive_interval: None,
+            keep_alive_count_max: None,
         })
 }
 
@@ -1635,6 +1647,8 @@ proptest! {
             port_forwards: Vec::new(),
             waypipe: false,
             ssh_agent_socket: None,
+            keep_alive_interval: None,
+            keep_alive_count_max: None,
         };
         let args = config.build_command_args();
 

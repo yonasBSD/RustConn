@@ -117,8 +117,27 @@ impl SshConfigExporter {
                 let _ = writeln!(output, "    ForwardAgent yes");
             }
 
+            // Keep-alive settings (dedicated fields take priority over custom_options)
+            if let Some(interval) = ssh_config.keep_alive_interval {
+                let _ = writeln!(output, "    ServerAliveInterval {interval}");
+            }
+            if let Some(count) = ssh_config.keep_alive_count_max {
+                let _ = writeln!(output, "    ServerAliveCountMax {count}");
+            }
+
             // Custom options (filter dangerous directives that allow arbitrary command execution)
             for (key, value) in &ssh_config.custom_options {
+                // Skip keep-alive keys if already emitted from dedicated fields
+                if ssh_config.keep_alive_interval.is_some()
+                    && key.eq_ignore_ascii_case("ServerAliveInterval")
+                {
+                    continue;
+                }
+                if ssh_config.keep_alive_count_max.is_some()
+                    && key.eq_ignore_ascii_case("ServerAliveCountMax")
+                {
+                    continue;
+                }
                 if DANGEROUS_DIRECTIVES
                     .iter()
                     .any(|d| key.eq_ignore_ascii_case(d))

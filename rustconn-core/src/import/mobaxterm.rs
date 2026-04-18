@@ -316,6 +316,8 @@ impl MobaXtermImporter {
             port_forwards: Vec::new(),
             waypipe: false,
             ssh_agent_socket: None,
+            keep_alive_interval: None,
+            keep_alive_count_max: None,
         };
 
         let mut connection = Connection::new(

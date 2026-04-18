@@ -805,6 +805,16 @@ pub struct SshConfig {
     /// When set, overrides both the global setting and auto-detected socket.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ssh_agent_socket: Option<String>,
+    /// SSH keep-alive interval in seconds (`ServerAliveInterval`).
+    /// Sends a keep-alive packet every N seconds to prevent idle disconnects.
+    /// `None` means no keep-alive (SSH default behavior).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keep_alive_interval: Option<u32>,
+    /// Maximum number of keep-alive messages without a response (`ServerAliveCountMax`).
+    /// Connection is terminated after this many unanswered keep-alive packets.
+    /// `None` uses SSH default (3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keep_alive_count_max: Option<u32>,
 }
 
 fn default_true() -> bool {
@@ -832,6 +842,7 @@ impl SshConfig {
     /// - **Legacy behavior**: If `identities_only` is explicitly set to true, it will
     ///   still be honored for backward compatibility.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn build_command_args(&self) -> Vec<String> {
         let mut args = Vec::new();
 
@@ -926,6 +937,30 @@ impl SshConfig {
         // Add compression if enabled
         if self.compression {
             args.push("-C".to_string());
+        }
+
+        // Add keep-alive options if configured
+        // ServerAliveInterval sends a keep-alive packet every N seconds
+        // ServerAliveCountMax terminates after N unanswered packets
+        if let Some(interval) = self.keep_alive_interval {
+            // Only add if user hasn't already set it via custom_options
+            if !self
+                .custom_options
+                .keys()
+                .any(|k| k.eq_ignore_ascii_case("ServerAliveInterval"))
+            {
+                args.push("-o".to_string());
+                args.push(format!("ServerAliveInterval={interval}"));
+            }
+        }
+        if let Some(count) = self.keep_alive_count_max
+            && !self
+                .custom_options
+                .keys()
+                .any(|k| k.eq_ignore_ascii_case("ServerAliveCountMax"))
+        {
+            args.push("-o".to_string());
+            args.push(format!("ServerAliveCountMax={count}"));
         }
 
         // Add custom options (filter out dangerous directives)

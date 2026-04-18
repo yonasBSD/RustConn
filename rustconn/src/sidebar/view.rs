@@ -197,6 +197,14 @@ pub fn setup_list_item(
                 is_connected,
                 is_recording,
             );
+
+            // Claim the gesture so the event does not propagate further into
+            // ListView / TreeExpander internals.  Without this, GTK4 may apply
+            // :active / :focus-within pseudo-classes to the row widget that
+            // persist after the context menu is dismissed, causing stale
+            // highlight artifacts when right-clicking multiple rows in
+            // succession.
+            gesture.set_state(gtk4::EventSequenceState::Claimed);
         }
     });
     expander.add_controller(gesture);

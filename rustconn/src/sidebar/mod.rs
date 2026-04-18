@@ -698,6 +698,17 @@ impl ConnectionSidebar {
         });
         scrolled_window.add_controller(empty_space_gesture);
 
+        // Dismiss the active context menu on any left-click in the sidebar.
+        // Because the context menu popover uses autohide=false (to avoid the
+        // double-click problem), we need to close it manually on left-click.
+        let dismiss_gesture = GestureClick::new();
+        dismiss_gesture.set_button(gdk::BUTTON_PRIMARY);
+        dismiss_gesture.set_propagation_phase(gtk4::PropagationPhase::Capture);
+        dismiss_gesture.connect_pressed(move |_gesture, _n_press, _x, _y| {
+            sidebar_ui::close_active_popover();
+        });
+        scrolled_window.add_controller(dismiss_gesture);
+
         overlay.set_child(Some(&scrolled_window));
 
         // Add drop indicator as overlay - it will be positioned via margin_top

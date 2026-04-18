@@ -1,3 +1,21 @@
+rustconn (0.11.1-1) unstable; urgency=medium
+
+  * [Fixed] Reconnect preserves tab position — new tab opens at the
+    same position instead of appending to the end (#89)
+  * [Fixed] Context menu handoff between items — right-clicking a
+    second item while a menu is open now works correctly (#87)
+  * [Fixed] Stale highlight on right-click — residual selection
+    highlights no longer persist on previously right-clicked rows
+  * [Fixed] Context menu requires single right-click — switching
+    between items now works with one click instead of two
+  * [Improved] Context menu layout follows GNOME HIG — items reordered
+    to match GNOME Files conventions (primary action at top, properties
+    before delete at bottom)
+  * [Added] SSH Keep-Alive settings — dedicated spin rows for
+    ServerAliveInterval and ServerAliveCountMax (#88)
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Sat, 19 Apr 2026 00:00:00 +0000
+
 rustconn (0.11.0-1) unstable; urgency=medium
 
   * [Added] General tab migrated to adw:: widgets — PreferencesGroup,

@@ -1050,10 +1050,13 @@ impl SplitViewAdapter {
 
         let widget_for_gesture = widget.clone();
         gesture.connect_pressed(move |gesture, _n_press, x, y| {
+            // Close any previously open context menu (sidebar or split view)
+            crate::sidebar_ui::close_active_popover();
+
             // Create the context menu model
             let menu = gio::Menu::new();
-            menu.append(Some("Close Connection"), Some("panel.close"));
-            menu.append(Some("Move to New Tab"), Some("panel.move-to-tab"));
+            menu.append(Some(&i18n("Close Connection")), Some("panel.close"));
+            menu.append(Some(&i18n("Move to New Tab")), Some("panel.move-to-tab"));
 
             // Create popover dynamically for this click
             let popover = gtk4::PopoverMenu::from_model(Some(&menu));
@@ -1064,12 +1067,17 @@ impl SplitViewAdapter {
             // Position the popover at the click location
             let rect = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
             popover.set_pointing_to(Some(&rect));
+
+            // Track as active popover
+            crate::sidebar_ui::set_active_popover(popover.upcast_ref::<gtk4::Popover>());
+
             popover.popup();
             gesture.set_state(gtk4::EventSequenceState::Claimed);
 
             // Clean up popover when closed
             let widget_weak = widget_for_gesture.downgrade();
             popover.connect_closed(move |pop| {
+                crate::sidebar_ui::clear_active_popover(pop.upcast_ref::<gtk4::Popover>());
                 if widget_weak.upgrade().is_some() {
                     pop.unparent();
                 }

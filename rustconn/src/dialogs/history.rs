@@ -216,7 +216,7 @@ impl HistoryDialog {
     /// Sets the history entries to display
     pub fn set_entries(&self, mut entries: Vec<ConnectionHistoryEntry>) {
         // Sort by started_at descending (newest first)
-        entries.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+        entries.sort_by_key(|b| std::cmp::Reverse(b.started_at));
 
         // Clear existing rows
         while let Some(row) = self.list_box.row_at_index(0) {

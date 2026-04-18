@@ -256,7 +256,7 @@ impl StatisticsDialog {
         // Most Used connections (top 3)
         if !stats.is_empty() {
             let mut sorted: Vec<_> = stats.iter().collect();
-            sorted.sort_by(|a, b| b.1.total_connections.cmp(&a.1.total_connections));
+            sorted.sort_by_key(|b| std::cmp::Reverse(b.1.total_connections));
 
             let most_used_group = adw::PreferencesGroup::builder()
                 .title(i18n("Most Used"))
@@ -299,7 +299,7 @@ impl StatisticsDialog {
             }
 
             let mut protocol_list: Vec<_> = protocol_totals.into_iter().collect();
-            protocol_list.sort_by(|a, b| b.1.cmp(&a.1));
+            protocol_list.sort_by_key(|b| std::cmp::Reverse(b.1));
 
             let protocol_group = adw::PreferencesGroup::builder()
                 .title(i18n("Protocol Distribution"))

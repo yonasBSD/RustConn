@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.11.0
+Version:        0.11.1
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,14 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Sat Apr 19 2026 Anton Isaiev <totoshko88@gmail.com> - 0.11.1-0
+- [Fixed] Reconnect preserves tab position (#89)
+- [Fixed] Context menu handoff between items (#87)
+- [Fixed] Stale highlight on right-click — residual highlights removed
+- [Fixed] Context menu requires single right-click instead of two
+- [Improved] Context menu layout follows GNOME HIG
+- [Added] SSH Keep-Alive settings (#88)
+
 * Sat Apr 18 2026 Anton Isaiev <totoshko88@gmail.com> - 0.11.0-0
 - [Added] General tab migrated to adw:: widgets (TASK-004)
 - [Added] Legacy XOR encryption migration warning (TASK-006)
