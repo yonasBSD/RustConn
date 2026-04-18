@@ -17,17 +17,17 @@ Source1:        vendor.tar.zst
 # Rust 1.95+ required (MSRV)
 # openSUSE: use devel:languages:rust repo for Rust 1.95+
 # Fedora 42+: system Rust 1.93 is sufficient
-# Fedora <42/RHEL: use rustup fallback since system Rust < 1.92
+# Fedora <42/RHEL: use rustup fallback since system Rust < 1.95
 %if 0%{?suse_version}
-BuildRequires:  cargo >= 1.92
-BuildRequires:  rust >= 1.92
+BuildRequires:  cargo >= 1.95
+BuildRequires:  rust >= 1.95
 BuildRequires:  cargo-packaging
 BuildRequires:  alsa-devel
 %endif
 
 %if 0%{?fedora} >= 42
-BuildRequires:  cargo >= 1.92
-BuildRequires:  rust >= 1.92
+BuildRequires:  cargo >= 1.95
+BuildRequires:  rust >= 1.95
 BuildRequires:  alsa-lib-devel
 %endif
 
@@ -123,14 +123,14 @@ Productivity:
 %prep
 %autosetup -a1 -n %{name}-%{version}
 
-# Install rustup for older Fedora/RHEL (system Rust < 1.92)
+# Install rustup for older Fedora/RHEL (system Rust < 1.95)
 %if 0%{?fedora} && 0%{?fedora} < 42
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0 --profile minimal
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0 --profile minimal
 export PATH="$HOME/.cargo/bin:$PATH"
 %endif
 
 %if 0%{?rhel}
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0 --profile minimal
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0 --profile minimal
 export PATH="$HOME/.cargo/bin:$PATH"
 %endif
 

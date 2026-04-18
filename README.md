@@ -39,7 +39,7 @@ It brings SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and Zero Trust
 | **Flatpak** | Recommended. Extensions mechanism built-in, sandboxed |
 | **Package manager** | Uses system dependencies (GTK4, VTE, libadwaita) |
 | **Snap** | Strict confinement, requires additional permissions |
-| **From source** | Requires Rust 1.92+, GTK4 dev libraries |
+| **From source** | Requires Rust 1.95+, GTK4 dev libraries |
 
 <a href="https://flathub.org/apps/io.github.totoshko88.RustConn">
   <img width="200" alt="Download on Flathub" src="https://flathub.org/api/badge?locale=en"/>
@@ -66,7 +66,7 @@ cargo build --release
 ./target/release/rustconn
 ```
 
-**Build dependencies:** GTK4 4.14+, VTE4, libadwaita, Rust 1.92+ | **Optional:** FreeRDP, TigerVNC, virt-viewer, picocom, kubectl
+**Build dependencies:** GTK4 4.14+, VTE4, libadwaita, Rust 1.95+ | **Optional:** FreeRDP, TigerVNC, virt-viewer, picocom, kubectl
 
 
 ## Quick Start

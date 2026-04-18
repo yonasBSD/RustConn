@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Rust 1.92+ ([rustup.rs](https://rustup.rs/)):
+Rust 1.95+ ([rustup.rs](https://rustup.rs/)):
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh

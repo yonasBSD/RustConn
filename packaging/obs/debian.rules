@@ -7,8 +7,8 @@ export CARGO_HOME = $(CURDIR)/debian/cargo_home
 	dh $@
 
 override_dh_auto_configure:
-	# Install rustup with Rust 1.92
-	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0 --profile minimal
+	# Install rustup with Rust 1.95
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0 --profile minimal
 	# Setup vendor config
 	mkdir -p .cargo
 	echo '[source.crates-io]' > .cargo/config.toml

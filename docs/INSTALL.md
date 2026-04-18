@@ -5,7 +5,7 @@
 - **OS:** Linux (Wayland-first, X11 supported)
 - **GTK:** 4.14+
 - **libadwaita:** 1.5+
-- **Rust:** 1.92+ (for building from source)
+- **Rust:** 1.95+ (for building from source)
 
 ## Flatpak (Recommended)
 
@@ -200,7 +200,7 @@ OBS packages use tiered feature flags: `adw-1-8` for Tumbleweed/Fedora 43+, `adw
 
 ## From Source
 
-Requires Rust 1.92+, GTK4 4.14+, libadwaita 1.5+, VTE4, and system libraries
+Requires Rust 1.95+, GTK4 4.14+, libadwaita 1.5+, VTE4, and system libraries
 (OpenSSL, ALSA, D-Bus, clang, cmake, gettext).
 
 See [docs/BUILD.md](BUILD.md) for per-distro prerequisite packages, feature flags,
@@ -275,7 +275,7 @@ FreeRDP detection priority: `wlfreerdp3` > `wlfreerdp` > `sdl-freerdp3` > `sdl-f
 
 ## Rust Installation
 
-RustConn requires Rust 1.92+. See [docs/BUILD.md — Prerequisites](BUILD.md#prerequisites)
+RustConn requires Rust 1.95+. See [docs/BUILD.md — Prerequisites](BUILD.md#prerequisites)
 for installation instructions.
 
 ## Verification
