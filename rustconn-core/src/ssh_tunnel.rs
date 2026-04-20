@@ -7,6 +7,7 @@
 
 use std::net::TcpListener;
 use std::process::{Child, Command, Stdio};
+use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
 /// Errors that can occur when creating an SSH tunnel.
@@ -31,6 +32,8 @@ pub struct SshTunnel {
     child: Child,
     /// The local port that forwards to the remote destination.
     local_port: u16,
+    /// Captured stderr output from the SSH process (populated by background reader).
+    stderr_output: Arc<Mutex<String>>,
 }
 
 impl SshTunnel {
@@ -38,6 +41,55 @@ impl SshTunnel {
     #[must_use]
     pub const fn local_port(&self) -> u16 {
         self.local_port
+    }
+
+    /// Checks whether the SSH tunnel process is still running.
+    ///
+    /// Returns `true` if the process is alive, `false` if it has exited.
+    /// When the process has exited, any captured stderr is logged.
+    pub fn is_alive(&mut self) -> bool {
+        match self.child.try_wait() {
+            Ok(None) => true,
+            Ok(Some(status)) => {
+                let stderr = self
+                    .stderr_output
+                    .lock()
+                    .map(|s| s.clone())
+                    .unwrap_or_default();
+                if stderr.is_empty() {
+                    tracing::error!(
+                        local_port = self.local_port,
+                        %status,
+                        "SSH tunnel process exited"
+                    );
+                } else {
+                    tracing::error!(
+                        local_port = self.local_port,
+                        %status,
+                        stderr = %stderr.trim(),
+                        "SSH tunnel process exited"
+                    );
+                }
+                false
+            }
+            Err(e) => {
+                tracing::error!(
+                    local_port = self.local_port,
+                    %e,
+                    "Failed to check SSH tunnel process status"
+                );
+                false
+            }
+        }
+    }
+
+    /// Returns any captured stderr output from the SSH process.
+    #[must_use]
+    pub fn stderr(&self) -> String {
+        self.stderr_output
+            .lock()
+            .map(|s| s.clone())
+            .unwrap_or_default()
     }
 
     /// Stops the tunnel by killing the SSH process.
@@ -149,9 +201,204 @@ pub fn create_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunnel> {
         "Starting SSH tunnel"
     );
 
-    let child = cmd.spawn()?;
+    let mut child = cmd.spawn()?;
 
-    Ok(SshTunnel { child, local_port })
+    // Capture SSH stderr in a background thread so diagnostic messages
+    // (auth failures, port unreachable, etc.) are available for logging.
+    let stderr_output = Arc::new(Mutex::new(String::new()));
+    if let Some(stderr_handle) = child.stderr.take() {
+        let stderr_buf = stderr_output.clone();
+        std::thread::spawn(move || {
+            use std::io::{BufRead, BufReader};
+            let reader = BufReader::new(stderr_handle);
+            for line in reader.lines() {
+                match line {
+                    Ok(line) => {
+                        tracing::warn!(target: "ssh_tunnel", "{}", line);
+                        if let Ok(mut buf) = stderr_buf.lock() {
+                            if !buf.is_empty() {
+                                buf.push('\n');
+                            }
+                            buf.push_str(&line);
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+    }
+
+    Ok(SshTunnel {
+        child,
+        local_port,
+        stderr_output,
+    })
+}
+
+/// Waits for the SSH tunnel to become ready by polling the local port.
+///
+/// Tries to connect to `127.0.0.1:local_port` up to `max_attempts` times
+/// with `interval` between attempts. Also checks that the SSH process is
+/// still alive between attempts. Returns `Ok(())` when the port
+/// accepts connections, or `Err` if all attempts fail or the process exits.
+///
+/// # Errors
+///
+/// Returns `SshTunnelError::SpawnFailed` if the tunnel never becomes ready
+/// or the SSH process exits prematurely.
+pub fn wait_for_tunnel_ready(
+    tunnel: &mut SshTunnel,
+    max_attempts: u32,
+    interval: std::time::Duration,
+) -> SshTunnelResult<()> {
+    use std::net::TcpStream;
+
+    let local_port = tunnel.local_port;
+
+    for attempt in 1..=max_attempts {
+        // Check if SSH process is still alive before trying to connect
+        if !tunnel.is_alive() {
+            let stderr = tunnel.stderr();
+            let detail = if stderr.is_empty() {
+                "SSH process exited unexpectedly".to_string()
+            } else {
+                format!("SSH process exited: {}", stderr.trim())
+            };
+            return Err(SshTunnelError::SpawnFailed(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                detail,
+            )));
+        }
+
+        match TcpStream::connect_timeout(
+            &std::net::SocketAddr::from(([127, 0, 0, 1], local_port)),
+            std::time::Duration::from_secs(1),
+        ) {
+            Ok(_) => {
+                tracing::debug!(local_port, attempt, "SSH tunnel is ready");
+                return Ok(());
+            }
+            Err(_) => {
+                if attempt < max_attempts {
+                    std::thread::sleep(interval);
+                }
+            }
+        }
+    }
+
+    Err(SshTunnelError::SpawnFailed(std::io::Error::new(
+        std::io::ErrorKind::TimedOut,
+        format!("SSH tunnel on port {local_port} not ready after {max_attempts} attempts"),
+    )))
+}
+
+/// Probes the remote endpoint through an established SSH tunnel.
+///
+/// Connects to the tunnel's local port and waits for the remote end to
+/// respond within `timeout`. If the remote host/port is unreachable
+/// (firewall, service down), the connection will either be refused or
+/// time out.
+///
+/// Returns `Ok(())` if the remote end accepts the connection, or an
+/// error describing why it failed.
+///
+/// # Errors
+///
+/// Returns `SshTunnelError::SpawnFailed` if the remote port is unreachable
+/// or the SSH tunnel process has exited.
+pub fn probe_tunnel_remote(
+    tunnel: &mut SshTunnel,
+    timeout: std::time::Duration,
+) -> SshTunnelResult<()> {
+    use std::io::{Read, Write};
+    use std::net::TcpStream;
+
+    // First check the tunnel process is still alive
+    if !tunnel.is_alive() {
+        let stderr = tunnel.stderr();
+        let detail = if stderr.is_empty() {
+            "SSH tunnel process exited before probe".to_string()
+        } else {
+            format!("SSH tunnel exited: {}", stderr.trim())
+        };
+        return Err(SshTunnelError::SpawnFailed(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            detail,
+        )));
+    }
+
+    let local_port = tunnel.local_port;
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], local_port));
+
+    // Connect to the tunnel's local port
+    let mut stream = TcpStream::connect_timeout(&addr, timeout).map_err(|e| {
+        SshTunnelError::SpawnFailed(std::io::Error::new(
+            e.kind(),
+            format!("Cannot connect to tunnel port {local_port}: {e}"),
+        ))
+    })?;
+
+    // Set read/write timeouts for the probe
+    let _ = stream.set_read_timeout(Some(timeout));
+    let _ = stream.set_write_timeout(Some(timeout));
+
+    // Send a minimal probe byte and wait for any response or error.
+    // For RDP (port 3389), the server responds to any data with an
+    // X.224 Connection Confirm or rejects the connection. If the
+    // remote port is unreachable, SSH will close the forwarded
+    // channel and we'll get a connection reset or EOF.
+    //
+    // We send a single zero byte — this is enough to trigger SSH
+    // channel forwarding to the remote host. If the remote host is
+    // unreachable, SSH will close the local socket.
+    let _ = stream.write_all(&[0]);
+    let _ = stream.flush();
+
+    // Give SSH time to forward and detect unreachable remote
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    // Try to read — if the remote is unreachable, SSH will have
+    // closed the connection and we'll get an error or EOF.
+    let mut buf = [0u8; 1];
+    match stream.read(&mut buf) {
+        Ok(0) => {
+            // EOF — SSH closed the forwarded channel (remote unreachable)
+            Err(SshTunnelError::SpawnFailed(std::io::Error::new(
+                std::io::ErrorKind::ConnectionRefused,
+                format!(
+                    "Remote port unreachable through SSH tunnel (port {local_port}): \
+                     connection closed by tunnel"
+                ),
+            )))
+        }
+        Ok(_) => {
+            // Got data back — remote is alive and responding
+            tracing::debug!(local_port, "Remote endpoint is reachable through tunnel");
+            Ok(())
+        }
+        Err(ref e)
+            if e.kind() == std::io::ErrorKind::WouldBlock
+                || e.kind() == std::io::ErrorKind::TimedOut =>
+        {
+            // Read timed out — the remote accepted the connection but
+            // hasn't sent data yet. This is normal for many protocols
+            // (they wait for a proper handshake). The important thing
+            // is that SSH didn't close the channel, so the remote is
+            // reachable.
+            tracing::debug!(
+                local_port,
+                "Remote endpoint accepted connection through tunnel (read timed out, which is OK)"
+            );
+            Ok(())
+        }
+        Err(e) => {
+            // Connection reset, broken pipe, etc. — remote unreachable
+            Err(SshTunnelError::SpawnFailed(std::io::Error::new(
+                e.kind(),
+                format!("Remote port unreachable through SSH tunnel (port {local_port}): {e}"),
+            )))
+        }
+    }
 }
 
 #[cfg(test)]

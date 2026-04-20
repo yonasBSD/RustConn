@@ -1133,9 +1133,20 @@ impl super::EmbeddedRdpWidget {
             // Non-protocol error — report normally
             *ctx.state.borrow_mut() = RdpConnectionState::Error;
             ctx.toolbar.set_visible(false);
-            if let Some(ref callback) = *ctx.on_error.borrow() {
+            // Use take-invoke-restore to avoid RefCell re-entrancy panic:
+            // the state_changed callback may close the tab, which fires
+            // Disconnected and tries to borrow the same cell again.
+            let state_cb = ctx.on_state_changed.borrow_mut().take();
+            if let Some(ref callback) = state_cb {
+                callback(RdpConnectionState::Error);
+            }
+            *ctx.on_state_changed.borrow_mut() = state_cb;
+
+            let error_cb = ctx.on_error.borrow_mut().take();
+            if let Some(ref callback) = error_cb {
                 callback(msg);
             }
+            *ctx.on_error.borrow_mut() = error_cb;
         }
     }
 

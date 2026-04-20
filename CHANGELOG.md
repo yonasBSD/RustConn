@@ -5,6 +5,29 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.3] - 2026-04-21
+
+### Added
+- **CLI: `--jump-host` flag for `add` and `update`** — set a jump host (SSH bastion) when creating or updating SSH, SFTP, RDP, VNC, and SPICE connections via CLI; accepts connection name or UUID; validates that the referenced connection exists and prevents self-referencing
+- **SSH Jump Host for VNC and SPICE** — VNC and SPICE connections now support SSH jump host tunnelling via `ssh -L` local port forwarding; the tunnel process is managed automatically and killed on tab close; port check is skipped when jump host is configured
+- **SSH tunnel stderr capture** — SSH tunnel process stderr is now read in a background thread and logged via `tracing::warn`; diagnostic messages (auth failures, port unreachable) are available via `SshTunnel::stderr()` and logged on process exit
+- **SSH tunnel health monitoring** — `SshTunnel::is_alive()` checks whether the SSH process is still running; `wait_for_tunnel_ready()` now detects early process exit and fails fast with a descriptive error instead of polling until timeout
+- **CLI: `show` displays Jump Host** — `rustconn-cli show` now prints the resolved jump host name for SSH, SFTP, RDP, VNC, and SPICE connections
+
+### Fixed
+- **RDP via jump host stuck at "connecting"** — embedded IronRDP connections through an SSH tunnel could hang indefinitely when the remote host was unreachable (firewall DROP); the handshake timeout for tunnel connections is now capped at 15 seconds (down from 60s) and produces a clear error message ([#92](https://github.com/totoshko88/RustConn/issues/92))
+- **Flatpak: kubectl and Hoop.dev missing from settings and PATH** — kubectl and Hoop.dev CLI were not shown in the Settings → Clients detection tab and their install directories were missing from the Flatpak PATH extension; added "Container Orchestration" section to settings, added Hoop.dev to "Zero Trust Clients", and registered both directories in `get_cli_path_dirs()` and `find_in_flatpak_cli_dir()`
+- **Sidebar status not set on connection start** — "connecting" (yellow) status is now shown immediately on double-click, before credential resolution or tunnel creation begins; previously the status only appeared after the tunnel was established
+- **Sidebar status not cleared on RDP error** — non-protocol errors (timeout, unreachable host) now fire the `on_state_changed(Error)` callback, which closes the tab and sets "failed" (red) status; previously the sidebar stayed yellow after a timeout
+- **Sidebar "failed" status overridden by Disconnected** — the `Disconnected` handler no longer calls `decrement_session_count` for sessions that were never connected; this prevents the "failed" status set by the Error handler from being cleared back to empty
+- **RefCell panic on RDP error** — `handle_ironrdp_error` now uses take-invoke-restore pattern for `on_state_changed` and `on_error` callbacks; the previous `borrow()` approach caused a re-entrancy panic when the callback triggered `close_tab` → `adw_tab_view_close_page` → `Disconnected` state change
+- **RDP error toast** — a toast notification ("RDP connection failed. Check that the remote host is reachable.") is now shown when an embedded RDP connection fails before ever connecting
+
+### Improved
+- **RDP handshake phase logging** — debug log messages now mark each handshake phase (X.224 negotiation, TLS upgrade, NLA/capabilities) so the exact hang point is visible in logs
+- **TCP_NODELAY for tunnel connections** — Nagle's algorithm is disabled on the TCP stream to the tunnel, reducing latency for the RDP handshake
+- **Tunnel timeout error message** — tunnel connections show "Connection failed: RDP handshake timed out after 15s — the remote host may be unreachable through the SSH tunnel or the RDP service is not running" instead of generic "Operation timed out"
+
 ## [0.11.2] - 2026-04-20
 
 ### Fixed

@@ -782,6 +782,8 @@ pub fn get_cli_path_dirs() -> Vec<PathBuf> {
         "bitwarden",        // Bitwarden CLI
         "1password",        // 1Password CLI
         "tigervnc/usr/bin", // TigerVNC
+        "kubectl",          // kubectl
+        "hoop",             // Hoop.dev
     ];
 
     for subdir in &path_subdirs {

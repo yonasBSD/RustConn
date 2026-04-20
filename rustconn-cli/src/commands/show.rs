@@ -18,6 +18,14 @@ pub fn cmd_show(config_path: Option<&Path>, name: &str) -> Result<(), CliError> 
 
     let connection = find_connection(&connections, name)?;
 
+    // Pre-resolve jump host name for display
+    let resolve_jump = |jump_id: uuid::Uuid| -> String {
+        connections
+            .iter()
+            .find(|c| c.id == jump_id)
+            .map_or_else(|| jump_id.to_string(), |c| c.name.clone())
+    };
+
     println!("Connection Details:");
     println!("  ID:       {}", connection.id);
     println!("  Name:     {}", connection.name);
@@ -55,6 +63,9 @@ pub fn cmd_show(config_path: Option<&Path>, name: &str) -> Result<(), CliError> 
             if let Some(ref jump) = config.proxy_jump {
                 println!("  Proxy Jump: {jump}");
             }
+            if let Some(jump_id) = config.jump_host_id {
+                println!("  Jump Host: {}", resolve_jump(jump_id));
+            }
             if let Some(ref socket) = config.ssh_agent_socket {
                 println!("  SSH Agent Socket: {socket}");
             }
@@ -71,6 +82,9 @@ pub fn cmd_show(config_path: Option<&Path>, name: &str) -> Result<(), CliError> 
             }
             if !config.clipboard_enabled {
                 println!("  Clipboard: disabled");
+            }
+            if let Some(jump_id) = config.jump_host_id {
+                println!("  Jump Host: {}", resolve_jump(jump_id));
             }
         }
         rustconn_core::models::ProtocolConfig::Serial(ref config) => {
@@ -95,6 +109,9 @@ pub fn cmd_show(config_path: Option<&Path>, name: &str) -> Result<(), CliError> 
             if let Some(ref socket) = config.ssh_agent_socket {
                 println!("  SSH Agent Socket: {socket}");
             }
+            if let Some(jump_id) = config.jump_host_id {
+                println!("  Jump Host: {}", resolve_jump(jump_id));
+            }
         }
         rustconn_core::models::ProtocolConfig::ZeroTrust(ref zt_config) => {
             println!("  Provider: {}", zt_config.provider);
@@ -111,6 +128,16 @@ pub fn cmd_show(config_path: Option<&Path>, name: &str) -> Result<(), CliError> 
             }
             if !zt_config.custom_args.is_empty() {
                 println!("  Custom Args: {}", zt_config.custom_args.join(" "));
+            }
+        }
+        rustconn_core::models::ProtocolConfig::Vnc(ref config) => {
+            if let Some(jump_id) = config.jump_host_id {
+                println!("  Jump Host: {}", resolve_jump(jump_id));
+            }
+        }
+        rustconn_core::models::ProtocolConfig::Spice(ref config) => {
+            if let Some(jump_id) = config.jump_host_id {
+                println!("  Jump Host: {}", resolve_jump(jump_id));
             }
         }
         _ => {}

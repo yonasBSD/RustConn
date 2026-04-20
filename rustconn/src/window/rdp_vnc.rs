@@ -283,15 +283,23 @@ fn start_rdp_session_internal(
             drop(state_ref);
 
             match rustconn_core::ssh_tunnel::create_tunnel(&params) {
-                Ok(tunnel) => {
+                Ok(mut tunnel) => {
                     let local_port = tunnel.local_port();
                     tracing::info!(
                         %connection_id,
                         local_port,
                         "SSH tunnel established for RDP connection"
                     );
-                    // Give the tunnel a moment to establish
-                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    // Wait for tunnel to accept connections
+                    if let Err(e) = rustconn_core::ssh_tunnel::wait_for_tunnel_ready(
+                        &mut tunnel,
+                        40,
+                        std::time::Duration::from_millis(250),
+                    ) {
+                        tracing::error!(%e, "SSH tunnel not ready for RDP");
+                        sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                        return;
+                    }
 
                     // Record connection start in history
                     let history_entry_id = if let Ok(mut state_mut) = state.try_borrow_mut() {
@@ -508,11 +516,10 @@ fn start_embedded_rdp_session(
             if was_connected_clone.get() {
                 // Was connected before — show disconnected tab for reconnect
                 notebook_for_state.mark_tab_disconnected(session_id);
-            } else {
-                // Never connected — close the tab silently
-                notebook_for_state.close_tab(session_id);
+                sidebar_for_state.decrement_session_count(&connection_id.to_string(), false);
             }
-            sidebar_for_state.decrement_session_count(&connection_id.to_string(), false);
+            // Don't decrement/clear when never connected — the Error handler
+            // already set "failed" status and closed the tab.
             // Record connection end in history
             if let Some(info) = notebook_for_state.get_session_info(session_id)
                 && let Some(entry_id) = info.history_entry_id
@@ -537,8 +544,12 @@ fn start_embedded_rdp_session(
             // If never connected, close the tab — no point showing failed tab for initial failure
             if !was_connected_clone.get() {
                 notebook_for_state.close_tab(session_id);
-                sidebar_for_state.update_connection_status(&connection_id.to_string(), "");
+                // Show toast with connection failure info
+                crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n(
+                    "RDP connection failed. Check that the remote host is reachable.",
+                ));
             }
+            sidebar_for_state.update_connection_status(&connection_id.to_string(), "failed");
         }
         crate::embedded_rdp::RdpConnectionState::Connecting => {}
     });
@@ -995,17 +1006,87 @@ fn start_vnc_session_internal(
         );
     }
 
-    // Clone connection for history recording
-    let conn_for_history = conn.clone();
+    // --- SSH tunnel for jump host ---
+    let (effective_host, effective_port, ssh_tunnel) =
+        if let Some(jump_id) = vnc_config.jump_host_id {
+            if let Some(jump_conn) = state_ref.get_connection(jump_id) {
+                let mut jump_dest = jump_conn.host.clone();
+                if let Some(user) = &jump_conn.username {
+                    jump_dest = format!("{user}@{}", jump_dest);
+                }
+                let jump_port = jump_conn.port;
+                let identity_file = if let rustconn_core::ProtocolConfig::Ssh(ref ssh_cfg) =
+                    jump_conn.protocol_config
+                {
+                    ssh_cfg
+                        .key_path
+                        .as_ref()
+                        .and_then(|p| rustconn_core::resolve_key_path(p))
+                        .map(|p| p.to_string_lossy().to_string())
+                } else {
+                    None
+                };
 
-    drop(state_ref);
+                let params = rustconn_core::ssh_tunnel::SshTunnelParams {
+                    jump_host: jump_dest,
+                    jump_port,
+                    remote_host: host.clone(),
+                    remote_port: port,
+                    identity_file,
+                    extra_args: Vec::new(),
+                };
+
+                drop(state_ref);
+
+                match rustconn_core::ssh_tunnel::create_tunnel(&params) {
+                    Ok(mut tunnel) => {
+                        let local_port = tunnel.local_port();
+                        tracing::info!(
+                            %connection_id,
+                            local_port,
+                            "SSH tunnel established for VNC connection"
+                        );
+                        // Wait for tunnel to accept connections
+                        if let Err(e) = rustconn_core::ssh_tunnel::wait_for_tunnel_ready(
+                            &mut tunnel,
+                            40,
+                            std::time::Duration::from_millis(250),
+                        ) {
+                            tracing::error!(%e, "SSH tunnel not ready for VNC");
+                            sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                            return;
+                        }
+
+                        ("127.0.0.1".to_string(), local_port, Some(tunnel))
+                    }
+                    Err(e) => {
+                        tracing::error!(%e, "Failed to create SSH tunnel for VNC");
+                        sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                        return;
+                    }
+                }
+            } else {
+                tracing::warn!(%jump_id, "Jump host connection not found for VNC");
+                drop(state_ref);
+                (host, port, None)
+            }
+        } else {
+            drop(state_ref);
+            (host, port, None)
+        };
+
+    // Clone connection for history recording
+    let conn_for_history = if let Ok(s) = state.try_borrow() {
+        s.get_connection(connection_id).cloned()
+    } else {
+        None
+    };
 
     // Record connection start in history
-    let history_entry_id = if let Ok(mut state_mut) = state.try_borrow_mut() {
-        Some(
-            state_mut
-                .record_connection_start(&conn_for_history, conn_for_history.username.as_deref()),
-        )
+    let history_entry_id = if let Some(ref conn_hist) = conn_for_history
+        && let Ok(mut state_mut) = state.try_borrow_mut()
+    {
+        Some(state_mut.record_connection_start(conn_hist, conn_hist.username.as_deref()))
     } else {
         None
     };
@@ -1016,6 +1097,11 @@ fn start_vnc_session_internal(
     // Store history entry ID in session for later use
     if let Some(entry_id) = history_entry_id {
         notebook.set_history_entry_id(session_id, entry_id);
+    }
+
+    // Store SSH tunnel so it stays alive for the duration of the session
+    if let Some(tunnel) = ssh_tunnel {
+        notebook.store_ssh_tunnel(session_id, tunnel);
     }
 
     // Get the VNC widget and initiate connection with config
@@ -1051,7 +1137,12 @@ fn start_vnc_session_internal(
         });
 
         // Initiate connection with VNC config
-        if let Err(e) = vnc_widget.connect_with_config(&host, port, Some(password), &vnc_config) {
+        if let Err(e) = vnc_widget.connect_with_config(
+            &effective_host,
+            effective_port,
+            Some(password),
+            &vnc_config,
+        ) {
             tracing::error!(%e, connection = %conn_name, "Failed to connect VNC session");
             sidebar.update_connection_status(&connection_id.to_string(), "failed");
         } else {

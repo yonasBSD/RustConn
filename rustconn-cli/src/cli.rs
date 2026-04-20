@@ -196,6 +196,11 @@ pub enum Commands {
         /// Placeholders: {host}, {user}, {port}
         #[arg(long, value_name = "COMMAND")]
         custom_command: Option<String>,
+
+        /// Existing SSH connection name or UUID to use as a jump host
+        /// (sets jump_host_id for SSH/RDP/VNC/SPICE/SFTP connections)
+        #[arg(long, value_name = "NAME|UUID")]
+        jump_host: Option<String>,
     },
 
     /// Export connections to external format
@@ -373,6 +378,11 @@ pub enum Commands {
         /// Generic command template (for --provider generic)
         #[arg(long, value_name = "COMMAND")]
         custom_command: Option<String>,
+
+        /// Existing SSH connection name or UUID to use as a jump host
+        /// (sets jump_host_id for SSH/RDP/VNC/SPICE/SFTP connections)
+        #[arg(long, value_name = "NAME|UUID")]
+        jump_host: Option<String>,
     },
 
     /// Send Wake-on-LAN magic packet

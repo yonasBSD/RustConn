@@ -189,6 +189,8 @@ pub struct ConnectionDialog {
     vnc_show_local_cursor_check: CheckButton,
     vnc_scale_override_dropdown: DropDown,
     vnc_custom_args_entry: Entry,
+    vnc_jump_host_dropdown: DropDown,
+    vnc_connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     // SPICE fields
     spice_tls_check: CheckButton,
     spice_ca_cert_entry: Entry,
@@ -201,6 +203,8 @@ pub struct ConnectionDialog {
     spice_proxy_entry: Entry,
     spice_shared_folders: Rc<RefCell<Vec<SharedFolder>>>,
     spice_shared_folders_list: gtk4::ListBox,
+    spice_jump_host_dropdown: DropDown,
+    spice_connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     // Zero Trust fields
     zt_provider_dropdown: DropDown,
     zt_provider_stack: Stack,
@@ -537,6 +541,7 @@ impl ConnectionDialog {
             vnc_show_local_cursor_check,
             vnc_scale_override_dropdown,
             vnc_custom_args_entry,
+            vnc_jump_host_dropdown,
         ) = Self::create_vnc_options();
         protocol_stack.add_named(&vnc_box, Some("vnc"));
 
@@ -554,6 +559,7 @@ impl ConnectionDialog {
             spice_show_local_cursor_check,
             spice_shared_folders,
             spice_shared_folders_list,
+            spice_jump_host_dropdown,
         ) = Self::create_spice_options();
         protocol_stack.add_named(&spice_box, Some("spice"));
 
@@ -773,6 +779,10 @@ impl ConnectionDialog {
             Rc::new(RefCell::new(vec![(None, "(None)".to_string())]));
         let rdp_connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>> =
             Rc::new(RefCell::new(vec![(None, "(None)".to_string())]));
+        let vnc_connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>> =
+            Rc::new(RefCell::new(vec![(None, "(None)".to_string())]));
+        let spice_connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>> =
+            Rc::new(RefCell::new(vec![(None, "(None)".to_string())]));
 
         // Connect save button handler
         Self::connect_save_button(
@@ -845,6 +855,8 @@ impl ConnectionDialog {
             &vnc_show_local_cursor_check,
             &vnc_scale_override_dropdown,
             &vnc_custom_args_entry,
+            &vnc_jump_host_dropdown,
+            &vnc_connections_data,
             &spice_tls_check,
             &spice_ca_cert_entry,
             &spice_skip_verify_check,
@@ -854,6 +866,8 @@ impl ConnectionDialog {
             &spice_compression_dropdown,
             &spice_proxy_entry,
             &spice_shared_folders,
+            &spice_jump_host_dropdown,
+            &spice_connections_data,
             &zt_provider_dropdown,
             &zt_aws_target_entry,
             &zt_aws_profile_entry,
@@ -1017,6 +1031,8 @@ impl ConnectionDialog {
             vnc_show_local_cursor_check,
             vnc_scale_override_dropdown,
             vnc_custom_args_entry,
+            vnc_jump_host_dropdown,
+            vnc_connections_data,
             spice_tls_check,
             variables_list,
             variables_rows,
@@ -1033,6 +1049,8 @@ impl ConnectionDialog {
             spice_proxy_entry,
             spice_shared_folders,
             spice_shared_folders_list,
+            spice_jump_host_dropdown,
+            spice_connections_data,
             zt_provider_dropdown,
             zt_provider_stack,
             zt_aws_target_entry,
@@ -1888,6 +1906,8 @@ impl ConnectionDialog {
         vnc_show_local_cursor_check: &CheckButton,
         vnc_scale_override_dropdown: &DropDown,
         vnc_custom_args_entry: &Entry,
+        vnc_jump_host_dropdown: &DropDown,
+        vnc_connections_data: &Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
         spice_tls_check: &CheckButton,
         spice_ca_cert_entry: &Entry,
         spice_skip_verify_check: &CheckButton,
@@ -1897,6 +1917,8 @@ impl ConnectionDialog {
         spice_compression_dropdown: &DropDown,
         spice_proxy_entry: &Entry,
         spice_shared_folders: &Rc<RefCell<Vec<SharedFolder>>>,
+        spice_jump_host_dropdown: &DropDown,
+        spice_connections_data: &Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
         zt_provider_dropdown: &DropDown,
         zt_aws_target_entry: &adw::EntryRow,
         zt_aws_profile_entry: &adw::EntryRow,
@@ -2045,6 +2067,8 @@ impl ConnectionDialog {
         let vnc_scale_override_dropdown = vnc_scale_override_dropdown.clone();
         let vnc_custom_args_entry = vnc_custom_args_entry.clone();
         let vnc_performance_mode_dropdown = vnc_performance_mode_dropdown.clone();
+        let vnc_jump_host_dropdown = vnc_jump_host_dropdown.clone();
+        let vnc_connections_data = vnc_connections_data.clone();
         let spice_tls_check = spice_tls_check.clone();
         let spice_ca_cert_entry = spice_ca_cert_entry.clone();
         let spice_skip_verify_check = spice_skip_verify_check.clone();
@@ -2054,6 +2078,8 @@ impl ConnectionDialog {
         let spice_compression_dropdown = spice_compression_dropdown.clone();
         let spice_proxy_entry = spice_proxy_entry.clone();
         let spice_shared_folders = spice_shared_folders.clone();
+        let spice_jump_host_dropdown = spice_jump_host_dropdown.clone();
+        let spice_connections_data = spice_connections_data.clone();
         let zt_provider_dropdown = zt_provider_dropdown.clone();
         let zt_aws_target_entry = zt_aws_target_entry.clone();
         let zt_aws_profile_entry = zt_aws_profile_entry.clone();
@@ -2213,6 +2239,8 @@ impl ConnectionDialog {
                 vnc_show_local_cursor_check: &vnc_show_local_cursor_check,
                 vnc_scale_override_dropdown: &vnc_scale_override_dropdown,
                 vnc_custom_args_entry: &vnc_custom_args_entry,
+                vnc_jump_host_dropdown: &vnc_jump_host_dropdown,
+                vnc_connections_data: &vnc_connections_data,
                 spice_tls_check: &spice_tls_check,
                 spice_ca_cert_entry: &spice_ca_cert_entry,
                 spice_skip_verify_check: &spice_skip_verify_check,
@@ -2222,6 +2250,8 @@ impl ConnectionDialog {
                 spice_compression_dropdown: &spice_compression_dropdown,
                 spice_proxy_entry: &spice_proxy_entry,
                 spice_shared_folders: &spice_shared_folders,
+                spice_jump_host_dropdown: &spice_jump_host_dropdown,
+                spice_connections_data: &spice_connections_data,
                 zt_provider_dropdown: &zt_provider_dropdown,
                 zt_aws_target_entry: &zt_aws_target_entry,
                 zt_aws_profile_entry: &zt_aws_profile_entry,
@@ -2929,6 +2959,7 @@ impl ConnectionDialog {
         CheckButton,
         DropDown,
         Entry,
+        DropDown,
     ) {
         let scrolled = ScrolledWindow::builder()
             .hscrollbar_policy(gtk4::PolicyType::Never)
@@ -3177,6 +3208,30 @@ impl ConnectionDialog {
 
         content.append(&advanced_group);
 
+        // === Connection Group (Jump Host) ===
+        let vnc_connection_group = adw::PreferencesGroup::builder()
+            .title(i18n("Connection"))
+            .build();
+
+        let none_items: Vec<String> = vec![i18n("(None)")];
+        let none_refs: Vec<&str> = none_items.iter().map(String::as_str).collect();
+        let vnc_jump_host_list = StringList::new(&none_refs);
+        let vnc_jump_host_dropdown =
+            DropDown::new(Some(vnc_jump_host_list), gtk4::Expression::NONE);
+        vnc_jump_host_dropdown.set_selected(0);
+        vnc_jump_host_dropdown.set_enable_search(true);
+        vnc_jump_host_dropdown.set_size_request(200, -1);
+        vnc_jump_host_dropdown.set_hexpand(false);
+
+        let vnc_jump_host_row = adw::ActionRow::builder()
+            .title(i18n("Jump Host"))
+            .subtitle(i18n("Tunnel VNC through an SSH connection"))
+            .build();
+        vnc_jump_host_row.add_suffix(&vnc_jump_host_dropdown);
+        vnc_connection_group.add(&vnc_jump_host_row);
+
+        content.append(&vnc_connection_group);
+
         clamp.set_child(Some(&content));
         scrolled.set_child(Some(&clamp));
 
@@ -3196,6 +3251,7 @@ impl ConnectionDialog {
             vnc_show_local_cursor_check,
             scale_override_dropdown,
             custom_args_entry,
+            vnc_jump_host_dropdown,
         )
     }
 
@@ -3214,6 +3270,7 @@ impl ConnectionDialog {
         CheckButton,
         Rc<RefCell<Vec<SharedFolder>>>,
         gtk4::ListBox,
+        DropDown,
     ) {
         let scrolled = ScrolledWindow::builder()
             .hscrollbar_policy(gtk4::PolicyType::Never)
@@ -3440,6 +3497,30 @@ impl ConnectionDialog {
             remove_btn_for_selection.set_sensitive(row.is_some());
         });
 
+        // === Connection Group (Jump Host) ===
+        let spice_connection_group = adw::PreferencesGroup::builder()
+            .title(i18n("Connection"))
+            .build();
+
+        let none_items: Vec<String> = vec![i18n("(None)")];
+        let none_refs: Vec<&str> = none_items.iter().map(String::as_str).collect();
+        let spice_jump_host_list = StringList::new(&none_refs);
+        let spice_jump_host_dropdown =
+            DropDown::new(Some(spice_jump_host_list), gtk4::Expression::NONE);
+        spice_jump_host_dropdown.set_selected(0);
+        spice_jump_host_dropdown.set_enable_search(true);
+        spice_jump_host_dropdown.set_size_request(200, -1);
+        spice_jump_host_dropdown.set_hexpand(false);
+
+        let spice_jump_host_row = adw::ActionRow::builder()
+            .title(i18n("Jump Host"))
+            .subtitle(i18n("Tunnel SPICE through an SSH connection"))
+            .build();
+        spice_jump_host_row.add_suffix(&spice_jump_host_dropdown);
+        spice_connection_group.add(&spice_jump_host_row);
+
+        content.append(&spice_connection_group);
+
         clamp.set_child(Some(&content));
         scrolled.set_child(Some(&clamp));
 
@@ -3459,6 +3540,7 @@ impl ConnectionDialog {
             show_local_cursor_check,
             shared_folders,
             folders_list,
+            spice_jump_host_dropdown,
         )
     }
 
@@ -5309,6 +5391,14 @@ impl ConnectionDialog {
         *self.rdp_connections_data.borrow_mut() = connections_data.clone();
         let rdp_model = StringList::new(&display_strings);
         self.rdp_jump_host_dropdown.set_model(Some(&rdp_model));
+
+        *self.vnc_connections_data.borrow_mut() = connections_data.clone();
+        let vnc_model = StringList::new(&display_strings);
+        self.vnc_jump_host_dropdown.set_model(Some(&vnc_model));
+
+        *self.spice_connections_data.borrow_mut() = connections_data.clone();
+        let spice_model = StringList::new(&display_strings);
+        self.spice_jump_host_dropdown.set_model(Some(&spice_model));
     }
 
     fn set_groups_list(&self, groups_data: &[(Option<Uuid>, String)]) {
@@ -5968,6 +6058,15 @@ impl ConnectionDialog {
             self.vnc_custom_args_entry
                 .set_text(&vnc.custom_args.join(" "));
         }
+
+        // Set jump host dropdown
+        if let Some(jump_id) = vnc.jump_host_id {
+            let conns = self.vnc_connections_data.borrow();
+            if let Some(idx) = conns.iter().position(|(id, _)| *id == Some(jump_id)) {
+                #[allow(clippy::cast_possible_truncation)]
+                self.vnc_jump_host_dropdown.set_selected(idx as u32);
+            }
+        }
     }
 
     fn set_spice_config(&self, spice: &SpiceConfig) {
@@ -6011,6 +6110,15 @@ impl ConnectionDialog {
                 &folder.local_path,
                 &folder.share_name,
             );
+        }
+
+        // Set jump host dropdown
+        if let Some(jump_id) = spice.jump_host_id {
+            let conns = self.spice_connections_data.borrow();
+            if let Some(idx) = conns.iter().position(|(id, _)| *id == Some(jump_id)) {
+                #[allow(clippy::cast_possible_truncation)]
+                self.spice_jump_host_dropdown.set_selected(idx as u32);
+            }
         }
     }
 
@@ -6801,6 +6909,8 @@ struct ConnectionDialogData<'a> {
     vnc_show_local_cursor_check: &'a CheckButton,
     vnc_scale_override_dropdown: &'a DropDown,
     vnc_custom_args_entry: &'a Entry,
+    vnc_jump_host_dropdown: &'a DropDown,
+    vnc_connections_data: &'a Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     spice_tls_check: &'a CheckButton,
     spice_ca_cert_entry: &'a Entry,
     spice_skip_verify_check: &'a CheckButton,
@@ -6810,6 +6920,8 @@ struct ConnectionDialogData<'a> {
     spice_compression_dropdown: &'a DropDown,
     spice_proxy_entry: &'a Entry,
     spice_shared_folders: &'a Rc<RefCell<Vec<SharedFolder>>>,
+    spice_jump_host_dropdown: &'a DropDown,
+    spice_connections_data: &'a Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     // Zero Trust fields
     zt_provider_dropdown: &'a DropDown,
     zt_aws_target_entry: &'a adw::EntryRow,
@@ -7865,6 +7977,15 @@ impl ConnectionDialogData<'_> {
             custom_args,
             scale_override: ScaleOverride::from_index(self.vnc_scale_override_dropdown.selected()),
             show_local_cursor: self.vnc_show_local_cursor_check.is_active(),
+            jump_host_id: {
+                let idx = self.vnc_jump_host_dropdown.selected() as usize;
+                let conns = self.vnc_connections_data.borrow();
+                if idx < conns.len() {
+                    conns[idx].0
+                } else {
+                    None
+                }
+            },
         }
     }
 
@@ -7904,6 +8025,15 @@ impl ConnectionDialogData<'_> {
                 }
             },
             show_local_cursor: self.spice_show_local_cursor_check.is_active(),
+            jump_host_id: {
+                let idx = self.spice_jump_host_dropdown.selected() as usize;
+                let conns = self.spice_connections_data.borrow();
+                if idx < conns.len() {
+                    conns[idx].0
+                } else {
+                    None
+                }
+            },
         }
     }
 

@@ -103,6 +103,15 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.11.3" date="2026-04-20">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#0113---2026-04-20</url>
+      <description>
+        <p>CLI jump host support for connection management:</p>
+        <ul>
+          <li>CLI: --jump-host flag for add and update — set a jump host (SSH bastion) when creating or updating SSH, SFTP, and RDP connections; accepts connection name or UUID; validates existence and prevents self-referencing</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.11.2" date="2026-04-20">
       <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#0112---2026-04-19</url>
       <description>

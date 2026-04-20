@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Mon Apr 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.11.3
+
+- Update to version 0.11.3
+- [Added] CLI: --jump-host flag for add and update — set a jump host
+  (SSH bastion) when creating or updating SSH, SFTP, and RDP connections
+  via CLI; accepts connection name or UUID; validates existence and
+  prevents self-referencing
+- [Fixed] Flatpak: kubectl and Hoop.dev missing from Settings Clients
+  tab and PATH — added Container Orchestration section, Hoop.dev to
+  Zero Trust Clients, registered both in get_cli_path_dirs()
+
+-------------------------------------------------------------------
 Mon Apr 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.11.2
 
 - [Fixed] Reconnect reuses existing tab for all VTE protocols — SSH,

@@ -51,7 +51,12 @@ pub async fn establish_connection(
     let tcp_result = timeout(connect_timeout, TcpStream::connect(&server_addr)).await;
 
     let stream = match tcp_result {
-        Ok(Ok(stream)) => stream,
+        Ok(Ok(stream)) => {
+            // Disable Nagle's algorithm — RDP is latency-sensitive and the
+            // tunnel adds its own buffering layer.
+            let _ = stream.set_nodelay(true);
+            stream
+        }
         Ok(Err(e)) => {
             return Err(RdpClientError::ConnectionFailed(format!(
                 "Failed to connect to {server_addr}: {e}"
@@ -142,17 +147,36 @@ pub async fn establish_connection(
     // Phase 3: Perform RDP connection sequence (TLS + NLA + capabilities)
     // Wrap the entire handshake in a timeout — on heavily loaded servers the
     // TCP connect succeeds quickly but TLS/NLA can hang indefinitely.
-    let handshake_timeout = Duration::from_secs(config.timeout_secs.saturating_mul(2).max(60));
+    // For tunnel connections (127.0.0.1), use a shorter timeout since the
+    // TCP connect is instant and any delay means the remote host is unreachable.
+    let is_tunnel = config.host == "127.0.0.1" || config.host == "localhost";
+    let handshake_secs = if is_tunnel {
+        config.timeout_secs.min(15)
+    } else {
+        config.timeout_secs.saturating_mul(2).max(60)
+    };
+    let handshake_timeout = Duration::from_secs(handshake_secs);
 
     let handshake_result = timeout(handshake_timeout, async {
         let mut framed = TokioFramed::new(stream);
 
         // Begin connection (X.224 negotiation)
+        tracing::debug!(
+            protocol = "rdp",
+            host = %config.host,
+            port = %config.port,
+            "Starting X.224 connection negotiation"
+        );
         let should_upgrade = ironrdp_tokio::connect_begin(&mut framed, &mut connector)
             .await
             .map_err(|e| {
                 RdpClientError::ConnectionFailed(format!("Connection begin failed: {e}"))
             })?;
+
+        tracing::debug!(
+            protocol = "rdp",
+            "X.224 negotiation complete, starting TLS upgrade"
+        );
 
         // TLS upgrade - returns stream and server certificate.
         // Note: IronRDP does not validate the server certificate against a CA
@@ -163,6 +187,11 @@ pub async fn establish_connection(
         let (upgraded_stream, server_cert) = ironrdp_tls::upgrade(initial_stream, &config.host)
             .await
             .map_err(|e| RdpClientError::ConnectionFailed(format!("TLS upgrade failed: {e}")))?;
+
+        tracing::debug!(
+            protocol = "rdp",
+            "TLS upgrade complete, proceeding to NLA/capabilities"
+        );
 
         tracing::warn!(
             protocol = "rdp",
@@ -249,10 +278,20 @@ pub async fn establish_connection(
             protocol = "rdp",
             host = %config.host,
             port = %config.port,
-            timeout_secs = handshake_timeout.as_secs(),
-            "RDP handshake timed out (TLS/NLA phase). Server may be overloaded."
+            timeout_secs = handshake_secs,
+            is_tunnel,
+            "RDP handshake timed out (TLS/NLA phase). \
+             The remote host may be unreachable or RDP service not running."
         );
-        Err(RdpClientError::Timeout)
+        if is_tunnel {
+            Err(RdpClientError::ConnectionFailed(format!(
+                "RDP handshake timed out after {handshake_secs}s — \
+                 the remote host may be unreachable through the SSH tunnel \
+                 or the RDP service is not running"
+            )))
+        } else {
+            Err(RdpClientError::Timeout)
+        }
     }
 }
 

@@ -1505,6 +1505,11 @@ pub struct VncConfig {
     /// Show local mouse cursor over embedded viewer (disable to avoid double cursor)
     #[serde(default = "default_true")]
     pub show_local_cursor: bool,
+    /// ID of an SSH connection to use as a jump host (SSH tunnel).
+    /// The VNC connection is tunnelled through this SSH host via local
+    /// port forwarding (`ssh -L`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jump_host_id: Option<uuid::Uuid>,
 }
 
 impl VncConfig {
@@ -1580,6 +1585,11 @@ pub struct SpiceConfig {
     /// Show local mouse cursor over embedded viewer (disable to avoid double cursor)
     #[serde(default = "default_true")]
     pub show_local_cursor: bool,
+    /// ID of an SSH connection to use as a jump host (SSH tunnel).
+    /// The SPICE connection is tunnelled through this SSH host via local
+    /// port forwarding (`ssh -L`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jump_host_id: Option<uuid::Uuid>,
 }
 
 impl Default for SpiceConfig {
@@ -1594,6 +1604,7 @@ impl Default for SpiceConfig {
             image_compression: None,
             proxy: None,
             show_local_cursor: true,
+            jump_host_id: None,
         }
     }
 }

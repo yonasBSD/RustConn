@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.11.2
+Version:        0.11.3
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,14 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Mon Apr 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.11.3-1
+- [Added] CLI: --jump-host flag for add and update — set a jump host
+  (SSH bastion) for SSH, SFTP, and RDP connections via CLI; validates
+  existence and prevents self-referencing
+- [Fixed] Flatpak: kubectl and Hoop.dev missing from Settings Clients
+  tab and PATH — added Container Orchestration section, Hoop.dev to
+  Zero Trust Clients, registered both in get_cli_path_dirs()
+
 * Mon Apr 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.11.2-0
 - [Fixed] Reconnect reuses existing tab for all VTE protocols (#89)
 - [Fixed] RDP port check skipped with jump host

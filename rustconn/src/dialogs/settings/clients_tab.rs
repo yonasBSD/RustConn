@@ -73,6 +73,7 @@ pub fn create_clients_page() -> adw::PreferencesPage {
         "Teleport CLI",
         "Tailscale CLI",
         "Boundary CLI",
+        "Hoop.dev CLI",
     ];
 
     let mut zerotrust_rows = Vec::new();
@@ -84,14 +85,27 @@ pub fn create_clients_page() -> adw::PreferencesPage {
 
     page.add(&zerotrust_group);
 
+    // === Container Orchestration Group ===
+    let k8s_group = adw::PreferencesGroup::builder()
+        .title(i18n("Container Orchestration"))
+        .description(i18n("Kubernetes CLI tools"))
+        .build();
+
+    let kubectl_row = create_loading_row("kubectl");
+    k8s_group.add(&kubectl_row);
+
+    page.add(&k8s_group);
+
     // Schedule async detection
     let core_group_clone = core_group.clone();
     let zerotrust_group_clone = zerotrust_group.clone();
+    let k8s_group_clone = k8s_group.clone();
     let ssh_row_clone = ssh_row.clone();
     let rdp_row_clone = rdp_row.clone();
     let vnc_row_clone = vnc_row.clone();
     let spice_row_clone = spice_row.clone();
     let waypipe_row_clone = waypipe_row.clone();
+    let kubectl_row_clone = kubectl_row.clone();
     let zerotrust_rows = Rc::new(zerotrust_rows);
     let zerotrust_rows_clone = zerotrust_rows.clone();
 
@@ -106,7 +120,7 @@ pub fn create_clients_page() -> adw::PreferencesPage {
 
     // Poll the channel from the main thread; GTK widgets stay here.
     glib::idle_add_local(move || match rx.try_recv() {
-        Ok((core_clients, zerotrust_clients)) => {
+        Ok((core_clients, zerotrust_clients, k8s_clients)) => {
             if core_clients.len() >= 5 {
                 update_client_row(&core_group_clone, &ssh_row_clone, &core_clients[0]);
                 update_client_row(&core_group_clone, &rdp_row_clone, &core_clients[1]);
@@ -119,6 +133,10 @@ pub fn create_clients_page() -> adw::PreferencesPage {
                 if i < zerotrust_rows_clone.len() {
                     update_client_row(&zerotrust_group_clone, &zerotrust_rows_clone[i], client);
                 }
+            }
+
+            if let Some(kubectl_info) = k8s_clients.first() {
+                update_client_row(&k8s_group_clone, &kubectl_row_clone, kubectl_info);
             }
             glib::ControlFlow::Break
         }
@@ -267,15 +285,17 @@ fn insert_row_at_position(group: &adw::PreferencesGroup, row: &adw::ActionRow, _
 }
 
 /// Detects all clients in a background thread with parallelized CLI checks
-fn detect_all_clients() -> (Vec<ClientInfo>, Vec<ClientInfo>) {
+fn detect_all_clients() -> (Vec<ClientInfo>, Vec<ClientInfo>, Vec<ClientInfo>) {
     // Run core and zero trust detection in parallel
     std::thread::scope(|s| {
         let core_handle = s.spawn(|| detect_core_clients());
         let zt_handle = s.spawn(|| detect_zerotrust_clients());
+        let k8s_handle = s.spawn(|| detect_k8s_clients());
 
         let core_clients = core_handle.join().unwrap_or_default();
         let zerotrust_clients = zt_handle.join().unwrap_or_default();
-        (core_clients, zerotrust_clients)
+        let k8s_clients = k8s_handle.join().unwrap_or_default();
+        (core_clients, zerotrust_clients, k8s_clients)
     })
 }
 
@@ -420,6 +440,7 @@ fn detect_zerotrust_clients() -> Vec<ClientInfo> {
             "Install tailscale package",
         ),
         ("Boundary CLI", "boundary", "-v", "Install boundary package"),
+        ("Hoop.dev CLI", "hoop", "version", "Install hoop package"),
     ];
 
     // Run all zero trust detections in parallel.
@@ -467,6 +488,37 @@ fn detect_zerotrust_clients() -> Vec<ClientInfo> {
             })
             .collect()
     })
+}
+
+/// Detects Kubernetes / container orchestration CLI clients
+fn detect_k8s_clients() -> Vec<ClientInfo> {
+    let command_path = find_command("kubectl");
+    let installed = command_path.is_some();
+    let version = command_path.as_ref().and_then(|p| {
+        let extended_path = rustconn_core::cli_download::get_extended_path();
+        let output = std::process::Command::new(p)
+            .args(["version", "--client", "--short"])
+            .env("PATH", &extended_path)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .output()
+            .ok()?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let line = stdout.lines().next()?.trim().to_string();
+        if line.is_empty() { None } else { Some(line) }
+    });
+    let path_str = command_path.as_ref().map(|p| p.display().to_string());
+
+    vec![ClientInfo {
+        title: "kubectl".to_string(),
+        name: "kubectl".to_string(),
+        installed,
+        version,
+        path: path_str,
+        install_hint: "Install kubectl package".to_string(),
+        has_embedded: false,
+        embedded_name: None,
+    }]
 }
 
 /// Finds a command in PATH, common user directories, or Flatpak CLI directory
@@ -535,6 +587,8 @@ fn find_in_flatpak_cli_dir(command: &str) -> Option<PathBuf> {
         cli_dir.join("1password"),
         cli_dir.join("tigervnc"),
         cli_dir.join("tigervnc/usr/bin"),
+        cli_dir.join("kubectl"),
+        cli_dir.join("hoop"),
     ];
 
     for dir in &search_dirs {

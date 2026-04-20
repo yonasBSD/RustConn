@@ -2138,6 +2138,8 @@ impl MainWindow {
             {
                 let id_str = conn_item.id();
                 if let Ok(conn_id) = Uuid::parse_str(&id_str) {
+                    // Set connecting status immediately on double-click
+                    sidebar.update_connection_status(&conn_id.to_string(), "connecting");
                     Self::start_connection_with_credential_resolution(
                         state.clone(),
                         notebook.clone(),
@@ -2516,7 +2518,13 @@ impl MainWindow {
             let settings = state_ref.settings();
             let conn = state_ref.get_connection(connection_id);
             if let Some(conn) = conn {
-                let should = settings.connection.pre_connect_port_check && !conn.skip_port_check;
+                let has_jump_host = matches!(
+                    &conn.protocol_config,
+                    rustconn_core::ProtocolConfig::Vnc(vnc) if vnc.jump_host_id.is_some()
+                );
+                let should = settings.connection.pre_connect_port_check
+                    && !conn.skip_port_check
+                    && !has_jump_host;
                 (
                     should,
                     conn.host.clone(),

@@ -2531,6 +2531,7 @@ impl TemplateDialog {
             custom_args,
             scale_override: ScaleOverride::default(),
             show_local_cursor: true,
+            jump_host_id: None,
         })
     }
 
@@ -2565,6 +2566,7 @@ impl TemplateDialog {
             image_compression: compression,
             proxy: None,
             show_local_cursor: true,
+            jump_host_id: None,
         })
     }
 

@@ -1,3 +1,15 @@
+rustconn (0.11.3-1) unstable; urgency=medium
+
+  * [Added] CLI: --jump-host flag for add and update — set a jump host
+    (SSH bastion) when creating or updating SSH, SFTP, and RDP connections
+    via CLI; accepts connection name or UUID; validates that the referenced
+    connection exists and prevents self-referencing
+  * [Fixed] Flatpak: kubectl and Hoop.dev missing from Settings Clients
+    tab and PATH — added Container Orchestration section, Hoop.dev to
+    Zero Trust Clients, registered both in get_cli_path_dirs()
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Mon, 20 Apr 2026 18:00:00 +0200
+
 rustconn (0.11.2-1) unstable; urgency=medium
 
   * [Fixed] Reconnect reuses existing tab for all VTE protocols — SSH,

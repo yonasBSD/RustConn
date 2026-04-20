@@ -742,9 +742,14 @@ pub fn start_vnc_connection(
     connection_id: Uuid,
     conn: &rustconn_core::Connection,
 ) -> Option<Uuid> {
-    // Check if port check is needed
+    // Check if port check is needed — skip when jump host is configured
+    let has_jump_host = matches!(
+        &conn.protocol_config,
+        rustconn_core::ProtocolConfig::Vnc(vnc) if vnc.jump_host_id.is_some()
+    );
     let settings = state.borrow().settings().clone();
-    let should_check = settings.connection.pre_connect_port_check && !conn.skip_port_check;
+    let should_check =
+        settings.connection.pre_connect_port_check && !conn.skip_port_check && !has_jump_host;
 
     if should_check {
         let host = conn.host.clone();
@@ -939,9 +944,14 @@ pub fn start_spice_connection(
     connection_id: Uuid,
     conn: &rustconn_core::Connection,
 ) -> Option<Uuid> {
-    // Check if port check is needed
+    // Check if port check is needed — skip when jump host is configured
+    let has_jump_host = matches!(
+        &conn.protocol_config,
+        rustconn_core::ProtocolConfig::Spice(spice) if spice.jump_host_id.is_some()
+    );
     let settings = state.borrow().settings().clone();
-    let should_check = settings.connection.pre_connect_port_check && !conn.skip_port_check;
+    let should_check =
+        settings.connection.pre_connect_port_check && !conn.skip_port_check && !has_jump_host;
 
     if should_check {
         let host = conn.host.clone();
@@ -1021,6 +1031,76 @@ fn start_spice_connection_internal(
         None
     };
 
+    // --- SSH tunnel for jump host ---
+    let (effective_host, effective_port, ssh_tunnel) = if let Some(ref opts) = spice_opts
+        && let Some(jump_id) = opts.jump_host_id
+    {
+        if let Ok(state_ref) = state.try_borrow()
+            && let Some(jump_conn) = state_ref.get_connection(jump_id)
+        {
+            let mut jump_dest = jump_conn.host.clone();
+            if let Some(user) = &jump_conn.username {
+                jump_dest = format!("{user}@{}", jump_dest);
+            }
+            let jump_port = jump_conn.port;
+            let identity_file = if let rustconn_core::ProtocolConfig::Ssh(ref ssh_cfg) =
+                jump_conn.protocol_config
+            {
+                ssh_cfg
+                    .key_path
+                    .as_ref()
+                    .and_then(|p| rustconn_core::resolve_key_path(p))
+                    .map(|p| p.to_string_lossy().to_string())
+            } else {
+                None
+            };
+
+            let params = rustconn_core::ssh_tunnel::SshTunnelParams {
+                jump_host: jump_dest,
+                jump_port,
+                remote_host: host.clone(),
+                remote_port: port,
+                identity_file,
+                extra_args: Vec::new(),
+            };
+
+            drop(state_ref);
+
+            match rustconn_core::ssh_tunnel::create_tunnel(&params) {
+                Ok(mut tunnel) => {
+                    let local_port = tunnel.local_port();
+                    tracing::info!(
+                        %connection_id,
+                        local_port,
+                        "SSH tunnel established for SPICE connection"
+                    );
+                    // Wait for tunnel to accept connections
+                    if let Err(e) = rustconn_core::ssh_tunnel::wait_for_tunnel_ready(
+                        &mut tunnel,
+                        40,
+                        std::time::Duration::from_millis(250),
+                    ) {
+                        tracing::error!(%e, "SSH tunnel not ready for SPICE");
+                        sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                        return None;
+                    }
+
+                    ("127.0.0.1".to_string(), local_port, Some(tunnel))
+                }
+                Err(e) => {
+                    tracing::error!(%e, "Failed to create SSH tunnel for SPICE");
+                    sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                    return None;
+                }
+            }
+        } else {
+            tracing::warn!(%jump_id, "Jump host connection not found for SPICE");
+            (host, port, None)
+        }
+    } else {
+        (host, port, None)
+    };
+
     // Create SPICE session tab with native widget
     let session_id = notebook.create_spice_session_tab(connection_id, &conn_name);
 
@@ -1036,11 +1116,16 @@ fn start_spice_connection_internal(
         notebook.set_history_entry_id(session_id, entry_id);
     }
 
+    // Store SSH tunnel so it stays alive for the duration of the session
+    if let Some(tunnel) = ssh_tunnel {
+        notebook.store_ssh_tunnel(session_id, tunnel);
+    }
+
     // Get the SPICE widget and initiate connection
     if let Some(spice_widget) = notebook.get_spice_widget(session_id) {
         // Build connection config using SpiceClientConfig from spice_client module
         use rustconn_core::spice_client::SpiceClientConfig;
-        let mut config = SpiceClientConfig::new(&host).with_port(port);
+        let mut config = SpiceClientConfig::new(&effective_host).with_port(effective_port);
 
         // Apply SPICE-specific settings if available
         if let Some(opts) = spice_opts {

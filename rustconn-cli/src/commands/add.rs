@@ -11,7 +11,9 @@ use rustconn_core::models::{
 };
 
 use crate::error::CliError;
-use crate::util::{create_config_manager, default_port_for_protocol, parse_protocol_type};
+use crate::util::{
+    create_config_manager, default_port_for_protocol, find_connection, parse_protocol_type,
+};
 
 /// Parameters for the `add` command
 pub struct AddParams<'a> {
@@ -44,6 +46,7 @@ pub struct AddParams<'a> {
     pub boundary_target: Option<&'a str>,
     pub boundary_addr: Option<&'a str>,
     pub custom_command: Option<&'a str>,
+    pub jump_host: Option<&'a str>,
 }
 
 /// Add connection command handler
@@ -111,6 +114,13 @@ pub fn cmd_add(config_path: Option<&Path>, params: AddParams<'_>) -> Result<(), 
     let mut connections = config_manager
         .load_connections()
         .map_err(|e| CliError::Config(format!("Failed to load connections: {e}")))?;
+
+    // Resolve --jump-host to a UUID by looking up existing connections
+    if let Some(jump_host_ref) = params.jump_host {
+        let jump_conn = find_connection(&connections, jump_host_ref)?;
+        let jump_id = jump_conn.id;
+        apply_jump_host_id(&mut connection, jump_id)?;
+    }
 
     ConfigManager::validate_connection(&connection)
         .map_err(|e| CliError::Config(format!("Invalid connection: {e}")))?;
@@ -458,4 +468,38 @@ fn create_zerotrust_connection(name: &str, params: &AddParams<'_>) -> Result<Con
              oci_bastion, cloudflare_access, teleport, tailscale_ssh, boundary, hoop_dev, generic"
         ))),
     }
+}
+
+/// Set `jump_host_id` on a connection's protocol config.
+///
+/// Supported protocols: SSH, SFTP, RDP, VNC, SPICE.
+/// Returns an error for protocols that don't support jump hosts.
+pub fn apply_jump_host_id(
+    connection: &mut Connection,
+    jump_id: uuid::Uuid,
+) -> Result<(), CliError> {
+    match connection.protocol_config {
+        ProtocolConfig::Ssh(ref mut cfg) => {
+            cfg.jump_host_id = Some(jump_id);
+        }
+        ProtocolConfig::Sftp(ref mut cfg) => {
+            cfg.jump_host_id = Some(jump_id);
+        }
+        ProtocolConfig::Rdp(ref mut cfg) => {
+            cfg.jump_host_id = Some(jump_id);
+        }
+        rustconn_core::models::ProtocolConfig::Vnc(ref mut cfg) => {
+            cfg.jump_host_id = Some(jump_id);
+        }
+        rustconn_core::models::ProtocolConfig::Spice(ref mut cfg) => {
+            cfg.jump_host_id = Some(jump_id);
+        }
+        _ => {
+            return Err(CliError::Config(format!(
+                "--jump-host is not supported for {} connections",
+                connection.protocol
+            )));
+        }
+    }
+    Ok(())
 }

@@ -182,6 +182,7 @@ pub fn sample_vnc_connection_custom_port() -> Connection {
         custom_args: Vec::new(),
         scale_override: Default::default(),
         show_local_cursor: true,
+        jump_host_id: None,
     };
 
     Connection::new(

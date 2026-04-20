@@ -4,7 +4,7 @@ use std::path::Path;
 
 use rustconn_core::config::ConfigManager;
 
-use crate::commands::add::parse_auth_method;
+use crate::commands::add::{apply_jump_host_id, parse_auth_method};
 use crate::error::CliError;
 use crate::util::{create_config_manager, find_connection};
 
@@ -39,6 +39,7 @@ pub struct UpdateParams<'a> {
     pub boundary_target: Option<&'a str>,
     pub boundary_addr: Option<&'a str>,
     pub custom_command: Option<&'a str>,
+    pub jump_host: Option<&'a str>,
 }
 
 /// Update connection command handler
@@ -53,6 +54,14 @@ pub fn cmd_update(config_path: Option<&Path>, params: UpdateParams<'_>) -> Resul
     let index = {
         let conn = find_connection(&connections, params.name)?;
         connections.iter().position(|c| c.id == conn.id).unwrap()
+    };
+
+    // Resolve --jump-host early (before mutable borrow of connection)
+    let resolved_jump_id = if let Some(jump_host_ref) = params.jump_host {
+        let jump_conn = find_connection(&connections, jump_host_ref)?;
+        Some(jump_conn.id)
+    } else {
+        None
     };
 
     let connection = &mut connections[index];
@@ -241,6 +250,16 @@ pub fn cmd_update(config_path: Option<&Path>, params: UpdateParams<'_>) -> Resul
     }
 
     connection.updated_at = chrono::Utc::now();
+
+    // Apply pre-resolved jump host ID
+    if let Some(jump_id) = resolved_jump_id {
+        if jump_id == connection.id {
+            return Err(CliError::Config(
+                "A connection cannot use itself as a jump host".into(),
+            ));
+        }
+        apply_jump_host_id(connection, jump_id)?;
+    }
 
     if let Some(icon) = params.icon {
         connection.icon = Some(icon.to_string());

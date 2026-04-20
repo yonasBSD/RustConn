@@ -216,6 +216,7 @@ fn arb_vnc_config() -> impl Strategy<Value = VncConfig> {
             custom_args,
             scale_override: Default::default(),
             show_local_cursor: true,
+            jump_host_id: None,
         })
 }
 
@@ -276,6 +277,7 @@ fn arb_spice_config() -> impl Strategy<Value = SpiceConfig> {
                 image_compression,
                 proxy: None,
                 show_local_cursor: true,
+                jump_host_id: None,
             },
         )
 }
