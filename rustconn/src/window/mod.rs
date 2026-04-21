@@ -2484,6 +2484,40 @@ impl MainWindow {
         }
 
         // Need to prompt for credentials
+        // When password_source is None, try with empty password first —
+        // the password dialog will be shown on retry if authentication fails.
+        {
+            let try_empty = state
+                .try_borrow()
+                .ok()
+                .and_then(|s| s.get_connection(connection_id).cloned())
+                .is_some_and(|c| {
+                    c.password_source == rustconn_core::models::PasswordSource::None
+                });
+
+            if try_empty {
+                let username = state
+                    .try_borrow()
+                    .ok()
+                    .and_then(|s| {
+                        s.get_connection(connection_id)
+                            .and_then(|c| c.username.clone())
+                    })
+                    .unwrap_or_default();
+                Self::start_rdp_session_with_credentials(
+                    &state,
+                    &notebook,
+                    &split_view,
+                    &sidebar,
+                    connection_id,
+                    &username,
+                    "",
+                    "",
+                );
+                return;
+            }
+        }
+
         if let Some(window) = notebook
             .widget()
             .ancestor(adw::ApplicationWindow::static_type())
@@ -2640,6 +2674,33 @@ impl MainWindow {
         }
 
         // Need to prompt for VNC password
+        // When password_source is None, try with empty password first —
+        // many VNC servers don't require authentication.  The password
+        // dialog will be shown on retry if the empty password fails.
+        {
+            let try_empty = state
+                .try_borrow()
+                .ok()
+                .and_then(|s| s.get_connection(connection_id).cloned())
+                .is_some_and(|c| {
+                    c.password_source == rustconn_core::models::PasswordSource::None
+                });
+
+            if try_empty {
+                // Use start_vnc_session_with_password (not start_connection_with_split)
+                // because it handles SSH tunnel creation for jump host connections.
+                rdp_vnc::start_vnc_session_with_password(
+                    &state,
+                    &notebook,
+                    &split_view,
+                    &sidebar,
+                    connection_id,
+                    "",
+                );
+                return;
+            }
+        }
+
         if let Some(window) = notebook
             .widget()
             .ancestor(adw::ApplicationWindow::static_type())
@@ -2731,15 +2792,19 @@ impl MainWindow {
         // Update status to connecting
         sidebar.update_connection_status(&connection_id.to_string(), "connecting");
 
-        let session_id = if let Some(id) =
-            Self::start_connection(state, notebook, sidebar, monitoring, connection_id)
-        {
-            id
-        } else {
-            // Connection failed to start — reset status so it doesn't stay yellow
-            sidebar.update_connection_status(&connection_id.to_string(), "failed");
-            return None;
-        };
+        let session_id =
+            match Self::start_connection(state, notebook, sidebar, monitoring, connection_id) {
+                types::ConnectionStartResult::Started(id) => id,
+                types::ConnectionStartResult::Pending => {
+                    // Async port check in progress — keep "connecting" status.
+                    // The protocol callback will set "connected" or "failed".
+                    return None;
+                }
+                types::ConnectionStartResult::Failed => {
+                    sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                    return None;
+                }
+            };
 
         // Get session info to check protocol
         if let Some(info) = notebook.get_session_info(session_id) {
@@ -2828,10 +2893,12 @@ impl MainWindow {
         sidebar: &SharedSidebar,
         monitoring: &types::SharedMonitoring,
         connection_id: Uuid,
-    ) -> Option<Uuid> {
+    ) -> types::ConnectionStartResult {
         let state_ref = state.borrow();
 
-        let conn = state_ref.get_connection(connection_id)?;
+        let Some(conn) = state_ref.get_connection(connection_id) else {
+            return types::ConnectionStartResult::Failed;
+        };
 
         // Auto-WoL: send magic packet before connecting if configured
         // Fire-and-forget on background thread to avoid blocking GTK
@@ -2887,7 +2954,7 @@ impl MainWindow {
                         crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n(
                             "Pre-connect task failed. Connection aborted.",
                         ));
-                        return None;
+                        return types::ConnectionStartResult::Failed;
                     }
                 }
                 Err(e) => {
@@ -2901,11 +2968,19 @@ impl MainWindow {
                         crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n(
                             "Pre-connect task failed. Connection aborted.",
                         ));
-                        return None;
+                        return types::ConnectionStartResult::Failed;
                     }
                 }
             }
         }
+
+        // Protocols that use async port check return None when the check is
+        // in progress — this is NOT a failure.  We track whether the protocol
+        // *may* be pending so we can distinguish Pending from Failed below.
+        let may_be_pending = matches!(
+            protocol.as_str(),
+            "ssh" | "vnc" | "spice" | "telnet" | "mosh"
+        );
 
         let session_id = match protocol.as_str() {
             "ssh" => protocols::start_ssh_connection(
@@ -3011,7 +3086,11 @@ impl MainWindow {
             });
         }
 
-        session_id
+        match session_id {
+            Some(sid) => types::ConnectionStartResult::Started(sid),
+            None if may_be_pending => types::ConnectionStartResult::Pending,
+            None => types::ConnectionStartResult::Failed,
+        }
     }
 
     /// Sets up session logging for a terminal session

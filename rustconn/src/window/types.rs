@@ -62,6 +62,22 @@ pub type SharedMonitoring = Rc<MonitoringCoordinator>;
 /// Uses `Rc` because GTK is single-threaded; no need for `Arc`.
 pub type SharedActivityCoordinator = Rc<ActivityCoordinator>;
 
+/// Result of starting a connection
+///
+/// Distinguishes between a synchronously started session, an asynchronous
+/// connection attempt (e.g. port check in progress), and a real failure.
+/// This prevents the sidebar from flashing "failed" when a port check is
+/// still running in the background.
+pub enum ConnectionStartResult {
+    /// Session was created synchronously — contains the session UUID.
+    Started(Uuid),
+    /// Connection is being established asynchronously (e.g. port check).
+    /// The caller should keep the "connecting" status and not set "failed".
+    Pending,
+    /// Connection failed to start.
+    Failed,
+}
+
 /// Returns the protocol string for a connection, including provider info for ZeroTrust
 ///
 /// For ZeroTrust connections, returns "zerotrust:provider" format to enable

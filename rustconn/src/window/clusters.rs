@@ -334,7 +334,7 @@ fn connect_cluster(
     // Connect each connection and collect session IDs
     let mut session_ids: Vec<Uuid> = Vec::new();
     for conn_id in &connection_ids {
-        if let Some(session_id) =
+        if let super::types::ConnectionStartResult::Started(session_id) =
             MainWindow::start_connection(state, notebook, sidebar, monitoring, *conn_id)
         {
             session_ids.push(session_id);
