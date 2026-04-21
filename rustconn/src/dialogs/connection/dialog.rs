@@ -7065,12 +7065,16 @@ impl ConnectionDialogData<'_> {
             // SSH
             let auth_idx = self.ssh_auth_dropdown.selected();
             if auth_idx == 1 {
-                // Public Key
-                let key_path = self.ssh_key_entry.text();
-                if key_path.trim().is_empty() {
-                    return Err(
-                        "SSH key path is required for public key authentication".to_string()
-                    );
+                // Public Key — key path is only required when Key Source is "File" (1).
+                // "Default" (0) uses ~/.ssh/id_rsa, id_ed25519, id_ecdsa automatically.
+                let key_source_idx = self.ssh_key_source_dropdown.selected();
+                if key_source_idx == 1 {
+                    let key_path = self.ssh_key_entry.text();
+                    if key_path.trim().is_empty() {
+                        return Err(
+                            "SSH key path is required for public key authentication".to_string()
+                        );
+                    }
                 }
             }
             // SSH-1: Warn when auth=Password but password_source=None

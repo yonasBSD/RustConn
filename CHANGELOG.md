@@ -5,6 +5,19 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.4] - 2026-04-21
+
+### Fixed
+- **Sidebar flashes red during SSH connection** — connecting via SSH (and other protocols with port check) briefly showed "failed" (red) status before switching to "connected" (green); introduced `ConnectionStartResult` enum to distinguish async port check in progress (`Pending`) from real failures (`Failed`); the sidebar now stays yellow ("connecting") until the port check completes
+- **Context menu stays open when dialog opens** — the sidebar context menu remained visible when opening a dialog via keyboard shortcut or toolbar button (e.g. "New Connection"); switched the popover from `autohide(false)` to `autohide(true)` so GTK4 automatically dismisses it when focus moves elsewhere ([#93](https://github.com/totoshko88/RustConn/issues/93))
+- **Sidebar stays "connecting" after cancelling password dialog** — closing the VNC or RDP password prompt without entering credentials left the sidebar status stuck on yellow ("connecting"); the status is now cleared on cancel
+- **VNC/RDP with "None" password source prompts immediately** — when Password Source is set to "None", the first connection attempt now uses an empty password; the password dialog is only shown on retry (second attempt) if authentication fails
+- **Cannot save SSH connection with default key** — validation incorrectly required an explicit SSH key path even when Key Source was set to "Default"; the check now only applies when Key Source is "File"
+
+### Dependencies
+- Teleport CLI 18.7.3 → 18.7.4
+- 1Password CLI 2.33.1 → 2.34.0
+
 ## [0.11.3] - 2026-04-21
 
 ### Added

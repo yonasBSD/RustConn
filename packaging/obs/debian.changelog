@@ -1,3 +1,25 @@
+rustconn (0.11.4-1) unstable; urgency=medium
+
+  * [Fixed] Sidebar flashes red during SSH connection — connecting via
+    SSH (and other protocols with port check) briefly showed "failed"
+    (red) status before switching to "connected" (green); introduced
+    ConnectionStartResult enum to distinguish async port check in
+    progress (Pending) from real failures (Failed); the sidebar now
+    stays yellow ("connecting") until the port check completes
+  * [Fixed] Context menu stays open when dialog opens — the sidebar
+    context menu remained visible when opening a dialog via keyboard
+    shortcut or toolbar button; switched popover to autohide (#93)
+  * [Fixed] Sidebar stays "connecting" after cancelling password
+    dialog — closing the VNC or RDP password prompt without entering
+    credentials left the sidebar status stuck on yellow
+  * [Fixed] VNC/RDP with "None" password source prompts immediately —
+    first connection attempt now uses an empty password; the password
+    dialog is only shown on retry if authentication fails
+  * [Updated] Teleport CLI 18.7.3 → 18.7.4
+  * [Updated] 1Password CLI 2.33.1 → 2.34.0
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Tue, 21 Apr 2026 18:00:00 +0200
+
 rustconn (0.11.3-1) unstable; urgency=medium
 
   * [Added] CLI: --jump-host flag for add and update — set a jump host

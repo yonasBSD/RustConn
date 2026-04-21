@@ -577,14 +577,14 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         description: "For Teleport access",
         category: ComponentCategory::ZeroTrust,
         install_method: InstallMethod::Download,
-        download_url: Some("https://cdn.teleport.dev/teleport-v18.7.3-linux-amd64-bin.tar.gz"),
-        aarch64_url: Some("https://cdn.teleport.dev/teleport-v18.7.3-linux-arm64-bin.tar.gz"),
+        download_url: Some("https://cdn.teleport.dev/teleport-v18.7.4-linux-amd64-bin.tar.gz"),
+        aarch64_url: Some("https://cdn.teleport.dev/teleport-v18.7.4-linux-arm64-bin.tar.gz"),
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~100 MB",
         binary_name: "tsh",
         install_subdir: "teleport",
-        pinned_version: Some("18.7.3"),
+        pinned_version: Some("18.7.4"),
         works_in_sandbox: true,
     },
     DownloadableComponent {
@@ -699,19 +699,19 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         category: ComponentCategory::PasswordManager,
         install_method: InstallMethod::Download,
         download_url: Some(
-            "https://cache.agilebits.com/dist/1P/op2/pkg/v2.33.1/\
-             op_linux_amd64_v2.33.1.zip",
+            "https://cache.agilebits.com/dist/1P/op2/pkg/v2.34.0/\
+             op_linux_amd64_v2.34.0.zip",
         ),
         aarch64_url: Some(
-            "https://cache.agilebits.com/dist/1P/op2/pkg/v2.33.1/\
-             op_linux_arm64_v2.33.1.zip",
+            "https://cache.agilebits.com/dist/1P/op2/pkg/v2.34.0/\
+             op_linux_arm64_v2.34.0.zip",
         ),
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~15 MB",
         binary_name: "op",
         install_subdir: "1password",
-        pinned_version: Some("2.33.1"),
+        pinned_version: Some("2.34.0"),
         works_in_sandbox: true,
     },
     // Container orchestration CLIs

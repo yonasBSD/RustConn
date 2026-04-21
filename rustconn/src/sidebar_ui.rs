@@ -264,10 +264,11 @@ fn show_popover(
     #[allow(clippy::cast_possible_truncation)]
     let rect = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
     popover.set_pointing_to(Some(&rect));
-    // Disable autohide so GTK4 does not grab the pointer.  The gesture
-    // on the next right-clicked row will call close_active_popover()
-    // before opening a new menu, giving seamless menu switching.
-    popover.set_autohide(false);
+    // Enable autohide so the popover closes automatically when the user
+    // clicks outside it or opens another dialog / keyboard shortcut.
+    // The gesture handler already calls close_active_popover() before
+    // opening a new menu, so seamless right-click switching still works.
+    popover.set_autohide(true);
     popover.set_has_arrow(false);
 
     popover.connect_closed(|p| {

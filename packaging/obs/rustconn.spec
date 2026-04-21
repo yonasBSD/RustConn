@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.11.3
+Version:        0.11.4
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,20 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Tue Apr 21 2026 Anton Isaiev <totoshko88@gmail.com> - 0.11.4-1
+- [Fixed] Sidebar flashes red during SSH connection — introduced
+  ConnectionStartResult enum to distinguish async port check in
+  progress (Pending) from real failures (Failed); sidebar stays
+  yellow ("connecting") until the port check completes
+- [Fixed] Context menu stays open when dialog opens — switched
+  popover to autohide so GTK4 dismisses it on focus change (#93)
+- [Fixed] Sidebar stays "connecting" after cancelling password
+  dialog — VNC/RDP password prompt cancel now clears status
+- [Fixed] VNC/RDP with "None" password source prompts immediately —
+  first attempt uses empty password; dialog shown on retry only
+- [Updated] Teleport CLI 18.7.3 → 18.7.4
+- [Updated] 1Password CLI 2.33.1 → 2.34.0
+
 * Mon Apr 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.11.3-1
 - [Added] CLI: --jump-host flag for add and update — set a jump host
   (SSH bastion) for SSH, SFTP, and RDP connections via CLI; validates

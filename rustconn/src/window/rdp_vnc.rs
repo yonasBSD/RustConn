@@ -104,7 +104,12 @@ pub fn start_rdp_with_password_dialog(
 
     let sidebar_clone = sidebar.clone();
     dialog.show(move |result| {
-        if let Some(creds) = result {
+        let Some(creds) = result else {
+            // User cancelled the password dialog — clear "connecting" status
+            sidebar_clone.update_connection_status(&connection_id.to_string(), "");
+            return;
+        };
+        {
             // Determine if we should save: explicit request OR password_source == Vault
             let should_save = creds.save_credentials || {
                 let state_ref = state.borrow();
@@ -868,7 +873,12 @@ pub fn start_vnc_with_password_dialog(
 
     let sidebar_clone = sidebar.clone();
     dialog.show(move |result| {
-        if let Some(creds) = result {
+        let Some(creds) = result else {
+            // User cancelled the password dialog — clear "connecting" status
+            sidebar_clone.update_connection_status(&connection_id.to_string(), "");
+            return;
+        };
+        {
             // Determine if we should save: explicit request OR password_source == Vault
             let should_save = creds.save_credentials || {
                 let state_ref = state.borrow();

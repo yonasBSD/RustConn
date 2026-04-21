@@ -103,6 +103,19 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.11.4" date="2026-04-21">
+      <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#0114---2026-04-21</url>
+      <description>
+        <p>Bug fixes and CLI updates:</p>
+        <ul>
+          <li>Fixed sidebar flashing red during SSH connection — sidebar stays yellow until port check completes</li>
+          <li>Fixed context menu staying open when dialog opens via keyboard shortcut or toolbar button</li>
+          <li>Fixed sidebar staying on connecting after cancelling VNC/RDP password dialog</li>
+          <li>VNC/RDP with None password source now tries empty password first, prompts on retry</li>
+          <li>Updated Teleport CLI to 18.7.4, 1Password CLI to 2.34.0</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.11.3" date="2026-04-20">
       <url type="details">https://github.com/totoshko88/RustConn/blob/main/CHANGELOG.md#0113---2026-04-20</url>
       <description>
