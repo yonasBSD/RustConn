@@ -103,6 +103,20 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.12.0" date="2026-04-24">
+      <description>
+        <p>Version 0.12.0 — Cloud Sync:</p>
+        <ul>
+          <li>Cloud Sync — synchronize connections via shared cloud directory (Google Drive, Syncthing, Nextcloud, Dropbox)</li>
+          <li>Group Sync — per-group .rcn files with Master/Import access model</li>
+          <li>Simple Sync — single-file bidirectional sync with UUID-based merge and tombstones</li>
+          <li>SSH Key Inheritance — group-level SSH settings inherited by child connections</li>
+          <li>Credential Resolution UX — interactive dialogs for missing variables and unconfigured backends</li>
+          <li>CLI sync commands: sync status, sync list, sync export, sync import, sync now</li>
+          <li>Accessible labels for icon-only buttons, cargo-deny/audit in CI, document dirty badge</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.11.7" date="2026-04-23">
       <description>
         <p>Version 0.11.7:</p>

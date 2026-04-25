@@ -7,6 +7,7 @@ use crate::models::HighlightRule;
 use crate::models::HistorySettings;
 use crate::models::SmartFolder;
 use crate::monitoring::MonitoringSettings;
+use crate::sync::SyncSettings;
 use crate::variables::Variable;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
@@ -56,6 +57,9 @@ pub struct AppSettings {
     /// Overrides auto-detected SSH_AUTH_SOCK for all connections.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ssh_agent_socket: Option<String>,
+    /// Cloud Sync settings
+    #[serde(default)]
+    pub sync: SyncSettings,
 }
 
 /// Terminal-related settings

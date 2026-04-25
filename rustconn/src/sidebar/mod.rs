@@ -1257,8 +1257,19 @@ impl ConnectionSidebar {
         let is_group_or_document = Self::is_row_widget_group_or_document(list_view, &row_widget);
 
         let position = if is_group_or_document {
+            // Check if this is an Import group — block "Into" drops
+            let is_import_group = Self::get_item_from_widget(&row_widget)
+                .is_some_and(|item| item.sync_mode() == "import");
+
             // For groups/documents: top zone = before, middle = into, bottom = after
-            if y_in_widget < drop_zone_size {
+            // Import groups: never allow "Into" — treat as before/after only
+            if is_import_group {
+                if y_in_widget < row_height / 2.0 {
+                    DropPosition::Before
+                } else {
+                    DropPosition::After
+                }
+            } else if y_in_widget < drop_zone_size {
                 DropPosition::Before
             } else if y_in_widget > row_height - drop_zone_size {
                 DropPosition::After
@@ -1639,6 +1650,15 @@ mod imp {
         is_pinned: RefCell<bool>,
         #[property(get, set)]
         icon: RefCell<String>,
+        /// Cloud Sync mode for groups: "none", "master", or "import".
+        #[property(get, set)]
+        sync_mode: RefCell<String>,
+        /// Cloud Sync error message (empty string = no error).
+        #[property(get, set)]
+        sync_error: RefCell<String>,
+        /// Whether this group is a root group (parent_id is None).
+        #[property(get, set)]
+        is_root_group: RefCell<bool>,
         pub(super) children: RefCell<Option<gio::ListStore>>,
     }
 
@@ -1745,6 +1765,19 @@ impl ConnectionItem {
     /// Creates a new group item with a custom icon
     #[must_use]
     pub fn new_group_with_icon(id: &str, name: &str, icon: &str) -> Self {
+        Self::new_group_full(id, name, icon, "none", "", false)
+    }
+
+    /// Creates a new group item with icon, sync mode, sync error, and root group flag
+    #[must_use]
+    pub fn new_group_full(
+        id: &str,
+        name: &str,
+        icon: &str,
+        sync_mode: &str,
+        sync_error: &str,
+        is_root_group: bool,
+    ) -> Self {
         let item: Self = glib::Object::builder()
             .property("id", id)
             .property("name", name)
@@ -1754,6 +1787,9 @@ impl ConnectionItem {
             .property("is-dirty", false)
             .property("host", "")
             .property("icon", icon)
+            .property("sync-mode", sync_mode)
+            .property("sync-error", sync_error)
+            .property("is-root-group", is_root_group)
             .build();
 
         // Initialize children store for groups

@@ -1,11 +1,15 @@
 //! Connection group model for hierarchical organization.
 
+use std::path::PathBuf;
+
 use chrono::{DateTime, Utc};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::PasswordSource;
+use super::SshAuthMethod;
+use crate::sync::SyncMode;
 
 /// A hierarchical group for organizing connections
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,6 +47,32 @@ pub struct ConnectionGroup {
     /// Examples: `"🇺🇦"`, `"🏢"`, `"starred-symbolic"`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// SSH authentication method for inheritance by child connections
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_auth_method: Option<SshAuthMethod>,
+    /// SSH key path for inheritance (LOCAL-ONLY, not synced)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_key_path: Option<PathBuf>,
+    /// SSH ProxyJump for inheritance
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_proxy_jump: Option<String>,
+    /// ID of an SSH connection to use as jump host for all connections in this group.
+    /// Takes precedence over `ssh_proxy_jump` text field. (LOCAL-ONLY, not synced)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_jump_host_id: Option<Uuid>,
+    /// SSH agent socket override for inheritance (LOCAL-ONLY)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_agent_socket: Option<String>,
+    /// Cloud Sync mode for this group (None, Master, or Import).
+    #[serde(default)]
+    pub sync_mode: SyncMode,
+    /// Filename in the sync directory (e.g., `"production-servers.rcn"`).
+    /// Fixed at first export and never changes even if the group is renamed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync_file: Option<String>,
+    /// Timestamp of the last successful sync operation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_synced_at: Option<DateTime<Utc>>,
 }
 
 impl ConnectionGroup {
@@ -61,6 +91,14 @@ impl ConnectionGroup {
             password_source: None,
             description: None,
             icon: None,
+            ssh_auth_method: None,
+            ssh_key_path: None,
+            ssh_proxy_jump: None,
+            ssh_jump_host_id: None,
+            ssh_agent_socket: None,
+            sync_mode: SyncMode::None,
+            sync_file: None,
+            last_synced_at: None,
         }
     }
 
@@ -79,6 +117,14 @@ impl ConnectionGroup {
             password_source: None,
             description: None,
             icon: None,
+            ssh_auth_method: None,
+            ssh_key_path: None,
+            ssh_proxy_jump: None,
+            ssh_jump_host_id: None,
+            ssh_agent_socket: None,
+            sync_mode: SyncMode::None,
+            sync_file: None,
+            last_synced_at: None,
         }
     }
 

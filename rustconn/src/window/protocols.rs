@@ -12,6 +12,7 @@ use crate::utils::spawn_blocking_with_callback;
 use gtk4::glib;
 use gtk4::prelude::*;
 use rustconn_core::connection::check_port;
+use rustconn_core::connection::ssh_inheritance;
 use rustconn_core::variables::{Variable, VariableManager, VariableScope};
 use secrecy::SecretString;
 use std::rc::Rc;
@@ -84,11 +85,17 @@ pub fn start_ssh_connection(
 ) -> Option<Uuid> {
     // Check if port check is needed
     let settings = state.borrow().settings().clone();
+    // Collect groups for SSH inheritance resolution
+    let groups: Vec<rustconn_core::ConnectionGroup> = state
+        .try_borrow()
+        .ok()
+        .map(|s| s.list_groups().into_iter().cloned().collect())
+        .unwrap_or_default();
     let has_jump_host = matches!(
         &conn.protocol_config,
         rustconn_core::ProtocolConfig::Ssh(ssh)
-            if ssh.jump_host_id.is_some() || ssh.proxy_jump.is_some()
-    );
+            if ssh.jump_host_id.is_some()
+    ) || ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups).is_some();
     // Skip port check when a jump host is configured — the destination
     // is only reachable through the jump host, so a direct TCP probe
     // will always time out.
@@ -230,12 +237,19 @@ fn start_ssh_connection_internal(
     // Build and spawn SSH command
     let port = conn.port;
 
+    // Collect groups for SSH inheritance resolution
+    let groups: Vec<rustconn_core::ConnectionGroup> = state
+        .try_borrow()
+        .ok()
+        .map(|s| s.list_groups().into_iter().cloned().collect())
+        .unwrap_or_default();
+
     // Detect jump host for status detection and monitoring
     let has_jump_host = matches!(
         &conn.protocol_config,
         rustconn_core::ProtocolConfig::Ssh(ssh)
-            if ssh.jump_host_id.is_some() || ssh.proxy_jump.is_some()
-    );
+            if ssh.jump_host_id.is_some()
+    ) || ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups).is_some();
 
     // Get global variables for substitution (secret values resolved from vault)
     let global_variables = state
@@ -254,13 +268,12 @@ fn start_ssh_connection_internal(
     // Get SSH-specific options
     let (identity_file, extra_args, use_waypipe, jump_host_chain) =
         if let rustconn_core::ProtocolConfig::Ssh(ssh_config) = &conn.protocol_config {
-            let key = ssh_config
-                .key_path
-                .as_ref()
+            // Resolve key path via inheritance (connection → group → parent group → root)
+            let key = ssh_inheritance::resolve_ssh_key_path(conn, &groups)
                 .and_then(|p| {
                     // Resolve stale portal paths: if the stored path doesn't exist,
                     // check the Flatpak SSH dir for a file with the same name.
-                    rustconn_core::resolve_key_path(p)
+                    rustconn_core::resolve_key_path(&p)
                 })
                 .map(|p| p.to_string_lossy().to_string());
 
@@ -272,9 +285,9 @@ fn start_ssh_connection_internal(
             // Resolve jump host chain from connection references (needs state access)
             let mut jump_hosts = Vec::new();
 
-            // Handle string-based proxy jump (legacy/manual)
-            if let Some(proxy) = &ssh_config.proxy_jump {
-                jump_hosts.push(proxy.clone());
+            // Handle string-based proxy jump (legacy/manual or inherited from group)
+            if let Some(proxy) = ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups) {
+                jump_hosts.push(proxy);
             }
 
             // Handle reference-based jump host (recursive resolution)
@@ -506,6 +519,7 @@ fn start_ssh_connection_internal(
     // when the terminal detects a password prompt (see below).
     {
         let extra_refs: Vec<&str> = extra_args.iter().map(std::string::String::as_str).collect();
+        let agent_socket = ssh_inheritance::resolve_ssh_agent_socket(conn, &groups);
         notebook.spawn_ssh(
             session_id,
             &host,
@@ -514,7 +528,7 @@ fn start_ssh_connection_internal(
             identity_file.as_deref(),
             &extra_refs,
             use_waypipe,
-            None,
+            agent_socket.as_deref(),
         );
     }
 
@@ -522,6 +536,8 @@ fn start_ssh_connection_internal(
     // This replaces the previous sshpass dependency. The terminal output is
     // monitored for SSH password prompts; when detected, the vault password
     // is sent via feed_child() exactly once.
+    // NOTE: Passphrase prompts ("Enter passphrase for key") are explicitly
+    // excluded to avoid sending the wrong secret when SSH auth is PublicKey.
     if let Some(vault_password) = cached_password.clone() {
         let notebook_clone = notebook.clone();
         let password_sent = std::rc::Rc::new(std::cell::Cell::new(false));
@@ -540,8 +556,15 @@ fn start_ssh_connection_internal(
             let Some(text) = notebook_clone.get_terminal_text(session_id) else {
                 return;
             };
-            // Check for common SSH password prompts (case-insensitive)
             let lower = text.to_lowercase();
+
+            // Reject passphrase prompts — these need key_passphrase, not password
+            let last_line = lower.lines().last().unwrap_or("").trim();
+            if last_line.contains("passphrase for key") || last_line.contains("passphrase for") {
+                return;
+            }
+
+            // Check for common SSH password prompts (case-insensitive)
             let has_prompt = lower.ends_with("password: ")
                 || lower.ends_with("password:")
                 || lower.contains("password: \n")
@@ -670,16 +693,9 @@ fn start_ssh_connection_internal(
                 ),
                 ..settings
             };
-            let identity_file_mon =
-                if let rustconn_core::ProtocolConfig::Ssh(ref ssh_cfg) = conn.protocol_config {
-                    ssh_cfg
-                        .key_path
-                        .as_ref()
-                        .and_then(|p| rustconn_core::resolve_key_path(p))
-                        .map(|p| p.to_string_lossy().to_string())
-                } else {
-                    None
-                };
+            let identity_file_mon = ssh_inheritance::resolve_ssh_key_path(conn, &groups)
+                .and_then(|p| rustconn_core::resolve_key_path(&p))
+                .map(|p| p.to_string_lossy().to_string());
             let cached_pw = state_ref
                 .get_cached_credentials(connection_id)
                 .and_then(|c| {
@@ -1043,17 +1059,12 @@ fn start_spice_connection_internal(
                 jump_dest = format!("{user}@{}", jump_dest);
             }
             let jump_port = jump_conn.port;
-            let identity_file = if let rustconn_core::ProtocolConfig::Ssh(ref ssh_cfg) =
-                jump_conn.protocol_config
-            {
-                ssh_cfg
-                    .key_path
-                    .as_ref()
-                    .and_then(|p| rustconn_core::resolve_key_path(p))
-                    .map(|p| p.to_string_lossy().to_string())
-            } else {
-                None
-            };
+            // Resolve key path via inheritance (connection → group → parent group → root)
+            let groups: Vec<rustconn_core::models::ConnectionGroup> =
+                state_ref.list_groups().into_iter().cloned().collect();
+            let identity_file = ssh_inheritance::resolve_ssh_key_path(jump_conn, &groups)
+                .and_then(|p| rustconn_core::resolve_key_path(&p))
+                .map(|p| p.to_string_lossy().to_string());
 
             let params = rustconn_core::ssh_tunnel::SshTunnelParams {
                 jump_host: jump_dest,
@@ -1061,6 +1072,13 @@ fn start_spice_connection_internal(
                 remote_host: host.clone(),
                 remote_port: port,
                 identity_file,
+                password: state_ref
+                    .get_cached_credentials(jump_id)
+                    .filter(|c| {
+                        use secrecy::ExposeSecret;
+                        !c.password.expose_secret().is_empty()
+                    })
+                    .map(|c| c.password.clone()),
                 extra_args: Vec::new(),
             };
 
@@ -1276,26 +1294,33 @@ pub fn reconnect_ssh_in_place(
         .as_ref()
         .map(|u| substitute_variables(u, &global_variables));
 
+    // Collect groups for SSH inheritance resolution
+    let groups: Vec<rustconn_core::ConnectionGroup> = state
+        .try_borrow()
+        .ok()
+        .map(|s| s.list_groups().into_iter().cloned().collect())
+        .unwrap_or_default();
+
     let has_jump_host = matches!(
         &conn.protocol_config,
         rustconn_core::ProtocolConfig::Ssh(ssh)
-            if ssh.jump_host_id.is_some() || ssh.proxy_jump.is_some()
-    );
+            if ssh.jump_host_id.is_some()
+    ) || ssh_inheritance::resolve_ssh_proxy_jump(&conn, &groups).is_some();
 
     // Build SSH args (same logic as start_ssh_connection_internal)
     let (identity_file, extra_args, use_waypipe, jump_host_chain) =
         if let rustconn_core::ProtocolConfig::Ssh(ssh_config) = &conn.protocol_config {
-            let key = ssh_config
-                .key_path
-                .as_ref()
-                .and_then(|p| rustconn_core::resolve_key_path(p))
+            // Resolve key path via inheritance (connection → group → parent group → root)
+            let key = ssh_inheritance::resolve_ssh_key_path(&conn, &groups)
+                .and_then(|p| rustconn_core::resolve_key_path(&p))
                 .map(|p| p.to_string_lossy().to_string());
 
             let mut args = ssh_config.build_command_args();
 
             let mut jump_hosts = Vec::new();
-            if let Some(proxy) = &ssh_config.proxy_jump {
-                jump_hosts.push(proxy.clone());
+            // Handle string-based proxy jump (legacy/manual or inherited from group)
+            if let Some(proxy) = ssh_inheritance::resolve_ssh_proxy_jump(&conn, &groups) {
+                jump_hosts.push(proxy);
             }
             if let Some(jump_id) = ssh_config.jump_host_id
                 && let Ok(state_ref) = state.try_borrow()
@@ -1453,6 +1478,7 @@ pub fn reconnect_ssh_in_place(
     // Spawn SSH in the existing terminal
     {
         let extra_refs: Vec<&str> = extra_args.iter().map(std::string::String::as_str).collect();
+        let agent_socket = ssh_inheritance::resolve_ssh_agent_socket(&conn, &groups);
         notebook.spawn_ssh(
             session_id,
             &host,
@@ -1461,11 +1487,13 @@ pub fn reconnect_ssh_in_place(
             identity_file.as_deref(),
             &extra_refs,
             use_waypipe,
-            None,
+            agent_socket.as_deref(),
         );
     }
 
     // VTE password injection
+    // NOTE: Passphrase prompts ("Enter passphrase for key") are explicitly
+    // excluded to avoid sending the wrong secret when SSH auth is PublicKey.
     if let Some(vault_password) = cached_password {
         let notebook_clone = notebook.clone();
         let password_sent = std::rc::Rc::new(std::cell::Cell::new(false));
@@ -1479,6 +1507,13 @@ pub fn reconnect_ssh_in_place(
                 return;
             };
             let lower = text.to_lowercase();
+
+            // Reject passphrase prompts — these need key_passphrase, not password
+            let last_line = lower.lines().last().unwrap_or("").trim();
+            if last_line.contains("passphrase for key") || last_line.contains("passphrase for") {
+                return;
+            }
+
             let has_prompt = lower.ends_with("password: ")
                 || lower.ends_with("password:")
                 || lower.contains("password: \n")
@@ -1543,16 +1578,9 @@ pub fn reconnect_ssh_in_place(
                 ),
                 ..settings
             };
-            let identity_file_mon =
-                if let rustconn_core::ProtocolConfig::Ssh(ref ssh_cfg) = conn.protocol_config {
-                    ssh_cfg
-                        .key_path
-                        .as_ref()
-                        .and_then(|p| rustconn_core::resolve_key_path(p))
-                        .map(|p| p.to_string_lossy().to_string())
-                } else {
-                    None
-                };
+            let identity_file_mon = ssh_inheritance::resolve_ssh_key_path(&conn, &groups)
+                .and_then(|p| rustconn_core::resolve_key_path(&p))
+                .map(|p| p.to_string_lossy().to_string());
             let cached_pw = state_ref
                 .get_cached_credentials(connection_id)
                 .and_then(|c| {

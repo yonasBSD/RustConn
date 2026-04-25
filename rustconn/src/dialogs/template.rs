@@ -2789,6 +2789,7 @@ impl TemplateDialog {
             SshKeySource::Default => 0,
             SshKeySource::File { .. } => 1,
             SshKeySource::Agent { .. } => 2,
+            SshKeySource::Inherit => 0, // Inherit treated like Default in template UI
         };
         self.ssh_key_source_dropdown.set_selected(key_source_idx);
 

@@ -12,7 +12,7 @@ use rustconn_core::{
     Resolution, Snippet, SnippetVariable, SshAuthMethod, SshConfig, SshKeySource, VncConfig,
     config::AppSettings, config::ColorScheme, config::ConfigManager, config::LoggingSettings,
     config::SecretBackendType, config::SecretSettings, config::SessionRestoreSettings,
-    config::TerminalSettings, config::UiSettings,
+    config::TerminalSettings, config::UiSettings, sync::SyncSettings,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -511,6 +511,7 @@ fn arb_full_settings() -> impl Strategy<Value = AppSettings> {
                     highlight_rules: Vec::new(),
                     smart_folders: Vec::new(),
                     ssh_agent_socket: None,
+                    sync: SyncSettings::default(),
                 }
             },
         )

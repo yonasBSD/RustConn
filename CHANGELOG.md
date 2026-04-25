@@ -5,6 +5,56 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-04-24
+
+### Added
+- **Cloud Sync** — synchronize connection configurations between devices and team members through any shared cloud directory (Google Drive, Syncthing, Nextcloud, Dropbox, USB)
+  - **Group Sync** — per-group `.rcn` files with Master/Import access model and name-based merge
+  - **Simple Sync** — single-file bidirectional sync with UUID-based merge and tombstone deletion tracking
+  - **SSH Key Inheritance** — group-level SSH settings (key path, auth method, proxy jump, agent socket) inherited by child connections; `ssh_key_path` remains local-only per device
+  - **Credential Resolution UX** — interactive `AdwAlertDialog` prompts when variables or secret backends are missing at connect time
+  - **File Watcher** — automatic import on `.rcn` file changes via `notify` crate with 3s debounce
+  - **Cloud Sync Settings page** — `AdwPreferencesPage` with sync directory, device name, synced groups, available files, and Simple Sync toggle
+  - **Sidebar sync indicators** — `emblem-synchronizing-symbolic` for synced groups, `dialog-warning-symbolic` for errors
+  - **Import group UI restrictions** — synced fields read-only, local fields editable, context menu restrictions
+  - **CLI sync commands** — `sync status`, `sync list`, `sync export`, `sync import`, `sync now`
+- **Accessible labels** — added `update_property` accessible labels to icon-only buttons (password visibility toggle, password load, RDP quick actions)
+- **cargo-deny + cargo-audit in CI** — security advisory checks, license allow-list, ban wildcards, source registry restrictions
+- **Document dirty badge** — CSS dot indicator replaces text `"• "` prefix for unsaved documents in sidebar
+- **Tab Overview** — grid view of all open tabs (GNOME Web-style) via button on the tab bar or **Ctrl+Shift+O**; makes navigating 10+ tabs significantly easier ([#100](https://github.com/totoshko88/RustConn/issues/100))
+- **Tab Switcher in Command Palette** — `%` prefix in Command Palette (or **Ctrl+%**) opens fuzzy search across all open tabs; shows protocol and tab group in results ([#100](https://github.com/totoshko88/RustConn/issues/100))
+- **Tab Pinning** — right-click a tab → Pin Tab to keep it always visible at the left edge of the tab bar; pinned tabs don't scroll away ([#100](https://github.com/totoshko88/RustConn/issues/100))
+- **Custom terminal themes** — create, edit, and delete custom color themes (background, foreground, cursor, full 16-color ANSI palette) from Settings → Terminal → Colors; custom themes are persisted to `~/.config/rustconn/custom_themes.json` and appear alongside built-in themes in the dropdown ([#98](https://github.com/totoshko88/RustConn/issues/98))
+- **Group Jump Host dropdown** — group SSH settings now include a Jump Host dropdown (select from existing SSH connections) in addition to the manual ProxyJump text field; stored as `ssh_jump_host_id` with inheritance support via `resolve_ssh_jump_host_id()`
+
+### Improved
+- **Tab Overview + Split View architecture** — complete refactoring of the TabView/SplitView architecture so that split layouts live inside TabPages instead of a global container; Tab Overview now renders correct thumbnails for all tabs including split-view tabs without SIGSEGV crashes or blank previews
+- **Split view "Select Tab" popover** — the session picker popover in empty split panels now shows color indicators for sessions already displayed in other split views
+- **Split view placeholder** — when a session is moved to another tab's split layout, its own tab shows a "Displayed in Split View" status page with a "Go to Split View" button for quick navigation
+- **Split color indicators preserved** — switching between tabs no longer clears the colored dot indicators on split-view tabs
+- **Group settings: GNOME HIG enable switches** — Default Credentials and SSH Settings sections now use `AdwExpanderRow` with `show_enable_switch(true)`; when disabled, all fields are cleared to `None`, giving clear semantics of "not configured" vs "configured but empty"
+- **SSH tunnel password authentication** — SSH tunnels (used by RDP, VNC, SPICE jump host connections) now support password-authenticated jump hosts via `SSH_ASKPASS` mechanism; previously `BatchMode=yes` was unconditional, silently blocking password auth
+- **VTE passphrase prompt guard** — VTE password auto-fill now explicitly rejects SSH key passphrase prompts (`"Enter passphrase for key"`) to prevent sending the wrong secret when SSH auth method is PublicKey
+- **Connection dialog: protocol-aware Password Source** — Password Source dropdown is now hidden for protocols that don't use stored passwords (Telnet, Serial, MOSH, Kubernetes, Zero Trust); previously visible but non-functional for these protocols
+- **Credential Resolution UX fully wired** — `CredentialResolutionResult` enum now drives the connection flow: `VariableMissing` shows the variable setup `AdwAlertDialog` (enter value + select backend → Save & Connect), `BackendNotConfigured` shows the backend missing dialog (Enter Manually / Open Settings), `VaultEntryMissing` falls through to the protocol's password prompt; previously the resolver silently returned `None` on all failure paths
+- **Sidebar sync error indicators** — synced groups now show `dialog-warning-symbolic` with error tooltip when the last sync operation failed (e.g. parse error, missing file); previously always showed the generic synced icon regardless of error state
+- **Custom themes atomic write** — `custom_themes.json` now uses temp file + rename (atomic write) with `0600` permissions and `tracing::warn` on errors; consistent with sync file write pattern
+
+### Dependencies
+- notify 7 (new — file watching for Cloud Sync)
+- hostname 0.4 (new — default device name)
+- slug 0.1 (new — sync filename generation)
+- Tailscale CLI 1.96.4 → 1.96.5
+- cc 1.2.60 → 1.2.61, data-encoding 2.10.0 → 2.11.0, hybrid-array 0.4.10 → 0.4.11, libc 0.2.185 → 0.2.186, rustls-pki-types 1.14.0 → 1.14.1
+
+### Fixed
+- **System tray SIGSEGV and empty menu** — tray icon menu could randomly appear empty or crash the application with `object_ref: assertion '!object_already_finalized' failed` (SIGSEGV) on startup; root cause was `ksni::Handle::update()` calling `block_on()` on the GTK main thread which deadlocked with the D-Bus service loop competing for the `TrayState` mutex, and conflicted with the application's tokio runtime guard; moved all D-Bus updates to a dedicated `tray-updater` background thread with coalescing `sync_channel(1)`, moved `TrayManager` creation to a `tray-init` background thread, added re-activation guard in `build_ui`, and ensured polling timers stop when the window is finalized
+- **Tab Overview SIGSEGV with split-view tabs** — opening Tab Overview when split-view tabs were active caused Pango `size >= 0` assertion failures and crashes because `AdwTabOverview` attempted to snapshot `TabPage` children with 0×0 allocation; refactored to keep `TabView` always visible with per-tab `TabPageContainer` wrappers that guarantee non-zero allocation
+- **Tab Overview blank previews** — split-view tabs showed empty thumbnails in Tab Overview because terminals were reparented to a global split container outside `TabView`; terminals now stay inside `TabPage` children at all times
+- **Terminal theme reset when Settings dialog is closed** — closing the Settings dialog applied the global terminal color theme to all terminals, overwriting per-connection theme overrides (custom background/foreground/cursor colors); now re-applies connection-specific theme overrides after global settings are applied ([#99](https://github.com/totoshko88/RustConn/issues/99))
+- **Pango assertion failure on zero font size** — guarded against `font_size == 0` in terminal configuration and settings collection to prevent `pango_font_description_set_size: assertion 'size >= 0' failed` crashes when the settings dialog returns an invalid value
+- **Highlight rules show color instead of hover-only underline** — VTE's `match_add_regex()` only underlines text on mouse hover without color; added a Cairo `DrawingArea` overlay that reads visible terminal text, runs `CompiledHighlightRules::find_matches()` per line, and draws colored background rectangles and foreground underlines in real time; `SourcePattern` now carries `foreground_color`/`background_color` from the rule ([#97](https://github.com/totoshko88/RustConn/issues/97))
+
 ## [0.11.7] - 2026-04-23
 
 ### Fixed

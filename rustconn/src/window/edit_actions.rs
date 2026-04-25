@@ -553,9 +553,13 @@ impl MainWindow {
             let use_mc =
                 state_ref.settings().terminal.sftp_use_mc || rustconn_core::flatpak::is_flatpak();
 
+            // Collect groups for SSH inheritance resolution
+            let groups: Vec<rustconn_core::models::ConnectionGroup> =
+                state_ref.list_groups().into_iter().cloned().collect();
+
             // Ensure SSH key is in agent before SFTP (mc and
             // file managers cannot pass identity files directly).
-            let key_path = rustconn_core::sftp::get_ssh_key_path(conn)
+            let key_path = rustconn_core::sftp::get_ssh_key_path(conn, &groups)
                 .and_then(|p| rustconn_core::resolve_key_path(&p));
 
             // Check if password auth — mc FISH doesn't support it
@@ -572,7 +576,7 @@ impl MainWindow {
 
             if use_mc {
                 // Open mc in a local shell tab with SFTP panel
-                let mc_cmd = rustconn_core::sftp::build_mc_sftp_command(conn);
+                let mc_cmd = rustconn_core::sftp::build_mc_sftp_command(conn, &groups);
                 let conn_name = conn.name.clone();
                 let terminal_settings = state_ref.settings().terminal.clone();
                 drop(state_ref);
@@ -884,11 +888,13 @@ impl MainWindow {
         };
         let use_mc =
             state_ref.settings().terminal.sftp_use_mc || rustconn_core::flatpak::is_flatpak();
-        let key_path = rustconn_core::sftp::get_ssh_key_path(conn)
+        let groups: Vec<rustconn_core::models::ConnectionGroup> =
+            state_ref.list_groups().into_iter().cloned().collect();
+        let key_path = rustconn_core::sftp::get_ssh_key_path(conn, &groups)
             .and_then(|p| rustconn_core::resolve_key_path(&p));
 
         if use_mc {
-            let mc_cmd = rustconn_core::sftp::build_mc_sftp_command(conn);
+            let mc_cmd = rustconn_core::sftp::build_mc_sftp_command(conn, &groups);
             let conn_name = conn.name.clone();
             let terminal_settings = state_ref.settings().terminal.clone();
             drop(state_ref);

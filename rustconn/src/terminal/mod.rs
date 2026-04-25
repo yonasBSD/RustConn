@@ -9,7 +9,9 @@
 //! - `config` - Terminal appearance and behavior configuration
 
 mod config;
+pub mod highlight_overlay;
 pub mod playback;
+pub mod tab_container;
 mod types;
 
 pub use types::{SessionWidgetStorage, TerminalSession};
@@ -43,6 +45,8 @@ use crate::embedded_spice::EmbeddedSpiceWidget;
 use crate::i18n::{i18n, i18n_f};
 use crate::session::{SessionState, SessionWidget, VncSessionWidget};
 use crate::split_view::TabSplitManager;
+use crate::terminal::highlight_overlay::HighlightOverlay;
+use crate::terminal::tab_container::TabPageContainer;
 use rustconn_core::automation::{KeyElement, KeySequence};
 use rustconn_core::highlight::CompiledHighlightRules;
 use rustconn_core::models::HighlightRule;
@@ -88,6 +92,8 @@ pub struct TerminalNotebook {
     tab_view: adw::TabView,
     /// The adw::TabBar for displaying tabs
     tab_bar: adw::TabBar,
+    /// The adw::TabOverview for grid view of all tabs
+    tab_overview: adw::TabOverview,
     /// Map of session IDs to their TabPage
     sessions: Rc<RefCell<HashMap<Uuid, adw::TabPage>>>,
     /// Callback for when a page is closed (session_id, connection_id)
@@ -132,6 +138,10 @@ pub struct TerminalNotebook {
     remote_recordings: RefCell<HashMap<Uuid, RemoteRecordingInfo>>,
     /// Compiled highlight rules per session: session_id → CompiledHighlightRules
     session_highlight_rules: Rc<RefCell<HashMap<Uuid, CompiledHighlightRules>>>,
+    /// Highlight overlay widgets per session: session_id → HighlightOverlay
+    highlight_overlays: Rc<RefCell<HashMap<Uuid, HighlightOverlay>>>,
+    /// GTK Overlay widgets per session for layering highlight DrawingArea
+    terminal_overlays: Rc<RefCell<HashMap<Uuid, gtk4::Overlay>>>,
     /// Ad-hoc broadcast controller for sending input to multiple terminals
     broadcast_controller: Rc<RefCell<BroadcastController>>,
     /// Cancel tokens for background polling tasks (host check, auto-reconnect, WoL)
@@ -142,6 +152,9 @@ pub struct TerminalNotebook {
     ssh_tunnels: Rc<RefCell<HashMap<Uuid, rustconn_core::ssh_tunnel::SshTunnel>>>,
     /// Activity coordinator for terminal activity/silence monitoring (set after construction)
     activity_coordinator: Rc<RefCell<Option<Rc<ActivityCoordinator>>>>,
+    /// Per-session tab page containers (session_id → TabPageContainer).
+    /// Guarantees every TabPage.child() has non-zero allocation for TabOverview.
+    tab_containers: Rc<RefCell<HashMap<Uuid, TabPageContainer>>>,
 }
 
 impl TerminalNotebook {
@@ -168,6 +181,20 @@ impl TerminalNotebook {
         // but NOT to external targets (we handle that separately)
         tab_bar.set_extra_drag_preload(false);
 
+        // Create TabOverview for grid view of all tabs (GNOME Web-style)
+        let tab_overview = adw::TabOverview::new();
+        tab_overview.set_view(Some(&tab_view));
+        tab_overview.set_enable_new_tab(false);
+
+        // Add overview button to the end of the TabBar
+        let overview_button = gtk4::Button::from_icon_name("view-grid-symbolic");
+        overview_button.set_tooltip_text(Some(&i18n("Tab Overview (Ctrl+Shift+O)")));
+        overview_button.add_css_class("flat");
+        overview_button.set_action_name(Some("win.tab-overview"));
+        overview_button
+            .update_property(&[gtk4::accessible::Property::Label(&i18n("Tab Overview"))]);
+        tab_bar.set_end_action_widget(Some(&overview_button));
+
         // Only add TabBar to container - TabView is hidden but still manages tabs
         container.append(&tab_bar);
         // TabView must be in widget tree for TabBar to work, but hidden
@@ -175,7 +202,8 @@ impl TerminalNotebook {
 
         // Add a welcome page
         let welcome = Self::create_welcome_tab();
-        let welcome_page = tab_view.append(&welcome);
+        let welcome_container = TabPageContainer::welcome(&welcome.upcast::<gtk4::Widget>());
+        let welcome_page = tab_view.append(welcome_container.widget());
         welcome_page.set_title(&i18n("Welcome"));
         welcome_page.set_icon(Some(&gio::ThemedIcon::new("go-home-symbolic")));
 
@@ -183,6 +211,7 @@ impl TerminalNotebook {
             container,
             tab_view,
             tab_bar,
+            tab_overview,
             sessions: Rc::new(RefCell::new(HashMap::new())),
             on_page_closed: Rc::new(RefCell::new(None)),
             on_split_cleanup: Rc::new(RefCell::new(None)),
@@ -202,16 +231,20 @@ impl TerminalNotebook {
             cluster_broadcast_flags: Rc::new(RefCell::new(HashMap::new())),
             recording_paths: RefCell::new(HashMap::new()),
             session_highlight_rules: Rc::new(RefCell::new(HashMap::new())),
+            highlight_overlays: Rc::new(RefCell::new(HashMap::new())),
+            terminal_overlays: Rc::new(RefCell::new(HashMap::new())),
             active_recordings: Rc::new(RefCell::new(HashSet::new())),
             remote_recordings: RefCell::new(HashMap::new()),
             broadcast_controller: Rc::new(RefCell::new(BroadcastController::new())),
             poll_cancel_tokens: Rc::new(RefCell::new(HashMap::new())),
             ssh_tunnels: Rc::new(RefCell::new(HashMap::new())),
             activity_coordinator: Rc::new(RefCell::new(None)),
+            tab_containers: Rc::new(RefCell::new(HashMap::new())),
         };
 
         term_notebook.setup_tab_view_signals();
         term_notebook.setup_tab_context_menu();
+        term_notebook.setup_tab_overview_cleanup();
         term_notebook
     }
 
@@ -229,8 +262,11 @@ impl TerminalNotebook {
         let on_split_cleanup = self.on_split_cleanup.clone();
         let active_recordings = self.active_recordings.clone();
         let session_highlight_rules = self.session_highlight_rules.clone();
+        let highlight_overlays = self.highlight_overlays.clone();
+        let terminal_overlays = self.terminal_overlays.clone();
         let broadcast_controller = self.broadcast_controller.clone();
         let ssh_tunnels = self.ssh_tunnels.clone();
+        let tab_containers = self.tab_containers.clone();
 
         // Handle create-window signal - we must connect this to prevent the default
         // behavior which causes CRITICAL warnings. Returning None cancels the tearoff.
@@ -291,6 +327,12 @@ impl TerminalNotebook {
                 // Remove compiled highlight rules for this session
                 session_highlight_rules.borrow_mut().remove(&session_id);
 
+                // Remove highlight overlay for this session
+                highlight_overlays.borrow_mut().remove(&session_id);
+
+                // Remove terminal overlay widget for this session
+                terminal_overlays.borrow_mut().remove(&session_id);
+
                 // Remove terminal from broadcast selection if active
                 broadcast_controller
                     .borrow_mut()
@@ -319,6 +361,9 @@ impl TerminalNotebook {
 
                 // Drop SSH tunnel — the SshTunnel::drop impl kills the SSH process
                 ssh_tunnels.borrow_mut().remove(&session_id);
+
+                // Remove tab page container
+                tab_containers.borrow_mut().remove(&session_id);
             }
 
             // Confirm close
@@ -327,7 +372,8 @@ impl TerminalNotebook {
             // If no more sessions, show welcome page
             if sessions.borrow().is_empty() && tab_view.n_pages() == 0 {
                 let welcome = Self::create_welcome_tab();
-                let welcome_page = tab_view.append(&welcome);
+                let welcome_wrap = TabPageContainer::welcome(&welcome.upcast::<gtk4::Widget>());
+                let welcome_page = tab_view.append(welcome_wrap.widget());
                 welcome_page.set_title(&i18n("Welcome"));
                 welcome_page.set_icon(Some(&gio::ThemedIcon::new("go-home-symbolic")));
             }
@@ -362,7 +408,7 @@ impl TerminalNotebook {
             *context_page_setup.borrow_mut() = page.cloned();
 
             // Determine the current monitor mode and group membership for the right-clicked tab
-            let (current_mode, has_group) = page
+            let (current_mode, has_group, is_pinned, any_groups_exist) = page
                 .map(|page| {
                     let sessions = sessions_for_menu.borrow();
                     let session_id = sessions.iter().find(|(_, p)| *p == page).map(|(id, _)| *id);
@@ -371,21 +417,26 @@ impl TerminalNotebook {
                         let coordinator = coordinator.as_ref()?;
                         coordinator.get_mode(sid)
                     });
+                    let info_ref = session_info_for_menu.borrow();
                     let in_group = session_id
-                        .and_then(|sid| {
-                            session_info_for_menu
-                                .borrow()
-                                .get(&sid)
-                                .and_then(|i| i.tab_group.clone())
-                        })
+                        .and_then(|sid| info_ref.get(&sid).and_then(|i| i.tab_group.clone()))
                         .is_some();
-                    (mode, in_group)
+                    // Check if ANY tab has a group assigned (for showing group-related actions)
+                    let groups_exist = info_ref.values().any(|i| i.tab_group.is_some());
+                    let pinned = page.is_pinned();
+                    (mode, in_group, pinned, groups_exist)
                 })
-                .unwrap_or((None, false));
+                .unwrap_or((None, false, false, false));
 
             // Mutate the existing menu in-place (clear + re-populate)
             menu_for_setup.remove_all();
-            Self::populate_tab_context_menu(&menu_for_setup, current_mode, has_group);
+            Self::populate_tab_context_menu(
+                &menu_for_setup,
+                current_mode,
+                has_group,
+                is_pinned,
+                any_groups_exist,
+            );
         });
 
         // Create action group
@@ -802,6 +853,28 @@ impl TerminalNotebook {
         });
         action_group.add_action(&close_ungrouped_action);
 
+        // "Pin Tab" action
+        let pin_action = gio::SimpleAction::new("pin", None);
+        let context_page_pin = context_page.clone();
+        let tab_view_pin = self.tab_view.clone();
+        pin_action.connect_activate(move |_, _| {
+            if let Some(page) = context_page_pin.borrow().clone() {
+                tab_view_pin.set_page_pinned(&page, true);
+            }
+        });
+        action_group.add_action(&pin_action);
+
+        // "Unpin Tab" action
+        let unpin_action = gio::SimpleAction::new("unpin", None);
+        let context_page_unpin = context_page.clone();
+        let tab_view_unpin = self.tab_view.clone();
+        unpin_action.connect_activate(move |_, _| {
+            if let Some(page) = context_page_unpin.borrow().clone() {
+                tab_view_unpin.set_page_pinned(&page, false);
+            }
+        });
+        action_group.add_action(&unpin_action);
+
         // "Close Tab" action
         let close_action = gio::SimpleAction::new("close", None);
         let context_page_close = context_page.clone();
@@ -866,13 +939,25 @@ impl TerminalNotebook {
         menu: &gio::Menu,
         current_mode: Option<rustconn_core::activity_monitor::MonitorMode>,
         has_group: bool,
+        is_pinned: bool,
+        any_groups_exist: bool,
     ) {
         use rustconn_core::activity_monitor::MonitorMode;
 
+        // Pin/Unpin section
+        let pin_section = gio::Menu::new();
+        if is_pinned {
+            pin_section.append(Some(&i18n("Unpin Tab")), Some("tab.unpin"));
+        } else {
+            pin_section.append(Some(&i18n("Pin Tab")), Some("tab.pin"));
+        }
+        menu.append_section(None, &pin_section);
+
+        // Group section — adaptive: only show group actions when groups exist
         let group_section = gio::Menu::new();
         group_section.append(Some(&i18n("Set Group...")), Some("tab.set-group"));
-        group_section.append(Some(&i18n("Remove from Group")), Some("tab.remove-group"));
         if has_group {
+            group_section.append(Some(&i18n("Remove from Group")), Some("tab.remove-group"));
             group_section.append(
                 Some(&i18n("Close All in Group")),
                 Some("tab.close-all-in-group"),
@@ -887,20 +972,19 @@ impl TerminalNotebook {
         monitor_section.append(Some(&label), Some("tab.cycle-monitor"));
         menu.append_section(None, &monitor_section);
 
+        // Close section — minimal by default, expanded when groups exist
         let close_section = gio::Menu::new();
         close_section.append(Some(&i18n("Close Others")), Some("tab.close-others"));
         close_section.append(Some(&i18n("Close to the Left")), Some("tab.close-left"));
         close_section.append(Some(&i18n("Close to the Right")), Some("tab.close-right"));
-        close_section.append(
-            Some(&i18n("Close All Ungrouped")),
-            Some("tab.close-ungrouped"),
-        );
+        if any_groups_exist {
+            close_section.append(
+                Some(&i18n("Close All Ungrouped")),
+                Some("tab.close-ungrouped"),
+            );
+        }
         close_section.append(Some(&i18n("Close All Tabs")), Some("tab.close-all"));
         menu.append_section(None, &close_section);
-
-        let close_current_section = gio::Menu::new();
-        close_current_section.append(Some(&i18n("Close Tab")), Some("tab.close"));
-        menu.append_section(None, &close_current_section);
     }
 
     /// Creates the welcome tab content - uses the full welcome screen with features
@@ -1031,19 +1115,29 @@ impl TerminalNotebook {
             terminal_row.append(&scrollbar);
         }
 
+        // Wrap terminal_row in an Overlay so the highlight DrawingArea can
+        // be layered on top without interfering with VTE input.
+        let terminal_overlay = gtk4::Overlay::new();
+        terminal_overlay.set_child(Some(&terminal_row));
+        terminal_overlay.set_hexpand(true);
+        terminal_overlay.set_vexpand(true);
+
         // Outer vertical container: terminal row on top, monitoring bar below.
         // get_session_container() returns this box so monitoring can append to it.
         let container = GtkBox::new(Orientation::Vertical, 0);
         container.set_hexpand(true);
         container.set_vexpand(true);
-        container.append(&terminal_row);
+        container.append(&terminal_overlay);
 
         // Right-click context menu actions installed on the terminal widget
         // so they follow it when reparented between TabView and split view.
         config::setup_context_menu(&terminal);
 
-        // Add page to TabView
-        let page = self.tab_view.append(&container);
+        // Wrap in TabPageContainer to guarantee non-zero allocation for TabOverview
+        let tab_container = TabPageContainer::single(&container);
+
+        // Add page to TabView — child is the TabPageContainer outer box
+        let page = self.tab_view.append(tab_container.widget());
         page.set_title(title);
         page.set_icon(Some(&gio::ThemedIcon::new(Self::get_protocol_icon(
             protocol,
@@ -1054,6 +1148,12 @@ impl TerminalNotebook {
         self.sessions.borrow_mut().insert(session_id, page.clone());
         let terminal_for_focus = terminal.clone();
         self.terminals.borrow_mut().insert(session_id, terminal);
+        self.terminal_overlays
+            .borrow_mut()
+            .insert(session_id, terminal_overlay);
+        self.tab_containers
+            .borrow_mut()
+            .insert(session_id, tab_container);
 
         self.session_info.borrow_mut().insert(
             session_id,
@@ -1117,7 +1217,8 @@ impl TerminalNotebook {
         container.set_vexpand(true);
         container.append(vnc_widget.widget());
 
-        let page = self.tab_view.append(&container);
+        let tab_container = TabPageContainer::single(&container);
+        let page = self.tab_view.append(tab_container.widget());
         page.set_title(title);
         page.set_icon(Some(&gio::ThemedIcon::new(
             "video-joined-displays-symbolic",
@@ -1180,7 +1281,8 @@ impl TerminalNotebook {
         container.set_vexpand(true);
         container.append(spice_widget.widget());
 
-        let page = self.tab_view.append(&container);
+        let tab_container = TabPageContainer::single(&container);
+        let page = self.tab_view.append(tab_container.widget());
         page.set_title(title);
         page.set_icon(Some(&gio::ThemedIcon::new(
             "preferences-desktop-remote-desktop-symbolic",
@@ -1237,7 +1339,8 @@ impl TerminalNotebook {
         container.set_vexpand(true);
         container.append(widget.widget());
 
-        let page = self.tab_view.append(&container);
+        let tab_container = TabPageContainer::single(&container);
+        let page = self.tab_view.append(tab_container.widget());
         page.set_title(title);
         page.set_icon(Some(&gio::ThemedIcon::new("computer-symbolic")));
         page.set_tooltip(title);
@@ -1282,7 +1385,8 @@ impl TerminalNotebook {
     ) {
         self.remove_welcome_page();
 
-        let page = self.tab_view.append(widget);
+        let tab_container = TabPageContainer::single(widget);
+        let page = self.tab_view.append(tab_container.widget());
         page.set_title(title);
         page.set_icon(Some(&gio::ThemedIcon::new(Self::get_protocol_icon(
             protocol,
@@ -1637,7 +1741,10 @@ impl TerminalNotebook {
                         page.set_indicator_activatable(false);
 
                         // Build reconnect banner inside the tab container
-                        if let Ok(container) = page.child().downcast::<GtkBox>() {
+                        if let Ok(outer) = page.child().downcast::<GtkBox>()
+                            && let Some(inner) = outer.first_child()
+                            && let Ok(container) = inner.downcast::<GtkBox>()
+                        {
                             let info = session_info_rc.borrow();
                             let connection_id = info
                                 .get(&session_id)
@@ -1836,7 +1943,10 @@ impl TerminalNotebook {
         self.cancel_poll(session_id);
 
         // Remove reconnect banner from the tab container
-        if let Ok(container) = page.child().downcast::<GtkBox>() {
+        if let Ok(outer) = page.child().downcast::<GtkBox>()
+            && let Some(inner) = outer.first_child()
+            && let Ok(container) = inner.downcast::<GtkBox>()
+        {
             // Find and remove the reconnect-banner widget
             let mut child = container.first_child();
             while let Some(widget) = child {
@@ -1866,6 +1976,9 @@ impl TerminalNotebook {
         self.session_highlight_rules
             .borrow_mut()
             .remove(&session_id);
+
+        // Remove stale highlight overlay (will be re-created by set_highlight_rules)
+        self.highlight_overlays.borrow_mut().remove(&session_id);
 
         true
     }
@@ -1925,8 +2038,15 @@ impl TerminalNotebook {
             return;
         }
 
-        let container = page.child().downcast::<GtkBox>().ok();
-        let Some(container) = container else {
+        let outer = page.child().downcast::<GtkBox>().ok();
+        let Some(outer) = outer else {
+            return;
+        };
+        // Navigate through TabPageContainer outer box to inner content container
+        let Some(inner_widget) = outer.first_child() else {
+            return;
+        };
+        let Some(container) = inner_widget.downcast::<GtkBox>().ok() else {
             return;
         };
 
@@ -2264,12 +2384,18 @@ impl TerminalNotebook {
     /// Gets the page container widget for a session
     ///
     /// Returns the `GtkBox` that holds the terminal.
+    /// Returns the session's inner content container (the box holding the terminal overlay).
+    ///
     /// Used by monitoring to prepend the monitoring bar above the terminal.
     #[must_use]
     pub fn get_session_container(&self, session_id: Uuid) -> Option<GtkBox> {
         let sessions = self.sessions.borrow();
         let page = sessions.get(&session_id)?;
-        page.child().downcast::<GtkBox>().ok()
+        // page.child() is the TabPageContainer outer box.
+        // Its first child is the inner content container (terminal overlay + monitoring bar).
+        let outer = page.child();
+        let outer_box = outer.downcast_ref::<GtkBox>()?;
+        outer_box.first_child()?.downcast::<GtkBox>().ok()
     }
 
     /// Gets all active sessions
@@ -2387,6 +2513,118 @@ impl TerminalNotebook {
         &self.tab_view
     }
 
+    /// Returns the per-session tab containers map.
+    #[must_use]
+    #[allow(dead_code)] // Public API for Phase 2 split view integration
+    pub fn tab_containers(&self) -> &Rc<RefCell<HashMap<Uuid, TabPageContainer>>> {
+        &self.tab_containers
+    }
+
+    /// Returns the global split session colors map (session_id → color_index).
+    ///
+    /// Used by split view popover to show color indicators for sessions
+    /// that are already displayed in any split view.
+    #[must_use]
+    pub fn split_colors(&self) -> &Rc<RefCell<HashMap<Uuid, usize>>> {
+        &self.split_session_colors
+    }
+
+    /// Switches a session's tab page to split mode.
+    ///
+    /// Replaces the single-terminal content with the split view bridge widget
+    /// inside the `TabPageContainer`. The `TabView` remains visible.
+    pub fn switch_tab_to_split(&self, session_id: Uuid, split_widget: &GtkBox) {
+        let mut containers = self.tab_containers.borrow_mut();
+        if let Some(container) = containers.get_mut(&session_id) {
+            container.switch_to_split(split_widget);
+        }
+        // TabView stays visible — no hide_tab_view_content()
+        self.tab_view.set_visible(true);
+        self.tab_view.set_vexpand(true);
+    }
+
+    /// Shows a "displayed in split view" placeholder in a session's TabPage.
+    ///
+    /// Called when a session's terminal is moved to another tab's split view.
+    /// The placeholder indicates where the session is displayed and provides
+    /// a button to switch to the split tab.
+    pub fn show_in_split_placeholder(&self, session_id: Uuid, split_owner_id: Uuid) {
+        let placeholder = GtkBox::new(Orientation::Vertical, 0);
+        placeholder.set_hexpand(true);
+        placeholder.set_vexpand(true);
+        placeholder.set_valign(gtk4::Align::Center);
+        placeholder.set_halign(gtk4::Align::Center);
+
+        let status = adw::StatusPage::builder()
+            .icon_name("view-dual-symbolic")
+            .title(&i18n("Displayed in Split View"))
+            .description(&i18n("This session is shown in another tab's split layout"))
+            .build();
+        placeholder.append(&status);
+
+        // Button to switch to the split owner tab
+        let button = gtk4::Button::with_label(&i18n("Go to Split View"));
+        button.add_css_class("suggested-action");
+        button.add_css_class("pill");
+        button.set_halign(gtk4::Align::Center);
+        button.set_margin_bottom(24);
+
+        let tab_view = self.tab_view.clone();
+        let sessions = self.sessions.clone();
+        button.connect_clicked(move |_| {
+            if let Some(page) = sessions.borrow().get(&split_owner_id).cloned() {
+                tab_view.set_selected_page(&page);
+            }
+        });
+        placeholder.append(&button);
+
+        let mut containers = self.tab_containers.borrow_mut();
+        if let Some(container) = containers.get_mut(&session_id) {
+            container.switch_to_split(&placeholder);
+        }
+    }
+
+    /// Switches a session's tab page back to single-terminal mode.
+    ///
+    /// Removes the split widget and restores the single-terminal content.
+    #[allow(dead_code)] // Used when unsplitting restores single-terminal mode
+    pub fn switch_tab_to_single(&self, session_id: Uuid, content: &GtkBox) {
+        let mut containers = self.tab_containers.borrow_mut();
+        if let Some(container) = containers.get_mut(&session_id) {
+            container.switch_to_single(content);
+        }
+        self.tab_view.set_visible(true);
+        self.tab_view.set_vexpand(true);
+    }
+
+    /// Returns the TabOverview widget
+    #[must_use]
+    pub fn tab_overview(&self) -> &adw::TabOverview {
+        &self.tab_overview
+    }
+
+    /// Registers the one-time `open-notify` handler on `TabOverview` that
+    /// Cleanup handler for TabOverview close.
+    ///
+    /// With the new per-tab split architecture, no pinning workarounds are
+    /// needed, so this is a no-op placeholder kept for future use.
+    fn setup_tab_overview_cleanup(&self) {
+        // No cleanup needed — TabPageContainer guarantees non-zero allocation
+        // for all TabPage children, so no temporary pinning is required.
+    }
+
+    /// Opens the Tab Overview.
+    ///
+    /// With the new per-tab split architecture, all `TabPage` children have
+    /// non-zero allocation (guaranteed by `TabPageContainer`), so no pinning
+    /// workarounds are needed.
+    pub fn open_tab_overview(&self) {
+        if self.sessions.borrow().is_empty() {
+            return;
+        }
+        self.tab_overview.set_open(true);
+    }
+
     /// Returns a clone of the sessions map for external use (e.g. activity indicator updates)
     #[must_use]
     pub fn sessions_map(&self) -> Rc<RefCell<HashMap<Uuid, adw::TabPage>>> {
@@ -2476,42 +2714,72 @@ impl TerminalNotebook {
         }
     }
 
+    /// Re-applies per-connection theme overrides after global settings change.
+    ///
+    /// When global terminal settings are applied, they overwrite any
+    /// per-connection color customizations. This method restores those
+    /// overrides by looking up each session's connection and re-applying
+    /// its `theme_override` (if any).
+    pub fn reapply_theme_overrides<F>(&self, get_theme_override: F)
+    where
+        F: Fn(Uuid) -> Option<rustconn_core::models::ConnectionThemeOverride>,
+    {
+        let terminals = self.terminals.borrow();
+        let session_info = self.session_info.borrow();
+        for (session_id, terminal) in terminals.iter() {
+            if let Some(info) = session_info.get(session_id)
+                && let Some(theme_override) = get_theme_override(info.connection_id)
+            {
+                config::apply_theme_override(terminal, &theme_override);
+            }
+        }
+    }
+
     /// Moves terminal back to its TabView page container
     /// Call this when session exits split view and returns to TabView display
     pub fn reparent_terminal_to_tab(&self, session_id: Uuid) {
         let Some(terminal) = self.terminals.borrow().get(&session_id).cloned() else {
             return;
         };
-        let Some(page) = self.sessions.borrow().get(&session_id).cloned() else {
-            return;
-        };
 
-        // Get the page's child (container box)
-        let child = page.child();
-        let Some(container) = child.downcast_ref::<GtkBox>() else {
-            return;
-        };
-
-        // Check if terminal is already in this container
-        if let Some(parent) = terminal.parent()
-            && parent == child
-        {
-            return; // Already in place
-        }
-
-        // Remove terminal from current parent (if any)
+        // Remove terminal from current parent (split pane wrapper, etc.)
         if let Some(parent) = terminal.parent()
             && let Some(box_widget) = parent.downcast_ref::<GtkBox>()
         {
             box_widget.remove(&terminal);
         }
 
-        // Clear container and add terminal directly (no ScrolledWindow —
-        // VTE implements GtkScrollable natively)
-        while let Some(existing) = container.first_child() {
-            container.remove(&existing);
+        // Rebuild a fresh single-terminal content box and switch TabPageContainer
+        // back to single mode. This correctly handles the case where the tab was
+        // previously in split mode (TabPageContainer contained the split bridge widget).
+        let container = GtkBox::new(Orientation::Vertical, 0);
+        container.set_hexpand(true);
+        container.set_vexpand(true);
+
+        // Re-wrap terminal with scrollbar (matching create_terminal_tab_with_settings layout)
+        let terminal_row = GtkBox::new(Orientation::Horizontal, 0);
+        terminal_row.set_hexpand(true);
+        terminal_row.set_vexpand(true);
+        terminal_row.append(&terminal);
+
+        // Re-create overlay for highlight support
+        let terminal_overlay = gtk4::Overlay::new();
+        terminal_overlay.set_child(Some(&terminal_row));
+        terminal_overlay.set_hexpand(true);
+        terminal_overlay.set_vexpand(true);
+        container.append(&terminal_overlay);
+
+        // Update terminal overlay tracking
+        self.terminal_overlays
+            .borrow_mut()
+            .insert(session_id, terminal_overlay);
+
+        // Switch TabPageContainer to single mode with the new content
+        let mut containers = self.tab_containers.borrow_mut();
+        if let Some(tab_container) = containers.get_mut(&session_id) {
+            tab_container.switch_to_single(&container);
         }
-        container.append(&terminal);
+
         terminal.set_visible(true);
     }
 
@@ -2522,8 +2790,8 @@ impl TerminalNotebook {
         self.tab_view.set_vexpand(true);
     }
 
-    /// Hides TabView content area (for SSH sessions that display in split_view)
-    /// Call this when switching to an SSH session
+    /// Hides TabView content area (legacy — kept for backward compatibility)
+    #[allow(dead_code)] // Legacy method, TabView now always visible
     pub fn hide_tab_view_content(&self) {
         self.tab_view.set_visible(false);
         self.tab_view.set_vexpand(false);
@@ -3079,7 +3347,8 @@ impl TerminalNotebook {
 
         let widget = playback::create_playback_tab_widget(entry);
 
-        let page = self.tab_view.append(&widget);
+        let tab_container = TabPageContainer::single(&widget);
+        let page = self.tab_view.append(tab_container.widget());
         page.set_title(&tab_title);
         page.set_icon(Some(&gio::ThemedIcon::new("media-playback-start-symbolic")));
         page.set_tooltip(&tab_title);
@@ -3126,9 +3395,13 @@ impl TerminalNotebook {
     /// Sets up highlight rules for a terminal session.
     ///
     /// Compiles global and per-connection [`HighlightRule`]s using
-    /// [`CompiledHighlightRules::compile`], registers each valid regex
-    /// pattern with VTE's `match_add_regex()` so matched text is
-    /// visually indicated, and stores the compiled rules for the session.
+    /// [`CompiledHighlightRules::compile`], creates a transparent
+    /// [`HighlightOverlay`] that draws colored backgrounds and foreground
+    /// text on top of the VTE terminal, and wires `contents-changed` so
+    /// the overlay repaints automatically.
+    ///
+    /// VTE's `match_add_regex()` is still registered for hover-underline
+    /// feedback, but the actual colored rendering is done by the overlay.
     pub fn set_highlight_rules(
         &self,
         session_id: Uuid,
@@ -3137,8 +3410,8 @@ impl TerminalNotebook {
     ) {
         let compiled = CompiledHighlightRules::compile(global_rules, per_conn_rules);
 
-        // Register each rule's pattern with VTE for visual matching
         if let Some(terminal) = self.terminals.borrow().get(&session_id) {
+            // Still register with VTE for hover-underline feedback
             for rule in compiled.source_patterns() {
                 let pattern = &rule.pattern;
                 match vte4::Regex::for_match(pattern, PCRE2_MULTILINE) {
@@ -3160,11 +3433,28 @@ impl TerminalNotebook {
                     }
                 }
             }
-        }
 
-        self.session_highlight_rules
-            .borrow_mut()
-            .insert(session_id, compiled);
+            // Store compiled rules first so the overlay draw func can access them
+            self.session_highlight_rules
+                .borrow_mut()
+                .insert(session_id, compiled);
+
+            // Remove any previous overlay for this session
+            self.highlight_overlays.borrow_mut().remove(&session_id);
+
+            // Create and connect the colored highlight overlay
+            if let Some(overlay_widget) = self.terminal_overlays.borrow().get(&session_id) {
+                let hl_overlay = HighlightOverlay::new(overlay_widget, terminal);
+                hl_overlay.connect(terminal, self.session_highlight_rules.clone(), session_id);
+                self.highlight_overlays
+                    .borrow_mut()
+                    .insert(session_id, hl_overlay);
+            }
+        } else {
+            self.session_highlight_rules
+                .borrow_mut()
+                .insert(session_id, compiled);
+        }
     }
 
     // === Cluster terminal tracking ===

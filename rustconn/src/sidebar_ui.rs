@@ -73,7 +73,7 @@ impl ContextMenuItem {
 }
 
 /// Shows the context menu for a connection item with group awareness
-#[allow(clippy::fn_params_excessive_bools)]
+#[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
 pub fn show_context_menu_for_item(
     widget: &impl IsA<gtk4::Widget>,
     x: f64,
@@ -82,6 +82,8 @@ pub fn show_context_menu_for_item(
     is_ssh: bool,
     is_connected: bool,
     is_recording: bool,
+    sync_mode: &str,
+    is_root_group: bool,
 ) {
     let Some(root) = widget.root() else { return };
     let Some(window) = root.downcast_ref::<gtk4::ApplicationWindow>() else {
@@ -91,6 +93,8 @@ pub fn show_context_menu_for_item(
     let mut items: Vec<ContextMenuItem> = Vec::new();
 
     if is_group {
+        let is_import_group = sync_mode == "import";
+
         // § Primary actions
         items.push(ContextMenuItem::action(
             &i18n("Connect All"),
@@ -100,12 +104,26 @@ pub fn show_context_menu_for_item(
         items.push(ContextMenuItem::Separator);
         items.push(ContextMenuItem::action(&i18n("Rename"), "rename-item"));
         // § Creation / properties (GNOME HIG: properties-like items before delete)
-        items.push(ContextMenuItem::Separator);
-        items.push(ContextMenuItem::action(
-            &i18n("New Connection in Group"),
-            "new-connection-in-group",
-        ));
+        // Import groups: hide "New Connection in Group" (connections managed by sync)
+        if !is_import_group {
+            items.push(ContextMenuItem::Separator);
+            items.push(ContextMenuItem::action(
+                &i18n("New Connection in Group"),
+                "new-connection-in-group",
+            ));
+        }
         items.push(ContextMenuItem::action(&i18n("Edit"), "edit-connection"));
+        // § Cloud Sync (flat items, GNOME HIG)
+        if sync_mode == "master" || is_import_group {
+            items.push(ContextMenuItem::Separator);
+            items.push(ContextMenuItem::action(&i18n("Sync Now"), "sync-now"));
+        } else if is_root_group && sync_mode == "none" {
+            items.push(ContextMenuItem::Separator);
+            items.push(ContextMenuItem::action(
+                &i18n("Enable Cloud Sync..."),
+                "edit-connection",
+            ));
+        }
     } else {
         // § Primary actions
         items.push(ContextMenuItem::action(&i18n("Connect"), "connect"));
@@ -167,11 +185,15 @@ pub fn show_context_menu_for_item(
     }
 
     // Delete section (always last, visually separated)
-    items.push(ContextMenuItem::Separator);
-    items.push(ContextMenuItem::action(
-        &i18n("Delete"),
-        "delete-connection",
-    ));
+    // Import groups: hide "Delete" (group lifecycle managed by sync)
+    let is_import_group = is_group && sync_mode == "import";
+    if !is_import_group {
+        items.push(ContextMenuItem::Separator);
+        items.push(ContextMenuItem::action(
+            &i18n("Delete"),
+            "delete-connection",
+        ));
+    }
 
     show_popover(widget, window, &items, x, y);
 }

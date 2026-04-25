@@ -1962,6 +1962,7 @@ impl SplitViewBridge {
                     .collect()
             },
             on_session_selected,
+            Rc::new(RefCell::new(HashMap::new())), // No global color info available internally
         );
     }
 
@@ -1976,10 +1977,12 @@ impl SplitViewBridge {
     /// * `session_provider` - Function that returns all available sessions as (id, name) pairs
     /// * `on_session_selected` - Callback invoked when a session is selected.
     ///   Receives (panel_uuid, session_id) and should move the session to the panel.
+    /// * `split_colors` - Global map of session_id → color_index for sessions in any split view
     pub fn setup_select_tab_callback_with_provider<P, F>(
         &self,
         session_provider: P,
         on_session_selected: F,
+        split_colors: Rc<RefCell<HashMap<Uuid, usize>>>,
     ) where
         P: Fn() -> Vec<(Uuid, String)> + Clone + 'static,
         F: Fn(Uuid, Uuid) + Clone + 'static,
@@ -1998,6 +2001,15 @@ impl SplitViewBridge {
                     tracing::warn!("No UUID found for panel {panel_id}");
                     return;
                 };
+
+                tracing::debug!(
+                    "select_tab_callback: panel_id={}, panel_uuid={}, root_mapped={}, root_size={}x{}",
+                    panel_id,
+                    panel_uuid,
+                    root.is_mapped(),
+                    root.width(),
+                    root.height(),
+                );
 
                 // Get sessions already displayed in this split view using the adapter
                 // This is more reliable than using pane.current_session() which may not be updated
@@ -2090,6 +2102,14 @@ impl SplitViewBridge {
                         .activatable(true)
                         .build();
                     row.add_prefix(&gtk4::Image::from_icon_name("utilities-terminal-symbolic"));
+
+                    // Show split color indicator if session is in any split view
+                    if let Some(&color_index) = split_colors.borrow().get(&session_id)
+                        && let Some(icon) = create_colored_circle_icon(color_index, 12) {
+                            let color_image = gtk4::Image::from_gicon(&icon);
+                            color_image.set_pixel_size(12);
+                            row.add_suffix(&color_image);
+                        }
 
                     let callback = on_session_selected.clone();
                     let popover_weak = popover.downgrade();

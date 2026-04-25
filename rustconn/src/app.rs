@@ -69,6 +69,13 @@ pub fn create_application() -> adw::Application {
 
 /// Builds the main UI when the application is activated
 fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
+    // Guard against repeated activation (e.g. second instance, D-Bus
+    // activation).  If a window already exists just present it.
+    if let Some(window) = app.active_window() {
+        window.present();
+        return;
+    }
+
     // Force Adwaita icon theme and suppress deprecated dark-theme property
     // BEFORE loading CSS to prevent libadwaita warnings during theme parsing.
     if let Some(display) = gtk4::gdk::Display::default() {
@@ -116,17 +123,44 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
 
     // Initialize tray icon if enabled in settings
     let enable_tray = state.borrow().settings().ui.enable_tray_icon;
-    if enable_tray && let Some(tray) = TrayManager::new() {
-        // Update tray with initial state
-        let mut initial_cache = TrayStateCache::default();
-        update_tray_state(&tray, &state, &mut initial_cache);
-        tray.force_refresh();
-        *tray_manager.borrow_mut() = Some(tray);
+    if enable_tray {
+        // Spawn TrayManager on a background thread so that the blocking
+        // D-Bus registration (`tray.spawn()` → `compat::block_on`) does
+        // not stall the GTK main loop.  The result is polled back via a
+        // lightweight channel.
+        let (tray_tx, tray_rx) = std::sync::mpsc::channel::<TrayManager>();
+        std::thread::Builder::new()
+            .name("tray-init".into())
+            .spawn(move || {
+                if let Some(tray) = TrayManager::new() {
+                    let _ = tray_tx.send(tray);
+                }
+            })
+            .ok();
+
+        let state_for_tray = state.clone();
+        let tray_mgr_for_init = tray_manager.clone();
+        glib::timeout_add_local(std::time::Duration::from_millis(50), move || match tray_rx
+            .try_recv()
+        {
+            Ok(tray) => {
+                let mut initial_cache = TrayStateCache::default();
+                update_tray_state(&tray, &state_for_tray, &mut initial_cache);
+                tray.force_refresh();
+                *tray_mgr_for_init.borrow_mut() = Some(tray);
+                glib::ControlFlow::Break
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                tracing::warn!("Tray initialization thread exited without creating tray");
+                glib::ControlFlow::Break
+            }
+        });
     }
 
     // Schedule delayed force-refreshes so the D-Bus host caches our menu.
     // The host may not be ready immediately after spawn(), so we retry
-    // at 500ms and 2s to cover both fast and slow host registration.
+    // at 500ms, 2s, and 5s to cover both fast and slow host registration.
     {
         let tray_500ms = tray_manager.clone();
         glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
@@ -137,6 +171,12 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
         let tray_2s = tray_manager.clone();
         glib::timeout_add_local_once(std::time::Duration::from_secs(2), move || {
             if let Some(tray) = tray_2s.borrow().as_ref() {
+                tray.force_refresh();
+            }
+        });
+        let tray_5s = tray_manager.clone();
+        glib::timeout_add_local_once(std::time::Duration::from_secs(5), move || {
+            if let Some(tray) = tray_5s.borrow().as_ref() {
                 tray.force_refresh();
             }
         });
@@ -184,6 +224,74 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
             .unwrap_or_else(|| state.borrow().settings().ui.startup_action.clone());
 
         window.execute_startup_action(&action);
+    }
+
+    // Run Cloud Sync startup import for all Import groups
+    {
+        let state_for_sync = state.clone();
+        let sidebar_for_sync = window.sidebar_rc();
+        glib::idle_add_local_once(move || {
+            let reports = {
+                let Ok(mut state_mut) = state_for_sync.try_borrow_mut() else {
+                    return;
+                };
+                state_mut.run_startup_sync()
+            };
+            if !reports.is_empty() {
+                let total: usize = reports
+                    .iter()
+                    .map(|r| r.connections_added + r.connections_updated)
+                    .sum();
+                if total > 0 {
+                    tracing::info!(
+                        groups = reports.len(),
+                        total_changes = total,
+                        "Startup sync completed"
+                    );
+                    MainWindow::reload_sidebar_preserving_state(&state_for_sync, &sidebar_for_sync);
+                }
+            }
+        });
+    }
+
+    // Wire up Cloud Sync auto-export: ConnectionManager notifies SyncManager
+    // when Master group connections change, debounced via a glib timer.
+    {
+        let state_for_export = state.clone();
+        if let Ok(mut state_mut) = state_for_export.try_borrow_mut() {
+            let tx = state_mut.sync_manager_mut().setup_export_channel();
+            let debounce_secs = state_mut.sync_manager().export_debounce_secs();
+            state_mut.connection_manager().set_export_sender(tx);
+            drop(state_mut);
+
+            // Poll the export channel periodically and trigger debounced exports
+            let state_poll = state_for_export.clone();
+            let debounce_ms = u64::from(debounce_secs.max(1)) * 1000;
+            glib::timeout_add_local(std::time::Duration::from_millis(debounce_ms), move || {
+                // Drain all pending group IDs from the channel
+                let mut pending = std::collections::HashSet::new();
+                if let Ok(mut state_mut) = state_poll.try_borrow_mut() {
+                    while let Ok(group_id) = state_mut.sync_manager_mut().try_recv_export() {
+                        pending.insert(group_id);
+                    }
+                    for group_id in &pending {
+                        match state_mut.sync_now_group(*group_id) {
+                            Ok(report) => {
+                                tracing::info!(
+                                    group = %report.group_name,
+                                    connections = report.connections_added,
+                                    "Auto-exported Master group"
+                                );
+                            }
+                            Err(e) => {
+                                tracing::warn!(%e, "Auto-export failed");
+                            }
+                        }
+                    }
+                }
+                glib::ControlFlow::Continue
+            });
+        }
     }
 
     // Initialize secret backends in a background thread after the window is visible.
@@ -387,6 +495,12 @@ fn setup_tray_polling(
             return glib::ControlFlow::Break;
         };
 
+        // Stop polling if the window has been finalized to avoid
+        // interacting with stale GTK objects.
+        if window_for_msgs.upgrade().is_none() {
+            return glib::ControlFlow::Break;
+        }
+
         let tray_ref = tray_for_msgs.borrow();
         let Some(tray) = tray_ref.as_ref() else {
             return glib::ControlFlow::Continue;
@@ -473,10 +587,13 @@ fn setup_tray_polling(
         let Some(tray) = tray_ref.as_ref() else {
             return glib::ControlFlow::Continue;
         };
+        let Some(win) = window_for_state.upgrade() else {
+            // Window has been finalized — stop polling to avoid
+            // touching stale GTK objects.
+            return glib::ControlFlow::Break;
+        };
         // Sync window visibility so tray menu shows correct Show/Hide label
-        if let Some(win) = window_for_state.upgrade() {
-            tray.set_window_visible(win.is_visible());
-        }
+        tray.set_window_visible(win.is_visible());
         update_tray_state(tray, &state_clone, &mut state_cache.borrow_mut());
         glib::ControlFlow::Continue
     });

@@ -317,16 +317,12 @@ impl MainWindow {
                             let conn = state_ref.get_connection(conn_id);
                             let name = conn.map(|c| c.name.clone()).unwrap_or_else(|| item.name());
                             let params = conn.and_then(|c| {
-                                let key_path = if let rustconn_core::ProtocolConfig::Ssh(ref ssh) =
-                                    c.protocol_config
-                                {
-                                    ssh.key_path
-                                        .as_ref()
-                                        .and_then(|p| rustconn_core::resolve_key_path(p))
-                                        .map(|p| p.to_string_lossy().to_string())
-                                } else {
-                                    None
-                                };
+                                // Resolve key path via inheritance (connection → group → parent group → root)
+                                let groups: Vec<rustconn_core::models::ConnectionGroup> =
+                                    state_ref.list_groups().into_iter().cloned().collect();
+                                let key_path = rustconn_core::connection::ssh_inheritance::resolve_ssh_key_path(c, &groups)
+                                    .and_then(|p| rustconn_core::resolve_key_path(&p))
+                                    .map(|p| p.to_string_lossy().to_string());
                                 // Only build params for SSH-like protocols
                                 if matches!(
                                     c.protocol.as_str(),

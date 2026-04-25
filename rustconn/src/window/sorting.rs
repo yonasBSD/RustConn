@@ -161,8 +161,26 @@ pub fn rebuild_sidebar_sorted(state: &SharedAppState, sidebar: &SharedSidebar) {
     // Add sorted groups with their sorted children
     for group in &groups {
         let icon = group.icon.as_deref().unwrap_or("");
-        let group_item =
-            ConnectionItem::new_group_with_icon(&group.id.to_string(), &group.name, icon);
+        let sync_mode_str = match group.sync_mode {
+            rustconn_core::sync::SyncMode::None => "none",
+            rustconn_core::sync::SyncMode::Master => "master",
+            rustconn_core::sync::SyncMode::Import => "import",
+        };
+        // Look up sync error from SyncManager state
+        let sync_error = state_ref
+            .sync_manager()
+            .state()
+            .get(&group.id)
+            .and_then(|s| s.last_error.as_deref())
+            .unwrap_or("");
+        let group_item = ConnectionItem::new_group_full(
+            &group.id.to_string(),
+            &group.name,
+            icon,
+            sync_mode_str,
+            sync_error,
+            true, // root groups
+        );
         add_sorted_group_children(&state_ref, sidebar, &group_item, group.id);
         store.append(&group_item);
     }
@@ -277,6 +295,16 @@ pub fn handle_drag_drop(state: &SharedAppState, sidebar: &SharedSidebar, data: &
             if target_is_group {
                 // Target is a group - move connection into it
                 if position == "into" {
+                    // Block drops INTO Import groups (sync-managed)
+                    {
+                        let state_ref = state.borrow();
+                        if let Some(group) = state_ref.get_group(target_uuid)
+                            && group.sync_mode == rustconn_core::sync::SyncMode::Import
+                        {
+                            tracing::warn!("Rejected drag-drop into Import group '{}'", group.name);
+                            return;
+                        }
+                    }
                     // Drop INTO group - move to the group
                     if let Ok(mut state_mut) = state.try_borrow_mut()
                         && let Err(e) =

@@ -233,11 +233,17 @@ impl VariablesDialog {
             .icon_name("view-reveal-symbolic")
             .tooltip_text(i18n("Show/hide password"))
             .build();
+        show_hide_btn.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Toggle password visibility",
+        ))]);
         // Load from Vault button (secret mode only)
         let load_vault_btn = Button::builder()
             .icon_name("document-open-symbolic")
             .tooltip_text(i18n("Load password from vault"))
             .build();
+        load_vault_btn.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Load password from vault",
+        ))]);
         // Secret row: entry + show/hide + load buttons
         let secret_buttons_box = GtkBox::new(Orientation::Horizontal, 4);
         secret_buttons_box.append(&secret_entry);

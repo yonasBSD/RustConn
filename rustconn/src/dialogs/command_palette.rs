@@ -25,6 +25,19 @@ use std::rc::Rc;
 /// Callback type for when a palette action is selected
 pub type PaletteCallback = Rc<RefCell<Option<Box<dyn Fn(CommandPaletteAction)>>>>;
 
+/// Lightweight description of an open tab for the `%` palette mode.
+#[derive(Debug, Clone)]
+pub struct OpenTabInfo {
+    /// Session UUID
+    pub session_id: uuid::Uuid,
+    /// Tab title (connection name)
+    pub title: String,
+    /// Protocol (ssh, rdp, vnc, …)
+    pub protocol: String,
+    /// Optional tab group name
+    pub group: Option<String>,
+}
+
 /// Command Palette dialog
 pub struct CommandPaletteDialog {
     dialog: adw::Dialog,
@@ -33,6 +46,7 @@ pub struct CommandPaletteDialog {
     items: Rc<RefCell<Vec<PaletteItem>>>,
     connections: Rc<RefCell<Vec<Connection>>>,
     groups: Rc<RefCell<Vec<ConnectionGroup>>>,
+    open_tabs: Rc<RefCell<Vec<OpenTabInfo>>>,
     on_action: PaletteCallback,
     search_engine: Rc<SearchEngine>,
     parent: Option<gtk4::Widget>,
@@ -53,7 +67,9 @@ impl CommandPaletteDialog {
 
         // Search entry at top
         let search_entry = gtk4::SearchEntry::builder()
-            .placeholder_text(i18n("Search connections, > commands, @ tags, # groups"))
+            .placeholder_text(i18n(
+                "Search connections, > commands, @ tags, # groups, % tabs",
+            ))
             .hexpand(true)
             .margin_top(12)
             .margin_start(12)
@@ -110,6 +126,7 @@ impl CommandPaletteDialog {
             items: Rc::new(RefCell::new(Vec::new())),
             connections: Rc::new(RefCell::new(Vec::new())),
             groups: Rc::new(RefCell::new(Vec::new())),
+            open_tabs: Rc::new(RefCell::new(Vec::new())),
             on_action: Rc::new(RefCell::new(None)),
             search_engine: Rc::new(SearchEngine::new()),
             parent: stored_parent,
@@ -120,12 +137,18 @@ impl CommandPaletteDialog {
             let items = palette.items.clone();
             let connections = palette.connections.clone();
             let groups = palette.groups.clone();
+            let open_tabs = palette.open_tabs.clone();
             let list_box_clone = list_box.clone();
             let engine = palette.search_engine.clone();
             search_entry.connect_search_changed(move |entry| {
                 let text = entry.text().to_string();
-                let new_items =
-                    Self::compute_items(&text, &connections.borrow(), &groups.borrow(), &engine);
+                let new_items = Self::compute_items(
+                    &text,
+                    &connections.borrow(),
+                    &groups.borrow(),
+                    &open_tabs.borrow(),
+                    &engine,
+                );
                 Self::populate_list(&list_box_clone, &new_items);
                 *items.borrow_mut() = new_items;
                 // Auto-select first row
@@ -218,6 +241,11 @@ impl CommandPaletteDialog {
         *self.groups.borrow_mut() = groups;
     }
 
+    /// Sets the open tabs available for `%` switching mode
+    pub fn set_open_tabs(&self, tabs: Vec<OpenTabInfo>) {
+        *self.open_tabs.borrow_mut() = tabs;
+    }
+
     /// Registers a callback for when an action is selected
     pub fn connect_on_action<F>(&self, callback: F)
     where
@@ -234,6 +262,7 @@ impl CommandPaletteDialog {
             prefix,
             &self.connections.borrow(),
             &self.groups.borrow(),
+            &self.open_tabs.borrow(),
             &self.search_engine,
         );
         Self::populate_list(&self.list_box, &items);
@@ -257,6 +286,7 @@ impl CommandPaletteDialog {
         input: &str,
         connections: &[Connection],
         groups: &[ConnectionGroup],
+        open_tabs: &[OpenTabInfo],
         engine: &SearchEngine,
     ) -> Vec<PaletteItem> {
         let (mode, query) = parse_palette_input(input);
@@ -264,6 +294,7 @@ impl CommandPaletteDialog {
             PaletteMode::Commands => Self::filter_commands(query),
             PaletteMode::Tags => Self::filter_by_tag(query, connections),
             PaletteMode::Groups => Self::filter_by_group(query, connections, groups),
+            PaletteMode::OpenTabs => Self::filter_open_tabs(query, open_tabs, engine),
             PaletteMode::Connections => {
                 Self::search_connections(query, connections, groups, engine)
             }
@@ -285,6 +316,49 @@ impl CommandPaletteDialog {
             });
         }
         cmds
+    }
+
+    /// Filters open tabs by fuzzy query
+    fn filter_open_tabs(
+        query: &str,
+        open_tabs: &[OpenTabInfo],
+        engine: &SearchEngine,
+    ) -> Vec<PaletteItem> {
+        let tab_to_item = |tab: &OpenTabInfo| {
+            let icon = get_protocol_icon_by_name(&tab.protocol);
+            let desc = if let Some(ref group) = tab.group {
+                format!("[{}] {}", group, tab.protocol.to_uppercase())
+            } else {
+                tab.protocol.to_uppercase()
+            };
+            PaletteItem::new(
+                tab.title.clone(),
+                CommandPaletteAction::SwitchTab(tab.session_id),
+            )
+            .with_description(desc)
+            .with_icon(icon)
+        };
+
+        if query.is_empty() {
+            return open_tabs.iter().map(tab_to_item).collect();
+        }
+
+        let mut scored: Vec<_> = open_tabs
+            .iter()
+            .filter_map(|tab| {
+                let score = engine.fuzzy_score(query, &tab.title);
+                if score > 0.0 {
+                    Some((tab, score))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored
+            .into_iter()
+            .map(|(tab, _)| tab_to_item(tab))
+            .collect()
     }
 
     /// Filters connections by tag

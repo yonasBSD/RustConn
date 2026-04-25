@@ -289,12 +289,11 @@ impl MainWindow {
         }
 
         // TabView/TabBar configuration is handled internally
-        // Don't let notebook expand - it should only show tabs
-        terminal_notebook.widget().set_vexpand(false);
-        // Ensure notebook is visible (TabBar)
+        // TabView is always visible — content lives inside TabPages
+        terminal_notebook.widget().set_vexpand(true);
+        // Ensure notebook is visible
         terminal_notebook.widget().set_visible(true);
-        // Hide TabView content initially - split_view shows welcome content
-        terminal_notebook.hide_tab_view_content();
+        terminal_notebook.show_tab_view_content();
 
         // Create a container for the terminal area
         let terminal_container = gtk4::Box::new(Orientation::Vertical, 0);
@@ -305,8 +304,11 @@ impl MainWindow {
         terminal_container.append(terminal_notebook.widget());
 
         // Add split view as the main content area - takes full space
-        split_view.widget().set_vexpand(true);
+        // With per-tab split architecture, this is hidden by default
+        // (content lives inside TabPages, not in a global split view)
+        split_view.widget().set_vexpand(false);
         split_view.widget().set_hexpand(true);
+        split_view.widget().set_visible(false);
         terminal_container.append(split_view.widget());
 
         // Add split_container for per-session split views (initially hidden)
@@ -327,7 +329,12 @@ impl MainWindow {
         toolbar_view.add_top_bar(&header_bar);
         toolbar_view.set_content(Some(toast_overlay.widget()));
 
-        window.set_content(Some(&toolbar_view));
+        // Wrap everything with TabOverview — must be the outermost widget
+        // so it can overlay the entire window content (GNOME Web pattern)
+        let tab_overview = terminal_notebook.tab_overview();
+        tab_overview.set_child(Some(&toolbar_view));
+
+        window.set_content(Some(tab_overview));
 
         // Add responsive breakpoint: collapse sidebar to overlay when window is narrow
         // Uses sp units to accommodate GNOME Large Text accessibility setting
@@ -440,7 +447,7 @@ impl MainWindow {
         self.setup_connection_actions(window, &state, &sidebar, &terminal_notebook);
         self.setup_edit_actions(window, &state, &sidebar);
         self.setup_terminal_actions(window, &terminal_notebook, &sidebar, &state);
-        self.setup_navigation_actions(window, &terminal_notebook, &sidebar);
+        self.setup_navigation_actions(window, &terminal_notebook, &sidebar, &state);
         self.setup_group_operations_actions(window, &state, &terminal_notebook, &sidebar);
         self.setup_snippet_actions(window, &state, &terminal_notebook, &sidebar);
         self.setup_cluster_actions(window, &state, &terminal_notebook, &sidebar);
@@ -558,6 +565,76 @@ impl MainWindow {
             }
         });
         window.add_action(&connect_all_action);
+
+        // Sync Now action — exports Master groups, imports Import groups
+        let sync_now_action = gio::SimpleAction::new("sync-now", None);
+        let state_clone = state.clone();
+        let sidebar_clone = sidebar.clone();
+        let toast_clone = self.toast_overlay.clone();
+        sync_now_action.connect_activate(move |_, _| {
+            let Some(item) = sidebar_clone.get_selected_item() else {
+                return;
+            };
+            if !item.is_group() {
+                return;
+            }
+            let Ok(group_id) = uuid::Uuid::parse_str(&item.id()) else {
+                return;
+            };
+
+            // Walk up to root group to find the sync-enabled ancestor
+            let root_group_id = {
+                let Ok(state_ref) = state_clone.try_borrow() else {
+                    return;
+                };
+                let groups = state_ref.list_groups();
+                let mut current_id = group_id;
+                loop {
+                    if let Some(group) = groups.iter().find(|g| g.id == current_id) {
+                        if group.parent_id.is_none() {
+                            break current_id;
+                        }
+                        if let Some(pid) = group.parent_id {
+                            current_id = pid;
+                        } else {
+                            break current_id;
+                        }
+                    } else {
+                        break group_id;
+                    }
+                }
+            };
+
+            match state_clone.try_borrow_mut() {
+                Ok(mut state_mut) => {
+                    match state_mut.sync_now_group(root_group_id) {
+                        Ok(report) => {
+                            let msg = crate::i18n::i18n_f(
+                                "Synced '%1': +%2 connections, ~%3 updated, -%4 removed",
+                                &[
+                                    &report.group_name,
+                                    &report.connections_added.to_string(),
+                                    &report.connections_updated.to_string(),
+                                    &report.connections_removed.to_string(),
+                                ],
+                            );
+                            toast_clone.show_success(&msg);
+                            // Reload sidebar to reflect changes
+                            drop(state_mut);
+                            Self::reload_sidebar_preserving_state(&state_clone, &sidebar_clone);
+                        }
+                        Err(e) => {
+                            let msg = crate::i18n::i18n_f("Sync failed: %1", &[&e]);
+                            toast_clone.show_error(&msg);
+                        }
+                    }
+                }
+                Err(_) => {
+                    toast_clone.show_error(&crate::i18n::i18n("Sync failed: state is busy"));
+                }
+            }
+        });
+        window.add_action(&sync_now_action);
 
         // New connection from connection context (pre-selects the group of the selected connection)
         let new_conn_from_ctx_action = gio::SimpleAction::new("new-connection-from-context", None);
@@ -734,6 +811,7 @@ impl MainWindow {
         window: &adw::ApplicationWindow,
         terminal_notebook: &SharedNotebook,
         sidebar: &SharedSidebar,
+        state: &SharedAppState,
     ) {
         // Focus sidebar action
         let focus_sidebar_action = gio::SimpleAction::new("focus-sidebar", None);
@@ -790,6 +868,35 @@ impl MainWindow {
             }
         });
         window.add_action(&prev_tab_action);
+
+        // Tab overview action — opens the grid view of all tabs
+        let tab_overview_action = gio::SimpleAction::new("tab-overview", None);
+        let notebook_clone = terminal_notebook.clone();
+        tab_overview_action.connect_activate(move |_, _| {
+            notebook_clone.open_tab_overview();
+        });
+        window.add_action(&tab_overview_action);
+
+        // Switch tab via command palette (% prefix)
+        let switch_tab_action = gio::SimpleAction::new("switch-tab-palette", None);
+        let window_weak = window.downgrade();
+        let state_clone = state.clone();
+        let sidebar_clone = sidebar.clone();
+        let notebook_clone = terminal_notebook.clone();
+        let monitoring_clone = self.monitoring.clone();
+        switch_tab_action.connect_activate(move |_, _| {
+            if let Some(win) = window_weak.upgrade() {
+                Self::show_command_palette(
+                    &win,
+                    &state_clone,
+                    &sidebar_clone,
+                    &notebook_clone,
+                    &monitoring_clone,
+                    "%",
+                );
+            }
+        });
+        window.add_action(&switch_tab_action);
 
         // Toggle fullscreen action
         let toggle_fullscreen_action = gio::SimpleAction::new("toggle-fullscreen", None);
@@ -1562,6 +1669,7 @@ impl MainWindow {
                     // Note: Do NOT call switch_to_tab() here - the terminal should be
                     // displayed in the split panel, not switched to as the active tab
                 },
+                Rc::clone(terminal_notebook.split_colors()),
             );
 
             // Setup close panel callback for empty panel close buttons
@@ -1764,12 +1872,12 @@ impl MainWindow {
                 );
             });
 
-        // Connect TabView page selection - per spec, do NOT auto-fill split panes
-        // Split view is shown ONLY when selected session is displayed in a split pane
-        // Requirement 3: Each tab maintains its own independent split layout
+        // Connect TabView page selection
+        // With the new per-tab split architecture, GTK handles content switching
+        // automatically — split views live inside TabPages, not in a global container.
         let session_bridges_for_tab = self.session_split_bridges.clone();
-        let split_container_for_tab = self.split_container.clone();
         let global_split_view = split_view.clone();
+        let split_container_for_tab = self.split_container.clone();
         let notebook_clone = terminal_notebook.clone();
         let activity_for_tab = self.activity_coordinator.clone();
         let sessions_for_tab = terminal_notebook.sessions_map();
@@ -1781,65 +1889,27 @@ impl MainWindow {
                 };
                 let page_num = tab_view.page_position(&selected_page) as u32;
 
+                // Hide legacy global containers (no longer used for content)
+                global_split_view.widget().set_visible(false);
+                split_container_for_tab.set_visible(false);
+
                 // Get session ID for this page
                 if let Some(session_id) = notebook_clone.get_session_id_for_page(page_num) {
                     // Clear activity monitor indicator and reset notification state
+                    // but preserve split color indicators
                     activity_for_tab.on_tab_switched(session_id);
-                    if let Some(page) = sessions_for_tab.borrow().get(&session_id) {
+                    if !notebook_clone
+                        .split_colors()
+                        .borrow()
+                        .contains_key(&session_id)
+                        && let Some(page) = sessions_for_tab.borrow().get(&session_id)
+                    {
                         page.set_indicator_icon(gio::Icon::NONE);
                     }
 
-                    // Check if this is a VNC, RDP, or SPICE session - they display differently
-                    if let Some(info) = notebook_clone.get_session_info(session_id)
-                        && (info.protocol == "vnc"
-                            || info.protocol == "rdp"
-                            || info.protocol == "spice")
-                    {
-                        // For VNC/RDP/SPICE: hide split view, show TabView content
-                        global_split_view.widget().set_visible(false);
-                        split_container_for_tab.set_visible(false);
-                        notebook_clone.widget().set_vexpand(true);
-                        notebook_clone.show_tab_view_content();
-                        return;
-                    }
-
-                    // For SSH: check if this session has its own split bridge
+                    // If session has a split bridge, focus the correct pane
                     let bridges = session_bridges_for_tab.borrow();
                     if let Some(bridge) = bridges.get(&session_id) {
-                        // Session has its own split bridge - show it
-                        // Swap visible split view in container
-                        while let Some(child) = split_container_for_tab.first_child() {
-                            split_container_for_tab.remove(&child);
-                        }
-                        bridge.widget().set_vexpand(true);
-                        bridge.widget().set_hexpand(true);
-                        split_container_for_tab.append(bridge.widget());
-
-                        // Show split container, hide TabView content
-                        bridge.widget().set_visible(true);
-                        split_container_for_tab.set_visible(true);
-                        global_split_view.widget().set_visible(false);
-                        notebook_clone.widget().set_vexpand(false);
-                        notebook_clone.hide_tab_view_content();
-
-                        // Reparent terminal to split pane if needed
-                        let has_split_color = bridge.get_session_color(session_id).is_some();
-                        let is_displayed = bridge.is_session_displayed(session_id);
-                        if has_split_color && !is_displayed {
-                            let _ = bridge.reparent_terminal_to_split(session_id);
-                        }
-
-                        // Update tab colors for ALL sessions in this split view
-                        // Each tab should have the color of its pane
-                        for pane_id in bridge.pane_ids() {
-                            if let Some(pane_session_id) = bridge.get_pane_session(pane_id)
-                                && let Some(pane_color) = bridge.get_pane_color(pane_id)
-                            {
-                                notebook_clone.set_tab_split_color(pane_session_id, pane_color);
-                                bridge.set_session_color(pane_session_id, pane_color);
-                            }
-                        }
-
                         // Focus the pane containing the selected session
                         for pane_id in bridge.pane_ids() {
                             if bridge.get_pane_session(pane_id) == Some(session_id) {
@@ -1851,26 +1921,13 @@ impl MainWindow {
                             }
                         }
                     } else {
-                        // Session NOT in any split view - show in TabView directly
-                        // Move terminal back to TabView page if it was in split view
-                        notebook_clone.reparent_terminal_to_tab(session_id);
-
-                        // Clear any split color indicator
-                        notebook_clone.clear_tab_split_color(session_id);
-
-                        // Hide split views, show TabView content
-                        global_split_view.widget().set_visible(false);
-                        split_container_for_tab.set_visible(false);
-                        notebook_clone.widget().set_vexpand(true);
-                        notebook_clone.show_tab_view_content();
+                        // Regular tab — focus the terminal directly
+                        if let Some(terminal) = notebook_clone.get_terminal(session_id) {
+                            terminal.grab_focus();
+                        }
                     }
-                } else {
-                    // Welcome tab (page 0) - show TabView welcome
-                    global_split_view.widget().set_visible(false);
-                    split_container_for_tab.set_visible(false);
-                    notebook_clone.widget().set_vexpand(true);
-                    notebook_clone.show_tab_view_content();
                 }
+                // Welcome tab — nothing extra to do, GTK shows the content
             },
         );
 
@@ -2233,27 +2290,158 @@ impl MainWindow {
                 return;
             };
 
+            // Handle CredentialResolutionResult variants with appropriate dialogs
             state_ref.resolve_credentials_gtk(connection_id, move |result| {
-                let resolved_credentials = match result {
-                    Ok(creds) => creds,
+                use rustconn_core::sync::CredentialResolutionResult;
+
+                let resolution = match result {
+                    Ok(r) => r,
                     Err(e) => {
                         tracing::warn!("Failed to resolve credentials: {e}");
-                        None
+                        // Fall through with no credentials — protocol handler will prompt if needed
+                        CredentialResolutionResult::NotNeeded
                     }
                 };
 
-                Self::handle_resolved_credentials(
-                    state_clone,
-                    notebook_clone,
-                    split_view_clone,
-                    sidebar_clone,
-                    monitoring_clone,
-                    connection_id,
-                    protocol_type,
-                    resolved_credentials,
-                    None, // No cached credentials
-                    activity_clone,
-                );
+                match resolution {
+                    CredentialResolutionResult::Resolved(creds) => {
+                        Self::handle_resolved_credentials(
+                            state_clone,
+                            notebook_clone,
+                            split_view_clone,
+                            sidebar_clone,
+                            monitoring_clone,
+                            connection_id,
+                            protocol_type,
+                            Some(creds),
+                            None,
+                            activity_clone,
+                        );
+                    }
+                    CredentialResolutionResult::NotNeeded => {
+                        Self::handle_resolved_credentials(
+                            state_clone,
+                            notebook_clone,
+                            split_view_clone,
+                            sidebar_clone,
+                            monitoring_clone,
+                            connection_id,
+                            protocol_type,
+                            None,
+                            None,
+                            activity_clone,
+                        );
+                    }
+                    CredentialResolutionResult::VariableMissing {
+                        variable_name,
+                        description,
+                        ..
+                    } => {
+                        // Show variable setup dialog so the user can enter the value
+                        let conn_name = state_clone
+                            .try_borrow()
+                            .ok()
+                            .and_then(|s| s.get_connection(connection_id).map(|c| c.name.clone()))
+                            .unwrap_or_default();
+                        let backend_names = ["LibSecret", "KeePassXC", "Bitwarden", "1Password"];
+                        let backend_refs: Vec<&str> = backend_names.to_vec();
+
+                        {
+                            let state_var = state_clone.clone();
+                            let notebook_var = notebook_clone.clone();
+                            let split_var = split_view_clone.clone();
+                            let sidebar_var = sidebar_clone.clone();
+                            let monitoring_var = monitoring_clone.clone();
+                            let activity_var = activity_clone.clone();
+                            let variable_name_owned = variable_name.clone();
+
+                            crate::dialogs::show_variable_setup_dialog(
+                                notebook_clone.widget(),
+                                &conn_name,
+                                &variable_name,
+                                description.as_deref(),
+                                &backend_refs,
+                                move |response| {
+                                    if let crate::dialogs::VariableSetupResponse::Save { value, .. } = response {
+                                        // Save the variable value and retry connection
+                                        if let Ok(state_ref) = state_var.try_borrow() {
+                                            let settings = state_ref.settings().secrets.clone();
+                                            let _ = crate::state::save_variable_to_vault(&settings, &variable_name_owned, &value);
+                                        }
+                                        // Retry with the newly saved variable
+                                        Self::handle_resolved_credentials(
+                                            state_var.clone(),
+                                            notebook_var.clone(),
+                                            split_var.clone(),
+                                            sidebar_var.clone(),
+                                            monitoring_var.clone(),
+                                            connection_id,
+                                            protocol_type,
+                                            None,
+                                            None,
+                                            activity_var.clone(),
+                                        );
+                                    }
+                                    // Cancel — do nothing, connection is not started
+                                },
+                            );
+                        }
+                    }
+                    CredentialResolutionResult::BackendNotConfigured { .. } => {
+                        // Show backend missing dialog
+                        {
+                            let state_be = state_clone.clone();
+                            let notebook_be = notebook_clone.clone();
+                            let split_be = split_view_clone.clone();
+                            let sidebar_be = sidebar_clone.clone();
+                            let monitoring_be = monitoring_clone.clone();
+                            let activity_be = activity_clone.clone();
+
+                            crate::dialogs::show_backend_missing_dialog(
+                                notebook_clone.widget(),
+                                move |response| {
+                                    match response {
+                                        crate::dialogs::BackendMissingResponse::EnterManually => {
+                                            // Proceed without credentials — protocol handler will prompt
+                                            Self::handle_resolved_credentials(
+                                                state_be.clone(),
+                                                notebook_be.clone(),
+                                                split_be.clone(),
+                                                sidebar_be.clone(),
+                                                monitoring_be.clone(),
+                                                connection_id,
+                                                protocol_type,
+                                                None,
+                                                None,
+                                                activity_be.clone(),
+                                            );
+                                        }
+                                        crate::dialogs::BackendMissingResponse::OpenSettings => {
+                                            // Connection not started — user will retry after configuring
+                                            tracing::info!("User chose to open settings to configure secret backend");
+                                        }
+                                    }
+                                },
+                            );
+                        }
+                    }
+                    CredentialResolutionResult::VaultEntryMissing { .. } => {
+                        // Vault entry not found — proceed without credentials,
+                        // protocol handler will prompt for password
+                        Self::handle_resolved_credentials(
+                            state_clone,
+                            notebook_clone,
+                            split_view_clone,
+                            sidebar_clone,
+                            monitoring_clone,
+                            connection_id,
+                            protocol_type,
+                            None,
+                            None,
+                            activity_clone,
+                        );
+                    }
+                }
             });
         }
     }
@@ -3818,6 +4006,21 @@ impl MainWindow {
             palette.set_groups(groups);
         }
 
+        // Populate open tabs for % mode
+        {
+            let open_tabs: Vec<crate::dialogs::OpenTabInfo> = notebook
+                .get_all_sessions()
+                .into_iter()
+                .map(|s| crate::dialogs::OpenTabInfo {
+                    session_id: s.id,
+                    title: s.name,
+                    protocol: s.protocol,
+                    group: s.tab_group,
+                })
+                .collect();
+            palette.set_open_tabs(open_tabs);
+        }
+
         // Wire action callback
         let state_clone = state.clone();
         let sidebar_clone = sidebar.clone();
@@ -3833,6 +4036,9 @@ impl MainWindow {
                     &monitoring_clone,
                     uuid,
                 );
+            }
+            rustconn_core::search::command_palette::CommandPaletteAction::SwitchTab(session_id) => {
+                notebook_clone.switch_to_tab(session_id);
             }
             rustconn_core::search::command_palette::CommandPaletteAction::GtkAction(name) => {
                 if let Some(win) = window_weak.upgrade() {
@@ -3906,6 +4112,10 @@ impl MainWindow {
             dialog.set_settings(state_ref.settings().clone());
             let connections: Vec<_> = state_ref.list_connections().into_iter().cloned().collect();
             dialog.set_connections(connections);
+
+            // Populate Cloud Sync sections
+            let groups: Vec<_> = state_ref.list_groups().into_iter().cloned().collect();
+            dialog.populate_cloud_sync(&groups, state_ref.sync_manager());
         }
 
         let window_clone = window.clone();
@@ -3922,6 +4132,17 @@ impl MainWindow {
 
                 // Apply terminal settings to existing terminals
                 notebook.apply_settings(&settings.terminal);
+
+                // Re-apply per-connection theme overrides that were wiped
+                // by the global theme application above (fixes #99)
+                {
+                    let state_ref = state.borrow();
+                    notebook.reapply_theme_overrides(|connection_id| {
+                        state_ref
+                            .get_connection(connection_id)
+                            .and_then(|c| c.theme_override.clone())
+                    });
+                }
 
                 // Apply protocol tab coloring setting
                 notebook.set_color_tabs_by_protocol(settings.ui.color_tabs_by_protocol);

@@ -16,6 +16,7 @@ use crate::models::{
     RdpConfig, SshAuthMethod, SshConfig, TelnetConfig, VncConfig, WindowMode,
 };
 use crate::progress::ProgressReporter;
+use crate::sync::SyncMode;
 
 use super::normalize::parse_host_port;
 use super::traits::{ImportResult, ImportSource, SkippedEntry};
@@ -243,6 +244,14 @@ impl RdmImporter {
             password_source: None,
             description: None,
             icon: None,
+            ssh_auth_method: None,
+            ssh_key_path: None,
+            ssh_proxy_jump: None,
+            ssh_jump_host_id: None,
+            ssh_agent_socket: None,
+            sync_mode: SyncMode::None,
+            sync_file: None,
+            last_synced_at: None,
         }
     }
 

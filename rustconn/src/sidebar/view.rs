@@ -8,7 +8,7 @@ use gtk4::{
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, i18n_f};
 use crate::sidebar::ConnectionItem;
 use crate::sidebar_ui;
 
@@ -155,7 +155,7 @@ pub fn setup_list_item(
                 .unwrap_or(false);
 
             // Detect SSH protocol from the ConnectionItem data
-            let (is_ssh, is_connected, conn_id_str) = list_item_weak
+            let (is_ssh, is_connected, conn_id_str, sync_mode_str, is_root_group) = list_item_weak
                 .upgrade()
                 .and_then(|li| li.item())
                 .and_then(|obj| obj.downcast::<gtk4::TreeListRow>().ok())
@@ -167,6 +167,8 @@ pub fn setup_list_item(
                     let status = item.status();
                     let connected = status == "connected";
                     let id = item.id();
+                    let sm = item.sync_mode();
+                    let root = item.is_root_group();
                     tracing::debug!(
                         name = %item.name(),
                         protocol = %p,
@@ -175,9 +177,9 @@ pub fn setup_list_item(
                         %id,
                         "Context menu: ConnectionItem status"
                     );
-                    (ssh, connected, id)
+                    (ssh, connected, id, sm, root)
                 })
-                .unwrap_or((false, false, String::new()));
+                .unwrap_or((false, false, String::new(), String::new(), false));
 
             let is_recording = if is_connected && !conn_id_str.is_empty() {
                 recording_checker
@@ -196,6 +198,8 @@ pub fn setup_list_item(
                 is_ssh,
                 is_connected,
                 is_recording,
+                &sync_mode_str,
+                is_root_group,
             );
 
             // Claim the gesture so the event does not propagate further into
@@ -327,6 +331,76 @@ pub fn bind_list_item(
             first.set_visible(false);
         }
 
+        // Cloud Sync indicator icons (Requirement 5.5)
+        // Check if a sync-indicator image already exists (from previous bind)
+        let sync_indicator = content_box
+            .last_child()
+            .filter(|w| w.css_classes().iter().any(|c| c == "sync-indicator"))
+            .and_downcast::<Image>();
+
+        let sync_mode = item.sync_mode();
+        if sync_mode == "master" || sync_mode == "import" {
+            let sync_icon = if let Some(existing) = sync_indicator {
+                existing
+            } else {
+                let img = Image::new();
+                img.set_pixel_size(14);
+                img.add_css_class("sync-indicator");
+                content_box.append(&img);
+                img
+            };
+
+            // Check for sync errors via the sync_error property
+            let sync_err = item.sync_error();
+            if sync_err.is_empty() {
+                // No error — show synced indicator
+                sync_icon.set_icon_name(Some("emblem-synchronizing-symbolic"));
+                sync_icon.remove_css_class("error");
+                sync_icon.add_css_class("dim-label");
+
+                let tooltip = if sync_mode == "master" {
+                    i18n("Master — synced to cloud")
+                } else {
+                    i18n("Import — synced from cloud")
+                };
+                sync_icon.set_tooltip_text(Some(&tooltip));
+                sync_icon.update_property(&[gtk4::accessible::Property::Label(&tooltip)]);
+
+                // Override group tooltip to include sync info
+                if child_count > 0 {
+                    expander.set_tooltip_text(Some(&format!(
+                        "{} ({child_count}) — {}",
+                        item.name(),
+                        tooltip
+                    )));
+                } else {
+                    expander.set_tooltip_text(Some(&format!("{} — {}", item.name(), tooltip)));
+                }
+            } else {
+                // Error state — show warning indicator
+                sync_icon.set_icon_name(Some("dialog-warning-symbolic"));
+                sync_icon.remove_css_class("dim-label");
+                sync_icon.add_css_class("error");
+
+                let tooltip = i18n_f("Sync error: {}", &[&sync_err]);
+                sync_icon.set_tooltip_text(Some(&tooltip));
+                sync_icon.update_property(&[gtk4::accessible::Property::Label(&tooltip)]);
+
+                if child_count > 0 {
+                    expander.set_tooltip_text(Some(&format!(
+                        "{} ({child_count}) — {}",
+                        item.name(),
+                        tooltip
+                    )));
+                } else {
+                    expander.set_tooltip_text(Some(&format!("{} — {}", item.name(), tooltip)));
+                }
+            }
+            sync_icon.set_visible(true);
+        } else if let Some(existing) = sync_indicator {
+            existing.set_visible(false);
+        }
+
         // Add drop controller for dropping into groups
     } else {
         // Use custom icon if set, otherwise protocol-based icon
@@ -444,10 +518,17 @@ pub fn bind_list_item(
         if let Some(label) = content_box.last_child().and_downcast::<Label>() {
             let name = item.name();
             if item.is_document() && item.is_dirty() {
-                let text = format!("• {name}");
-                set_label_text(&label, &text);
+                set_label_text(&label, &name);
+                // Add CSS dot indicator for dirty documents
+                label.add_css_class("document-dirty");
+                label.set_tooltip_text(Some(&i18n("Document has unsaved changes")));
+                label.update_property(&[gtk4::accessible::Property::Label(&i18n(
+                    "Unsaved changes",
+                ))]);
             } else {
                 set_label_text(&label, &name);
+                label.remove_css_class("document-dirty");
+                label.set_tooltip_text(None);
             }
         }
     }

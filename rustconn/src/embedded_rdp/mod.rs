@@ -265,6 +265,9 @@ impl EmbeddedRdpWidget {
         quick_actions_button.set_icon_name("view-more-symbolic");
         quick_actions_button.set_tooltip_text(Some(&i18n("Windows admin tools")));
         quick_actions_button.add_css_class("flat");
+        quick_actions_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Windows admin tools",
+        ))]);
         {
             let menu = gtk4::gio::Menu::new();
             for action in rustconn_core::QUICK_ACTIONS {

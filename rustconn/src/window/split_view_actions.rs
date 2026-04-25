@@ -143,24 +143,14 @@ impl MainWindow {
                     monitoring_h.suspend_monitoring(current_session);
                 }
 
-                // Swap visible split view in container
-                // Remove old split view widget if any
-                while let Some(child) = split_container_h.first_child() {
-                    split_container_h.remove(&child);
-                }
-                // Add this session's split view
+                // Place split view widget inside the TabPage via TabPageContainer
                 split_view.widget().set_vexpand(true);
                 split_view.widget().set_hexpand(true);
-                split_container_h.append(split_view.widget());
+                notebook_for_split_h.switch_tab_to_split(current_session, split_view.widget());
 
-                // Make split view visible and hide TabView content
-                split_view.widget().set_visible(true);
-                split_container_h.set_visible(true);
-                notebook_for_split_h.widget().set_vexpand(false);
-                notebook_for_split_h.hide_tab_view_content();
-
-                // Also hide global split view (we're using per-session now)
+                // Also hide global split view (we're using per-tab now)
                 global_split_view_h.widget().set_visible(false);
+                split_container_h.set_visible(false);
 
                 // Setup drop target for the new (empty) pane
                 let sv_for_drop = split_view.clone();
@@ -211,6 +201,7 @@ impl MainWindow {
                 let notebook_for_select = notebook_for_split_h.clone();
                 let notebook_for_provider = notebook_for_split_h.clone();
                 let notebook_for_terminal = notebook_for_split_h.clone();
+                let notebook_for_placeholder_h = notebook_for_split_h.clone();
                 // Clone session_bridges so we can register the new session in the map
                 let session_bridges_for_select = session_bridges.clone();
                 // Clone for clearing from previous split
@@ -218,6 +209,8 @@ impl MainWindow {
                 // Clone for provider closure
                 let split_view_for_provider = split_view.clone();
                 let monitoring_for_select_h = monitoring_h.clone();
+                let split_colors_h = Rc::clone(notebook_for_split_h.split_colors());
+                let split_owner_h = current_session;
                 split_view.setup_select_tab_callback_with_provider(
                     move || {
                         // Get all sessions from the notebook, excluding those already in THIS split
@@ -293,6 +286,10 @@ impl MainWindow {
                                 // Set tab color indicator using the color from the panel
                                 notebook_for_select.set_tab_split_color(session_id, color_index);
 
+                                // Show placeholder in the moved session's tab
+                                notebook_for_placeholder_h
+                                    .show_in_split_placeholder(session_id, split_owner_h);
+
                                 // Suspend monitoring — session is now in split view
                                 monitoring_for_select_h.suspend_monitoring(session_id);
 
@@ -311,6 +308,7 @@ impl MainWindow {
                         // Note: Do NOT call switch_to_tab() here - the terminal should be
                         // displayed in the split panel, not switched to as the active tab
                     },
+                    split_colors_h,
                 );
 
                 // Setup close panel callback for empty panel close buttons
@@ -428,24 +426,14 @@ impl MainWindow {
                     monitoring_v.suspend_monitoring(current_session);
                 }
 
-                // Swap visible split view in container
-                // Remove old split view widget if any
-                while let Some(child) = split_container_v.first_child() {
-                    split_container_v.remove(&child);
-                }
-                // Add this session's split view
+                // Place split view widget inside the TabPage via TabPageContainer
                 split_view.widget().set_vexpand(true);
                 split_view.widget().set_hexpand(true);
-                split_container_v.append(split_view.widget());
+                notebook_for_split_v.switch_tab_to_split(current_session, split_view.widget());
 
-                // Make split view visible and hide TabView content
-                split_view.widget().set_visible(true);
-                split_container_v.set_visible(true);
-                notebook_for_split_v.widget().set_vexpand(false);
-                notebook_for_split_v.hide_tab_view_content();
-
-                // Also hide global split view (we're using per-session now)
+                // Also hide global split view (we're using per-tab now)
                 global_split_view_v.widget().set_visible(false);
+                split_container_v.set_visible(false);
 
                 // Setup drop target for the new (empty) pane
                 let sv_for_drop = split_view.clone();
@@ -503,6 +491,9 @@ impl MainWindow {
                 // Clone for provider closure
                 let split_view_for_provider = split_view.clone();
                 let monitoring_for_select_v = monitoring_v.clone();
+                let split_colors_v = Rc::clone(notebook_for_split_v.split_colors());
+                let split_owner_v = current_session;
+                let notebook_for_placeholder_v = notebook_for_split_v.clone();
                 split_view.setup_select_tab_callback_with_provider(
                     move || {
                         // Get all sessions from the notebook, excluding those already in THIS split
@@ -578,6 +569,10 @@ impl MainWindow {
                                 // Set tab color indicator using the color from the panel
                                 notebook_for_select.set_tab_split_color(session_id, color_index);
 
+                                // Show placeholder in the moved session's tab
+                                notebook_for_placeholder_v
+                                    .show_in_split_placeholder(session_id, split_owner_v);
+
                                 // Suspend monitoring — session is now in split view
                                 monitoring_for_select_v.suspend_monitoring(session_id);
 
@@ -596,6 +591,7 @@ impl MainWindow {
                         // Note: Do NOT call switch_to_tab() here - the terminal should be
                         // displayed in the split panel, not switched to as the active tab
                     },
+                    split_colors_v,
                 );
 
                 // Setup close panel callback for empty panel close buttons
@@ -704,7 +700,6 @@ impl MainWindow {
                                 bridge.widget().set_visible(false);
                                 split_view_for_close.widget().set_visible(false);
                                 split_container_close.set_visible(false);
-                                notebook_for_close.widget().set_vexpand(true);
                                 notebook_for_close.show_tab_view_content();
 
                                 // Clear tab color for the main session too
@@ -777,10 +772,9 @@ impl MainWindow {
                             .any(|&pane_id| bridge.get_pane_session(pane_id).is_some());
 
                         if !has_sessions_in_split {
-                            // No sessions in split view - hide it and show TabView
+                            // No sessions in split view - hide it
                             bridge.widget().set_visible(false);
                             split_container_unsplit.set_visible(false);
-                            notebook_for_unsplit.widget().set_vexpand(true);
                             notebook_for_unsplit.show_tab_view_content();
                         }
                         break;

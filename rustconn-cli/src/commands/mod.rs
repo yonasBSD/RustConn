@@ -1,6 +1,7 @@
 //! Command handler modules for the CLI.
 
 mod add;
+mod cloud_sync;
 mod cluster;
 mod completions;
 mod connect;
@@ -205,11 +206,6 @@ pub fn dispatch(config_path: Option<&Path>, command: Commands) -> Result<(), Cli
         Commands::Stats => stats::cmd_stats(config_path),
         Commands::Completions { shell } => completions::cmd_completions(shell),
         Commands::ManPage => manpage::cmd_manpage(),
-        Commands::Sync {
-            file,
-            source,
-            remove_stale,
-            dry_run,
-        } => sync::cmd_sync(config_path, &file, &source, remove_stale, dry_run),
+        Commands::Sync(subcmd) => cloud_sync::cmd_cloud_sync(config_path, subcmd),
     }
 }

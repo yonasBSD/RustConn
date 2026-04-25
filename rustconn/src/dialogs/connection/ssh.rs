@@ -32,6 +32,8 @@ pub struct SshOptionsWidgets {
     pub content: GtkBox,
     pub auth_dropdown: DropDown,
     pub key_source_dropdown: DropDown,
+    /// The ActionRow containing the key source dropdown (for updating subtitle/tooltip)
+    pub key_source_row: adw::ActionRow,
     pub key_entry: Entry,
     pub key_button: Button,
     pub agent_key_dropdown: DropDown,
@@ -66,8 +68,15 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
     let (container, content) = ProtocolLayoutBuilder::new().build();
 
     // === Authentication Group ===
-    let (auth_group, auth_dropdown, key_source_dropdown, key_entry, key_button, agent_key_dropdown) =
-        create_authentication_group();
+    let (
+        auth_group,
+        auth_dropdown,
+        key_source_dropdown,
+        key_source_row,
+        key_entry,
+        key_button,
+        agent_key_dropdown,
+    ) = create_authentication_group();
     content.append(&auth_group);
 
     // === Connection Options Group ===
@@ -137,6 +146,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         content,
         auth_dropdown,
         key_source_dropdown,
+        key_source_row,
         key_entry,
         key_button,
         agent_key_dropdown,
@@ -166,6 +176,7 @@ fn create_authentication_group() -> (
     adw::PreferencesGroup,
     DropDown,
     DropDown,
+    adw::ActionRow,
     Entry,
     Button,
     DropDown,
@@ -194,8 +205,13 @@ fn create_authentication_group() -> (
     auth_row.add_suffix(&auth_dropdown);
     auth_group.add(&auth_row);
 
-    // Key source dropdown
-    let key_source_items: Vec<String> = vec![i18n("Default"), i18n("File"), i18n("Agent")];
+    // Key source dropdown (0=Default, 1=File, 2=Agent, 3=Inherit)
+    let key_source_items: Vec<String> = vec![
+        i18n("Default"),
+        i18n("File"),
+        i18n("Agent"),
+        i18n("Inherit from group"),
+    ];
     let key_source_refs: Vec<&str> = key_source_items.iter().map(String::as_str).collect();
     let key_source_list = StringList::new(&key_source_refs);
     let key_source_dropdown = DropDown::new(Some(key_source_list), gtk4::Expression::NONE);
@@ -221,6 +237,9 @@ fn create_authentication_group() -> (
         .tooltip_text(i18n("Browse for key file"))
         .valign(gtk4::Align::Center)
         .build();
+    key_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Browse for SSH key file",
+    ))]);
 
     let key_file_row = adw::ActionRow::builder()
         .title(i18n("Key File"))
@@ -308,6 +327,7 @@ fn create_authentication_group() -> (
         auth_group,
         auth_dropdown,
         key_source_dropdown,
+        key_source_row,
         key_entry,
         key_button,
         agent_key_dropdown,
@@ -332,8 +352,8 @@ fn connect_key_source_visibility(
     key_source_dropdown.connect_selected_notify(move |dropdown| {
         let selected = dropdown.selected();
         match selected {
-            0 => {
-                // Default - hide both rows
+            0 | 3 => {
+                // Default or Inherit - hide both rows
                 key_file_row_clone.set_visible(false);
                 agent_key_row_clone.set_visible(false);
                 key_entry_clone.set_sensitive(false);
@@ -771,6 +791,9 @@ pub fn add_port_forward_row_to_list(
         .css_classes(["flat"])
         .tooltip_text(i18n("Remove this port forward"))
         .build();
+    remove_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Remove port forward",
+    ))]);
 
     let data_clone = data.clone();
     let list_clone = list.clone();

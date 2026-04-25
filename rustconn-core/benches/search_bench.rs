@@ -10,6 +10,7 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use rustconn_core::models::{Connection, ConnectionGroup, ProtocolConfig, SshConfig};
 use rustconn_core::search::{SearchEngine, SearchQuery};
+use rustconn_core::sync::SyncMode;
 use std::hint::black_box;
 use uuid::Uuid;
 
@@ -46,6 +47,14 @@ fn create_test_groups(count: usize) -> Vec<ConnectionGroup> {
             password_source: None,
             description: None,
             icon: None,
+            ssh_auth_method: None,
+            ssh_key_path: None,
+            ssh_proxy_jump: None,
+            ssh_jump_host_id: None,
+            ssh_agent_socket: None,
+            sync_mode: SyncMode::None,
+            sync_file: None,
+            last_synced_at: None,
         })
         .collect()
 }

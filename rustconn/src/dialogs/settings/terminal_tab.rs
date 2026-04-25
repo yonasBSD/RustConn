@@ -4,12 +4,14 @@ use adw::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{
     Box as GtkBox, CheckButton, DropDown, Entry, Orientation, SpinButton, StringList, ToggleButton,
+    gdk,
 };
 use libadwaita as adw;
 use rustconn_core::config::TerminalSettings;
 use rustconn_core::terminal_themes::TerminalTheme;
 
 use crate::i18n::i18n;
+use crate::i18n::i18n_f;
 
 /// Creates the terminal settings page using AdwPreferencesPage
 #[allow(clippy::type_complexity)]
@@ -80,6 +82,121 @@ pub fn create_terminal_page() -> (
     color_theme_row.add_suffix(&color_theme_dropdown);
     color_theme_row.set_activatable_widget(Some(&color_theme_dropdown));
     colors_group.add(&color_theme_row);
+
+    // Custom theme management buttons
+    let theme_buttons_box = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .valign(gtk4::Align::Center)
+        .build();
+
+    let new_theme_btn = gtk4::Button::builder()
+        .icon_name("list-add-symbolic")
+        .tooltip_text(i18n("New custom theme"))
+        .css_classes(["flat"])
+        .build();
+    new_theme_btn.update_property(&[gtk4::accessible::Property::Label(&i18n("New custom theme"))]);
+
+    let edit_theme_btn = gtk4::Button::builder()
+        .icon_name("document-edit-symbolic")
+        .tooltip_text(i18n("Edit custom theme"))
+        .css_classes(["flat"])
+        .sensitive(false)
+        .build();
+    edit_theme_btn.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Edit custom theme",
+    ))]);
+
+    let delete_theme_btn = gtk4::Button::builder()
+        .icon_name("user-trash-symbolic")
+        .tooltip_text(i18n("Delete custom theme"))
+        .css_classes(["flat", "destructive-action"])
+        .sensitive(false)
+        .build();
+    delete_theme_btn.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Delete custom theme",
+    ))]);
+
+    theme_buttons_box.append(&new_theme_btn);
+    theme_buttons_box.append(&edit_theme_btn);
+    theme_buttons_box.append(&delete_theme_btn);
+
+    let manage_row = adw::ActionRow::builder()
+        .title(i18n("Custom themes"))
+        .build();
+    manage_row.add_suffix(&theme_buttons_box);
+    colors_group.add(&manage_row);
+
+    // Enable edit/delete only for custom themes
+    {
+        let edit_btn = edit_theme_btn.clone();
+        let del_btn = delete_theme_btn.clone();
+        let dropdown = color_theme_dropdown.clone();
+        dropdown.connect_selected_notify(move |dd| {
+            let idx = dd.selected() as usize;
+            let names = TerminalTheme::theme_names();
+            let is_custom = names
+                .get(idx)
+                .is_some_and(|n| !TerminalTheme::is_builtin(n));
+            edit_btn.set_sensitive(is_custom);
+            del_btn.set_sensitive(is_custom);
+        });
+    }
+
+    // "New" button — prompt for name, create custom theme, open editor
+    {
+        let dropdown = color_theme_dropdown.clone();
+        let edit_btn_c = edit_theme_btn.clone();
+        let del_btn_c = delete_theme_btn.clone();
+        new_theme_btn.connect_clicked(move |btn| {
+            let win = btn.root().and_then(|r| r.downcast::<gtk4::Window>().ok());
+            let dropdown_c = dropdown.clone();
+            let edit_btn_cc = edit_btn_c.clone();
+            let del_btn_cc = del_btn_c.clone();
+            prompt_new_theme_name(win.as_ref(), move |name| {
+                let theme = TerminalTheme::new_custom(&name);
+                TerminalTheme::save_custom_theme(theme.clone());
+                refresh_theme_dropdown(&dropdown_c, &name);
+                show_theme_editor(None, &theme, &dropdown_c, &edit_btn_cc, &del_btn_cc);
+            });
+        });
+    }
+
+    // "Edit" button — open editor for selected custom theme
+    {
+        let dropdown = color_theme_dropdown.clone();
+        let edit_btn_c = edit_theme_btn.clone();
+        let del_btn_c = delete_theme_btn.clone();
+        edit_theme_btn.connect_clicked(move |btn| {
+            let idx = dropdown.selected() as usize;
+            let names = TerminalTheme::theme_names();
+            if let Some(name) = names.get(idx)
+                && let Some(theme) = TerminalTheme::by_name(name)
+            {
+                let win = btn.root().and_then(|r| r.downcast::<gtk4::Window>().ok());
+                show_theme_editor(win.as_ref(), &theme, &dropdown, &edit_btn_c, &del_btn_c);
+            }
+        });
+    }
+
+    // "Delete" button — remove selected custom theme
+    {
+        let dropdown = color_theme_dropdown.clone();
+        let edit_btn_c = edit_theme_btn.clone();
+        let del_btn_c = delete_theme_btn.clone();
+        delete_theme_btn.connect_clicked(move |_| {
+            let idx = dropdown.selected() as usize;
+            let names = TerminalTheme::theme_names();
+            if let Some(name) = names.get(idx)
+                && !TerminalTheme::is_builtin(name)
+            {
+                TerminalTheme::remove_custom_theme(name);
+                refresh_theme_dropdown(&dropdown, "Dark");
+                edit_btn_c.set_sensitive(false);
+                del_btn_c.set_sensitive(false);
+            }
+        });
+    }
 
     page.add(&colors_group);
 
@@ -431,7 +548,7 @@ pub fn collect_terminal_settings(
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     TerminalSettings {
         font_family: font_family_entry.text().to_string(),
-        font_size: font_size_spin.value() as u32,
+        font_size: (font_size_spin.value() as u32).max(1),
         scrollback_lines: scrollback_spin.value() as u32,
         color_theme,
         cursor_shape,
@@ -445,5 +562,202 @@ pub fn collect_terminal_settings(
         sftp_use_mc: sftp_use_mc_check.is_active(),
         copy_on_select: copy_on_select_check.is_active(),
         show_scrollbar: show_scrollbar_check.is_active(),
+    }
+}
+
+// ========================================================================
+// Custom theme helpers
+// ========================================================================
+
+/// Refreshes the theme dropdown model and selects the given theme name.
+fn refresh_theme_dropdown(dropdown: &DropDown, select_name: &str) {
+    let names = TerminalTheme::theme_names();
+    let list = StringList::new(&names.iter().map(String::as_str).collect::<Vec<_>>());
+    dropdown.set_model(Some(&list));
+    let idx = names.iter().position(|n| n == select_name).unwrap_or(0);
+    dropdown.set_selected(idx as u32);
+}
+
+/// Prompts the user for a new theme name via an `AdwAlertDialog`.
+fn prompt_new_theme_name<F>(parent: Option<&gtk4::Window>, on_accept: F)
+where
+    F: Fn(String) + 'static,
+{
+    let dialog = adw::AlertDialog::builder()
+        .heading(i18n("New Custom Theme"))
+        .body(i18n("Enter a name for the new theme"))
+        .close_response("cancel")
+        .default_response("create")
+        .build();
+
+    dialog.add_response("cancel", &i18n("Cancel"));
+    dialog.add_response("create", &i18n("Create"));
+    dialog.set_response_appearance("create", adw::ResponseAppearance::Suggested);
+
+    let entry = Entry::builder()
+        .placeholder_text(i18n("Theme name"))
+        .hexpand(true)
+        .build();
+    dialog.set_extra_child(Some(&entry));
+
+    let entry_c = entry.clone();
+    dialog.connect_response(None, move |_, response| {
+        if response == "create" {
+            let name = entry_c.text().trim().to_string();
+            if !name.is_empty() {
+                on_accept(name);
+            }
+        }
+    });
+
+    if let Some(win) = parent {
+        dialog.present(Some(win));
+    } else {
+        dialog.present(gtk4::Widget::NONE);
+    }
+}
+
+/// Shows a theme editor dialog for the given theme.
+///
+/// The editor lets the user pick background, foreground, and cursor colors.
+/// On save the theme is persisted and the dropdown is refreshed.
+#[allow(clippy::too_many_lines)]
+fn show_theme_editor(
+    parent: Option<&gtk4::Window>,
+    theme: &TerminalTheme,
+    dropdown: &DropDown,
+    edit_btn: &gtk4::Button,
+    delete_btn: &gtk4::Button,
+) {
+    use rustconn_core::terminal_themes::Color;
+
+    let dialog = adw::AlertDialog::builder()
+        .heading(i18n_f("{} — Theme Editor", &[&theme.name]))
+        .close_response("cancel")
+        .default_response("save")
+        .build();
+
+    dialog.add_response("cancel", &i18n("Cancel"));
+    dialog.add_response("save", &i18n("Save"));
+    dialog.set_response_appearance("save", adw::ResponseAppearance::Suggested);
+
+    let content = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .build();
+
+    // Helper to create a color row with a ColorDialogButton
+    let make_color_row =
+        |label_text: &str, color: &Color| -> (adw::ActionRow, gtk4::ColorDialogButton) {
+            let rgba = gdk::RGBA::new(color.r, color.g, color.b, 1.0);
+            let color_dialog = gtk4::ColorDialog::builder().with_alpha(false).build();
+            let btn = gtk4::ColorDialogButton::builder()
+                .dialog(&color_dialog)
+                .rgba(&rgba)
+                .valign(gtk4::Align::Center)
+                .build();
+            let row = adw::ActionRow::builder().title(label_text).build();
+            row.add_suffix(&btn);
+            (row, btn)
+        };
+
+    let (bg_row, bg_btn) = make_color_row(&i18n("Background"), &theme.background);
+    let (fg_row, fg_btn) = make_color_row(&i18n("Foreground"), &theme.foreground);
+    let (cur_row, cur_btn) = make_color_row(&i18n("Cursor"), &theme.cursor);
+
+    let group = adw::PreferencesGroup::builder()
+        .title(i18n("Colors"))
+        .build();
+    group.add(&bg_row);
+    group.add(&fg_row);
+    group.add(&cur_row);
+
+    // Palette colors (16 ANSI colors)
+    let palette_group = adw::PreferencesGroup::builder()
+        .title(i18n("Palette"))
+        .build();
+
+    let palette_labels = [
+        i18n("Black"),
+        i18n("Red"),
+        i18n("Green"),
+        i18n("Yellow"),
+        i18n("Blue"),
+        i18n("Magenta"),
+        i18n("Cyan"),
+        i18n("White"),
+        i18n("Bright Black"),
+        i18n("Bright Red"),
+        i18n("Bright Green"),
+        i18n("Bright Yellow"),
+        i18n("Bright Blue"),
+        i18n("Bright Magenta"),
+        i18n("Bright Cyan"),
+        i18n("Bright White"),
+    ];
+
+    let palette_btns: Vec<gtk4::ColorDialogButton> = theme
+        .palette
+        .iter()
+        .enumerate()
+        .map(|(i, color)| {
+            let label = palette_labels.get(i).map(String::as_str).unwrap_or("Color");
+            let (row, btn) = make_color_row(label, color);
+            palette_group.add(&row);
+            btn
+        })
+        .collect();
+
+    content.append(&group);
+    content.append(&palette_group);
+
+    let scrolled = gtk4::ScrolledWindow::builder()
+        .child(&content)
+        .min_content_height(400)
+        .max_content_height(500)
+        .propagate_natural_height(true)
+        .build();
+
+    dialog.set_extra_child(Some(&scrolled));
+
+    let theme_name = theme.name.clone();
+    let dropdown_c = dropdown.clone();
+    let edit_btn_c = edit_btn.clone();
+    let del_btn_c = delete_btn.clone();
+    dialog.connect_response(None, move |_, response| {
+        if response != "save" {
+            return;
+        }
+
+        let rgba_to_color = |rgba: gdk::RGBA| Color::new(rgba.red(), rgba.green(), rgba.blue());
+
+        let mut palette = TerminalTheme::dark_theme().palette;
+        for (i, btn) in palette_btns.iter().enumerate() {
+            palette[i] = rgba_to_color(btn.rgba());
+        }
+
+        let updated = TerminalTheme {
+            name: theme_name.clone(),
+            background: rgba_to_color(bg_btn.rgba()),
+            foreground: rgba_to_color(fg_btn.rgba()),
+            cursor: rgba_to_color(cur_btn.rgba()),
+            palette,
+            is_custom: true,
+        };
+        TerminalTheme::save_custom_theme(updated);
+        refresh_theme_dropdown(&dropdown_c, &theme_name);
+
+        let names = TerminalTheme::theme_names();
+        let is_custom = names
+            .get(dropdown_c.selected() as usize)
+            .is_some_and(|n| !TerminalTheme::is_builtin(n));
+        edit_btn_c.set_sensitive(is_custom);
+        del_btn_c.set_sensitive(is_custom);
+    });
+
+    if let Some(win) = parent {
+        dialog.present(Some(win));
+    } else {
+        dialog.present(gtk4::Widget::NONE);
     }
 }

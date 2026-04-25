@@ -19,6 +19,7 @@ mod lazy_loader;
 mod manager;
 mod port_check;
 mod retry;
+pub mod ssh_inheritance;
 mod virtual_scroll;
 
 pub use interning::{

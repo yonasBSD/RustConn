@@ -4,6 +4,7 @@
 //! for SSH connections with SFTP enabled.
 
 use crate::models::Connection;
+use crate::models::ConnectionGroup;
 use crate::models::SshKeySource;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -196,10 +197,15 @@ pub fn build_sftp_uri_from_connection(connection: &Connection) -> Option<String>
 ///
 /// Returns `None` if the connection is not SSH.
 ///
+/// Uses SSH inheritance resolution for proxy jump settings.
+///
 /// The returned `Vec` has the program name as the first element,
 /// followed by arguments: `["sftp", "-P", "port", "user@host"]`.
 #[must_use]
-pub fn build_sftp_command(connection: &Connection) -> Option<Vec<String>> {
+pub fn build_sftp_command(
+    connection: &Connection,
+    groups: &[ConnectionGroup],
+) -> Option<Vec<String>> {
     if !matches!(
         connection.protocol_config,
         crate::models::ProtocolConfig::Ssh(_) | crate::models::ProtocolConfig::Sftp(_)
@@ -209,9 +215,25 @@ pub fn build_sftp_command(connection: &Connection) -> Option<Vec<String>> {
 
     let mut cmd = vec!["sftp".to_string()];
 
+    // Add proxy jump from inheritance chain if available
+    if let Some(proxy_jump) =
+        crate::connection::ssh_inheritance::resolve_ssh_proxy_jump(connection, groups)
+    {
+        cmd.push("-J".to_string());
+        cmd.push(proxy_jump);
+    }
+
     if connection.port != 22 {
         cmd.push("-P".to_string());
         cmd.push(connection.port.to_string());
+    }
+
+    // Add identity file from inheritance chain if available
+    if let Some(key_path) =
+        crate::connection::ssh_inheritance::resolve_ssh_key_path(connection, groups)
+    {
+        cmd.push("-i".to_string());
+        cmd.push(key_path.to_string_lossy().into_owned());
     }
 
     let target = if let Some(ref user) = connection.username {
@@ -226,40 +248,50 @@ pub fn build_sftp_command(connection: &Connection) -> Option<Vec<String>> {
 
 /// Extracts the SSH key file path from a connection's config.
 ///
-/// Checks `key_source` (preferred) then falls back to legacy `key_path`.
+/// Uses SSH inheritance resolution: checks the connection-level setting
+/// first, then walks the group hierarchy via [`crate::connection::ssh_inheritance::resolve_ssh_key_path`].
+///
+/// # Arguments
+/// * `connection` — the connection to resolve the key for
+/// * `groups` — the full group hierarchy for inheritance resolution
+///
 /// Returns `None` if no key is configured or the connection is not SSH.
 #[must_use]
-pub fn get_ssh_key_path(connection: &Connection) -> Option<PathBuf> {
+pub fn get_ssh_key_path(connection: &Connection, groups: &[ConnectionGroup]) -> Option<PathBuf> {
+    // Delegate to the inheritance resolver which handles:
+    // 1. Connection-level File { path } → return path
+    // 2. Agent with file-like comment → handled below as fallback
+    // 3. Inherit / no config → walk group chain
+    //
+    // First try the inheritance resolver for File and Inherit cases
+    if let Some(path) = crate::connection::ssh_inheritance::resolve_ssh_key_path(connection, groups)
+    {
+        return Some(path);
+    }
+
+    // Handle Agent key_source with file-like comment (not covered by inheritance resolver)
     let ssh = match &connection.protocol_config {
         crate::models::ProtocolConfig::Ssh(cfg) | crate::models::ProtocolConfig::Sftp(cfg) => cfg,
         _ => return None,
     };
 
-    match &ssh.key_source {
-        SshKeySource::File { path } if !path.as_os_str().is_empty() => Some(path.clone()),
-        SshKeySource::Agent { comment, .. } => {
-            // Agent key identified by comment — if comment looks like
-            // a file path, return it so we can ssh-add it.
-            let p = std::path::Path::new(comment);
-            if comment.starts_with('/') || comment.starts_with('~') {
-                if comment.starts_with('~') {
-                    dirs::home_dir()
-                        .map(|home| home.join(comment.strip_prefix("~/").unwrap_or(comment)))
-                } else {
-                    Some(p.to_path_buf())
-                }
-            } else {
-                None
+    if let SshKeySource::Agent { comment, .. } = &ssh.key_source {
+        let p = std::path::Path::new(comment);
+        if comment.starts_with('/') || comment.starts_with('~') {
+            if comment.starts_with('~') {
+                return dirs::home_dir()
+                    .map(|home| home.join(comment.strip_prefix("~/").unwrap_or(comment)));
             }
-        }
-        _ => {
-            // Legacy key_path fallback
-            ssh.key_path
-                .as_ref()
-                .filter(|p| !p.as_os_str().is_empty())
-                .cloned()
+            return Some(p.to_path_buf());
         }
     }
+
+    // Legacy key_path fallback (only when inheritance resolver returned None
+    // and key_source is not Agent with file path)
+    ssh.key_path
+        .as_ref()
+        .filter(|p| !p.as_os_str().is_empty())
+        .cloned()
 }
 
 /// Checks whether ssh-agent is reachable.
@@ -399,10 +431,12 @@ pub fn ensure_ssh_agent() -> Option<SshAgentInfo> {
 /// This is needed before opening SFTP via mc or file managers,
 /// because neither can pass an identity file directly.
 ///
+/// Uses SSH inheritance resolution to find the key path.
+///
 /// Returns `true` if the key was added (or no key is needed),
 /// `false` if `ssh-add` failed.
-pub fn ensure_key_in_agent(connection: &Connection) -> bool {
-    let Some(key_path) = get_ssh_key_path(connection) else {
+pub fn ensure_key_in_agent(connection: &Connection, groups: &[ConnectionGroup]) -> bool {
+    let Some(key_path) = get_ssh_key_path(connection, groups) else {
         // No key configured — ssh-agent may already have the
         // right key, or password auth is used. Proceed anyway.
         return true;
@@ -478,7 +512,10 @@ pub fn get_downloads_dir() -> String {
 /// remote via FISH. Requires the SSH key to be loaded in
 /// ssh-agent beforehand.
 #[must_use]
-pub fn build_mc_sftp_command(connection: &Connection) -> Option<Vec<String>> {
+pub fn build_mc_sftp_command(
+    connection: &Connection,
+    _groups: &[ConnectionGroup],
+) -> Option<Vec<String>> {
     if !matches!(
         connection.protocol_config,
         crate::models::ProtocolConfig::Ssh(_) | crate::models::ProtocolConfig::Sftp(_)
@@ -562,7 +599,7 @@ mod tests {
             Connection::new_ssh("Test".to_string(), "server.example.com".to_string(), 22);
         conn.username = Some("admin".to_string());
 
-        let cmd = build_sftp_command(&conn).unwrap();
+        let cmd = build_sftp_command(&conn, &[]).unwrap();
         assert_eq!(cmd, vec!["sftp", "admin@server.example.com"]);
     }
 
@@ -571,14 +608,14 @@ mod tests {
         let mut conn = Connection::new_ssh("Test".to_string(), "host.local".to_string(), 2222);
         conn.username = Some("root".to_string());
 
-        let cmd = build_sftp_command(&conn).unwrap();
+        let cmd = build_sftp_command(&conn, &[]).unwrap();
         assert_eq!(cmd, vec!["sftp", "-P", "2222", "root@host.local"]);
     }
 
     #[test]
     fn test_build_sftp_command_non_ssh() {
         let conn = Connection::new_rdp("Test".to_string(), "server.example.com".to_string(), 3389);
-        assert!(build_sftp_command(&conn).is_none());
+        assert!(build_sftp_command(&conn, &[]).is_none());
     }
 
     #[test]
@@ -603,7 +640,7 @@ mod tests {
             Connection::new_ssh("Test".to_string(), "server.example.com".to_string(), 22);
         conn.username = Some("admin".to_string());
 
-        let cmd = build_mc_sftp_command(&conn).unwrap();
+        let cmd = build_mc_sftp_command(&conn, &[]).unwrap();
         // Direct argv: ["mc", "-g", <downloads>, "sh://user@host/~"]
         assert_eq!(cmd.len(), 4);
         assert_eq!(cmd[0], "mc");
@@ -616,7 +653,7 @@ mod tests {
         let mut conn = Connection::new_ssh("Test".to_string(), "host.local".to_string(), 2222);
         conn.username = Some("root".to_string());
 
-        let cmd = build_mc_sftp_command(&conn).unwrap();
+        let cmd = build_mc_sftp_command(&conn, &[]).unwrap();
         assert_eq!(cmd.len(), 4);
         assert_eq!(cmd[0], "mc");
         assert_eq!(cmd[1], "-g");
@@ -626,7 +663,7 @@ mod tests {
     #[test]
     fn test_build_mc_sftp_command_non_ssh() {
         let conn = Connection::new_rdp("Test".to_string(), "server.example.com".to_string(), 3389);
-        assert!(build_mc_sftp_command(&conn).is_none());
+        assert!(build_mc_sftp_command(&conn, &[]).is_none());
     }
 
     #[test]

@@ -23,6 +23,10 @@ pub fn cmd_sftp(
 
     let connection = find_connection(&connections, name)?;
 
+    let groups = config_manager
+        .load_groups()
+        .map_err(|e| CliError::Config(format!("Failed to load groups: {e}")))?;
+
     if connection.protocol != ProtocolType::Ssh {
         return Err(CliError::Protocol(format!(
             "SFTP is only available for SSH connections, '{}' uses {}",
@@ -37,12 +41,12 @@ pub fn cmd_sftp(
         tracing::warn!("ssh-agent is not running. SFTP may require manual setup.");
     }
 
-    if !rustconn_core::sftp::ensure_key_in_agent(connection) {
+    if !rustconn_core::sftp::ensure_key_in_agent(connection, &groups) {
         tracing::warn!("Could not add SSH key to agent. You may need to run ssh-add manually.");
     }
 
     if use_mc {
-        let cmd = rustconn_core::sftp::build_mc_sftp_command(connection)
+        let cmd = rustconn_core::sftp::build_mc_sftp_command(connection, &groups)
             .ok_or_else(|| CliError::Protocol("Failed to build mc command".to_string()))?;
 
         println!("Opening mc SFTP for '{}'...", connection.name);
@@ -63,7 +67,7 @@ pub fn cmd_sftp(
             ));
         }
     } else if use_cli {
-        let cmd = rustconn_core::sftp::build_sftp_command(connection)
+        let cmd = rustconn_core::sftp::build_sftp_command(connection, &groups)
             .ok_or_else(|| CliError::Protocol("Failed to build SFTP command".to_string()))?;
 
         println!("Connecting via sftp CLI to '{}'...", connection.name);

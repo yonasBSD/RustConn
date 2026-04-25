@@ -251,11 +251,20 @@ mod tray_impl {
     }
 
     /// Tray icon manager (with tray feature enabled)
+    ///
+    /// All D-Bus updates are dispatched to a dedicated background thread to
+    /// avoid blocking the GTK main loop.  `handle.update()` internally calls
+    /// `compat::block_on` which parks the *calling* thread until the D-Bus
+    /// service loop processes the request.  Running that on the GTK thread
+    /// can deadlock (the D-Bus thread may need the `TrayState` mutex that
+    /// the GTK thread is about to take) or simply stall the UI.
     pub struct TrayManager {
         state: Arc<Mutex<TrayState>>,
         receiver: Receiver<TrayMessage>,
-        handle: Handle<RustConnTray>,
-        needs_update: Arc<Mutex<bool>>,
+        /// Channel to the background updater thread.
+        update_tx: std::sync::mpsc::SyncSender<()>,
+        /// Keep the handle alive so the D-Bus service loop is not dropped.
+        _handle: Handle<RustConnTray>,
     }
 
     impl TrayManager {
@@ -269,27 +278,55 @@ mod tray_impl {
                 sender,
                 icon_pixmap,
             };
-            let handle = tray.spawn().ok()?;
+
+            // In Flatpak sandboxes the D-Bus well-known name
+            // `StatusNotifierItem-PID-ID` cannot be owned; ksni documents
+            // `disable_dbus_name(true)` as the required workaround.
+            let in_flatpak = rustconn_core::flatpak::is_flatpak();
+            let handle = tray.disable_dbus_name(in_flatpak).spawn().ok()?;
+
+            // Spawn a dedicated thread that serialises all `handle.update()`
+            // calls off the GTK main thread.  We use a bounded(1) channel so
+            // that multiple rapid state changes coalesce into a single update
+            // (the sender simply drops the message if the channel is full).
+            let (update_tx, update_rx) = mpsc::sync_channel::<()>(1);
+            let bg_handle = handle.clone();
+            std::thread::Builder::new()
+                .name("tray-updater".into())
+                .spawn(move || {
+                    while update_rx.recv().is_ok() {
+                        // Drain any extra coalesced signals so we do one
+                        // update per burst.
+                        while update_rx.try_recv().is_ok() {}
+                        if bg_handle.is_closed() {
+                            break;
+                        }
+                        let _ = bg_handle.update(|_| {});
+                    }
+                })
+                .ok()?;
 
             Some(Self {
                 state,
                 receiver,
-                handle,
-                needs_update: Arc::new(Mutex::new(false)),
+                update_tx,
+                _handle: handle,
             })
         }
 
-        fn trigger_update(&self) {
-            if let Ok(mut needs) = self.needs_update.lock()
-                && *needs
-            {
-                let _ = self.handle.update(|_| {});
-                *needs = false;
-            }
+        /// Request a D-Bus menu/property refresh (non-blocking).
+        ///
+        /// The actual `handle.update()` runs on the background updater
+        /// thread.  If an update is already queued the new request is
+        /// coalesced (bounded channel capacity = 1).
+        fn request_update(&self) {
+            // `try_send` never blocks; if the channel is full an update is
+            // already pending — exactly what we want.
+            let _ = self.update_tx.try_send(());
         }
 
         pub fn force_refresh(&self) {
-            let _ = self.handle.update(|_| {});
+            self.request_update();
         }
 
         pub fn set_active_sessions(&self, count: u32) {
@@ -297,11 +334,8 @@ mod tray_impl {
                 && state.active_sessions != count
             {
                 state.active_sessions = count;
-                if let Ok(mut needs) = self.needs_update.lock() {
-                    *needs = true;
-                }
+                self.request_update();
             }
-            self.trigger_update();
         }
 
         pub fn set_recent_connections(&self, connections: Vec<(Uuid, String)>) {
@@ -309,11 +343,8 @@ mod tray_impl {
                 && state.recent_connections != connections
             {
                 state.recent_connections = connections;
-                if let Ok(mut needs) = self.needs_update.lock() {
-                    *needs = true;
-                }
+                self.request_update();
             }
-            self.trigger_update();
         }
 
         pub fn set_window_visible(&self, visible: bool) {
@@ -321,11 +352,8 @@ mod tray_impl {
                 && state.window_visible != visible
             {
                 state.window_visible = visible;
-                if let Ok(mut needs) = self.needs_update.lock() {
-                    *needs = true;
-                }
+                self.request_update();
             }
-            self.trigger_update();
         }
 
         pub fn try_recv(&self) -> Option<TrayMessage> {

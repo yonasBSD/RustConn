@@ -7,13 +7,14 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use chrono::Utc;
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use uuid::Uuid;
 
 use crate::config::ConfigManager;
 use crate::error::{ConfigError, ConfigResult};
 use crate::models::{Connection, ConnectionGroup, ProtocolConfig};
 use crate::performance::memory_optimizer;
+use crate::sync::SyncMode;
 
 /// Tuple containing validation/creation, timestamp
 type TrashEntry<T> = (T, chrono::DateTime<Utc>);
@@ -47,6 +48,9 @@ pub struct ConnectionManager {
 
     // Sort Optimization
     is_sorted: bool,
+
+    // Cloud Sync — optional channel to notify SyncManager of Master group changes
+    export_tx: Option<mpsc::UnboundedSender<Uuid>>,
 }
 
 impl ConnectionManager {
@@ -189,6 +193,7 @@ impl ConnectionManager {
             trash_connections,
             trash_groups,
             is_sorted: false,
+            export_tx: None,
         })
     }
 
@@ -209,6 +214,7 @@ impl ConnectionManager {
             trash_connections: HashMap::new(),
             trash_groups: HashMap::new(),
             is_sorted: true,
+            export_tx: None,
         }
     }
 
@@ -277,6 +283,7 @@ impl ConnectionManager {
         self.connections.insert(id, connection);
         self.is_sorted = false;
         self.persist_connections()?;
+        self.notify_sync_export(self.connections.get(&id).and_then(|c| c.group_id));
 
         Ok(id)
     }
@@ -301,6 +308,7 @@ impl ConnectionManager {
         self.connections.insert(id, connection);
         self.is_sorted = false;
         self.persist_connections()?;
+        self.notify_sync_export(self.connections.get(&id).and_then(|c| c.group_id));
 
         Ok(id)
     }
@@ -357,6 +365,7 @@ impl ConnectionManager {
         self.connections.insert(id, updated);
         self.is_sorted = false;
         self.persist_connections()?;
+        self.notify_sync_export(self.connections.get(&id).and_then(|c| c.group_id));
 
         Ok(())
     }
@@ -368,10 +377,12 @@ impl ConnectionManager {
     /// Returns an error if the connection doesn't exist or persistence fails.
     pub fn delete_connection(&mut self, id: Uuid) -> ConfigResult<()> {
         if let Some(conn) = self.connections.remove(&id) {
+            let group_id = conn.group_id;
             self.trash_connections.insert(id, (conn, Utc::now()));
             self.is_sorted = false;
             self.persist_connections()?;
             self.persist_trash()?;
+            self.notify_sync_export(group_id);
             Ok(())
         } else {
             Err(ConfigError::Validation {
@@ -521,6 +532,7 @@ impl ConnectionManager {
         self.groups.insert(id, updated);
         self.is_sorted = false;
         self.persist_groups()?;
+        self.notify_sync_export(Some(id));
 
         Ok(())
     }
@@ -1006,6 +1018,60 @@ impl ConnectionManager {
         }
 
         true
+    }
+
+    // ========== Cloud Sync Export Trigger ==========
+
+    /// Wires up the export channel so that Master group changes are
+    /// forwarded to [`SyncManager`](crate::sync::SyncManager).
+    ///
+    /// The sender should come from
+    /// [`SyncManager::create_export_channel`](crate::sync::SyncManager::create_export_channel).
+    pub fn set_export_sender(&mut self, tx: mpsc::UnboundedSender<Uuid>) {
+        self.export_tx = Some(tx);
+    }
+
+    /// Checks whether the given group belongs to a Master sync tree and,
+    /// if so, sends the root group's ID through the export channel.
+    ///
+    /// The walk is: `group_id` → parent → … → root. If the root has
+    /// `sync_mode == Master`, its ID is sent to the export channel so
+    /// that [`SyncManager`](crate::sync::SyncManager) can schedule a
+    /// debounced export.
+    fn notify_sync_export(&self, group_id: Option<Uuid>) {
+        let Some(ref tx) = self.export_tx else {
+            return;
+        };
+        let Some(start_id) = group_id else {
+            return;
+        };
+
+        // Walk up to the root group
+        let mut current_id = start_id;
+        let mut visited = std::collections::HashSet::new();
+        loop {
+            if !visited.insert(current_id) {
+                // Cycle detected — bail out
+                return;
+            }
+            let Some(group) = self.groups.get(&current_id) else {
+                return;
+            };
+            if let Some(parent_id) = group.parent_id {
+                current_id = parent_id;
+            } else {
+                // Reached root
+                if group.sync_mode == SyncMode::Master
+                    && let Err(e) = tx.send(current_id)
+                {
+                    tracing::warn!(
+                        %current_id,
+                        "Sync export channel closed: {e}"
+                    );
+                }
+                return;
+            }
+        }
     }
 
     // ========== Persistence ==========

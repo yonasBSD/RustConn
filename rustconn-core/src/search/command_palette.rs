@@ -15,6 +15,8 @@ use uuid::Uuid;
 pub enum CommandPaletteAction {
     /// Connect to a saved connection
     Connect(Uuid),
+    /// Switch to an already-open tab by session ID
+    SwitchTab(Uuid),
     /// Open application settings
     OpenSettings,
     /// Create a new connection
@@ -94,6 +96,8 @@ pub enum PaletteMode {
     Tags,
     /// `#` prefix: filter by group
     Groups,
+    /// `%` prefix: switch to an open tab
+    OpenTabs,
 }
 
 /// Parses the raw input text into a mode and the remaining query
@@ -106,6 +110,8 @@ pub fn parse_palette_input(input: &str) -> (PaletteMode, &str) {
         (PaletteMode::Tags, rest.trim_start())
     } else if let Some(rest) = trimmed.strip_prefix('#') {
         (PaletteMode::Groups, rest.trim_start())
+    } else if let Some(rest) = trimmed.strip_prefix('%') {
+        (PaletteMode::OpenTabs, rest.trim_start())
     } else {
         (PaletteMode::Connections, trimmed)
     }
@@ -171,6 +177,20 @@ pub fn builtin_commands() -> Vec<PaletteItem> {
         .with_icon("preferences-desktop-keyboard-shortcuts-symbolic")
         .with_description("F1")
         .with_priority(20),
+        PaletteItem::new(
+            "Tab Overview",
+            CommandPaletteAction::GtkAction("win.tab-overview".into()),
+        )
+        .with_icon("view-grid-symbolic")
+        .with_description("Ctrl+Shift+O")
+        .with_priority(25),
+        PaletteItem::new(
+            "Switch Tab",
+            CommandPaletteAction::GtkAction("win.switch-tab-palette".into()),
+        )
+        .with_icon("tab-new-symbolic")
+        .with_description("Ctrl+%")
+        .with_priority(22),
     ]
 }
 
@@ -204,6 +224,13 @@ mod tests {
         let (mode, query) = parse_palette_input("#servers");
         assert_eq!(mode, PaletteMode::Groups);
         assert_eq!(query, "servers");
+    }
+
+    #[test]
+    fn test_parse_palette_input_open_tabs() {
+        let (mode, query) = parse_palette_input("%prod");
+        assert_eq!(mode, PaletteMode::OpenTabs);
+        assert_eq!(query, "prod");
     }
 
     #[test]

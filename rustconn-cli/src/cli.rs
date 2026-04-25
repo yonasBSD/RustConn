@@ -478,24 +478,9 @@ pub enum Commands {
     #[command(about = "Generate man page and write to stdout")]
     ManPage,
 
-    /// Sync connections from an external inventory file
-    #[command(about = "Sync connections from a dynamic inventory source (JSON/YAML)")]
-    Sync {
-        /// Path to inventory file (JSON or YAML)
-        file: PathBuf,
-
-        /// Source identifier for tagging (e.g. "netbox", "ansible")
-        #[arg(short, long)]
-        source: String,
-
-        /// Remove connections from this source that are no longer in the inventory
-        #[arg(long)]
-        remove_stale: bool,
-
-        /// Dry run — show what would change without modifying anything
-        #[arg(long)]
-        dry_run: bool,
-    },
+    /// Cloud Sync and inventory sync operations
+    #[command(subcommand, about = "Cloud Sync operations and inventory sync")]
+    Sync(SyncCommands),
 }
 
 /// Output format for the list command
@@ -719,6 +704,30 @@ pub enum GroupCommands {
         /// Connection name or ID
         #[arg(short, long)]
         connection: String,
+    },
+
+    /// Edit group SSH inheritance settings
+    #[command(about = "Edit group properties (SSH inheritance fields)")]
+    Edit {
+        /// Group name or ID
+        name: String,
+
+        /// SSH key path for inheritance by child connections (local-only)
+        #[arg(long)]
+        ssh_key_path: Option<String>,
+
+        /// SSH authentication method (password, publickey, agent,
+        /// keyboard-interactive, security-key)
+        #[arg(long)]
+        ssh_auth_method: Option<String>,
+
+        /// SSH ProxyJump host for inheritance
+        #[arg(long)]
+        ssh_proxy_jump: Option<String>,
+
+        /// SSH agent socket override for inheritance (local-only)
+        #[arg(long)]
+        ssh_agent_socket: Option<String>,
     },
 }
 
@@ -1053,5 +1062,58 @@ pub enum RecordingCommands {
 
         /// Path to the timing file
         timing_file: PathBuf,
+    },
+}
+
+/// Sync subcommands (Cloud Sync + inventory sync)
+#[derive(Subcommand)]
+pub enum SyncCommands {
+    /// Show Cloud Sync status (sync directory, device name, per-group status)
+    #[command(about = "Show Cloud Sync status")]
+    Status,
+
+    /// List all synced groups with mode and last sync time
+    #[command(about = "List all synced groups")]
+    List {
+        /// Output format
+        #[arg(short, long, default_value = "table", value_enum)]
+        format: OutputFormat,
+    },
+
+    /// Export a Master group to its sync file
+    #[command(about = "Export a Master group to its cloud sync file")]
+    Export {
+        /// Group name or ID to export
+        group: String,
+    },
+
+    /// Import a .rcn sync file
+    #[command(about = "Import a .rcn cloud sync file")]
+    Import {
+        /// Path to the .rcn file
+        file: String,
+    },
+
+    /// Export all Master groups and import all Import groups
+    #[command(about = "Sync now: export all Master groups, import all Import groups")]
+    Now,
+
+    /// Sync connections from a dynamic inventory source (JSON/YAML)
+    #[command(about = "Sync connections from a dynamic inventory source (JSON/YAML)")]
+    Inventory {
+        /// Path to inventory file (JSON or YAML)
+        file: PathBuf,
+
+        /// Source identifier for tagging (e.g. "netbox", "ansible")
+        #[arg(short, long)]
+        source: String,
+
+        /// Remove connections from this source that are no longer in the inventory
+        #[arg(long)]
+        remove_stale: bool,
+
+        /// Dry run — show what would change without modifying anything
+        #[arg(long)]
+        dry_run: bool,
     },
 }

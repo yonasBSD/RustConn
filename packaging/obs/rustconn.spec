@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.11.7
+Version:        0.12.0
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -226,6 +226,29 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu Apr 24 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.0-0
+- [Added] Cloud Sync — synchronize connections via shared cloud directory
+- [Added] Group Sync — per-group .rcn files with Master/Import access model
+- [Added] Simple Sync — single-file bidirectional sync with UUID-based merge
+- [Added] SSH Key Inheritance — group-level SSH settings inherited by children
+- [Added] Credential Resolution UX — interactive dialogs for missing variables
+- [Added] CLI sync commands: sync status, list, export, import, now
+- [Added] Tab Overview — grid view of all open tabs via Ctrl+Shift+O
+- [Added] Tab Switcher in Command Palette — % prefix for fuzzy tab search
+- [Added] Tab Pinning — right-click tab, Pin Tab
+- [Added] Custom terminal themes — create/edit/delete color themes
+- [Added] Group Jump Host dropdown with SSH connection selection
+- [Added] Accessible labels for icon-only buttons
+- [Added] cargo-deny + cargo-audit in CI
+- [Added] Document dirty badge — CSS dot indicator
+- [Fixed] System tray SIGSEGV and empty menu — moved D-Bus updates to
+  dedicated background thread, deferred TrayManager creation off GTK
+  main thread, added Flatpak disable_dbus_name workaround
+- [Fixed] Tab Overview SIGSEGV with split-view tabs
+- [Fixed] Terminal theme reset when Settings dialog is closed
+- [Fixed] Pango assertion failure on zero font size
+- [Fixed] Highlight rules show color instead of hover-only underline
+
 * Thu Apr 23 2026 Anton Isaiev <totoshko88@gmail.com> - 0.11.7-1
 - [Fixed] Monitoring bar broken after scrollbar addition — wrapped the
   horizontal terminal+scrollbar row in a vertical outer container so the

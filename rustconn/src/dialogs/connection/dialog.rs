@@ -136,6 +136,7 @@ pub struct ConnectionDialog {
     // SSH fields
     ssh_auth_dropdown: DropDown,
     ssh_key_source_dropdown: DropDown,
+    ssh_key_source_row: adw::ActionRow,
     ssh_key_entry: Entry,
     ssh_key_button: Button,
     ssh_agent_key_dropdown: DropDown,
@@ -471,6 +472,7 @@ impl ConnectionDialog {
         let ssh_widgets = ssh::create_ssh_options();
         let ssh_auth_dropdown = ssh_widgets.auth_dropdown;
         let ssh_key_source_dropdown = ssh_widgets.key_source_dropdown;
+        let ssh_key_source_row = ssh_widgets.key_source_row;
         let ssh_key_entry = ssh_widgets.key_entry;
         let ssh_key_button = ssh_widgets.key_button;
         let ssh_agent_key_dropdown = ssh_widgets.agent_key_dropdown;
@@ -980,6 +982,7 @@ impl ConnectionDialog {
             full_groups_data: Rc::new(RefCell::new(HashMap::new())),
             ssh_auth_dropdown,
             ssh_key_source_dropdown,
+            ssh_key_source_row,
             ssh_key_entry,
             ssh_key_button,
             ssh_agent_key_dropdown,
@@ -1795,10 +1798,15 @@ impl ConnectionDialog {
                 username_label.set_visible(visible);
                 tags_entry.set_visible(!is_zerotrust);
                 tags_label.set_visible(!is_zerotrust);
-                password_source_dropdown.set_visible(visible);
-                password_source_label.set_visible(visible);
+
+                // Password source only relevant for protocols that use credentials:
+                // SSH, SFTP, RDP, VNC, SPICE. Hidden for Telnet, Serial, MOSH,
+                // Kubernetes, Zero Trust — they don't use stored passwords.
+                let uses_password = matches!(protocol_id, "ssh" | "sftp" | "rdp" | "vnc" | "spice");
+                password_source_dropdown.set_visible(uses_password);
+                password_source_label.set_visible(uses_password);
                 // Password row visibility controlled by password_source_dropdown
-                if hide_network {
+                if !uses_password {
                     password_row.set_visible(false);
                 }
 
@@ -3315,6 +3323,9 @@ impl ConnectionDialog {
             .icon_name("folder-open-symbolic")
             .tooltip_text(i18n("Browse for certificate"))
             .build();
+        ca_cert_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Browse for CA certificate file",
+        ))]);
         ca_cert_box.append(&ca_cert_entry);
         ca_cert_box.append(&ca_cert_button);
 
@@ -4057,6 +4068,8 @@ impl ConnectionDialog {
             .css_classes(["destructive-action", "flat"])
             .tooltip_text(i18n("Delete property"))
             .build();
+        delete_button
+            .update_property(&[gtk4::accessible::Property::Label(&i18n("Delete property"))]);
 
         grid.attach(&name_label, 0, 0, 1, 1);
         grid.attach(&name_entry, 1, 0, 1, 1);
@@ -4281,16 +4294,22 @@ impl ConnectionDialog {
             .css_classes(["flat"])
             .tooltip_text(i18n("Move up (higher priority)"))
             .build();
+        move_up_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Move rule up"))]);
         let move_down_button = Button::builder()
             .icon_name("go-down-symbolic")
             .css_classes(["flat"])
             .tooltip_text(i18n("Move down (lower priority)"))
             .build();
+        move_down_button
+            .update_property(&[gtk4::accessible::Property::Label(&i18n("Move rule down"))]);
         let delete_button = Button::builder()
             .icon_name("user-trash-symbolic")
             .css_classes(["destructive-action", "flat"])
             .tooltip_text(i18n("Delete rule"))
             .build();
+        delete_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Delete highlight rule",
+        ))]);
         button_box.append(&move_up_button);
         button_box.append(&move_down_button);
         button_box.append(&delete_button);
@@ -4811,11 +4830,16 @@ impl ConnectionDialog {
             .icon_name("user-trash-symbolic")
             .css_classes(["destructive-action", "flat"])
             .tooltip_text(if is_inherited {
-                "Remove override"
+                i18n("Remove override")
             } else {
-                "Delete variable"
+                i18n("Delete variable")
             })
             .build();
+        delete_button.update_property(&[gtk4::accessible::Property::Label(&if is_inherited {
+            i18n("Remove variable override")
+        } else {
+            i18n("Delete variable")
+        })]);
 
         grid.attach(&name_label, 0, 0, 1, 1);
         grid.attach(&name_entry, 1, 0, 1, 1);
@@ -5156,6 +5180,7 @@ impl ConnectionDialog {
                 self.protocol_dropdown.set_selected(0); // SSH
                 self.protocol_stack.set_visible_child_name("ssh");
                 self.set_ssh_config(ssh);
+                self.update_ssh_inherit_subtitle(conn.group_id);
             }
             ProtocolConfig::Rdp(rdp) => {
                 self.protocol_dropdown.set_selected(1); // RDP
@@ -5210,6 +5235,7 @@ impl ConnectionDialog {
                 self.protocol_dropdown.set_selected(7); // SFTP
                 self.protocol_stack.set_visible_child_name("ssh");
                 self.set_ssh_config(ssh);
+                self.update_ssh_inherit_subtitle(conn.group_id);
             }
             ProtocolConfig::Kubernetes(k8s) => {
                 self.protocol_dropdown.set_selected(8); // Kubernetes
@@ -5805,6 +5831,13 @@ impl ConnectionDialog {
                 // Try to select the matching agent key in the dropdown
                 self.select_agent_key_by_fingerprint(fingerprint, comment);
             }
+            SshKeySource::Inherit => {
+                // Inherit from parent group — index 3
+                self.ssh_key_source_dropdown.set_selected(3);
+                self.ssh_key_entry.set_sensitive(false);
+                self.ssh_key_button.set_sensitive(false);
+                self.ssh_agent_key_dropdown.set_sensitive(false);
+            }
         }
 
         // Also set key_path for backward compatibility
@@ -5886,6 +5919,48 @@ impl ConnectionDialog {
             pf_list.extend(ssh.port_forwards.clone());
         }
         self.refresh_port_forwards_list();
+    }
+
+    /// Updates the SSH Key Source row subtitle to show the resolved inherited value
+    /// when "Inherit from group" is selected.
+    fn update_ssh_inherit_subtitle(&self, group_id: Option<uuid::Uuid>) {
+        use rustconn_core::connection::ssh_inheritance::resolve_ssh_key_path;
+
+        if self.ssh_key_source_dropdown.selected() == 3 {
+            // Inherit is selected — resolve the inherited key path
+            if let Some(gid) = group_id {
+                let full_groups = self.full_groups_data.borrow();
+                let groups: Vec<rustconn_core::models::ConnectionGroup> =
+                    full_groups.values().cloned().collect();
+
+                // Build a minimal connection to resolve the key path
+                let mut tmp_conn =
+                    rustconn_core::models::Connection::new_ssh("tmp".into(), "tmp".into(), 22);
+                tmp_conn.group_id = Some(gid);
+                if let rustconn_core::models::ProtocolConfig::Ssh(ref mut cfg) =
+                    tmp_conn.protocol_config
+                {
+                    cfg.key_source = rustconn_core::models::SshKeySource::Inherit;
+                }
+
+                if let Some(resolved_path) = resolve_ssh_key_path(&tmp_conn, &groups) {
+                    let resolved_str = resolved_path.to_string_lossy();
+                    let subtitle = i18n_f("Inherited: {}", &[&resolved_str]);
+                    self.ssh_key_source_row.set_subtitle(&subtitle);
+                } else {
+                    self.ssh_key_source_row
+                        .set_subtitle(&i18n("Inherited from parent group"));
+                }
+            } else {
+                self.ssh_key_source_row
+                    .set_subtitle(&i18n("Inherited from parent group"));
+            }
+        } else {
+            // Not Inherit — restore default subtitle
+            self.ssh_key_source_row.set_subtitle(&i18n(
+                "Default tries ~/.ssh/id_rsa, id_ed25519, id_ecdsa automatically",
+            ));
+        }
     }
 
     /// Refreshes the port forwarding list UI from the stored rules
@@ -6842,6 +6917,63 @@ impl ConnectionDialog {
         // Update password row visibility based on new selection
         self.update_password_row_visibility();
     }
+
+    /// Configures the dialog for Import group mode (Requirement 5.1, 5.2).
+    ///
+    /// Synced fields become read-only (insensitive) with a tooltip explaining
+    /// they are managed by cloud sync. Local-only fields remain editable.
+    ///
+    /// This follows the GNOME HIG pattern of using insensitive widgets with
+    /// descriptive tooltips rather than replacing the entire dialog layout.
+    pub fn configure_import_group_mode(&self) {
+        use crate::i18n::i18n;
+
+        let managed_tooltip = i18n("Managed by cloud sync");
+
+        // Synced fields → read-only (insensitive + tooltip)
+        // Name, host, port, protocol, username, domain, tags, description
+        self.name_entry.set_sensitive(false);
+        self.name_entry.set_tooltip_text(Some(&managed_tooltip));
+
+        self.host_entry.set_sensitive(false);
+        self.host_entry.set_tooltip_text(Some(&managed_tooltip));
+
+        self.port_spin.set_sensitive(false);
+        self.port_spin.set_tooltip_text(Some(&managed_tooltip));
+
+        self.protocol_dropdown.set_sensitive(false);
+        self.protocol_dropdown
+            .set_tooltip_text(Some(&managed_tooltip));
+
+        self.username_entry.set_sensitive(false);
+        self.username_entry.set_tooltip_text(Some(&managed_tooltip));
+
+        self.domain_entry.set_sensitive(false);
+        self.domain_entry.set_tooltip_text(Some(&managed_tooltip));
+
+        self.tags_entry.set_sensitive(false);
+        self.tags_entry.set_tooltip_text(Some(&managed_tooltip));
+
+        self.description_view.set_sensitive(false);
+        self.description_view
+            .set_tooltip_text(Some(&managed_tooltip));
+
+        self.icon_entry.set_sensitive(false);
+        self.icon_entry.set_tooltip_text(Some(&managed_tooltip));
+
+        // Group dropdown → read-only (can't move connection between groups)
+        self.group_dropdown.set_sensitive(false);
+        self.group_dropdown.set_tooltip_text(Some(&managed_tooltip));
+
+        // Local-only fields remain editable:
+        // password_source_dropdown, ssh_key_entry, ssh_key_source_dropdown,
+        // window_mode_dropdown, remember_position_check
+        // (these are already editable by default — no changes needed)
+
+        // Update window title to indicate Import group mode
+        self.window
+            .set_title(Some(&i18n("Edit Connection (Synced)")));
+    }
 }
 
 /// Helper struct for validation and building in the response callback
@@ -7792,6 +7924,14 @@ impl ConnectionDialogData<'_> {
                     // Default (0) or any other value
                     (SshKeySource::Default, None, None)
                 }
+            };
+
+        // If key source is Inherit (index 3), override to SshKeySource::Inherit
+        let (key_source, key_path, agent_key_fingerprint) =
+            if self.ssh_key_source_dropdown.selected() == 3 {
+                (SshKeySource::Inherit, None, None)
+            } else {
+                (key_source, key_path, agent_key_fingerprint)
             };
 
         let startup_command = {

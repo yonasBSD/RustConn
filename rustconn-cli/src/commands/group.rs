@@ -1,9 +1,11 @@
 //! Group management commands.
 
 use std::path::Path;
+use std::path::PathBuf;
 
 use rustconn_core::ConnectionManager;
 use rustconn_core::models::ConnectionGroup;
+use rustconn_core::models::SshAuthMethod;
 
 use crate::cli::{GroupCommands, OutputFormat};
 use crate::error::CliError;
@@ -34,6 +36,20 @@ pub fn cmd_group(config_path: Option<&Path>, subcmd: GroupCommands) -> Result<()
         GroupCommands::RemoveConnection { group, connection } => {
             cmd_group_remove_connection(config_path, &group, &connection)
         }
+        GroupCommands::Edit {
+            name,
+            ssh_key_path,
+            ssh_auth_method,
+            ssh_proxy_jump,
+            ssh_agent_socket,
+        } => cmd_group_edit(
+            config_path,
+            &name,
+            ssh_key_path.as_deref(),
+            ssh_auth_method.as_deref(),
+            ssh_proxy_jump.as_deref(),
+            ssh_agent_socket.as_deref(),
+        ),
     }
 }
 
@@ -134,6 +150,27 @@ fn cmd_group_show(config_path: Option<&Path>, name: &str) -> Result<(), CliError
             .find(|g| g.id == parent_id)
             .map_or("(unknown)", |g| g.name.as_str());
         println!("  Parent: {parent_name} ({parent_id})");
+    }
+
+    // SSH inheritance fields
+    if let Some(ref auth_method) = group.ssh_auth_method {
+        let method = match auth_method {
+            rustconn_core::models::SshAuthMethod::Password => "Password",
+            rustconn_core::models::SshAuthMethod::PublicKey => "PublicKey",
+            rustconn_core::models::SshAuthMethod::KeyboardInteractive => "KeyboardInteractive",
+            rustconn_core::models::SshAuthMethod::Agent => "Agent",
+            rustconn_core::models::SshAuthMethod::SecurityKey => "SecurityKey",
+        };
+        println!("  SSH Auth Method: {method}");
+    }
+    if let Some(ref key_path) = group.ssh_key_path {
+        println!("  SSH Key Path: {}", key_path.display());
+    }
+    if let Some(ref proxy_jump) = group.ssh_proxy_jump {
+        println!("  SSH Proxy Jump: {proxy_jump}");
+    }
+    if let Some(ref agent_socket) = group.ssh_agent_socket {
+        println!("  SSH Agent Socket: {agent_socket}");
     }
 
     let group_connections: Vec<_> = connections
@@ -321,6 +358,84 @@ fn cmd_group_remove_connection(
     println!("Removed connection '{conn_name}' from group '{grp_name}'");
 
     Ok(())
+}
+
+fn cmd_group_edit(
+    config_path: Option<&Path>,
+    name: &str,
+    ssh_key_path: Option<&str>,
+    ssh_auth_method: Option<&str>,
+    ssh_proxy_jump: Option<&str>,
+    ssh_agent_socket: Option<&str>,
+) -> Result<(), CliError> {
+    if ssh_key_path.is_none()
+        && ssh_auth_method.is_none()
+        && ssh_proxy_jump.is_none()
+        && ssh_agent_socket.is_none()
+    {
+        return Err(CliError::Group(
+            "No fields to update. Use --ssh-key-path, --ssh-auth-method, \
+             --ssh-proxy-jump, or --ssh-agent-socket"
+                .to_string(),
+        ));
+    }
+
+    let auth_method = ssh_auth_method.map(parse_ssh_auth_method).transpose()?;
+
+    let config_manager = create_config_manager(config_path)?;
+
+    let mut groups = config_manager
+        .load_groups()
+        .map_err(|e| CliError::Group(format!("Failed to load groups: {e}")))?;
+
+    let group = groups
+        .iter_mut()
+        .find(|g| g.name.eq_ignore_ascii_case(name) || g.id.to_string() == name)
+        .ok_or_else(|| CliError::Group(format!("Group not found: {name}")))?;
+
+    let group_name = group.name.clone();
+    let mut updated = Vec::new();
+
+    if let Some(path) = ssh_key_path {
+        group.ssh_key_path = Some(PathBuf::from(path));
+        updated.push(format!("ssh_key_path = {path}"));
+    }
+    if let Some(method) = auth_method {
+        group.ssh_auth_method = Some(method.clone());
+        updated.push(format!("ssh_auth_method = {method:?}"));
+    }
+    if let Some(jump) = ssh_proxy_jump {
+        group.ssh_proxy_jump = Some(jump.to_string());
+        updated.push(format!("ssh_proxy_jump = {jump}"));
+    }
+    if let Some(socket) = ssh_agent_socket {
+        group.ssh_agent_socket = Some(socket.to_string());
+        updated.push(format!("ssh_agent_socket = {socket}"));
+    }
+
+    config_manager
+        .save_groups(&groups)
+        .map_err(|e| CliError::Group(format!("Failed to save groups: {e}")))?;
+
+    println!("Updated group '{group_name}': {}", updated.join(", "));
+
+    Ok(())
+}
+
+fn parse_ssh_auth_method(value: &str) -> Result<SshAuthMethod, CliError> {
+    match value.to_lowercase().as_str() {
+        "password" => Ok(SshAuthMethod::Password),
+        "publickey" | "public_key" | "public-key" => Ok(SshAuthMethod::PublicKey),
+        "agent" => Ok(SshAuthMethod::Agent),
+        "keyboard-interactive" | "keyboard_interactive" | "keyboardinteractive" => {
+            Ok(SshAuthMethod::KeyboardInteractive)
+        }
+        "security-key" | "security_key" | "securitykey" => Ok(SshAuthMethod::SecurityKey),
+        _ => Err(CliError::Group(format!(
+            "Invalid SSH auth method: '{value}'. \
+             Valid values: password, publickey, agent, keyboard-interactive, security-key"
+        ))),
+    }
 }
 
 /// Find a group by name or ID

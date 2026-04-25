@@ -1,6 +1,7 @@
 //! Dialog windows for `RustConn`
 
 mod adw_dialogs;
+mod backend_missing;
 mod cluster;
 mod command_palette;
 mod connection;
@@ -22,14 +23,17 @@ mod snippet;
 mod statistics;
 mod template;
 mod terminal_search;
+mod variable_setup;
 mod variables;
 pub mod widgets;
 mod wol;
 
 pub use adw_dialogs::*;
 
+pub use backend_missing::{BackendMissingResponse, show_backend_missing_dialog};
 pub use cluster::{ClusterCallback, ClusterDialog, ClusterListDialog};
 pub use command_palette::CommandPaletteDialog;
+pub use command_palette::OpenTabInfo;
 pub use connection::ConnectionDialog;
 pub use document::{
     CloseDocumentDialog, DocumentCallback, DocumentDialogResult, DocumentProtectionDialog,
@@ -51,6 +55,7 @@ pub use snippet::SnippetDialog;
 pub use statistics::{StatisticsDialog, empty_statistics};
 pub use template::{TemplateCallback, TemplateDialog, TemplateManagerDialog};
 pub use terminal_search::TerminalSearchDialog;
+pub use variable_setup::{VariableSetupResponse, show_variable_setup_dialog};
 pub use variables::VariablesDialog;
 pub use wol::WolDialog;
 

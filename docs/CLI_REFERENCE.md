@@ -1,6 +1,6 @@
 # RustConn CLI Reference
 
-**Version 0.11.7** | Full command-line interface for RustConn connection management
+**Version 0.12.0** | Full command-line interface for RustConn connection management
 
 The `rustconn-cli` binary provides full connection management from the terminal. It shares the same configuration files as the GUI (`~/.config/rustconn/`), so changes made in either tool are immediately visible to the other.
 
@@ -407,6 +407,27 @@ rustconn-cli sync inventory.json --source netbox --dry-run
 | `--dry-run` | Show what would change without saving |
 
 The sync report shows added, updated, removed, and skipped counts.
+
+### sync — Cloud Sync operations
+
+Manage Cloud Sync: export Master groups, import from cloud, check sync status.
+
+| Subcommand | Description |
+|------------|-------------|
+| `sync status` | Show sync directory, device name, and per-group sync status |
+| `sync list` | List all synced groups with mode (Master/Import) and last sync time |
+| `sync export <group>` | Export a Master group to its sync file |
+| `sync import <file>` | Import a `.rcn` sync file as an Import group |
+| `sync now` | Export all Master groups and import all Import groups |
+
+```bash
+rustconn-cli sync status
+rustconn-cli sync list
+rustconn-cli sync list --format json
+rustconn-cli sync export "Production Servers"
+rustconn-cli sync import ~/CloudSync/rustconn/qa-servers.rcn
+rustconn-cli sync now
+```
 
 ### snippet — Manage command snippets
 

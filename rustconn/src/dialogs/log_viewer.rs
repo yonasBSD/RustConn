@@ -110,6 +110,8 @@ impl LogViewerDialog {
         refresh_btn.set_label("");
         refresh_btn.set_icon_name("view-refresh-symbolic");
         refresh_btn.set_tooltip_text(Some(&i18n("Refresh log list")));
+        refresh_btn
+            .update_property(&[gtk4::accessible::Property::Label(&i18n("Refresh log list"))]);
         refresh_btn.remove_css_class("suggested-action");
 
         let paned = Paned::new(Orientation::Horizontal);

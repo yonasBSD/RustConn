@@ -348,11 +348,17 @@ pub fn show_new_group_dialog_with_parent(
         .tooltip_text(i18n("Show/hide password"))
         .valign(gtk4::Align::Center)
         .build();
+    password_visibility_btn.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Toggle password visibility",
+    ))]);
     let password_load_btn = gtk4::Button::builder()
         .icon_name("folder-symbolic")
         .tooltip_text(i18n("Load password from vault"))
         .valign(gtk4::Align::Center)
         .build();
+    password_load_btn.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Load password from vault",
+    ))]);
 
     let password_value_row = adw::ActionRow::builder().title(i18n("Value")).build();
     password_value_row.add_suffix(&password_entry);

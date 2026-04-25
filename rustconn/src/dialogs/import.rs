@@ -1443,7 +1443,7 @@ impl ImportDialog {
                         progress_label_clone
                             .set_text(&format!("Importing from {}...", path.display()));
 
-                        // Parse native file
+                        // Parse native file — try NativeExport first, then GroupSyncExport
                         match NativeExport::from_file(&path) {
                             Ok(native_export) => {
                                 // Convert NativeExport to ImportResult
@@ -1483,15 +1483,75 @@ impl ImportDialog {
                                 btn_clone.set_label(&i18n("Done"));
                                 btn_clone.set_sensitive(true);
                             }
-                            Err(e) => {
-                                // Show error
-                                progress_bar_clone.set_fraction(1.0);
-                                result_label_clone.set_text(&i18n("Import Failed"));
-                                result_details_clone.set_text(&format!("Error: {e}"));
+                            Err(_native_err) => {
+                                // Try parsing as GroupSyncExport (Cloud Sync file)
+                                match rustconn_core::sync::GroupSyncExport::from_file(&path) {
+                                    Ok(sync_export) => {
+                                        // Convert GroupSyncExport connections to regular Connections
+                                        let root_group_id = uuid::Uuid::new_v4();
+                                        let connections: Vec<_> = sync_export
+                                            .connections
+                                            .iter()
+                                            .map(|sc| {
+                                                rustconn_core::sync::group_export::sync_connection_to_connection(
+                                                    sc,
+                                                    root_group_id,
+                                                )
+                                            })
+                                            .collect();
 
-                                stack_clone.set_visible_child_name("result");
-                                btn_clone.set_label(&i18n("Close"));
-                                btn_clone.set_sensitive(true);
+                                        let result = ImportResult {
+                                            connections,
+                                            groups: Vec::new(),
+                                            skipped: Vec::new(),
+                                            errors: Vec::new(),
+                                            credentials: std::collections::HashMap::new(),
+                                            snippets: Vec::new(),
+                                            warnings: vec![i18n(
+                                                "Imported as Cloud Sync group (Import mode). Use Sync Now to keep it updated.",
+                                            )],
+                                        };
+
+                                        let filename = path.file_name().map_or_else(
+                                            || i18n("Cloud Sync"),
+                                            |n| n.to_string_lossy().to_string(),
+                                        );
+
+                                        // Store the sync filename for later use
+                                        source_name_cell_clone.borrow_mut().clone_from(&sync_export.root_group.name);
+
+                                        progress_bar_clone.set_fraction(1.0);
+
+                                        let conn_count = result.connections.len();
+                                        let summary = format!(
+                                            "{} {conn_count} {} '{}'\n{} '{}' {}",
+                                            i18n("Imported"),
+                                            i18n("connection(s) from Cloud Sync file"),
+                                            filename,
+                                            i18n("Group"),
+                                            sync_export.root_group.name,
+                                            i18n("will be created in Import mode."),
+                                        );
+                                        result_label_clone.set_text(&summary);
+
+                                        let details = Self::format_import_details(&result);
+                                        result_details_clone.set_text(&details);
+
+                                        *result_cell_clone.borrow_mut() = Some(result);
+                                        stack_clone.set_visible_child_name("result");
+                                        btn_clone.set_label(&i18n("Done"));
+                                        btn_clone.set_sensitive(true);
+                                    }
+                                    Err(sync_err) => {
+                                        progress_bar_clone.set_fraction(1.0);
+                                        result_label_clone.set_text(&i18n("Import Failed"));
+                                        result_details_clone.set_text(&format!("Error: {sync_err}"));
+
+                                        stack_clone.set_visible_child_name("result");
+                                        btn_clone.set_label(&i18n("Close"));
+                                        btn_clone.set_sensitive(true);
+                                    }
+                                }
                             }
                         }
                     }

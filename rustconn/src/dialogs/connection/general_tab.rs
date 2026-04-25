@@ -194,6 +194,9 @@ pub(super) fn create_basic_tab() -> BasicTabWidgets {
         .sensitive(false)
         .valign(gtk4::Align::Center)
         .build();
+    username_load_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Load username from selected group",
+    ))]);
     let username_row = adw::ActionRow::builder().title(i18n("Username")).build();
     username_row.add_suffix(&username_entry);
     username_row.add_suffix(&username_load_button);
@@ -214,6 +217,9 @@ pub(super) fn create_basic_tab() -> BasicTabWidgets {
         .sensitive(false)
         .valign(gtk4::Align::Center)
         .build();
+    domain_load_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Load domain from selected group",
+    ))]);
     let domain_row = adw::ActionRow::builder()
         .title(i18n("Domain"))
         .subtitle(i18n("Windows authentication"))
@@ -260,11 +266,17 @@ pub(super) fn create_basic_tab() -> BasicTabWidgets {
         .tooltip_text(i18n("Show/hide password"))
         .valign(gtk4::Align::Center)
         .build();
+    password_visibility_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Toggle password visibility",
+    ))]);
     let password_load_button = Button::builder()
         .icon_name("document-open-symbolic")
         .tooltip_text(i18n("Load password from vault"))
         .valign(gtk4::Align::Center)
         .build();
+    password_load_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Load password from vault",
+    ))]);
     let password_value_row = adw::ActionRow::builder().title(i18n("Value")).build();
     password_value_row.add_suffix(&password_entry);
     password_value_row.add_suffix(&password_visibility_button);

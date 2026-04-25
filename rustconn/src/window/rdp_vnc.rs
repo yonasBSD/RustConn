@@ -262,17 +262,14 @@ fn start_rdp_session_internal(
                 jump_dest = format!("{user}@{}", jump_dest);
             }
             let jump_port = jump_conn.port;
-            let identity_file = if let rustconn_core::ProtocolConfig::Ssh(ref ssh_cfg) =
-                jump_conn.protocol_config
-            {
-                ssh_cfg
-                    .key_path
-                    .as_ref()
-                    .and_then(|p| rustconn_core::resolve_key_path(p))
-                    .map(|p| p.to_string_lossy().to_string())
-            } else {
-                None
-            };
+            // Resolve key path via inheritance (connection → group → parent group → root)
+            let groups: Vec<rustconn_core::models::ConnectionGroup> =
+                state_ref.list_groups().into_iter().cloned().collect();
+            let identity_file = rustconn_core::connection::ssh_inheritance::resolve_ssh_key_path(
+                jump_conn, &groups,
+            )
+            .and_then(|p| rustconn_core::resolve_key_path(&p))
+            .map(|p| p.to_string_lossy().to_string());
 
             let params = rustconn_core::ssh_tunnel::SshTunnelParams {
                 jump_host: jump_dest,
@@ -280,6 +277,13 @@ fn start_rdp_session_internal(
                 remote_host: host.clone(),
                 remote_port: port,
                 identity_file,
+                password: state_ref
+                    .get_cached_credentials(jump_id)
+                    .filter(|c| {
+                        use secrecy::ExposeSecret;
+                        !c.password.expose_secret().is_empty()
+                    })
+                    .map(|c| c.password.clone()),
                 extra_args: Vec::new(),
             };
 
@@ -1017,73 +1021,78 @@ fn start_vnc_session_internal(
     }
 
     // --- SSH tunnel for jump host ---
-    let (effective_host, effective_port, ssh_tunnel) =
-        if let Some(jump_id) = vnc_config.jump_host_id {
-            if let Some(jump_conn) = state_ref.get_connection(jump_id) {
-                let mut jump_dest = jump_conn.host.clone();
-                if let Some(user) = &jump_conn.username {
-                    jump_dest = format!("{user}@{}", jump_dest);
-                }
-                let jump_port = jump_conn.port;
-                let identity_file = if let rustconn_core::ProtocolConfig::Ssh(ref ssh_cfg) =
-                    jump_conn.protocol_config
-                {
-                    ssh_cfg
-                        .key_path
-                        .as_ref()
-                        .and_then(|p| rustconn_core::resolve_key_path(p))
-                        .map(|p| p.to_string_lossy().to_string())
-                } else {
-                    None
-                };
+    let (effective_host, effective_port, ssh_tunnel) = if let Some(jump_id) =
+        vnc_config.jump_host_id
+    {
+        if let Some(jump_conn) = state_ref.get_connection(jump_id) {
+            let mut jump_dest = jump_conn.host.clone();
+            if let Some(user) = &jump_conn.username {
+                jump_dest = format!("{user}@{}", jump_dest);
+            }
+            let jump_port = jump_conn.port;
+            // Resolve key path via inheritance (connection → group → parent group → root)
+            let groups: Vec<rustconn_core::models::ConnectionGroup> =
+                state_ref.list_groups().into_iter().cloned().collect();
+            let identity_file = rustconn_core::connection::ssh_inheritance::resolve_ssh_key_path(
+                jump_conn, &groups,
+            )
+            .and_then(|p| rustconn_core::resolve_key_path(&p))
+            .map(|p| p.to_string_lossy().to_string());
 
-                let params = rustconn_core::ssh_tunnel::SshTunnelParams {
-                    jump_host: jump_dest,
-                    jump_port,
-                    remote_host: host.clone(),
-                    remote_port: port,
-                    identity_file,
-                    extra_args: Vec::new(),
-                };
+            let params = rustconn_core::ssh_tunnel::SshTunnelParams {
+                jump_host: jump_dest,
+                jump_port,
+                remote_host: host.clone(),
+                remote_port: port,
+                identity_file,
+                password: state_ref
+                    .get_cached_credentials(jump_id)
+                    .filter(|c| {
+                        use secrecy::ExposeSecret;
+                        !c.password.expose_secret().is_empty()
+                    })
+                    .map(|c| c.password.clone()),
+                extra_args: Vec::new(),
+            };
 
-                drop(state_ref);
+            drop(state_ref);
 
-                match rustconn_core::ssh_tunnel::create_tunnel(&params) {
-                    Ok(mut tunnel) => {
-                        let local_port = tunnel.local_port();
-                        tracing::info!(
-                            %connection_id,
-                            local_port,
-                            "SSH tunnel established for VNC connection"
-                        );
-                        // Wait for tunnel to accept connections
-                        if let Err(e) = rustconn_core::ssh_tunnel::wait_for_tunnel_ready(
-                            &mut tunnel,
-                            40,
-                            std::time::Duration::from_millis(250),
-                        ) {
-                            tracing::error!(%e, "SSH tunnel not ready for VNC");
-                            sidebar.update_connection_status(&connection_id.to_string(), "failed");
-                            return;
-                        }
-
-                        ("127.0.0.1".to_string(), local_port, Some(tunnel))
-                    }
-                    Err(e) => {
-                        tracing::error!(%e, "Failed to create SSH tunnel for VNC");
+            match rustconn_core::ssh_tunnel::create_tunnel(&params) {
+                Ok(mut tunnel) => {
+                    let local_port = tunnel.local_port();
+                    tracing::info!(
+                        %connection_id,
+                        local_port,
+                        "SSH tunnel established for VNC connection"
+                    );
+                    // Wait for tunnel to accept connections
+                    if let Err(e) = rustconn_core::ssh_tunnel::wait_for_tunnel_ready(
+                        &mut tunnel,
+                        40,
+                        std::time::Duration::from_millis(250),
+                    ) {
+                        tracing::error!(%e, "SSH tunnel not ready for VNC");
                         sidebar.update_connection_status(&connection_id.to_string(), "failed");
                         return;
                     }
+
+                    ("127.0.0.1".to_string(), local_port, Some(tunnel))
                 }
-            } else {
-                tracing::warn!(%jump_id, "Jump host connection not found for VNC");
-                drop(state_ref);
-                (host, port, None)
+                Err(e) => {
+                    tracing::error!(%e, "Failed to create SSH tunnel for VNC");
+                    sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                    return;
+                }
             }
         } else {
+            tracing::warn!(%jump_id, "Jump host connection not found for VNC");
             drop(state_ref);
             (host, port, None)
-        };
+        }
+    } else {
+        drop(state_ref);
+        (host, port, None)
+    };
 
     // Clone connection for history recording
     let conn_for_history = if let Ok(s) = state.try_borrow() {

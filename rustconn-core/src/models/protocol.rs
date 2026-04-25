@@ -892,7 +892,7 @@ impl SshConfig {
                 }
                 // If comment is not a valid path, SSH will try all agent keys (no -i flag added)
             }
-            SshKeySource::Default | SshKeySource::File { .. } => {
+            SshKeySource::Default | SshKeySource::File { .. } | SshKeySource::Inherit => {
                 // Default or File with empty path - check legacy key_path field
                 if let Some(ref key_path) = self.key_path
                     && !key_path.as_os_str().is_empty()
@@ -1025,6 +1025,8 @@ pub enum SshKeySource {
     /// No specific key (use default SSH behavior)
     #[default]
     Default,
+    /// Inherit SSH key from parent group chain
+    Inherit,
 }
 
 /// Helper function for serde to skip serializing default key source

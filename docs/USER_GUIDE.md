@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.11.7** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.12.0** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -62,13 +62,18 @@ RustConn is a modern connection manager designed for Linux with Wayland-first ap
    - [RDP File Association](#rdp-file-association)
    - [Migration Guide](#migration-guide)
    - [Configuration Sync Between Machines](#configuration-sync-between-machines)
-10. [Security](#security)
+10. [Cloud Sync](#cloud-sync)
+    - [Group Sync](#group-sync)
+    - [Simple Sync](#simple-sync)
+    - [SSH Key Inheritance](#ssh-key-inheritance)
+    - [Credential Resolution](#credential-resolution)
+11. [Security](#security)
     - [Secret Backends](#choosing-a-secret-backend)
     - [Credential Hygiene](#credential-hygiene)
     - [Network Security](#network-security)
-11. [Troubleshooting & FAQ](#troubleshooting--faq)
-12. [Keyboard Shortcuts](#keyboard-shortcuts)
-13. [CLI Reference](CLI_REFERENCE.md)
+12. [Troubleshooting & FAQ](#troubleshooting--faq)
+13. [Keyboard Shortcuts](#keyboard-shortcuts)
+14. [CLI Reference](CLI_REFERENCE.md)
 
 ---
 
@@ -794,15 +799,21 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 - **Switch** — Click tab or Ctrl+Tab / Ctrl+Shift+Tab
 - **Close** — Click X or Ctrl+Shift+W
 - **Reorder** — Drag tabs
+- **Tab Overview** — Click the grid icon (▦) at the right end of the tab bar, or press **Ctrl+Shift+O**, to open a full-screen grid view of all open tabs. Useful when you have many tabs open and need to visually locate a session. Click any thumbnail to switch to it.
+- **Tab Switcher** — Press **Ctrl+%** (or open Command Palette with **Ctrl+P** and type `%`) to fuzzy-search across all open tabs by name. Results show protocol type and tab group. Select and press Enter to switch instantly.
+- **Pin Tab** — Right-click a tab → **Pin Tab**. Pinned tabs stay at the left edge of the tab bar and are never scrolled out of view. Useful for long-running sessions you need constant access to. Right-click again → **Unpin Tab** to restore normal behavior.
 
 ### Split View
 
 Split view works with terminal-based sessions: SSH, Telnet, Serial, Kubernetes, Local Shell, and SFTP (mc mode).
 
-- **Horizontal Split** — Ctrl+Shift+H
-- **Vertical Split** — Ctrl+Shift+S
-- **Close Pane** — Ctrl+Shift+X
-- **Focus Next Pane** — Ctrl+`
+- **Horizontal Split** — Ctrl+Shift+H splits the current tab horizontally (side by side)
+- **Vertical Split** — Ctrl+Shift+S splits the current tab vertically (top and bottom)
+- **Close Pane** — Ctrl+Shift+X closes the focused pane; if only one pane remains, the split is dissolved and the session returns to normal tab mode
+- **Focus Next Pane** — Ctrl+` cycles focus between panes
+- **Select Tab** — click the "Select Tab..." button in an empty pane to pick which session to display; sessions already in other split views show a colored indicator
+- **Move between splits** — a session can be moved from one split to another via "Select Tab"; the original split keeps a placeholder in the vacated panel, and the session's own tab shows a "Displayed in Split View" page with a "Go to Split View" button
+- **Tab Overview** — split-view tabs render correctly in Tab Overview (Ctrl+Shift+O) with live thumbnails showing the split layout
 
 ### Status Indicators
 
@@ -1234,8 +1245,9 @@ A VS Code-style quick launcher with fuzzy search. Type to filter, then select wi
 | `>` | Commands | Application commands (New Connection, Import, Settings, etc.) |
 | `@` | Tags | Filter connections by tag |
 | `#` | Groups | Filter connections by group |
+| `%` | Open Tabs | Fuzzy search open tabs by name; Enter to switch |
 
-The palette shows up to 20 results with match highlighting. Results are ranked by fuzzy match score.
+The palette shows up to 20 results with match highlighting. Results are ranked by fuzzy match score. In `%` mode, results include protocol type and tab group name for quick identification.
 
 ### Global Variables
 
@@ -1382,7 +1394,9 @@ The settings dialog uses `adw::PreferencesDialog` with built-in search. Settings
 
 ### Terminal page
 
-**Terminal group:** Font (family and size), Scrollback (history buffer lines), Color Theme (Dark, Light, Solarized, Monokai, Dracula), Cursor (shape and blink mode), Behavior (scroll on output/keystroke, hyperlinks, mouse autohide, bell, SFTP via mc, copy on select).
+**Terminal group:** Font (family and size), Scrollback (history buffer lines), Color Theme (Dark, Light, Solarized, Monokai, Dracula, plus user-created custom themes), Cursor (shape and blink mode), Behavior (scroll on output/keystroke, hyperlinks, mouse autohide, bell, SFTP via mc, copy on select).
+
+**Custom Themes:** Click the **+** button next to the theme dropdown to create a new custom theme. The theme editor lets you set background, foreground, cursor, and all 16 ANSI palette colors. Custom themes are saved to `~/.config/rustconn/custom_themes.json` and appear alongside built-in themes. Edit or delete custom themes with the pencil and trash buttons.
 
 **Logging group:** Enable Logging (global toggle), Log Directory, Retention Days, Logging Modes (activity, user input, terminal output), Timestamps.
 
@@ -1654,6 +1668,64 @@ rsync -avz ~/.config/rustconn/ user@remote:~/.config/rustconn/
 
 ---
 
+## Cloud Sync
+
+Synchronize connection configurations between devices and team members through any shared cloud directory (Google Drive, Syncthing, Nextcloud, Dropbox, USB drive — anything that syncs files).
+
+### Group Sync
+
+Group Sync is designed for teams. Each root group exports to a dedicated `.rcn` file using a Master/Import access model.
+
+- **Master** — full control, exports changes to the sync file
+- **Import** — read-only, imports changes from the sync file
+
+**Enable Group Sync:**
+1. Go to Settings → Cloud Sync → set a Sync Directory
+2. Right-click a root group → Edit Group → set Cloud Sync to "Master"
+3. The group is exported to `<sync-dir>/<group-slug>.rcn`
+
+**Import a shared group:**
+1. Go to Settings → Cloud Sync → "Available in Cloud" section
+2. Click "Import" next to the `.rcn` file
+3. The group appears in the sidebar with a sync indicator (⟳)
+
+Import groups are read-only for synced fields (name, host, port, protocol). Local-only fields (SSH key path, sort order, pinned status) remain editable. Changes from the Master are auto-imported when the file watcher detects updates (3s debounce).
+
+Credentials are never synced — only variable names are included. Each team member configures their own secret backend values locally.
+
+### Simple Sync
+
+Simple Sync is for personal multi-device use. A single `full-sync.rcn` file contains all connections, groups, templates, snippets, and clusters with UUID-based bidirectional merge.
+
+**Enable:** Settings → Cloud Sync → toggle "Sync everything between your devices"
+
+Deletions are tracked via tombstones (auto-cleaned after 30 days). The `device_id` prevents circular self-sync.
+
+### SSH Key Inheritance
+
+Groups can define SSH settings (auth method, key path, proxy jump, agent socket) that child connections inherit. This avoids duplicating key paths across dozens of connections and keeps `ssh_key_path` local-only per device.
+
+**Configure:**
+1. Edit a group → SSH Settings section
+2. Set SSH Key Path, Auth Method, Proxy Jump, or Agent Socket
+3. Child connections with Key Source = "Inherit" use the group's values
+
+The inheritance chain walks from the connection's immediate group up to the root, returning the first value found.
+
+### Credential Resolution
+
+When connecting to a synced connection that references an unconfigured variable or secret backend, RustConn shows an interactive dialog instead of silently failing:
+
+- **Variable Not Configured** — an `AdwAlertDialog` prompts you to enter the variable value and select a storage backend (LibSecret, KeePassXC, Bitwarden, 1Password). Click "Save & Connect" to store the value and proceed, or "Cancel" to abort.
+- **Secret Backend Not Configured** — shown when the connection's password source references a vault that isn't set up on this device. Choose "Enter Password Manually" to proceed with a one-time password prompt, or "Open Settings" to configure the backend first.
+- **Vault Entry Missing** — if the vault is configured but the specific credential entry doesn't exist, the connection proceeds without stored credentials and the protocol handler prompts for a password (RDP/VNC password dialog, SSH terminal prompt).
+
+**Sidebar sync indicators** show the current sync state for each synced group:
+- ⟳ (`emblem-synchronizing-symbolic`) — synced successfully, tooltip shows "Master — synced to cloud" or "Import — synced from cloud"
+- ⚠ (`dialog-warning-symbolic`) — last sync operation failed, tooltip shows the specific error (e.g. "Sync error: Parse error: invalid JSON")
+
+---
+
 ## Security
 
 ### Choosing a Secret Backend
@@ -1920,6 +1992,8 @@ Note: Sidebar-scoped shortcuts (F2, Delete, Ctrl+E, Ctrl+D, Ctrl+C, Ctrl+V, Ctrl
 | Ctrl+Tab / Ctrl+PageDown | Next Tab |
 | Ctrl+Shift+Tab / Ctrl+PageUp | Previous Tab |
 | Ctrl+Shift+T | Local Shell |
+| Ctrl+Shift+O | Tab Overview |
+| Ctrl+% | Switch to Open Tab |
 | Ctrl+Scroll | Zoom in/out (font size) |
 | Ctrl+Plus / Ctrl+Minus | Zoom in/out (font size) |
 | Ctrl+0 | Reset zoom |

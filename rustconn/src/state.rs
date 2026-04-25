@@ -18,6 +18,7 @@ use rustconn_core::models::{
 use rustconn_core::secret::{CredentialResolver, SecretManager};
 use rustconn_core::session::{Session, SessionManager};
 use rustconn_core::snippet::SnippetManager;
+use rustconn_core::sync::{SyncManager, SyncReport};
 use rustconn_core::template::TemplateManager;
 use secrecy::SecretString;
 use std::cell::RefCell;
@@ -182,6 +183,8 @@ pub struct AppState {
     history_entries: Vec<ConnectionHistoryEntry>,
     /// Cached secret backend availability (updated on init and settings change)
     secret_backend_available: Option<bool>,
+    /// Cloud Sync manager for export/import operations
+    sync_manager: SyncManager,
 }
 
 /// Bundles the parameters needed for blocking credential resolution.
@@ -296,6 +299,9 @@ impl AppState {
         // Load connection history
         let history_entries = config_manager.load_history().unwrap_or_default();
 
+        // Initialize Cloud Sync manager
+        let sync_manager = SyncManager::new(settings.sync.clone());
+
         Ok(Self {
             connection_manager,
             session_manager,
@@ -311,6 +317,7 @@ impl AppState {
             clipboard: ConnectionClipboard::new(),
             history_entries,
             secret_backend_available: None,
+            sync_manager,
         })
     }
 
@@ -881,7 +888,7 @@ impl AppState {
     /// ```
     pub fn resolve_credentials_gtk<F>(&self, connection_id: Uuid, callback: F)
     where
-        F: FnOnce(Result<Option<Credentials>, String>) + 'static,
+        F: FnOnce(Result<rustconn_core::sync::CredentialResolutionResult, String>) + 'static,
     {
         // Get connection and settings needed for resolution
         let connection = if let Some(conn) = self.get_connection(connection_id) {
@@ -930,10 +937,15 @@ impl AppState {
     ///
     /// This is extracted from `resolve_credentials` to be callable from a background
     /// thread without needing `&self`.
+    ///
+    /// Returns a [`CredentialResolutionResult`] that the UI layer uses to show
+    /// the appropriate dialog (variable setup, backend missing, etc.) instead
+    /// of silently returning `None`.
     fn resolve_credentials_blocking(
         ctx: CredentialResolutionContext,
-    ) -> Result<Option<Credentials>, String> {
+    ) -> Result<rustconn_core::sync::CredentialResolutionResult, String> {
         use rustconn_core::secret::{KeePassHierarchy, KeePassStatus};
+        use rustconn_core::sync::CredentialResolutionResult;
         use secrecy::ExposeSecret;
 
         let connection = &ctx.connection;
@@ -946,9 +958,6 @@ impl AppState {
         let secret_manager = ctx.secret_manager;
 
         // For Variable password source — resolve directly via vault backend
-        // This bypasses SecretManager's backend list and uses the same
-        // backend selection logic as save_variable_to_vault, ensuring
-        // the variable is read from the same backend it was written to.
         if let PasswordSource::Variable(ref var_name) = connection.password_source {
             tracing::debug!(
                 var_name,
@@ -967,13 +976,19 @@ impl AppState {
                             domain: None,
                         }
                     };
-                    return Ok(Some(creds));
+                    return Ok(CredentialResolutionResult::Resolved(creds));
                 }
                 Ok(None) => {
                     tracing::warn!(
                         var_name,
                         "[resolve_credentials_blocking] No secret found for variable"
                     );
+                    // Variable exists but has no value on this device
+                    return Ok(CredentialResolutionResult::VariableMissing {
+                        variable_name: var_name.clone(),
+                        description: None,
+                        is_secret: true,
+                    });
                 }
                 Err(e) => {
                     tracing::error!(
@@ -981,6 +996,12 @@ impl AppState {
                         error = %e,
                         "[resolve_credentials_blocking] Failed to load variable from vault"
                     );
+                    // Backend may not be configured
+                    return Ok(CredentialResolutionResult::VariableMissing {
+                        variable_name: var_name.clone(),
+                        description: None,
+                        is_secret: true,
+                    });
                 }
             }
         }
@@ -1037,7 +1058,7 @@ impl AppState {
                             domain: None,
                         }
                     };
-                    return Ok(Some(creds));
+                    return Ok(CredentialResolutionResult::Resolved(creds));
                 }
                 Ok(None) => {
                     tracing::debug!("[resolve_credentials_blocking] No password found in KeePass");
@@ -1078,16 +1099,35 @@ impl AppState {
             match dispatch_vault_op(&secret_settings, &lookup_key, VaultOp::Retrieve) {
                 Ok(Some(creds)) => {
                     tracing::debug!("[resolve_credentials_blocking] Found password in vault");
-                    return Ok(Some(creds));
+                    return Ok(CredentialResolutionResult::Resolved(creds));
                 }
                 Ok(None) => {
                     tracing::debug!("[resolve_credentials_blocking] No password found in vault");
+                    // Vault entry not found — return specific result so UI can prompt
+                    let protocol_str = connection
+                        .protocol_config
+                        .protocol_type()
+                        .as_str()
+                        .to_lowercase();
+                    return Ok(CredentialResolutionResult::VaultEntryMissing {
+                        connection_name: connection.name.clone(),
+                        lookup_key: generate_store_key(
+                            &connection.name,
+                            &connection.host,
+                            &protocol_str,
+                            backend_type,
+                        ),
+                    });
                 }
                 Err(e) => {
                     tracing::warn!(
                         error = %e,
                         "[resolve_credentials_blocking] Vault lookup failed"
                     );
+                    // Backend may not be properly configured
+                    return Ok(CredentialResolutionResult::BackendNotConfigured {
+                        required_backend: secret_settings.preferred_backend,
+                    });
                 }
             }
         }
@@ -1159,7 +1199,7 @@ impl AppState {
                                     domain: None,
                                 }
                             };
-                            return Ok(Some(creds));
+                            return Ok(CredentialResolutionResult::Resolved(creds));
                         }
                         Ok(None) => {
                             tracing::debug!(
@@ -1239,7 +1279,7 @@ impl AppState {
                             if let Some(ref dom) = group.domain {
                                 creds.domain = Some(dom.clone());
                             }
-                            return Ok(Some(creds));
+                            return Ok(CredentialResolutionResult::Resolved(creds));
                         }
                         Ok(None) => {
                             tracing::debug!(
@@ -1276,14 +1316,21 @@ impl AppState {
         let groups = groups.clone();
 
         // Use thread-local runtime (created lazily per thread)
-        crate::async_utils::with_runtime(|rt| {
+        let fallback_result = crate::async_utils::with_runtime(|rt| {
             rt.block_on(async {
                 resolver
                     .resolve_with_hierarchy(&connection, &groups)
                     .await
                     .map_err(|e| format!("Failed to resolve credentials: {e}"))
             })
-        })?
+        })?;
+
+        // Convert Option<Credentials> to CredentialResolutionResult
+        Ok(match fallback_result {
+            Ok(Some(creds)) => CredentialResolutionResult::Resolved(creds),
+            Ok(None) => CredentialResolutionResult::NotNeeded,
+            Err(e) => return Err(e),
+        })
     }
 
     // ========== Settings Operations ==========
@@ -1379,6 +1426,219 @@ impl AppState {
     /// Gets the connection manager
     pub fn connection_manager(&mut self) -> &mut ConnectionManager {
         &mut self.connection_manager
+    }
+
+    /// Gets the sync manager
+    pub fn sync_manager(&self) -> &SyncManager {
+        &self.sync_manager
+    }
+
+    /// Gets mutable reference to the sync manager
+    pub fn sync_manager_mut(&mut self) -> &mut SyncManager {
+        &mut self.sync_manager
+    }
+
+    // ========== Cloud Sync Operations ==========
+
+    /// Performs a sync-now operation for a specific group.
+    ///
+    /// For Master groups: exports to the `.rcn` file.
+    /// For Import groups: imports from the `.rcn` file and applies merge results.
+    ///
+    /// # Errors
+    ///
+    /// Returns a human-readable error string on failure.
+    pub fn sync_now_group(&mut self, group_id: Uuid) -> Result<SyncReport, String> {
+        use rustconn_core::sync::settings::SyncMode;
+
+        let group = self
+            .connection_manager
+            .list_groups()
+            .into_iter()
+            .find(|g| g.id == group_id)
+            .cloned()
+            .ok_or_else(|| "Group not found".to_string())?;
+
+        match group.sync_mode {
+            SyncMode::Master => {
+                let groups: Vec<ConnectionGroup> = self
+                    .connection_manager
+                    .list_groups()
+                    .into_iter()
+                    .cloned()
+                    .collect();
+                let connections: Vec<Connection> = self
+                    .connection_manager
+                    .list_connections()
+                    .into_iter()
+                    .cloned()
+                    .collect();
+                let variables = self.settings.global_variables.clone();
+                let app_version = env!("CARGO_PKG_VERSION").to_string();
+
+                let report = self
+                    .sync_manager
+                    .export_group(group_id, &groups, &connections, &variables, &app_version)
+                    .map_err(|e| format!("{e}"))?;
+
+                // Update group sync_file (if not set) and last_synced_at
+                let mut updated = group;
+                if updated.sync_file.is_none() {
+                    updated.sync_file = Some(
+                        rustconn_core::sync::group_export::group_name_to_filename(&updated.name),
+                    );
+                }
+                updated.last_synced_at = Some(chrono::Utc::now());
+                if let Err(e) = self.connection_manager.update_group(group_id, updated) {
+                    tracing::warn!(?e, "Failed to update group after export");
+                }
+
+                Ok(report)
+            }
+            SyncMode::Import => {
+                let groups: Vec<ConnectionGroup> = self
+                    .connection_manager
+                    .list_groups()
+                    .into_iter()
+                    .cloned()
+                    .collect();
+                let connections: Vec<Connection> = self
+                    .connection_manager
+                    .list_connections()
+                    .into_iter()
+                    .cloned()
+                    .collect();
+                let local_var_names: std::collections::HashSet<String> = self
+                    .settings
+                    .global_variables
+                    .iter()
+                    .map(|v| v.name.clone())
+                    .collect();
+
+                let (merge_result, report) = self
+                    .sync_manager
+                    .import_group(group_id, &groups, &connections, &local_var_names)
+                    .map_err(|e| format!("{e}"))?;
+
+                // Apply merge results to local data
+                self.apply_group_merge_result(group_id, &merge_result);
+
+                // Update last_synced_at on the group
+                if let Some(group) = self
+                    .connection_manager
+                    .list_groups()
+                    .into_iter()
+                    .find(|g| g.id == group_id)
+                {
+                    let mut updated = group.clone();
+                    updated.last_synced_at = Some(chrono::Utc::now());
+                    let _ = self.connection_manager.update_group(group_id, updated);
+                }
+
+                Ok(report)
+            }
+            SyncMode::None => Err("Group is not configured for sync".to_string()),
+        }
+    }
+
+    /// Applies a `GroupMergeResult` to the local connection manager.
+    fn apply_group_merge_result(
+        &mut self,
+        root_group_id: Uuid,
+        merge_result: &rustconn_core::sync::GroupMergeResult,
+    ) {
+        // Create new groups
+        for sync_group in &merge_result.groups_to_create {
+            if let Err(e) = self
+                .connection_manager
+                .create_group_with_parent(sync_group.name.clone(), root_group_id)
+            {
+                tracing::warn!(name = %sync_group.name, ?e, "Failed to create synced group");
+            }
+        }
+
+        // Create new connections
+        for sync_conn in &merge_result.connections_to_create {
+            let conn = rustconn_core::sync::group_export::sync_connection_to_connection(
+                sync_conn,
+                root_group_id,
+            );
+            if let Err(e) = self.connection_manager.create_connection_from(conn) {
+                tracing::warn!(name = %sync_conn.name, ?e, "Failed to create synced connection");
+            }
+        }
+
+        // Update existing connections
+        for (conn_id, sync_conn) in &merge_result.connections_to_update {
+            if let Some(existing) = self.connection_manager.get_connection(*conn_id) {
+                let mut updated = existing.clone();
+                rustconn_core::sync::group_export::apply_sync_connection_update(
+                    &mut updated,
+                    sync_conn,
+                );
+                if let Err(e) = self.connection_manager.update_connection(*conn_id, updated) {
+                    tracing::warn!(id = %conn_id, ?e, "Failed to update synced connection");
+                }
+            }
+        }
+
+        // Delete connections
+        for conn_id in &merge_result.connections_to_delete {
+            if let Err(e) = self.connection_manager.delete_connection(*conn_id) {
+                tracing::warn!(id = %conn_id, ?e, "Failed to delete synced connection");
+            }
+        }
+
+        // Delete groups
+        for group_id in &merge_result.groups_to_delete {
+            if let Err(e) = self.connection_manager.delete_group(*group_id) {
+                tracing::warn!(id = %group_id, ?e, "Failed to delete synced group");
+            }
+        }
+    }
+
+    /// Runs startup import for all Import groups.
+    ///
+    /// Returns a list of sync reports for groups that were imported.
+    pub fn run_startup_sync(&mut self) -> Vec<SyncReport> {
+        let groups: Vec<ConnectionGroup> = self
+            .connection_manager
+            .list_groups()
+            .into_iter()
+            .cloned()
+            .collect();
+        let connections: Vec<Connection> = self
+            .connection_manager
+            .list_connections()
+            .into_iter()
+            .cloned()
+            .collect();
+        let local_var_names: std::collections::HashSet<String> = self
+            .settings
+            .global_variables
+            .iter()
+            .map(|v| v.name.clone())
+            .collect();
+
+        let results =
+            self.sync_manager
+                .import_all_on_start(&groups, &connections, &local_var_names);
+
+        let mut reports = Vec::new();
+        for (merge_result, report) in &results {
+            // Find the group_id from the report name
+            if let Some(group) = groups.iter().find(|g| g.name == report.group_name) {
+                self.apply_group_merge_result(group.id, merge_result);
+
+                // Update last_synced_at
+                let mut updated = group.clone();
+                updated.last_synced_at = Some(report.timestamp);
+                let _ = self.connection_manager.update_group(group.id, updated);
+            }
+            reports.push(report.clone());
+        }
+
+        reports
     }
 
     // ========== Import Operations ==========
