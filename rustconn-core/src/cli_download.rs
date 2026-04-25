@@ -681,7 +681,7 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         install_method: InstallMethod::Download,
         download_url: Some(
             "https://github.com/bitwarden/clients/releases/download/\
-             cli-v2026.3.0/bw-linux-2026.3.0.zip",
+             cli-v2026.4.1/bw-linux-2026.4.1.zip",
         ),
         aarch64_url: None,
         checksum: ChecksumPolicy::SkipLatest,
@@ -721,8 +721,8 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         description: "Kubernetes CLI for pod shell connections",
         category: ComponentCategory::ContainerOrchestration,
         install_method: InstallMethod::Download,
-        download_url: Some("https://dl.k8s.io/release/v1.35.4/bin/linux/amd64/kubectl"),
-        aarch64_url: Some("https://dl.k8s.io/release/v1.35.4/bin/linux/arm64/kubectl"),
+        download_url: Some("https://dl.k8s.io/release/v1.36.0/bin/linux/amd64/kubectl"),
+        aarch64_url: Some("https://dl.k8s.io/release/v1.36.0/bin/linux/arm64/kubectl"),
         // kubectl is a single binary — checksum changes per release
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
