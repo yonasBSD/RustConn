@@ -5,6 +5,18 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2026-04-25
+
+### Fixed
+- **Split view content disappearing on panel focus switch** — clicking between split panels caused the content to vanish because the click handler called `switch_to_tab()` which navigated the TabView away from the split-owner's tab (where the split widget lives) to the clicked session's placeholder tab; removed the `switch_to_tab()` call — focus is now handled entirely via `set_focused_pane()` and `grab_focus()` ([#101](https://github.com/totoshko88/RustConn/issues/101))
+- **Flatpak SFTP mc host key prompt on every connect** — mc FISH uses SSH internally but could not find the Flatpak-writable `known_hosts` file because `~/.ssh` is read-only in the sandbox; now creates a thin SSH wrapper script that injects `StrictHostKeyChecking=accept-new` and the correct `UserKnownHostsFile`, prepended to `$PATH` for the mc process ([#102](https://github.com/totoshko88/RustConn/issues/102))
+- **cargo-deny CI failure** — removed deprecated `unlicensed` and `copyleft` keys from `deny.toml` `[licenses]` section (removed in cargo-deny v2, see [PR #611](https://github.com/EmbarkStudios/cargo-deny/pull/611))
+- **cargo-audit CI failure** — added `RUSTSEC-2023-0071` (rsa Marvin Attack) to `[advisories].ignore` in `deny.toml`; transitive dependency via ironrdp/sspi and spice-client with no upstream fix available
+
+### Dependencies
+- Bitwarden CLI 2026.3.0 → 2026.4.1 (fixes supply chain attack in 2026.4.0)
+- kubectl 1.35.4 → 1.36.0
+
 ## [0.12.0] - 2026-04-24
 
 ### Added

@@ -12,9 +12,14 @@ targets = [
 # Use `ignore` to suppress specific advisories.
 unmaintained = "workspace"
 yanked = "warn"
+# Transitive dependency advisories with no available fix:
+# - RUSTSEC-2023-0071: rsa Marvin Attack — no patched version; pulled by
+#   ironrdp (sspi) and spice-client. Not exploitable in our local-client context.
+ignore = [
+    "RUSTSEC-2023-0071",
+]
 
 [licenses]
-unlicensed = "deny"
 allow = [
     "MIT",
     "Apache-2.0",
@@ -29,7 +34,6 @@ allow = [
     "CC0-1.0",
     "OpenSSL",
 ]
-copyleft = "warn"
 confidence-threshold = 0.8
 
 [[licenses.clarify]]

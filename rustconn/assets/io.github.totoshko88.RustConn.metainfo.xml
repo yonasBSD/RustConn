@@ -18,15 +18,21 @@
     </p>
     <p>
       Organize connections into groups and tags, split terminals side by side, automate
-      tasks with expect scripts and command snippets, and import from Remmina, Asbru-CM,
-      MobaXterm, Royal TS, SSH config, or Ansible inventory.
+      tasks with expect scripts and command snippets, and synchronize configurations
+      across devices via Cloud Sync. Import from Remmina, Asbru-CM, MobaXterm,
+      Royal TS, SSH config, Ansible inventory, CSV, RDP files, or libvirt.
     </p>
     <ul>
-      <li>SSH, MOSH, Telnet, Serial, and Kubernetes with embedded VTE terminals</li>
+      <li>SSH, MOSH, Telnet, Serial, and Kubernetes with embedded VTE terminals and scrollbar</li>
       <li>RDP via IronRDP, VNC via vnc-rs, and SPICE via spice-client with external fallback</li>
-      <li>Zero Trust tunnels: AWS SSM, GCP IAP, Azure Bastion, Cloudflare, Teleport, Tailscale, Hoop.dev</li>
-      <li>Credential storage via KeePassXC, GNOME Keyring, Bitwarden, 1Password, or Passbolt</li>
-      <li>Split view, cluster commands, session logging, and Wake-on-LAN</li>
+      <li>Zero Trust tunnels: AWS SSM, GCP IAP, Azure Bastion, OCI Bastion, Cloudflare, Teleport, Tailscale, Boundary, Hoop.dev</li>
+      <li>Cloud Sync — synchronize connections via shared directories (Google Drive, Syncthing, Nextcloud, Dropbox)</li>
+      <li>Tab Overview, Tab Pinning, and Tab Switcher in Command Palette for managing many sessions</li>
+      <li>Credential storage via KeePassXC, GNOME Keyring, Bitwarden, 1Password, Passbolt, or Pass</li>
+      <li>Split view, cluster commands, session recording, text highlighting, and Wake-on-LAN</li>
+      <li>Custom terminal themes, per-connection color overrides, and font zoom</li>
+      <li>SFTP file browser via Midnight Commander with split-panel navigation</li>
+      <li>Remote host monitoring bar with CPU, memory, disk, and network metrics</li>
     </ul>
   </description>
   <launchable type="desktop-id">io.github.totoshko88.RustConn.desktop</launchable>
@@ -48,38 +54,60 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <caption>Connection sidebar with SSH sessions</caption>
-      <image type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/main_dark_en.png</image>
-      <image xml:lang="uk" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/main_dark_uk.png</image>
-      <image xml:lang="be" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/main_white_by.png</image>
+      <caption>Connection sidebar with protocol filters in dark mode</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/main_dark.png</image>
     </screenshot>
     <screenshot>
-      <caption>Embedded RDP session</caption>
-      <image type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/rdp_dark_en.png</image>
+      <caption>Connection sidebar in light mode</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/main_light.png</image>
     </screenshot>
     <screenshot>
-      <caption>Split terminal view</caption>
-      <image type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/split_white_en.png</image>
+      <caption>Embedded RDP session with toolbar</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/rdp_session_dark.png</image>
     </screenshot>
     <screenshot>
-      <caption>Local shell session</caption>
-      <image type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/shell_white_en.png</image>
+      <caption>Split terminal view with multiple SSH sessions</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/split_view_dark.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Tab Overview grid for navigating open sessions</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/tab_overview_dark.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Tab Overview in light mode</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/tab_overview_light.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Tab groups with color indicators</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/tab_groups_dark.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Protocol filter bar in dark mode</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/filters_dark.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Protocol filter bar in light mode</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/filters_light.png</image>
     </screenshot>
     <screenshot>
       <caption>SFTP file browser via Midnight Commander</caption>
-      <image type="source" width="2841" height="1836">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/sftp_dark.png</image>
-      <image xml:lang="uk" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/sftp_dark_uk.png</image>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/sftp_mc_light.png</image>
     </screenshot>
     <screenshot>
-      <caption>Credential storage settings</caption>
-      <image type="source" width="2841" height="1836">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/creds_dark.png</image>
-      <image xml:lang="uk" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/creds_dark_uk.png</image>
-      <image xml:lang="cs" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/creds_dark_cz.png</image>
+      <caption>Settings dialog with terminal and credential options</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/settings_dark.png</image>
     </screenshot>
     <screenshot>
-      <caption>Remote host monitoring bar</caption>
-      <image type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/ssh_monitoring_en.png</image>
-      <image xml:lang="uk" type="source" width="3566" height="2374">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/ssh_monitoring_uk.png</image>
+      <caption>Connection history with session statistics</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/history_light.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Welcome screen with quick actions</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/welcome_light.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Flatpak components manager for external CLI tools</caption>
+      <image type="source" width="3668" height="2378">https://raw.githubusercontent.com/totoshko88/RustConn/main/rustconn/assets/screenshots/flatpak_components_light.png</image>
     </screenshot>
   </screenshots>
   <url type="homepage">https://github.com/totoshko88/RustConn</url>
@@ -103,6 +131,18 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.12.1" date="2026-04-25">
+      <description>
+        <p>Version 0.12.1 — Bug fixes:</p>
+        <ul>
+          <li>Fixed split view content disappearing on panel focus switch (#101)</li>
+          <li>Fixed cargo-deny CI failure — removed deprecated config keys</li>
+          <li>Fixed cargo-audit CI failure — ignored RUSTSEC-2023-0071 (no upstream fix)</li>
+          <li>Bitwarden CLI 2026.3.0 → 2026.4.1 (fixes supply chain attack in 2026.4.0)</li>
+          <li>kubectl 1.35.4 → 1.36.0</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.12.0" date="2026-04-24">
       <description>
         <p>Version 0.12.0 — Cloud Sync:</p>

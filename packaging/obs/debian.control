@@ -27,32 +27,40 @@ Depends: ${shlibs:Depends}, ${misc:Depends},
 Recommends: freerdp2-x11, tigervnc-viewer, virt-viewer, picocom
 Description: Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
  RustConn is a modern connection manager for Linux with a GTK4/Wayland-native
- interface. Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust
- connections from a single application. All core protocols use embedded Rust
- implementations — no external dependencies required.
+ interface. Manage SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and
+ Zero Trust connections from a single application. Core protocols use embedded
+ Rust implementations — no external dependencies required.
  .
  Protocols (embedded Rust implementations):
-  - SSH with embedded VTE terminal and split view
+  - SSH with embedded VTE terminal, split view, and scrollbar
   - RDP via IronRDP (embedded, with FreeRDP fallback)
   - VNC via vnc-rs (embedded, with TigerVNC fallback)
   - SPICE via spice-client (embedded, with remote-viewer fallback)
-  - Telnet via external telnet client (port 23)
+  - MOSH with predict mode and UDP port range
+  - Telnet via external telnet client
   - Serial via picocom (RS-232/USB serial consoles)
   - Kubernetes via kubectl exec (shell access to pods)
   - Zero Trust: AWS SSM, GCP IAP, Azure Bastion, OCI Bastion,
-    Cloudflare, Teleport, Tailscale, Boundary
+    Cloudflare, Teleport, Tailscale, Boundary, Hoop.dev
+ .
+ Cloud Sync:
+  - Synchronize connections via shared directories (Google Drive,
+    Syncthing, Nextcloud, Dropbox, USB)
+  - Group Sync with Master/Import access model
+  - Simple Sync with UUID-based merge and tombstone deletion
  .
  File Transfer:
-  - SFTP file browser via system file manager (sftp:// URI, D-Bus portal)
+  - SFTP file browser via Midnight Commander with split-panel navigation
  .
  Organization:
-  - Groups, tags, and templates
+  - Groups, tags, templates, and smart folders
   - Connection history and statistics
-  - Session logging
+  - Session logging and recording
+  - Tab Overview, Tab Pinning, and Tab Switcher
  .
  Import/Export:
-  - Asbru-CM, Remmina, SSH config, Ansible inventory
-  - Royal TS, MobaXterm, native format (.rcn)
+  - Asbru-CM, Remmina, SSH config, Ansible inventory, CSV
+  - Royal TS, MobaXterm, RDP files, libvirt, native format (.rcn)
  .
  Security:
   - KeePassXC (KDBX files and proxy)
@@ -60,9 +68,11 @@ Description: Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, 
   - Bitwarden CLI
   - 1Password CLI
   - Passbolt CLI
+  - Pass (passwordstore.org)
  .
  Productivity:
-  - Split terminals
-  - Command snippets
-  - Cluster commands
-  - Wake-on-LAN
+  - Split terminals with multi-panel layouts
+  - Command snippets and cluster broadcast
+  - Custom terminal themes and per-connection color overrides
+  - Remote host monitoring (CPU, memory, disk, network)
+  - Wake-on-LAN with auto-connect

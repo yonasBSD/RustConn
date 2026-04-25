@@ -689,7 +689,7 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         size_hint: "~50 MB",
         binary_name: "bw",
         install_subdir: "bitwarden",
-        pinned_version: Some("2026.3.0"),
+        pinned_version: Some("2026.4.1"),
         works_in_sandbox: true,
     },
     DownloadableComponent {
@@ -729,7 +729,7 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         size_hint: "~50 MB",
         binary_name: "kubectl",
         install_subdir: "kubectl",
-        pinned_version: Some("1.35.4"),
+        pinned_version: Some("1.36.0"),
         works_in_sandbox: true,
     },
 ];

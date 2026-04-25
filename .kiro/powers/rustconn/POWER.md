@@ -28,19 +28,23 @@ GTK4/libadwaita GUI, Wayland-first. Rust 2024 edition, MSRV 1.95, three-crate Ca
 
 ## Automated Checks
 
-After completing a feature, delegate checks to the `general-task-execution` sub-agent:
+After completing a block of changes, delegate checks to the `rust-quality-check` sub-agent:
 
 ```
-Run sequentially and return results (pass/fail + errors if any):
-1. cargo fmt --check
-2. cargo clippy --all-targets (must be 0 warnings)
-3. cargo test --workspace (timeout 180s, argon2 property tests take ~120s in debug mode)
-If fmt or clippy have errors — fix automatically and re-run.
+Run fmt and clippy checks
 ```
 
-This saves the main dialog context from thousands of lines of cargo output.
+Or with tests:
 
-**NOTE:** The `rustconn-checks` hook (agentStop) already runs these checks automatically after every agent response. No need to delegate manually — the hook handles it.
+```
+Run checks with tests
+```
+
+This agent auto-fixes fmt/clippy issues and returns a terse pass/fail summary, saving main dialog context from verbose cargo output.
+
+For quick single-file validation during development, use `getDiagnostics` instead of running full clippy.
+
+The `rustconn-checks` hook (userTriggered) provides a manual full quality gate when needed.
 
 ## Quick Reference
 
@@ -194,13 +198,13 @@ Pinned CLI versions for Flatpak sandbox. Run `./scripts/check-cli-versions.sh` t
 
 | Component | ID | Current Version |
 |-----------|----|-----------------|
-| TigerVNC | `vncviewer` | 1.16.1 |
-| Teleport | `tsh` | 18.7.2 |
-| Tailscale | `tailscale` | 1.96.4 |
-| Boundary | `boundary` | 0.21.1 |
-| Bitwarden CLI | `bw` | 2026.2.0 |
-| 1Password CLI | `op` | 2.33.1 |
-| kubectl | `kubectl` | 1.35.3 |
+| TigerVNC | `vncviewer` | 1.16.2 |
+| Teleport | `tsh` | 18.7.4 |
+| Tailscale | `tailscale` | 1.96.5 |
+| Boundary | `boundary` | 0.21.2 |
+| Bitwarden CLI | `bw` | 2026.4.1 |
+| 1Password CLI | `op` | 2.34.0 |
+| kubectl | `kubectl` | 1.36.0 |
 
 "Latest" URL (no pinned version): AWS CLI, SSM Plugin, gcloud, Azure CLI, OCI CLI, cloudflared.
 

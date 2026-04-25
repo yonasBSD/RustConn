@@ -1,4 +1,19 @@
 -------------------------------------------------------------------
+Sat Apr 25 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.1
+
+- Update to version 0.12.1
+- [Fixed] Split view content disappearing on panel focus switch —
+  removed switch_to_tab() call; focus handled via set_focused_pane()
+  and grab_focus() (#101)
+- [Fixed] cargo-deny CI failure — removed deprecated unlicensed and
+  copyleft keys from deny.toml [licenses] section
+- [Fixed] cargo-audit CI failure — added RUSTSEC-2023-0071 (rsa Marvin
+  Attack) to [advisories].ignore in deny.toml; transitive dependency
+  via ironrdp/sspi and spice-client with no upstream fix available
+- [Dependencies] Bitwarden CLI 2026.3.0 → 2026.4.1 (fixes supply chain
+  attack in 2026.4.0), kubectl 1.35.4 → 1.36.0
+
+-------------------------------------------------------------------
 Thu Apr 24 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.0
 
 - Update to version 0.12.0

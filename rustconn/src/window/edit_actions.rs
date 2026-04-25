@@ -673,9 +673,15 @@ impl MainWindow {
                 let nb = notebook_clone.clone();
                 let mc_clone = mc_args.clone();
                 let dl = downloads.clone();
+                // In Flatpak, create an SSH wrapper that injects the writable
+                // known_hosts path, and prepend its directory to PATH so mc's
+                // FISH protocol picks it up instead of /usr/bin/ssh.
+                let mc_home_env = rustconn_core::sftp::ensure_flatpak_mc_ssh_wrapper()
+                    .map(|dir| format!("PATH={dir}:{}", std::env::var("PATH").unwrap_or_default()));
                 glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
                     let argv: Vec<&str> = mc_clone.iter().map(String::as_str).collect();
-                    nb.spawn_command(session_id, &argv, None, Some(&dl), None);
+                    let envv: Option<Vec<&str>> = mc_home_env.as_ref().map(|e| vec![e.as_str()]);
+                    nb.spawn_command(session_id, &argv, envv.as_deref(), Some(&dl), None);
                 });
 
                 if let Some(info) = notebook_clone.get_session_info(session_id) {
@@ -957,9 +963,21 @@ impl MainWindow {
             let notebook_clone = notebook.clone();
             let mc_args_clone = mc_args.clone();
             let downloads_clone = downloads.clone();
+            // In Flatpak, create an SSH wrapper that injects the writable
+            // known_hosts path, and prepend its directory to PATH so mc's
+            // FISH protocol picks it up instead of /usr/bin/ssh.
+            let mc_home_env = rustconn_core::sftp::ensure_flatpak_mc_ssh_wrapper()
+                .map(|dir| format!("PATH={dir}:{}", std::env::var("PATH").unwrap_or_default()));
             glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
                 let argv: Vec<&str> = mc_args_clone.iter().map(String::as_str).collect();
-                notebook_clone.spawn_command(session_id, &argv, None, Some(&downloads_clone), None);
+                let envv: Option<Vec<&str>> = mc_home_env.as_ref().map(|e| vec![e.as_str()]);
+                notebook_clone.spawn_command(
+                    session_id,
+                    &argv,
+                    envv.as_deref(),
+                    Some(&downloads_clone),
+                    None,
+                );
             });
 
             // Mark as connected and increment session count

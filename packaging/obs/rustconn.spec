@@ -6,9 +6,9 @@
 #
 
 Name:           rustconn
-Version:        0.12.0
+Version:        0.12.1
 Release:        0
-Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, Zero Trust)
+Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
 URL:            https://github.com/totoshko88/RustConn
 Source0:        %{name}-%{version}.tar.xz
@@ -80,32 +80,40 @@ Recommends:     kubectl
 
 %description
 RustConn is a modern connection manager for Linux with a GTK4/Wayland-native
-interface. Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust
-connections from a single application. All core protocols use embedded Rust
-implementations — no external dependencies required.
+interface. Manage SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and
+Zero Trust connections from a single application. Core protocols use embedded
+Rust implementations — no external dependencies required.
 
 Protocols (embedded Rust implementations):
-- SSH with embedded VTE terminal and split view
+- SSH with embedded VTE terminal, split view, and scrollbar
 - RDP via IronRDP (embedded, with FreeRDP fallback)
 - VNC via vnc-rs (embedded, with TigerVNC fallback)
 - SPICE via spice-client (embedded, with remote-viewer fallback)
-- Telnet via external telnet client (port 23)
+- MOSH with predict mode and UDP port range
+- Telnet via external telnet client
 - Serial via picocom (RS-232/USB serial consoles)
 - Kubernetes via kubectl exec (shell access to pods)
 - Zero Trust: AWS SSM, GCP IAP, Azure Bastion, OCI Bastion,
-  Cloudflare, Teleport, Tailscale, Boundary
+  Cloudflare, Teleport, Tailscale, Boundary, Hoop.dev
+
+Cloud Sync:
+- Synchronize connections via shared directories (Google Drive,
+  Syncthing, Nextcloud, Dropbox, USB)
+- Group Sync with Master/Import access model
+- Simple Sync with UUID-based merge and tombstone deletion
 
 File Transfer:
-- SFTP file browser via system file manager (sftp:// URI, D-Bus portal)
+- SFTP file browser via Midnight Commander with split-panel navigation
 
 Organization:
-- Groups, tags, and templates
+- Groups, tags, templates, and smart folders
 - Connection history and statistics
-- Session logging
+- Session logging and recording
+- Tab Overview, Tab Pinning, and Tab Switcher
 
 Import/Export:
-- Asbru-CM, Remmina, SSH config, Ansible inventory
-- Royal TS, MobaXterm, native format (.rcn)
+- Asbru-CM, Remmina, SSH config, Ansible inventory, CSV
+- Royal TS, MobaXterm, RDP files, libvirt, native format (.rcn)
 
 Security:
 - KeePassXC (KDBX files and proxy)
@@ -113,12 +121,14 @@ Security:
 - Bitwarden CLI
 - 1Password CLI
 - Passbolt CLI
+- Pass (passwordstore.org)
 
 Productivity:
-- Split terminals
-- Command snippets
-- Cluster commands
-- Wake-on-LAN
+- Split terminals with multi-panel layouts
+- Command snippets and cluster broadcast
+- Custom terminal themes and per-connection color overrides
+- Remote host monitoring (CPU, memory, disk, network)
+- Wake-on-LAN with auto-connect
 
 %prep
 %autosetup -a1 -n %{name}-%{version}
@@ -226,6 +236,18 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Sat Apr 25 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.1-1
+- [Fixed] Split view content disappearing on panel focus switch —
+  removed switch_to_tab() call; focus handled via set_focused_pane()
+  and grab_focus() (#101)
+- [Fixed] cargo-deny CI failure — removed deprecated unlicensed and
+  copyleft keys from deny.toml [licenses] section
+- [Fixed] cargo-audit CI failure — added RUSTSEC-2023-0071 (rsa Marvin
+  Attack) to [advisories].ignore in deny.toml; transitive dependency
+  via ironrdp/sspi and spice-client with no upstream fix available
+- [Dependencies] Bitwarden CLI 2026.3.0 → 2026.4.1 (fixes supply chain
+  attack in 2026.4.0), kubectl 1.35.4 → 1.36.0
+
 * Thu Apr 24 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.0-0
 - [Added] Cloud Sync — synchronize connections via shared cloud directory
 - [Added] Group Sync — per-group .rcn files with Master/Import access model

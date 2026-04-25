@@ -1,15 +1,15 @@
 {
   "enabled": true,
   "name": "Pre-commit fmt & clippy",
-  "description": "Before git commit or git push, runs cargo fmt --check and cargo clippy to prevent CI failures",
+  "description": "Before git commit or git push, runs cargo fmt and cargo clippy to prevent CI failures. Uses regex to match only git commands, avoiding false triggers on other shell commands.",
   "shortName": "pre-commit-checks",
-  "version": "3",
+  "version": "4",
   "when": {
     "type": "preToolUse",
-    "toolTypes": ["shell"]
+    "toolTypes": [".*git.*"]
   },
   "then": {
     "type": "askAgent",
-    "prompt": "If the shell command being executed contains 'git commit' or 'git push', you MUST first run 'cargo fmt --all' and 'cargo clippy --all-targets -- -D warnings' before proceeding. If either fails, fix the issues before allowing the git command. If the command is not git commit/push, allow it to proceed without any checks."
+    "prompt": "A git-related command is about to run. If it is 'git commit' or 'git push', you MUST first run 'cargo fmt --all' and 'cargo clippy --all-targets -- -D warnings' before proceeding. If either fails, fix the issues before allowing the git command. If the command is any other git operation (git status, git diff, git log, git add, etc.), allow it to proceed without checks."
   }
 }

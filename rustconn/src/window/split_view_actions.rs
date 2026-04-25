@@ -116,7 +116,6 @@ impl MainWindow {
                 let notebook = notebook_for_split_h.clone();
                 let notebook_for_drop = notebook_for_split_h.clone();
                 let sv_for_click = split_view.clone();
-                let nb_for_click = notebook.clone();
 
                 // Per spec: Split transforms current tab into Container Tab
                 // Only show current session in the original pane if this is the FIRST split
@@ -173,26 +172,26 @@ impl MainWindow {
                 // This ensures focus rectangle moves correctly when clicking any pane
                 let sv_for_focus = sv_for_click.clone();
                 let panes_clone = sv_for_click.panes_ref_clone();
-                let nb_for_click_clone = nb_for_click.clone();
                 let sv_for_terminal = sv_for_click.clone();
                 sv_for_click.setup_all_panel_click_handlers(move |clicked_pane_uuid| {
                     // Update the bridge's focused pane state (handles all focus styling)
                     sv_for_focus.set_focused_pane(Some(clicked_pane_uuid));
                     // Get session_id from the clicked pane
-                    let session_to_switch = {
+                    let session_to_focus = {
                         let panes_ref = panes_clone.borrow();
                         panes_ref
                             .iter()
                             .find(|p| p.id() == clicked_pane_uuid)
                             .and_then(|p| p.current_session())
                     };
-                    // Switch to the tab if there's a session in this pane
-                    if let Some(session_id) = session_to_switch {
-                        nb_for_click_clone.switch_to_tab(session_id);
-                        // Grab focus on the terminal (click event is claimed, so we must do this)
-                        if let Some(terminal) = sv_for_terminal.get_terminal(session_id) {
-                            terminal.grab_focus();
-                        }
+                    // Grab focus on the terminal in the clicked pane.
+                    // Do NOT call switch_to_tab() here — the split widget lives on the
+                    // split-owner's TabPage. Switching to another session's tab would
+                    // navigate away from the split widget and make the content disappear.
+                    if let Some(session_id) = session_to_focus
+                        && let Some(terminal) = sv_for_terminal.get_terminal(session_id)
+                    {
+                        terminal.grab_focus();
                     }
                 });
 
@@ -399,7 +398,6 @@ impl MainWindow {
                 let notebook = notebook_for_split_v.clone();
                 let notebook_for_drop = notebook_for_split_v.clone();
                 let sv_for_click = split_view.clone();
-                let nb_for_click = notebook.clone();
 
                 // Per spec: Split transforms current tab into Container Tab
                 // Only show current session in the original pane if this is the FIRST split
@@ -456,26 +454,26 @@ impl MainWindow {
                 // This ensures focus rectangle moves correctly when clicking any pane
                 let sv_for_focus = sv_for_click.clone();
                 let panes_clone = sv_for_click.panes_ref_clone();
-                let nb_for_click_clone = nb_for_click.clone();
                 let sv_for_terminal = sv_for_click.clone();
                 sv_for_click.setup_all_panel_click_handlers(move |clicked_pane_uuid| {
                     // Update the bridge's focused pane state (handles all focus styling)
                     sv_for_focus.set_focused_pane(Some(clicked_pane_uuid));
                     // Get session_id from the clicked pane
-                    let session_to_switch = {
+                    let session_to_focus = {
                         let panes_ref = panes_clone.borrow();
                         panes_ref
                             .iter()
                             .find(|p| p.id() == clicked_pane_uuid)
                             .and_then(|p| p.current_session())
                     };
-                    // Switch to the tab if there's a session in this pane
-                    if let Some(session_id) = session_to_switch {
-                        nb_for_click_clone.switch_to_tab(session_id);
-                        // Grab focus on the terminal (click event is claimed, so we must do this)
-                        if let Some(terminal) = sv_for_terminal.get_terminal(session_id) {
-                            terminal.grab_focus();
-                        }
+                    // Grab focus on the terminal in the clicked pane.
+                    // Do NOT call switch_to_tab() here — the split widget lives on the
+                    // split-owner's TabPage. Switching to another session's tab would
+                    // navigate away from the split widget and make the content disappear.
+                    if let Some(session_id) = session_to_focus
+                        && let Some(terminal) = sv_for_terminal.get_terminal(session_id)
+                    {
+                        terminal.grab_focus();
                     }
                 });
 
