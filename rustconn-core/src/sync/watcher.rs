@@ -35,6 +35,8 @@ pub struct SyncFileWatcher {
     master_files: Arc<Mutex<HashMap<String, ()>>>,
     /// Handle to the debounce thread so we can signal it to stop.
     stop_flag: Arc<Mutex<bool>>,
+    /// Join handle for the debounce thread — joined on drop for clean shutdown.
+    debounce_thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl SyncFileWatcher {
@@ -114,7 +116,7 @@ impl SyncFileWatcher {
         // Spawn debounce thread
         let pending_debounce = Arc::clone(&pending);
         let stop_debounce = Arc::clone(&stop_flag);
-        std::thread::Builder::new()
+        let debounce_handle = std::thread::Builder::new()
             .name("sync-file-watcher-debounce".into())
             .spawn(move || {
                 let debounce = Duration::from_secs(DEBOUNCE_SECS);
@@ -124,7 +126,10 @@ impl SyncFileWatcher {
                     std::thread::sleep(tick);
 
                     // Check stop flag
-                    if *stop_debounce.lock().unwrap_or_else(|e| e.into_inner()) {
+                    if *stop_debounce.lock().unwrap_or_else(|e| {
+                        warn!("Debounce stop_flag mutex poisoned, recovering");
+                        e.into_inner()
+                    }) {
                         break;
                     }
 
@@ -133,7 +138,10 @@ impl SyncFileWatcher {
                     let mut ready = Vec::new();
                     {
                         let mut map =
-                            pending_debounce.lock().unwrap_or_else(|e| e.into_inner());
+                            pending_debounce.lock().unwrap_or_else(|e| {
+                                warn!("Debounce pending mutex poisoned, recovering");
+                                e.into_inner()
+                            });
                         map.retain(|path, last_event| {
                             if now.duration_since(*last_event) >= debounce {
                                 ready.push(path.clone());
@@ -157,6 +165,7 @@ impl SyncFileWatcher {
             _watcher: watcher,
             master_files,
             stop_flag,
+            debounce_thread: Some(debounce_handle),
         })
     }
 
@@ -165,20 +174,37 @@ impl SyncFileWatcher {
     /// Changes to this file will be ignored by the watcher, preventing
     /// circular export→import loops (Requirement 7.3, Property P12).
     pub fn add_master_file(&self, filename: &str) {
-        let mut masters = self.master_files.lock().unwrap_or_else(|e| e.into_inner());
+        let mut masters = self.master_files.lock().unwrap_or_else(|e| {
+            tracing::warn!("Master files mutex poisoned, recovering");
+            e.into_inner()
+        });
         masters.insert(filename.to_owned(), ());
     }
 
     /// Removes a filename from the Master group filter.
     pub fn remove_master_file(&self, filename: &str) {
-        let mut masters = self.master_files.lock().unwrap_or_else(|e| e.into_inner());
+        let mut masters = self.master_files.lock().unwrap_or_else(|e| {
+            tracing::warn!("Master files mutex poisoned, recovering");
+            e.into_inner()
+        });
         masters.remove(filename);
     }
 
     /// Stops the file watcher and its debounce thread.
     pub fn stop(&mut self) {
-        let mut flag = self.stop_flag.lock().unwrap_or_else(|e| e.into_inner());
-        *flag = true;
+        {
+            let mut flag = self.stop_flag.lock().unwrap_or_else(|e| {
+                tracing::warn!("Stop flag mutex poisoned, recovering");
+                e.into_inner()
+            });
+            *flag = true;
+        }
+        // Join the debounce thread for clean shutdown
+        if let Some(handle) = self.debounce_thread.take()
+            && let Err(e) = handle.join()
+        {
+            tracing::warn!("Debounce thread panicked during join: {e:?}");
+        }
     }
 }
 

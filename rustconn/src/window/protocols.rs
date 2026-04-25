@@ -536,6 +536,8 @@ fn start_ssh_connection_internal(
     // This replaces the previous sshpass dependency. The terminal output is
     // monitored for SSH password prompts; when detected, the vault password
     // is sent via feed_child() exactly once.
+    // NOTE: Passphrase prompts ("Enter passphrase for key") are explicitly
+    // excluded to avoid sending the wrong secret when SSH auth is PublicKey.
     if let Some(vault_password) = cached_password.clone() {
         let notebook_clone = notebook.clone();
         let password_sent = std::rc::Rc::new(std::cell::Cell::new(false));
@@ -554,8 +556,15 @@ fn start_ssh_connection_internal(
             let Some(text) = notebook_clone.get_terminal_text(session_id) else {
                 return;
             };
-            // Check for common SSH password prompts (case-insensitive)
             let lower = text.to_lowercase();
+
+            // Reject passphrase prompts — these need key_passphrase, not password
+            let last_line = lower.lines().last().unwrap_or("").trim();
+            if last_line.contains("passphrase for key") || last_line.contains("passphrase for") {
+                return;
+            }
+
+            // Check for common SSH password prompts (case-insensitive)
             let has_prompt = lower.ends_with("password: ")
                 || lower.ends_with("password:")
                 || lower.contains("password: \n")
@@ -1063,6 +1072,13 @@ fn start_spice_connection_internal(
                 remote_host: host.clone(),
                 remote_port: port,
                 identity_file,
+                password: state_ref
+                    .get_cached_credentials(jump_id)
+                    .filter(|c| {
+                        use secrecy::ExposeSecret;
+                        !c.password.expose_secret().is_empty()
+                    })
+                    .map(|c| c.password.clone()),
                 extra_args: Vec::new(),
             };
 
@@ -1476,6 +1492,8 @@ pub fn reconnect_ssh_in_place(
     }
 
     // VTE password injection
+    // NOTE: Passphrase prompts ("Enter passphrase for key") are explicitly
+    // excluded to avoid sending the wrong secret when SSH auth is PublicKey.
     if let Some(vault_password) = cached_password {
         let notebook_clone = notebook.clone();
         let password_sent = std::rc::Rc::new(std::cell::Cell::new(false));
@@ -1489,6 +1507,13 @@ pub fn reconnect_ssh_in_place(
                 return;
             };
             let lower = text.to_lowercase();
+
+            // Reject passphrase prompts — these need key_passphrase, not password
+            let last_line = lower.lines().last().unwrap_or("").trim();
+            if last_line.contains("passphrase for key") || last_line.contains("passphrase for") {
+                return;
+            }
+
             let has_prompt = lower.ends_with("password: ")
                 || lower.ends_with("password:")
                 || lower.contains("password: \n")

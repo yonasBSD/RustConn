@@ -138,6 +138,18 @@ const SHORTCUTS: &[ShortcutEntry] = &[
         category: "Terminal",
     },
     ShortcutEntry {
+        accel: "<Control><Shift>o",
+        keys: "Ctrl+Shift+O",
+        description: "Tab overview",
+        category: "Terminal",
+    },
+    ShortcutEntry {
+        accel: "<Control>percent",
+        keys: "Ctrl+%",
+        description: "Switch to open tab",
+        category: "Terminal",
+    },
+    ShortcutEntry {
         accel: "<Control><Shift>t",
         keys: "Ctrl+Shift+T",
         description: "Open local shell",

@@ -128,6 +128,29 @@ pub fn resolve_ssh_proxy_jump(
     walk_group_chain(connection.group_id, groups, |g| g.ssh_proxy_jump.clone())
 }
 
+/// Resolves the SSH jump host connection ID for a connection.
+///
+/// Checks the connection-level `jump_host_id` first, then walks the group
+/// chain for `ssh_jump_host_id`. Connection-level takes precedence.
+#[must_use]
+pub fn resolve_ssh_jump_host_id(
+    connection: &Connection,
+    groups: &[ConnectionGroup],
+) -> Option<uuid::Uuid> {
+    // Check connection-level jump_host_id first
+    if let Some(cfg) = ssh_config(connection) {
+        if cfg.jump_host_id.is_some() {
+            return cfg.jump_host_id;
+        }
+        // Only walk groups if key_source is Inherit
+        if !matches!(cfg.key_source, SshKeySource::Inherit) {
+            return None;
+        }
+    }
+
+    walk_group_chain(connection.group_id, groups, |g| g.ssh_jump_host_id)
+}
+
 /// Resolves the SSH agent socket path for a connection.
 ///
 /// Checks the connection's SSH `ssh_agent_socket` first, then walks the group

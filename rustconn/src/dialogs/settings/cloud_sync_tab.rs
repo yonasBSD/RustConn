@@ -144,6 +144,7 @@ pub fn add_synced_group_row(group: &adw::PreferencesGroup, name: &str, sync_mode
 /// Adds an available cloud file row with an "Import" suffix button.
 ///
 /// The `on_import` callback is invoked when the user clicks "Import".
+#[allow(dead_code)] // Will be used when import-from-settings is wired up
 pub fn add_available_file_row(
     group: &adw::PreferencesGroup,
     filename: &str,

@@ -33,6 +33,7 @@ pub use adw_dialogs::*;
 pub use backend_missing::{BackendMissingResponse, show_backend_missing_dialog};
 pub use cluster::{ClusterCallback, ClusterDialog, ClusterListDialog};
 pub use command_palette::CommandPaletteDialog;
+pub use command_palette::OpenTabInfo;
 pub use connection::ConnectionDialog;
 pub use document::{
     CloseDocumentDialog, DocumentCallback, DocumentDialogResult, DocumentProtectionDialog,

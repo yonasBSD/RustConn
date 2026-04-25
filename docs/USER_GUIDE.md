@@ -799,15 +799,21 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 - **Switch** — Click tab or Ctrl+Tab / Ctrl+Shift+Tab
 - **Close** — Click X or Ctrl+Shift+W
 - **Reorder** — Drag tabs
+- **Tab Overview** — Click the grid icon (▦) at the right end of the tab bar, or press **Ctrl+Shift+O**, to open a full-screen grid view of all open tabs. Useful when you have many tabs open and need to visually locate a session. Click any thumbnail to switch to it.
+- **Tab Switcher** — Press **Ctrl+%** (or open Command Palette with **Ctrl+P** and type `%`) to fuzzy-search across all open tabs by name. Results show protocol type and tab group. Select and press Enter to switch instantly.
+- **Pin Tab** — Right-click a tab → **Pin Tab**. Pinned tabs stay at the left edge of the tab bar and are never scrolled out of view. Useful for long-running sessions you need constant access to. Right-click again → **Unpin Tab** to restore normal behavior.
 
 ### Split View
 
 Split view works with terminal-based sessions: SSH, Telnet, Serial, Kubernetes, Local Shell, and SFTP (mc mode).
 
-- **Horizontal Split** — Ctrl+Shift+H
-- **Vertical Split** — Ctrl+Shift+S
-- **Close Pane** — Ctrl+Shift+X
-- **Focus Next Pane** — Ctrl+`
+- **Horizontal Split** — Ctrl+Shift+H splits the current tab horizontally (side by side)
+- **Vertical Split** — Ctrl+Shift+S splits the current tab vertically (top and bottom)
+- **Close Pane** — Ctrl+Shift+X closes the focused pane; if only one pane remains, the split is dissolved and the session returns to normal tab mode
+- **Focus Next Pane** — Ctrl+` cycles focus between panes
+- **Select Tab** — click the "Select Tab..." button in an empty pane to pick which session to display; sessions already in other split views show a colored indicator
+- **Move between splits** — a session can be moved from one split to another via "Select Tab"; the original split keeps a placeholder in the vacated panel, and the session's own tab shows a "Displayed in Split View" page with a "Go to Split View" button
+- **Tab Overview** — split-view tabs render correctly in Tab Overview (Ctrl+Shift+O) with live thumbnails showing the split layout
 
 ### Status Indicators
 
@@ -1239,8 +1245,9 @@ A VS Code-style quick launcher with fuzzy search. Type to filter, then select wi
 | `>` | Commands | Application commands (New Connection, Import, Settings, etc.) |
 | `@` | Tags | Filter connections by tag |
 | `#` | Groups | Filter connections by group |
+| `%` | Open Tabs | Fuzzy search open tabs by name; Enter to switch |
 
-The palette shows up to 20 results with match highlighting. Results are ranked by fuzzy match score.
+The palette shows up to 20 results with match highlighting. Results are ranked by fuzzy match score. In `%` mode, results include protocol type and tab group name for quick identification.
 
 ### Global Variables
 
@@ -1978,6 +1985,8 @@ Note: Sidebar-scoped shortcuts (F2, Delete, Ctrl+E, Ctrl+D, Ctrl+C, Ctrl+V, Ctrl
 | Ctrl+Tab / Ctrl+PageDown | Next Tab |
 | Ctrl+Shift+Tab / Ctrl+PageUp | Previous Tab |
 | Ctrl+Shift+T | Local Shell |
+| Ctrl+Shift+O | Tab Overview |
+| Ctrl+% | Switch to Open Tab |
 | Ctrl+Scroll | Zoom in/out (font size) |
 | Ctrl+Plus / Ctrl+Minus | Zoom in/out (font size) |
 | Ctrl+0 | Reset zoom |

@@ -308,13 +308,14 @@ fn cmd_sync_import(config_path: Option<&Path>, file_path: &str) -> Result<(), Cl
             ))
         })?;
 
+    let import_group_id = import_group.id;
     let local_variable_names: HashSet<String> = variables.iter().map(|v| v.name.clone()).collect();
 
     let mut sync_manager = SyncManager::new(settings.sync);
 
     let (merge_result, report) = sync_manager
         .import_group(
-            import_group.id,
+            import_group_id,
             &groups,
             &connections,
             &local_variable_names,
@@ -333,17 +334,54 @@ fn cmd_sync_import(config_path: Option<&Path>, file_path: &str) -> Result<(), Cl
         report.variables_created,
     );
 
-    // Apply merge result: note that in CLI context we report what would change.
-    // The actual application of merge results requires ConnectionManager integration
-    // which is handled by the GUI. For CLI, we report the diff.
+    // Apply merge result to local data store
+    let mut connections = connections;
+    let mut groups = groups;
+
+    // Create new connections from remote
+    for sync_conn in &merge_result.connections_to_create {
+        let new_conn = rustconn_core::sync::group_export::sync_connection_to_connection(
+            sync_conn,
+            import_group_id,
+        );
+        connections.push(new_conn);
+    }
+
+    // Update existing connections
+    for (local_id, sync_conn) in &merge_result.connections_to_update {
+        if let Some(conn) = connections.iter_mut().find(|c| c.id == *local_id) {
+            rustconn_core::sync::group_export::apply_sync_connection_update(conn, sync_conn);
+        }
+    }
+
+    // Delete connections removed from remote
+    let delete_ids: std::collections::HashSet<_> =
+        merge_result.connections_to_delete.iter().collect();
+    connections.retain(|c| !delete_ids.contains(&c.id));
+
+    // Delete groups removed from remote
+    let delete_group_ids: std::collections::HashSet<_> =
+        merge_result.groups_to_delete.iter().collect();
+    groups.retain(|g| !delete_group_ids.contains(&g.id));
+
+    // Save updated data
+    config_manager
+        .save_connections(&connections)
+        .map_err(|e| CliError::Config(format!("Failed to save connections: {e}")))?;
+
+    config_manager
+        .save_groups(&groups)
+        .map_err(|e| CliError::Config(format!("Failed to save groups: {e}")))?;
+
     if !merge_result.connections_to_create.is_empty()
         || !merge_result.connections_to_update.is_empty()
         || !merge_result.connections_to_delete.is_empty()
         || !merge_result.groups_to_create.is_empty()
         || !merge_result.groups_to_delete.is_empty()
     {
-        println!("\nNote: merge results computed but not applied.");
-        println!("Use the GUI to apply import changes, or run 'sync now' for full sync.");
+        println!("\nChanges applied to local data store.");
+    } else {
+        println!("\nAlready up to date.");
     }
 
     Ok(())

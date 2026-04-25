@@ -58,8 +58,7 @@ pub enum CredentialResolutionResult {
     },
 }
 
-// TODO: Integration point — modify `resolve_credentials_blocking` in
-// `rustconn/src/state.rs` to return `CredentialResolutionResult` instead
-// of `Option<Credentials>`. This requires updating the call sites in
-// `resolve_credentials` and the connection start flow to handle the
-// new enum variants and show the appropriate dialogs.
+// The `CredentialResolutionResult` enum is consumed by the GUI layer in
+// `rustconn/src/window/protocols.rs` via `resolve_credentials_for_connect()`.
+// The integration converts `Option<Credentials>` from the blocking resolver
+// into the appropriate enum variant and shows the corresponding dialog.

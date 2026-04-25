@@ -277,6 +277,13 @@ fn start_rdp_session_internal(
                 remote_host: host.clone(),
                 remote_port: port,
                 identity_file,
+                password: state_ref
+                    .get_cached_credentials(jump_id)
+                    .filter(|c| {
+                        use secrecy::ExposeSecret;
+                        !c.password.expose_secret().is_empty()
+                    })
+                    .map(|c| c.password.clone()),
                 extra_args: Vec::new(),
             };
 
@@ -1038,6 +1045,13 @@ fn start_vnc_session_internal(
                 remote_host: host.clone(),
                 remote_port: port,
                 identity_file,
+                password: state_ref
+                    .get_cached_credentials(jump_id)
+                    .filter(|c| {
+                        use secrecy::ExposeSecret;
+                        !c.password.expose_secret().is_empty()
+                    })
+                    .map(|c| c.password.clone()),
                 extra_args: Vec::new(),
             };
 

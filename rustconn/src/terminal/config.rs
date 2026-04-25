@@ -300,9 +300,15 @@ fn setup_font_zoom(terminal: &Terminal) {
 
 /// Sets up terminal font with settings
 fn setup_font_with_settings(terminal: &Terminal, settings: &TerminalSettings) {
+    // Guard against zero/invalid font size that causes Pango assertion failures
+    let font_size = if settings.font_size == 0 {
+        12
+    } else {
+        settings.font_size
+    };
     let font_desc = gtk4::pango::FontDescription::from_string(&format!(
         "{} {}",
-        settings.font_family, settings.font_size
+        settings.font_family, font_size
     ));
     terminal.set_font(Some(&font_desc));
 }

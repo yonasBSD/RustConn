@@ -232,6 +232,18 @@ pub fn default_keybindings() -> Vec<KeybindingDef> {
             "Previous Tab",
             Terminal,
         ),
+        KeybindingDef::new(
+            "win.tab-overview",
+            "<Control><Shift>o",
+            "Tab Overview",
+            Terminal,
+        ),
+        KeybindingDef::new(
+            "win.switch-tab-palette",
+            "<Control>percent",
+            "Switch Tab",
+            Terminal,
+        ),
         // Split View
         KeybindingDef::new(
             "win.split-horizontal",

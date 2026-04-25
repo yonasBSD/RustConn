@@ -45,6 +45,10 @@ pub struct SyncSettings {
     /// Range: 1..=365, default: 30.
     #[serde(default = "default_tombstone_retention_days")]
     pub tombstone_retention_days: u32,
+
+    /// Whether Simple Sync (bidirectional full sync) is enabled.
+    #[serde(default)]
+    pub simple_sync_enabled: bool,
 }
 
 fn default_auto_import() -> bool {
@@ -77,6 +81,7 @@ impl Default for SyncSettings {
             auto_import_on_start: true,
             export_debounce_secs: 5,
             tombstone_retention_days: 30,
+            simple_sync_enabled: false,
         }
     }
 }
@@ -125,6 +130,7 @@ mod tests {
             auto_import_on_start: false,
             export_debounce_secs: 10,
             tombstone_retention_days: 60,
+            simple_sync_enabled: false,
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: SyncSettings = serde_json::from_str(&json).unwrap();

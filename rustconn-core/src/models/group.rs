@@ -56,6 +56,10 @@ pub struct ConnectionGroup {
     /// SSH ProxyJump for inheritance
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ssh_proxy_jump: Option<String>,
+    /// ID of an SSH connection to use as jump host for all connections in this group.
+    /// Takes precedence over `ssh_proxy_jump` text field. (LOCAL-ONLY, not synced)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_jump_host_id: Option<Uuid>,
     /// SSH agent socket override for inheritance (LOCAL-ONLY)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ssh_agent_socket: Option<String>,
@@ -90,6 +94,7 @@ impl ConnectionGroup {
             ssh_auth_method: None,
             ssh_key_path: None,
             ssh_proxy_jump: None,
+            ssh_jump_host_id: None,
             ssh_agent_socket: None,
             sync_mode: SyncMode::None,
             sync_file: None,
@@ -115,6 +120,7 @@ impl ConnectionGroup {
             ssh_auth_method: None,
             ssh_key_path: None,
             ssh_proxy_jump: None,
+            ssh_jump_host_id: None,
             ssh_agent_socket: None,
             sync_mode: SyncMode::None,
             sync_file: None,

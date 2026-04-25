@@ -109,8 +109,8 @@ pub(super) fn create_advanced_tab() -> (
         .description(i18n("Override terminal colors for this connection"))
         .build();
 
-    // Preset dropdown: DEV / QA / STAGE / PROD / DEMO / CUSTOM
-    let preset_items = [
+    // Preset dropdown: built-in environment presets + user custom themes
+    let builtin_presets = [
         i18n("Custom"),
         i18n("DEV"),
         i18n("QA"),
@@ -118,6 +118,9 @@ pub(super) fn create_advanced_tab() -> (
         i18n("PROD"),
         i18n("DEMO"),
     ];
+    let custom_theme_names = rustconn_core::terminal_themes::TerminalTheme::custom_theme_names();
+    let mut preset_items: Vec<String> = builtin_presets.to_vec();
+    preset_items.extend(custom_theme_names.clone());
     let preset_strs: Vec<&str> = preset_items.iter().map(String::as_str).collect();
     let preset_model = StringList::new(&preset_strs);
     let theme_preset_dropdown = DropDown::builder().model(&preset_model).selected(0).build();
@@ -160,19 +163,43 @@ pub(super) fn create_advanced_tab() -> (
     cursor_row.add_suffix(&theme_cursor_button);
     theme_group.add(&cursor_row);
 
-    // Wire preset dropdown to apply colors
+    // Wire preset dropdown to apply colors (built-in + custom themes)
     {
         let bg_btn = theme_bg_button.clone();
         let fg_btn = theme_fg_button.clone();
         let cur_btn = theme_cursor_button.clone();
+        let custom_names = custom_theme_names.clone();
         theme_preset_dropdown.connect_selected_notify(move |dropdown| {
-            let (bg_hex, fg_hex, cur_hex) = match dropdown.selected() {
+            let selected = dropdown.selected();
+            let (bg_hex, fg_hex, cur_hex) = match selected {
                 1 => ("#1a2b1a", "#d0e8d0", "#50c050"), // DEV — green
                 2 => ("#1a1a2b", "#d0d0e8", "#5080e0"), // QA — blue
                 3 => ("#2b2b1a", "#e8e8d0", "#e0c050"), // STAGE — yellow
                 4 => ("#2b1a1a", "#e8d0d0", "#e05050"), // PROD — red
                 5 => ("#2b1a2b", "#e8d0e8", "#c050c0"), // DEMO — purple
-                _ => return,                            // CUSTOM — no changes
+                idx if idx >= 6 => {
+                    // Custom theme from Settings → Terminal → Colors
+                    let theme_idx = (idx - 6) as usize;
+                    if let Some(name) = custom_names.get(theme_idx)
+                        && let Some(theme) =
+                            rustconn_core::terminal_themes::TerminalTheme::by_name(name)
+                    {
+                        let bg = theme.background.to_hex();
+                        let fg = theme.foreground.to_hex();
+                        let cur = theme.cursor.to_hex();
+                        if let Some(c) = hex_to_rgba(&bg) {
+                            bg_btn.set_rgba(&c);
+                        }
+                        if let Some(c) = hex_to_rgba(&fg) {
+                            fg_btn.set_rgba(&c);
+                        }
+                        if let Some(c) = hex_to_rgba(&cur) {
+                            cur_btn.set_rgba(&c);
+                        }
+                    }
+                    return;
+                }
+                _ => return, // CUSTOM (0) — no changes
             };
             if let Some(c) = hex_to_rgba(bg_hex) {
                 bg_btn.set_rgba(&c);

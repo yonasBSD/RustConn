@@ -21,11 +21,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Accessible labels** — added `update_property` accessible labels to icon-only buttons (password visibility toggle, password load, RDP quick actions)
 - **cargo-deny + cargo-audit in CI** — security advisory checks, license allow-list, ban wildcards, source registry restrictions
 - **Document dirty badge** — CSS dot indicator replaces text `"• "` prefix for unsaved documents in sidebar
+- **Tab Overview** — grid view of all open tabs (GNOME Web-style) via button on the tab bar or **Ctrl+Shift+O**; makes navigating 10+ tabs significantly easier ([#100](https://github.com/totoshko88/RustConn/issues/100))
+- **Tab Switcher in Command Palette** — `%` prefix in Command Palette (or **Ctrl+%**) opens fuzzy search across all open tabs; shows protocol and tab group in results ([#100](https://github.com/totoshko88/RustConn/issues/100))
+- **Tab Pinning** — right-click a tab → Pin Tab to keep it always visible at the left edge of the tab bar; pinned tabs don't scroll away ([#100](https://github.com/totoshko88/RustConn/issues/100))
+- **Custom terminal themes** — create, edit, and delete custom color themes (background, foreground, cursor, full 16-color ANSI palette) from Settings → Terminal → Colors; custom themes are persisted to `~/.config/rustconn/custom_themes.json` and appear alongside built-in themes in the dropdown ([#98](https://github.com/totoshko88/RustConn/issues/98))
+- **Group Jump Host dropdown** — group SSH settings now include a Jump Host dropdown (select from existing SSH connections) in addition to the manual ProxyJump text field; stored as `ssh_jump_host_id` with inheritance support via `resolve_ssh_jump_host_id()`
+
+### Improved
+- **Tab Overview + Split View architecture** — complete refactoring of the TabView/SplitView architecture so that split layouts live inside TabPages instead of a global container; Tab Overview now renders correct thumbnails for all tabs including split-view tabs without SIGSEGV crashes or blank previews
+- **Split view "Select Tab" popover** — the session picker popover in empty split panels now shows color indicators for sessions already displayed in other split views
+- **Split view placeholder** — when a session is moved to another tab's split layout, its own tab shows a "Displayed in Split View" status page with a "Go to Split View" button for quick navigation
+- **Split color indicators preserved** — switching between tabs no longer clears the colored dot indicators on split-view tabs
+- **Group settings: GNOME HIG enable switches** — Default Credentials and SSH Settings sections now use `AdwExpanderRow` with `show_enable_switch(true)`; when disabled, all fields are cleared to `None`, giving clear semantics of "not configured" vs "configured but empty"
+- **SSH tunnel password authentication** — SSH tunnels (used by RDP, VNC, SPICE jump host connections) now support password-authenticated jump hosts via `SSH_ASKPASS` mechanism; previously `BatchMode=yes` was unconditional, silently blocking password auth
+- **VTE passphrase prompt guard** — VTE password auto-fill now explicitly rejects SSH key passphrase prompts (`"Enter passphrase for key"`) to prevent sending the wrong secret when SSH auth method is PublicKey
+- **Connection dialog: protocol-aware Password Source** — Password Source dropdown is now hidden for protocols that don't use stored passwords (Telnet, Serial, MOSH, Kubernetes, Zero Trust); previously visible but non-functional for these protocols
 
 ### Dependencies
 - notify 7 (new — file watching for Cloud Sync)
 - hostname 0.4 (new — default device name)
 - slug 0.1 (new — sync filename generation)
+
+### Fixed
+- **Tab Overview SIGSEGV with split-view tabs** — opening Tab Overview when split-view tabs were active caused Pango `size >= 0` assertion failures and crashes because `AdwTabOverview` attempted to snapshot `TabPage` children with 0×0 allocation; refactored to keep `TabView` always visible with per-tab `TabPageContainer` wrappers that guarantee non-zero allocation
+- **Tab Overview blank previews** — split-view tabs showed empty thumbnails in Tab Overview because terminals were reparented to a global split container outside `TabView`; terminals now stay inside `TabPage` children at all times
+- **Terminal theme reset when Settings dialog is closed** — closing the Settings dialog applied the global terminal color theme to all terminals, overwriting per-connection theme overrides (custom background/foreground/cursor colors); now re-applies connection-specific theme overrides after global settings are applied ([#99](https://github.com/totoshko88/RustConn/issues/99))
+- **Pango assertion failure on zero font size** — guarded against `font_size == 0` in terminal configuration and settings collection to prevent `pango_font_description_set_size: assertion 'size >= 0' failed` crashes when the settings dialog returns an invalid value
+- **Highlight rules show color instead of hover-only underline** — VTE's `match_add_regex()` only underlines text on mouse hover without color; added a Cairo `DrawingArea` overlay that reads visible terminal text, runs `CompiledHighlightRules::find_matches()` per line, and draws colored background rectangles and foreground underlines in real time; `SourcePattern` now carries `foreground_color`/`background_color` from the rule ([#97](https://github.com/totoshko88/RustConn/issues/97))
 
 ## [0.11.7] - 2026-04-23
 

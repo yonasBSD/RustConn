@@ -607,17 +607,26 @@ pub fn show_edit_group_dialog(
 
     content.append(&details_group);
 
-    // === Inheritable Credentials ===
-    let credentials_group = adw::PreferencesGroup::builder()
+    // === Inheritable Credentials (collapsible with enable switch) ===
+    let credentials_group = adw::PreferencesGroup::new();
+
+    let credentials_expander = adw::ExpanderRow::builder()
         .title(i18n("Default Credentials"))
-        .description(i18n("Credentials inherited by connections in this group"))
+        .subtitle(i18n("Credentials inherited by connections in this group"))
+        .show_enable_switch(true)
         .build();
+    // Enable and expand if any credential field is set
+    let has_credentials =
+        group.username.is_some() || group.domain.is_some() || group.password_source.is_some();
+    credentials_expander.set_enable_expansion(has_credentials);
+    credentials_expander.set_expanded(has_credentials);
+    credentials_group.add(&credentials_expander);
 
     let username_row = adw::EntryRow::builder()
         .title(i18n("Username"))
         .text(group.username.as_deref().unwrap_or_default())
         .build();
-    credentials_group.add(&username_row);
+    credentials_expander.add_row(&username_row);
 
     // Password Source dropdown
     let password_source_list = gtk4::StringList::new(&[
@@ -644,7 +653,7 @@ pub fn show_edit_group_dialog(
 
     let password_source_row = adw::ActionRow::builder().title(i18n("Password")).build();
     password_source_row.add_suffix(&password_source_dropdown);
-    credentials_group.add(&password_source_row);
+    credentials_expander.add_row(&password_source_row);
 
     // Password Value entry with visibility toggle and load button
     let password_entry = gtk4::Entry::builder()
@@ -673,7 +682,7 @@ pub fn show_edit_group_dialog(
     password_value_row.add_suffix(&password_entry);
     password_value_row.add_suffix(&password_visibility_btn);
     password_value_row.add_suffix(&password_load_btn);
-    credentials_group.add(&password_value_row);
+    credentials_expander.add_row(&password_value_row);
 
     // Show/hide password value row based on source selection
     // Show for KeePass(1), Keyring(2), Bitwarden(3), 1Password(4)
@@ -843,15 +852,64 @@ pub fn show_edit_group_dialog(
         .title(i18n("Domain"))
         .text(group.domain.as_deref().unwrap_or_default())
         .build();
-    credentials_group.add(&domain_row);
+    credentials_expander.add_row(&domain_row);
 
     content.append(&credentials_group);
 
-    // === SSH Settings Section ===
-    let ssh_group = adw::PreferencesGroup::builder()
+    // === SSH Settings Section (progressive disclosure per GNOME HIG) ===
+    let ssh_settings_group = adw::PreferencesGroup::new();
+
+    let ssh_expander = adw::ExpanderRow::builder()
         .title(i18n("SSH Settings"))
-        .description(i18n("SSH settings inherited by connections in this group"))
+        .subtitle(i18n("SSH settings inherited by connections in this group"))
+        .show_enable_switch(true)
         .build();
+    let has_ssh_settings = group.ssh_auth_method.is_some()
+        || group.ssh_key_path.is_some()
+        || group.ssh_proxy_jump.is_some()
+        || group.ssh_agent_socket.is_some();
+    ssh_expander.set_enable_expansion(has_ssh_settings);
+    ssh_expander.set_expanded(has_ssh_settings);
+    ssh_settings_group.add(&ssh_expander);
+
+    // Confirm before clearing SSH settings when the enable switch is toggled off.
+    // Per GNOME HIG, destructive actions should require confirmation.
+    {
+        let expander = ssh_expander.clone();
+        let window_for_confirm = group_window.clone();
+        ssh_expander.connect_enable_expansion_notify(move |row| {
+            if row.enables_expansion() {
+                return; // Enabling — no confirmation needed
+            }
+            // Check if any SSH field has a value
+            let has_data = row.first_child().is_some(); // rows exist
+            if !has_data {
+                return;
+            }
+            // Re-enable immediately to prevent data loss; show confirmation
+            row.set_enable_expansion(true);
+            let confirm = adw::AlertDialog::builder()
+                .heading(i18n("Clear SSH Settings?"))
+                .body(i18n(
+                    "Disabling will clear all SSH settings for this group. This cannot be undone.",
+                ))
+                .close_response("cancel")
+                .default_response("cancel")
+                .build();
+            confirm.add_response("cancel", &i18n("Keep"));
+            confirm.add_response("clear", &i18n("Clear"));
+            confirm.set_response_appearance("clear", adw::ResponseAppearance::Destructive);
+
+            let expander_c = expander.clone();
+            confirm.connect_response(None, move |_, response| {
+                if response == "clear" {
+                    expander_c.set_enable_expansion(false);
+                    expander_c.set_expanded(false);
+                }
+            });
+            confirm.present(Some(&window_for_confirm));
+        });
+    }
 
     // SSH Auth Method dropdown (None / Password / PublicKey / Agent / KeyboardInteractive / SecurityKey)
     let auth_method_list = gtk4::StringList::new(&[
@@ -875,7 +933,7 @@ pub fn show_edit_group_dialog(
         Some(SshAuthMethod::SecurityKey) => 5,
     };
     auth_method_row.set_selected(initial_auth_idx);
-    ssh_group.add(&auth_method_row);
+    ssh_expander.add_row(&auth_method_row);
 
     // SSH Key Path with file chooser suffix button
     let ssh_key_path_row = adw::EntryRow::builder()
@@ -894,7 +952,7 @@ pub fn show_edit_group_dialog(
         "Select SSH key file",
     ))]);
     ssh_key_path_row.add_suffix(&ssh_key_browse_btn);
-    ssh_group.add(&ssh_key_path_row);
+    ssh_expander.add_row(&ssh_key_path_row);
 
     // Connect file chooser button
     let ssh_key_path_row_clone = ssh_key_path_row.clone();
@@ -932,21 +990,107 @@ pub fn show_edit_group_dialog(
         });
     });
 
-    // SSH Proxy Jump text field
+    // SSH Jump Host dropdown — select from existing SSH connections
+    let state_ref = state.borrow();
+    let mut jump_host_data: Vec<(Option<Uuid>, String)> = vec![(None, i18n("(None)"))];
+    let mut ssh_connections: Vec<&rustconn_core::Connection> = state_ref
+        .list_connections()
+        .into_iter()
+        .filter(|c| c.protocol == rustconn_core::models::ProtocolType::Ssh)
+        .collect();
+    ssh_connections.sort_by_key(|c| c.name.to_lowercase());
+    for conn in &ssh_connections {
+        let label = if conn.name == conn.host {
+            conn.name.clone()
+        } else {
+            format!("{} ({})", conn.name, conn.host)
+        };
+        let label = if label.chars().count() > 50 {
+            let truncated: String = label.chars().take(49).collect();
+            format!("{truncated}…")
+        } else {
+            label
+        };
+        jump_host_data.push((Some(conn.id), label));
+    }
+    drop(state_ref);
+
+    let jump_host_strings: Vec<&str> = jump_host_data.iter().map(|(_, s)| s.as_str()).collect();
+    let jump_host_model = gtk4::StringList::new(&jump_host_strings);
+    let ssh_jump_host_dropdown = gtk4::DropDown::builder()
+        .model(&jump_host_model)
+        .valign(gtk4::Align::Center)
+        .enable_search(true)
+        .build();
+    ssh_jump_host_dropdown.set_size_request(200, -1);
+    ssh_jump_host_dropdown.set_hexpand(false);
+
+    // Pre-select the current jump host
+    let mut preselected_jump_idx = 0u32;
+    if let Some(jump_id) = group.ssh_jump_host_id {
+        for (i, (id, _)) in jump_host_data.iter().enumerate() {
+            if *id == Some(jump_id) {
+                preselected_jump_idx = i as u32;
+                break;
+            }
+        }
+    }
+    ssh_jump_host_dropdown.set_selected(preselected_jump_idx);
+
+    let ssh_jump_host_row = adw::ActionRow::builder()
+        .title(i18n("Jump Host"))
+        .subtitle(i18n("Connect via another SSH connection"))
+        .build();
+    ssh_jump_host_row.add_suffix(&ssh_jump_host_dropdown);
+    ssh_expander.add_row(&ssh_jump_host_row);
+
+    // SSH Proxy Jump text field (manual entry, fallback when no saved connection)
     let ssh_proxy_jump_row = adw::EntryRow::builder()
         .title(i18n("SSH Proxy Jump"))
         .text(group.ssh_proxy_jump.as_deref().unwrap_or_default())
         .build();
-    ssh_group.add(&ssh_proxy_jump_row);
+    ssh_proxy_jump_row.set_tooltip_text(Some(&i18n(
+        "Manual ProxyJump (-J) — used when Jump Host is (None)",
+    )));
+    ssh_expander.add_row(&ssh_proxy_jump_row);
 
     // SSH Agent Socket text field
     let ssh_agent_socket_row = adw::EntryRow::builder()
         .title(i18n("SSH Agent Socket"))
         .text(group.ssh_agent_socket.as_deref().unwrap_or_default())
         .build();
-    ssh_group.add(&ssh_agent_socket_row);
+    ssh_expander.add_row(&ssh_agent_socket_row);
 
-    content.append(&ssh_group);
+    content.append(&ssh_settings_group);
+
+    // --- Dynamic visibility of SSH detail rows based on auth method ---
+    // Helper: update visibility of SSH fields based on selected auth method index
+    let update_ssh_fields_visibility = {
+        let key_path = ssh_key_path_row.clone();
+        let proxy_jump = ssh_proxy_jump_row.clone();
+        let jump_host_row = ssh_jump_host_row.clone();
+        let agent_socket = ssh_agent_socket_row.clone();
+        move |selected: u32| {
+            // 0=None, 1=Password, 2=PublicKey, 3=Agent, 4=KeyboardInteractive, 5=SecurityKey
+            let method_selected = selected != 0;
+            let needs_key = matches!(selected, 2 | 5); // PublicKey or SecurityKey
+            let needs_agent = selected == 3; // Agent
+
+            key_path.set_visible(needs_key);
+            jump_host_row.set_visible(method_selected);
+            proxy_jump.set_visible(method_selected);
+            agent_socket.set_visible(needs_agent);
+        }
+    };
+
+    // Apply initial visibility
+    update_ssh_fields_visibility(initial_auth_idx);
+
+    // React to auth method changes
+    let update_fn = update_ssh_fields_visibility.clone();
+    auth_method_row.connect_selected_notify(move |row| {
+        update_fn(row.selected());
+    });
 
     // === Cloud Sync Section (root groups only) ===
     let sync_mode_list =
@@ -1006,6 +1150,33 @@ pub fn show_edit_group_dialog(
         .title(i18n("Cloud Sync"))
         .build();
     sync_group_widget.add(&sync_mode_row);
+
+    // Show sync file path and last synced time for synced groups
+    if group.sync_mode != SyncMode::None {
+        if let Some(ref sync_file) = group.sync_file {
+            let sync_dir_display = state
+                .borrow()
+                .settings()
+                .sync
+                .sync_dir
+                .as_ref()
+                .map(|d| d.join(sync_file).display().to_string())
+                .unwrap_or_else(|| sync_file.clone());
+            let path_row = adw::ActionRow::builder()
+                .title(i18n("Sync File"))
+                .subtitle(&sync_dir_display)
+                .build();
+            sync_group_widget.add(&path_row);
+        }
+        if let Some(last_synced) = group.last_synced_at {
+            let time_str = last_synced.format("%Y-%m-%d %H:%M:%S").to_string();
+            let synced_row = adw::ActionRow::builder()
+                .title(i18n("Last Synced"))
+                .subtitle(&time_str)
+                .build();
+            sync_group_widget.add(&synced_row);
+        }
+    }
 
     // Only show for root groups — subgroups inherit sync mode from their root
     let is_root_group = group.parent_id.is_none();
@@ -1072,6 +1243,9 @@ pub fn show_edit_group_dialog(
     let ssh_proxy_jump_row_clone = ssh_proxy_jump_row;
     let ssh_agent_socket_row_clone = ssh_agent_socket_row;
     let sync_mode_row_clone = sync_mode_row;
+    let credentials_expander_clone = credentials_expander;
+    let ssh_expander_clone = ssh_expander;
+    let ssh_jump_host_dropdown_clone = ssh_jump_host_dropdown;
     let old_name = group.name;
 
     save_btn.connect_clicked(move |_| {
@@ -1102,8 +1276,10 @@ pub fn show_edit_group_dialog(
             _ => PasswordSource::None,
         };
 
-        // Password is relevant for Vault only
-        let has_new_password = !password.is_empty() && password_source_idx == 1;
+        // Password is relevant for Vault only, and only when credentials are enabled
+        let has_new_password = credentials_expander_clone.enables_expansion()
+            && !password.is_empty()
+            && password_source_idx == 1;
 
         // Check for duplicate name (but allow keeping same name)
         if new_name != old_name {
@@ -1146,7 +1322,14 @@ pub fn show_edit_group_dialog(
                     Some(domain)
                 };
 
-                updated.password_source = Some(new_password_source.clone());
+                // When credentials switch is disabled, clear all credential fields
+                if credentials_expander_clone.enables_expansion() {
+                    updated.password_source = Some(new_password_source.clone());
+                } else {
+                    updated.username = None;
+                    updated.domain = None;
+                    updated.password_source = None;
+                }
 
                 // Update icon
                 let icon_text = icon_row_clone.text().trim().to_string();
@@ -1162,36 +1345,52 @@ pub fn show_edit_group_dialog(
                     Some(icon_text)
                 };
 
-                // Update SSH settings
-                updated.ssh_auth_method = match auth_method_row_clone.selected() {
-                    1 => Some(SshAuthMethod::Password),
-                    2 => Some(SshAuthMethod::PublicKey),
-                    3 => Some(SshAuthMethod::Agent),
-                    4 => Some(SshAuthMethod::KeyboardInteractive),
-                    5 => Some(SshAuthMethod::SecurityKey),
-                    _ => None,
-                };
+                // Update SSH settings — only when SSH expander is enabled
+                if ssh_expander_clone.enables_expansion() {
+                    updated.ssh_auth_method = match auth_method_row_clone.selected() {
+                        1 => Some(SshAuthMethod::Password),
+                        2 => Some(SshAuthMethod::PublicKey),
+                        3 => Some(SshAuthMethod::Agent),
+                        4 => Some(SshAuthMethod::KeyboardInteractive),
+                        5 => Some(SshAuthMethod::SecurityKey),
+                        _ => None,
+                    };
 
-                let key_path_text = ssh_key_path_row_clone2.text().trim().to_string();
-                updated.ssh_key_path = if key_path_text.is_empty() {
-                    None
-                } else {
-                    Some(std::path::PathBuf::from(key_path_text))
-                };
+                    let key_path_text = ssh_key_path_row_clone2.text().trim().to_string();
+                    updated.ssh_key_path = if key_path_text.is_empty() {
+                        None
+                    } else {
+                        Some(std::path::PathBuf::from(key_path_text))
+                    };
 
-                let proxy_jump_text = ssh_proxy_jump_row_clone.text().trim().to_string();
-                updated.ssh_proxy_jump = if proxy_jump_text.is_empty() {
-                    None
-                } else {
-                    Some(proxy_jump_text)
-                };
+                    let proxy_jump_text = ssh_proxy_jump_row_clone.text().trim().to_string();
+                    updated.ssh_proxy_jump = if proxy_jump_text.is_empty() {
+                        None
+                    } else {
+                        Some(proxy_jump_text)
+                    };
 
-                let agent_socket_text = ssh_agent_socket_row_clone.text().trim().to_string();
-                updated.ssh_agent_socket = if agent_socket_text.is_empty() {
-                    None
+                    // Jump Host dropdown — resolve selected connection ID
+                    let jump_idx = ssh_jump_host_dropdown_clone.selected() as usize;
+                    updated.ssh_jump_host_id = if jump_idx < jump_host_data.len() {
+                        jump_host_data[jump_idx].0
+                    } else {
+                        None
+                    };
+
+                    let agent_socket_text = ssh_agent_socket_row_clone.text().trim().to_string();
+                    updated.ssh_agent_socket = if agent_socket_text.is_empty() {
+                        None
+                    } else {
+                        Some(agent_socket_text)
+                    };
                 } else {
-                    Some(agent_socket_text)
-                };
+                    updated.ssh_auth_method = None;
+                    updated.ssh_key_path = None;
+                    updated.ssh_proxy_jump = None;
+                    updated.ssh_jump_host_id = None;
+                    updated.ssh_agent_socket = None;
+                }
 
                 // Update Cloud Sync mode (only meaningful for root groups)
                 updated.sync_mode = match sync_mode_row_clone.selected() {
@@ -1199,6 +1398,13 @@ pub fn show_edit_group_dialog(
                     2 => SyncMode::Import,
                     _ => SyncMode::None,
                 };
+
+                // Generate sync_file when switching to Master for the first time
+                if updated.sync_mode == SyncMode::Master && updated.sync_file.is_none() {
+                    updated.sync_file = Some(
+                        rustconn_core::sync::group_export::group_name_to_filename(&updated.name),
+                    );
+                }
 
                 // Capture old groups snapshot before update for vault migration
                 let name_changed = existing.name != updated.name;

@@ -1798,10 +1798,15 @@ impl ConnectionDialog {
                 username_label.set_visible(visible);
                 tags_entry.set_visible(!is_zerotrust);
                 tags_label.set_visible(!is_zerotrust);
-                password_source_dropdown.set_visible(visible);
-                password_source_label.set_visible(visible);
+
+                // Password source only relevant for protocols that use credentials:
+                // SSH, SFTP, RDP, VNC, SPICE. Hidden for Telnet, Serial, MOSH,
+                // Kubernetes, Zero Trust — they don't use stored passwords.
+                let uses_password = matches!(protocol_id, "ssh" | "sftp" | "rdp" | "vnc" | "spice");
+                password_source_dropdown.set_visible(uses_password);
+                password_source_label.set_visible(uses_password);
                 // Password row visibility controlled by password_source_dropdown
-                if hide_network {
+                if !uses_password {
                     password_row.set_visible(false);
                 }
 
@@ -4063,9 +4068,8 @@ impl ConnectionDialog {
             .css_classes(["destructive-action", "flat"])
             .tooltip_text(i18n("Delete property"))
             .build();
-        delete_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
-            "Delete property",
-        ))]);
+        delete_button
+            .update_property(&[gtk4::accessible::Property::Label(&i18n("Delete property"))]);
 
         grid.attach(&name_label, 0, 0, 1, 1);
         grid.attach(&name_entry, 1, 0, 1, 1);
@@ -4290,17 +4294,14 @@ impl ConnectionDialog {
             .css_classes(["flat"])
             .tooltip_text(i18n("Move up (higher priority)"))
             .build();
-        move_up_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
-            "Move rule up",
-        ))]);
+        move_up_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Move rule up"))]);
         let move_down_button = Button::builder()
             .icon_name("go-down-symbolic")
             .css_classes(["flat"])
             .tooltip_text(i18n("Move down (lower priority)"))
             .build();
-        move_down_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
-            "Move rule down",
-        ))]);
+        move_down_button
+            .update_property(&[gtk4::accessible::Property::Label(&i18n("Move rule down"))]);
         let delete_button = Button::builder()
             .icon_name("user-trash-symbolic")
             .css_classes(["destructive-action", "flat"])

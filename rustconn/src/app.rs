@@ -140,6 +140,13 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
                 tray.force_refresh();
             }
         });
+        // Extra refresh at 5s for slow D-Bus hosts (e.g. AppIndicator on GNOME)
+        let tray_5s = tray_manager.clone();
+        glib::timeout_add_local_once(std::time::Duration::from_secs(5), move || {
+            if let Some(tray) = tray_5s.borrow().as_ref() {
+                tray.force_refresh();
+            }
+        });
     }
 
     // Set up application actions
@@ -184,6 +191,74 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
             .unwrap_or_else(|| state.borrow().settings().ui.startup_action.clone());
 
         window.execute_startup_action(&action);
+    }
+
+    // Run Cloud Sync startup import for all Import groups
+    {
+        let state_for_sync = state.clone();
+        let sidebar_for_sync = window.sidebar_rc();
+        glib::idle_add_local_once(move || {
+            let reports = {
+                let Ok(mut state_mut) = state_for_sync.try_borrow_mut() else {
+                    return;
+                };
+                state_mut.run_startup_sync()
+            };
+            if !reports.is_empty() {
+                let total: usize = reports
+                    .iter()
+                    .map(|r| r.connections_added + r.connections_updated)
+                    .sum();
+                if total > 0 {
+                    tracing::info!(
+                        groups = reports.len(),
+                        total_changes = total,
+                        "Startup sync completed"
+                    );
+                    MainWindow::reload_sidebar_preserving_state(&state_for_sync, &sidebar_for_sync);
+                }
+            }
+        });
+    }
+
+    // Wire up Cloud Sync auto-export: ConnectionManager notifies SyncManager
+    // when Master group connections change, debounced via a glib timer.
+    {
+        let state_for_export = state.clone();
+        if let Ok(mut state_mut) = state_for_export.try_borrow_mut() {
+            let tx = state_mut.sync_manager_mut().setup_export_channel();
+            let debounce_secs = state_mut.sync_manager().export_debounce_secs();
+            state_mut.connection_manager().set_export_sender(tx);
+            drop(state_mut);
+
+            // Poll the export channel periodically and trigger debounced exports
+            let state_poll = state_for_export.clone();
+            let debounce_ms = u64::from(debounce_secs.max(1)) * 1000;
+            glib::timeout_add_local(std::time::Duration::from_millis(debounce_ms), move || {
+                // Drain all pending group IDs from the channel
+                let mut pending = std::collections::HashSet::new();
+                if let Ok(mut state_mut) = state_poll.try_borrow_mut() {
+                    while let Ok(group_id) = state_mut.sync_manager_mut().try_recv_export() {
+                        pending.insert(group_id);
+                    }
+                    for group_id in &pending {
+                        match state_mut.sync_now_group(*group_id) {
+                            Ok(report) => {
+                                tracing::info!(
+                                    group = %report.group_name,
+                                    connections = report.connections_added,
+                                    "Auto-exported Master group"
+                                );
+                            }
+                            Err(e) => {
+                                tracing::warn!(%e, "Auto-export failed");
+                            }
+                        }
+                    }
+                }
+                glib::ControlFlow::Continue
+            });
+        }
     }
 
     // Initialize secret backends in a background thread after the window is visible.

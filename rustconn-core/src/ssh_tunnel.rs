@@ -8,6 +8,8 @@
 use std::net::TcpListener;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
+
+use secrecy::{ExposeSecret, SecretString};
 use thiserror::Error;
 
 /// Errors that can occur when creating an SSH tunnel.
@@ -27,6 +29,7 @@ pub type SshTunnelResult<T> = Result<T, SshTunnelError>;
 /// A running SSH tunnel (`ssh -N -L ...`).
 ///
 /// The tunnel process is killed when this struct is dropped.
+/// If a temporary askpass script was created, it is zeroized and deleted.
 pub struct SshTunnel {
     /// The child SSH process.
     child: Child,
@@ -34,6 +37,8 @@ pub struct SshTunnel {
     local_port: u16,
     /// Captured stderr output from the SSH process (populated by background reader).
     stderr_output: Arc<Mutex<String>>,
+    /// Path to the temporary askpass script (cleaned up on drop).
+    askpass_script: Option<std::path::PathBuf>,
 }
 
 impl SshTunnel {
@@ -102,6 +107,9 @@ impl SshTunnel {
 impl Drop for SshTunnel {
     fn drop(&mut self) {
         self.stop();
+        if let Some(ref path) = self.askpass_script {
+            cleanup_askpass_script(path);
+        }
     }
 }
 
@@ -117,8 +125,62 @@ pub struct SshTunnelParams {
     pub remote_port: u16,
     /// Optional SSH identity file for the jump host.
     pub identity_file: Option<String>,
+    /// Optional password for the jump host (used via `SSH_ASKPASS`).
+    ///
+    /// When set, a temporary askpass helper script is created and
+    /// `SSH_ASKPASS_REQUIRE=force` is used so OpenSSH calls the script
+    /// instead of prompting on a TTY. `BatchMode` is NOT set in this case.
+    pub password: Option<SecretString>,
     /// Optional extra SSH args (e.g. `-o StrictHostKeyChecking=no`).
     pub extra_args: Vec<String>,
+}
+
+/// Environment variable name used to pass the password to the askpass script.
+/// Intentionally obscure to reduce exposure in `/proc/PID/environ`.
+const TUNNEL_ASKPASS_ENV_VAR: &str = "_RC_TUN_PW";
+
+/// Creates a temporary `SSH_ASKPASS` helper script that echoes the password
+/// from [`TUNNEL_ASKPASS_ENV_VAR`]. The script is created with mode 0700.
+///
+/// # Errors
+///
+/// Returns a human-readable error string on failure.
+fn create_tunnel_askpass_script() -> Result<std::path::PathBuf, String> {
+    use std::io::Write;
+
+    let dir = std::env::temp_dir();
+    let path = dir.join(format!(
+        "rc-tun-askpass-{}",
+        uuid::Uuid::new_v4().as_hyphenated()
+    ));
+
+    let script = format!("#!/bin/sh\necho \"${TUNNEL_ASKPASS_ENV_VAR}\"\n");
+
+    let mut file = std::fs::File::create(&path)
+        .map_err(|e| format!("Failed to create tunnel askpass script: {e}"))?;
+    file.write_all(script.as_bytes())
+        .map_err(|e| format!("Failed to write tunnel askpass script: {e}"))?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
+            .map_err(|e| format!("Failed to set tunnel askpass script permissions: {e}"))?;
+    }
+
+    Ok(path)
+}
+
+/// Cleans up a temporary askpass script, zeroizing its content first.
+fn cleanup_askpass_script(path: &std::path::Path) {
+    // Overwrite with zeros before deletion to prevent recovery
+    if let Ok(metadata) = std::fs::metadata(path) {
+        let size = metadata.len() as usize;
+        if size > 0 {
+            let _ = std::fs::write(path, vec![0u8; size]);
+        }
+    }
+    let _ = std::fs::remove_file(path);
 }
 
 /// Finds a free TCP port by binding to port 0 and reading the assigned port.
@@ -181,8 +243,36 @@ pub fn create_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunnel> {
             .arg(format!("UserKnownHostsFile={}", kh_path.display()));
     }
 
-    // Prevent SSH from reading stdin (would steal from the parent process)
-    cmd.arg("-o").arg("BatchMode=yes");
+    // SSH_ASKPASS for password-authenticated jump hosts, or BatchMode
+    // when no password is available (prevents SSH from hanging on a
+    // TTY prompt that nobody can answer).
+    let askpass_script_path = if let Some(ref pw) = params.password {
+        match create_tunnel_askpass_script() {
+            Ok(script_path) => {
+                cmd.env("SSH_ASKPASS", &script_path);
+                cmd.env("SSH_ASKPASS_REQUIRE", "force");
+                cmd.env(TUNNEL_ASKPASS_ENV_VAR, pw.expose_secret());
+                // Ensure DISPLAY is set so SSH considers ASKPASS
+                if std::env::var("DISPLAY").is_err() {
+                    cmd.env("DISPLAY", "");
+                }
+                Some(script_path)
+            }
+            Err(e) => {
+                tracing::error!(
+                    error = %e,
+                    "Failed to create SSH_ASKPASS script for tunnel; \
+                     falling back to BatchMode (password auth will fail)"
+                );
+                cmd.arg("-o").arg("BatchMode=yes");
+                None
+            }
+        }
+    } else {
+        // No password — prevent SSH from reading stdin
+        cmd.arg("-o").arg("BatchMode=yes");
+        None
+    };
 
     // Exit if the forwarding fails (e.g. port already in use)
     cmd.arg("-o").arg("ExitOnForwardFailure=yes");
@@ -232,6 +322,7 @@ pub fn create_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunnel> {
         child,
         local_port,
         stderr_output,
+        askpass_script: askpass_script_path,
     })
 }
 

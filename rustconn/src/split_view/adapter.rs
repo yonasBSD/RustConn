@@ -1125,6 +1125,7 @@ impl SplitViewAdapter {
         // Connect select button to callback
         let callback_ref = Rc::clone(&self.select_tab_callback);
         select_button.connect_clicked(move |_| {
+            tracing::debug!("Select Tab button clicked for panel {panel_id}");
             if let Some(ref callback) = *callback_ref.borrow() {
                 callback(panel_id);
             } else {

@@ -549,6 +549,55 @@ impl SettingsDialog {
         *self.connections.borrow_mut() = connections;
     }
 
+    /// Populates the Cloud Sync "Synced Groups" and "Available in Cloud" sections.
+    ///
+    /// Call this after `set_settings()` with the current groups and sync manager.
+    pub fn populate_cloud_sync(
+        &self,
+        groups: &[rustconn_core::models::ConnectionGroup],
+        sync_manager: &rustconn_core::sync::SyncManager,
+    ) {
+        use crate::i18n::i18n;
+        use rustconn_core::sync::settings::SyncMode;
+
+        // Populate synced groups
+        for group in groups {
+            if group.sync_mode == SyncMode::None {
+                continue;
+            }
+            add_synced_group_row(
+                &self.cloud_sync_widgets.synced_groups_group,
+                &group.name,
+                match group.sync_mode {
+                    SyncMode::Master => "master",
+                    SyncMode::Import => "import",
+                    SyncMode::None => "none",
+                },
+            );
+        }
+
+        // Populate available files
+        if let Ok(files) = sync_manager.list_available_sync_files() {
+            // Filter out files already imported by any group
+            let imported_files: std::collections::HashSet<String> =
+                groups.iter().filter_map(|g| g.sync_file.clone()).collect();
+
+            for file_path in &files {
+                if let Some(filename) = file_path.file_name().and_then(|f| f.to_str()) {
+                    if !imported_files.contains(filename) {
+                        // Add a simple row (no import callback wired here — import
+                        // is done via the sidebar context menu or CLI)
+                        let row = libadwaita::ActionRow::builder()
+                            .title(filename)
+                            .subtitle(i18n("Available for import"))
+                            .build();
+                        self.cloud_sync_widgets.available_files_group.add(&row);
+                    }
+                }
+            }
+        }
+    }
+
     /// Shows the dialog and loads current settings
     pub fn run<F>(&self, parent: Option<&impl IsA<gtk4::Widget>>, callback: F)
     where
@@ -768,6 +817,9 @@ impl SettingsDialog {
         self.cloud_sync_widgets
             .device_name_row
             .set_text(&settings.sync.device_name);
+        self.cloud_sync_widgets
+            .simple_sync_row
+            .set_active(settings.sync.simple_sync_enabled);
     }
 
     /// Sets up the close handler to collect and save settings
@@ -844,6 +896,11 @@ impl SettingsDialog {
 
         // SSH agent custom socket entry
         let ssh_agent_custom_socket_entry_clone = self.ssh_agent_custom_socket_entry.clone();
+
+        // Cloud Sync controls
+        let cloud_sync_dir_row_clone = self.cloud_sync_widgets.sync_dir_row.clone();
+        let cloud_sync_device_name_clone = self.cloud_sync_widgets.device_name_row.clone();
+        let cloud_sync_simple_sync_clone = self.cloud_sync_widgets.simple_sync_row.clone();
 
         // Store callback reference
         let on_save_callback = self.on_save.clone();
@@ -983,7 +1040,23 @@ impl SettingsDialog {
                         Some(trimmed.to_string())
                     }
                 },
-                sync: settings_clone.borrow().sync.clone(),
+                sync: {
+                    let mut sync_settings = settings_clone.borrow().sync.clone();
+                    let dir_text = cloud_sync_dir_row_clone.text();
+                    let dir_trimmed = dir_text.trim();
+                    sync_settings.sync_dir = if dir_trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(std::path::PathBuf::from(dir_trimmed.to_string()))
+                    };
+                    let name_text = cloud_sync_device_name_clone.text();
+                    let name_trimmed = name_text.trim();
+                    if !name_trimmed.is_empty() {
+                        name_trimmed.clone_into(&mut sync_settings.device_name);
+                    }
+                    sync_settings.simple_sync_enabled = cloud_sync_simple_sync_clone.is_active();
+                    sync_settings
+                },
             };
 
             // Update stored settings

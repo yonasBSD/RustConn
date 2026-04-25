@@ -85,6 +85,11 @@ impl FullSyncExport {
     ///
     /// Filters out secret variable values — only non-secret variables are
     /// included. Secret variables have their value cleared to prevent leakage.
+    ///
+    /// Local-only connection fields (`last_connected`, `sort_order`,
+    /// `is_pinned`, `pin_order`, `window_geometry`, `window_mode`,
+    /// `remember_window_position`, `skip_port_check`) are cleared to
+    /// defaults to avoid leaking device-specific state.
     #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn build(
@@ -100,6 +105,7 @@ impl FullSyncExport {
         tombstones: Vec<Tombstone>,
     ) -> Self {
         let filtered_variables = filter_secret_variables(variables);
+        let cleaned_connections = strip_local_only_connection_fields(connections);
 
         Self {
             sync_version: SYNC_VERSION,
@@ -108,7 +114,7 @@ impl FullSyncExport {
             app_version,
             device_id,
             device_name,
-            connections,
+            connections: cleaned_connections,
             groups,
             templates,
             snippets,
@@ -133,6 +139,15 @@ impl FullSyncExport {
         writer.flush()?;
 
         std::fs::rename(&temp_path, path)?;
+
+        // Restrict file permissions to owner-only (0600) — sync files may
+        // contain hostnames, usernames, and variable references.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        }
+
         Ok(())
     }
 
@@ -169,6 +184,29 @@ impl FullSyncExport {
 /// Filters variables for export: only non-secret variables are included.
 fn filter_secret_variables(variables: &[Variable]) -> Vec<Variable> {
     variables.iter().filter(|v| !v.is_secret).cloned().collect()
+}
+
+/// Strips local-only fields from connections before export.
+///
+/// Clears `last_connected`, `sort_order`, `is_pinned`, `pin_order`,
+/// `window_geometry`, `window_mode`, `remember_window_position`, and
+/// `skip_port_check` to their default values. These fields are
+/// device-specific and should not be synced between devices.
+fn strip_local_only_connection_fields(connections: Vec<Connection>) -> Vec<Connection> {
+    connections
+        .into_iter()
+        .map(|mut c| {
+            c.last_connected = None;
+            c.sort_order = 0;
+            c.is_pinned = false;
+            c.pin_order = 0;
+            c.window_geometry = None;
+            c.window_mode = crate::models::WindowMode::default();
+            c.remember_window_position = false;
+            c.skip_port_check = false;
+            c
+        })
+        .collect()
 }
 
 #[cfg(test)]

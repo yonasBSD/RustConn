@@ -106,6 +106,9 @@ pub struct SyncManager {
     /// Created by [`SyncManager::create_export_channel`]. When `Some`,
     /// [`SyncManager::schedule_export`] sends group IDs through this channel.
     export_tx: Option<mpsc::UnboundedSender<Uuid>>,
+    /// Channel receiver for debounced export scheduling.
+    /// Created by [`SyncManager::create_export_channel`].
+    export_rx: Option<mpsc::UnboundedReceiver<Uuid>>,
 }
 
 impl SyncManager {
@@ -116,6 +119,7 @@ impl SyncManager {
             settings,
             state: HashMap::new(),
             export_tx: None,
+            export_rx: None,
         }
     }
 
@@ -325,6 +329,30 @@ impl SyncManager {
         rx
     }
 
+    /// Creates the export channel and stores both ends internally.
+    ///
+    /// Returns the sender that should be passed to
+    /// [`ConnectionManager::set_export_sender`](crate::connection::ConnectionManager::set_export_sender).
+    /// The receiver is stored internally and polled via [`try_recv_export`](Self::try_recv_export).
+    pub fn setup_export_channel(&mut self) -> mpsc::UnboundedSender<Uuid> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        self.export_tx = Some(tx.clone());
+        self.export_rx = Some(rx);
+        tx
+    }
+
+    /// Tries to receive a pending export group ID from the channel.
+    ///
+    /// Returns `Ok(group_id)` if a group ID is available, or `Err` if
+    /// the channel is empty or not created.
+    pub fn try_recv_export(&mut self) -> Result<Uuid, ()> {
+        if let Some(ref mut rx) = self.export_rx {
+            rx.try_recv().map_err(|_| ())
+        } else {
+            Err(())
+        }
+    }
+
     /// Returns the configured export debounce interval in seconds.
     ///
     /// This value comes from [`SyncSettings::export_debounce_secs`] and
@@ -442,7 +470,7 @@ impl SyncManager {
             .ok_or(SyncError::GroupNotFound(group_id))?;
 
         if group.sync_mode != SyncMode::Import {
-            return Err(SyncError::NotMasterGroup(group_id));
+            return Err(SyncError::NotImportGroup(group_id));
         }
 
         // 3. Determine sync file path
@@ -923,6 +951,7 @@ mod tests {
             auto_import_on_start: true,
             export_debounce_secs: 5,
             tombstone_retention_days: 30,
+            simple_sync_enabled: false,
         }
     }
 
@@ -1685,7 +1714,7 @@ mod tests {
         let err = mgr
             .import_group(group.id, &[group], &[], &HashSet::new())
             .unwrap_err();
-        assert!(matches!(err, SyncError::NotMasterGroup(_)));
+        assert!(matches!(err, SyncError::NotImportGroup(_)));
     }
 
     // --- import_all_on_start tests ---

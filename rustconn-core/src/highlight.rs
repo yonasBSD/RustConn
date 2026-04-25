@@ -151,7 +151,7 @@ impl CompiledHighlightRules {
         matches
     }
 
-    /// Returns the source pattern strings and names of all compiled rules.
+    /// Returns the source pattern strings, names, and colors of all compiled rules.
     ///
     /// Useful for registering patterns with external regex engines (e.g. VTE
     /// PCRE2) that cannot reuse the Rust [`Regex`] objects directly.
@@ -162,18 +162,24 @@ impl CompiledHighlightRules {
             .map(|r| SourcePattern {
                 name: &r.name,
                 pattern: &r.pattern,
+                foreground_color: r.foreground_color.as_deref(),
+                background_color: r.background_color.as_deref(),
             })
             .collect()
     }
 }
 
-/// A borrowed view of a compiled rule's name and regex pattern string.
+/// A borrowed view of a compiled rule's name, regex pattern, and colors.
 #[derive(Debug)]
 pub struct SourcePattern<'a> {
     /// Human-readable rule name.
     pub name: &'a str,
     /// The regex pattern string.
     pub pattern: &'a str,
+    /// Optional foreground color in CSS hex format (`#RRGGBB`).
+    pub foreground_color: Option<&'a str>,
+    /// Optional background color in CSS hex format (`#RRGGBB`).
+    pub background_color: Option<&'a str>,
 }
 
 // ---------------------------------------------------------------------------

@@ -247,6 +247,7 @@ impl RdmImporter {
             ssh_auth_method: None,
             ssh_key_path: None,
             ssh_proxy_jump: None,
+            ssh_jump_host_id: None,
             ssh_agent_socket: None,
             sync_mode: SyncMode::None,
             sync_file: None,

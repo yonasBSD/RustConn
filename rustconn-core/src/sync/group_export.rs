@@ -68,6 +68,10 @@ pub enum SyncError {
     #[error("Group is not in Master sync mode: {0}")]
     NotMasterGroup(Uuid),
 
+    /// The group is not in Import sync mode.
+    #[error("Group is not in Import sync mode: {0}")]
+    NotImportGroup(Uuid),
+
     /// The group is not a root group (has a parent).
     #[error("Group is not a root group: {0}")]
     NotRootGroup(Uuid),
@@ -460,6 +464,16 @@ impl GroupSyncExport {
 
         // Atomic rename into final location.
         std::fs::rename(&temp_path, path)?;
+
+        // Restrict file permissions to owner-only (0600) — sync files may
+        // contain hostnames, usernames, automation scripts, and variable
+        // references that should not be world-readable.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        }
+
         Ok(())
     }
 
@@ -549,6 +563,69 @@ pub fn group_name_to_filename(name: &str) -> String {
         slugified
     };
     format!("{base}.rcn")
+}
+
+/// Creates a [`Connection`] from a [`SyncConnection`], assigning it to the
+/// given `root_group_id`.
+///
+/// Local-only fields are set to defaults (e.g. `sort_order = 0`,
+/// `is_pinned = false`, `last_connected = None`).
+#[must_use]
+pub fn sync_connection_to_connection(sync_conn: &SyncConnection, group_id: Uuid) -> Connection {
+    let mut conn = Connection::new(
+        sync_conn.name.clone(),
+        sync_conn.host.clone(),
+        sync_conn.port,
+        sync_conn.protocol_config.clone(),
+    );
+    conn.port = sync_conn.port;
+    conn.protocol = sync_conn.protocol;
+    conn.username.clone_from(&sync_conn.username);
+    conn.description.clone_from(&sync_conn.description);
+    conn.tags.clone_from(&sync_conn.tags);
+    conn.protocol_config = sync_conn.protocol_config.clone();
+    conn.password_source = sync_conn.password_source.clone();
+    conn.automation = sync_conn.automation.clone();
+    conn.custom_properties
+        .clone_from(&sync_conn.custom_properties);
+    conn.pre_connect_task
+        .clone_from(&sync_conn.pre_connect_task);
+    conn.post_disconnect_task
+        .clone_from(&sync_conn.post_disconnect_task);
+    conn.wol_config.clone_from(&sync_conn.wol_config);
+    conn.icon.clone_from(&sync_conn.icon);
+    conn.highlight_rules.clone_from(&sync_conn.highlight_rules);
+    conn.updated_at = sync_conn.updated_at;
+    conn.group_id = Some(group_id);
+    conn
+}
+
+/// Updates synced fields on an existing [`Connection`] from a [`SyncConnection`].
+///
+/// Preserves local-only fields (`sort_order`, `is_pinned`, `pin_order`,
+/// `window_geometry`, `window_mode`, `last_connected`, `ssh_key_path`,
+/// `skip_port_check`).
+pub fn apply_sync_connection_update(conn: &mut Connection, sync_conn: &SyncConnection) {
+    conn.name.clone_from(&sync_conn.name);
+    conn.host.clone_from(&sync_conn.host);
+    conn.port = sync_conn.port;
+    conn.protocol = sync_conn.protocol;
+    conn.username.clone_from(&sync_conn.username);
+    conn.description.clone_from(&sync_conn.description);
+    conn.tags.clone_from(&sync_conn.tags);
+    conn.protocol_config = sync_conn.protocol_config.clone();
+    conn.password_source = sync_conn.password_source.clone();
+    conn.automation = sync_conn.automation.clone();
+    conn.custom_properties
+        .clone_from(&sync_conn.custom_properties);
+    conn.pre_connect_task
+        .clone_from(&sync_conn.pre_connect_task);
+    conn.post_disconnect_task
+        .clone_from(&sync_conn.post_disconnect_task);
+    conn.wol_config.clone_from(&sync_conn.wol_config);
+    conn.icon.clone_from(&sync_conn.icon);
+    conn.highlight_rules.clone_from(&sync_conn.highlight_rules);
+    conn.updated_at = sync_conn.updated_at;
 }
 
 #[cfg(test)]

@@ -156,21 +156,17 @@ impl FullMergeEngine {
             &mut result,
         );
 
-        // Cleanup expired tombstones
+        // Cleanup expired tombstones.
+        //
+        // Only remove tombstones that are expired by the LOCAL retention policy.
+        // Remote tombstones are NOT cleaned up here — they are managed by the
+        // remote device's own retention policy. If we cleaned remote tombstones
+        // using our (potentially shorter) retention, a deleted entity could
+        // "resurrect" on our device when the remote re-exports it.
         let now = Utc::now();
         let cutoff = now - Duration::days(i64::from(local.retention_days));
         for tombstone in &local.tombstones {
             if tombstone.deleted_at < cutoff {
-                result.tombstones_to_remove.push(tombstone.clone());
-            }
-        }
-        for tombstone in &remote.tombstones {
-            if tombstone.deleted_at < cutoff
-                && !result
-                    .tombstones_to_remove
-                    .iter()
-                    .any(|t| t.id == tombstone.id && t.entity_type == tombstone.entity_type)
-            {
                 result.tombstones_to_remove.push(tombstone.clone());
             }
         }
