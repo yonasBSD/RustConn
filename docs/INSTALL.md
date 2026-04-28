@@ -169,17 +169,52 @@ chmod +x RustConn-*-x86_64.AppImage
 ./RustConn-*-x86_64.AppImage
 ```
 
-## Debian/Ubuntu
+## Ubuntu / Debian (OBS Repository)
+
+Pre-built packages are available from the openSUSE Build Service:
+
+```bash
+# Debian 13 (Trixie)
+echo 'deb http://download.opensuse.org/repositories/home:/totoshko88:/rustconn/Debian_13/ /' \
+  | sudo tee /etc/apt/sources.list.d/rustconn.list
+curl -fsSL https://download.opensuse.org/repositories/home:/totoshko88:/rustconn/Debian_13/Release.key \
+  | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/rustconn.gpg > /dev/null
+sudo apt update
+sudo apt install rustconn
+
+# Ubuntu 24.04 LTS (Noble)
+echo 'deb http://download.opensuse.org/repositories/home:/totoshko88:/rustconn/xUbuntu_24.04/ /' \
+  | sudo tee /etc/apt/sources.list.d/rustconn.list
+curl -fsSL https://download.opensuse.org/repositories/home:/totoshko88:/rustconn/xUbuntu_24.04/Release.key \
+  | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/rustconn.gpg > /dev/null
+sudo apt update
+sudo apt install rustconn
+
+# Ubuntu 26.04 LTS (Resolute)
+echo 'deb http://download.opensuse.org/repositories/home:/totoshko88:/rustconn/xUbuntu_26.04/ /' \
+  | sudo tee /etc/apt/sources.list.d/rustconn.list
+curl -fsSL https://download.opensuse.org/repositories/home:/totoshko88:/rustconn/xUbuntu_26.04/Release.key \
+  | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/rustconn.gpg > /dev/null
+sudo apt update
+sudo apt install rustconn
+```
+
+Debian 12 (bookworm) is not supported — GTK4 4.8 is too old (4.14+ required).
+Feature flags are auto-detected: `adw-1-8` on Ubuntu 26.04, `adw-1-7` on Debian 13, baseline on Ubuntu 24.04.
+
+## Debian/Ubuntu (Manual .deb)
 
 ```bash
 sudo dpkg -i rustconn_*_amd64.deb
 sudo apt-get install -f  # Install dependencies if needed
 ```
 
-## Fedora
+## Fedora (OBS)
 
 ```bash
-sudo dnf install rustconn-*.fc*.x86_64.rpm
+# Fedora 44
+sudo dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/totoshko88:/rustconn/Fedora_44/home:totoshko88:rustconn.repo
+sudo dnf install rustconn
 ```
 
 ## openSUSE (OBS)
@@ -190,13 +225,42 @@ sudo zypper ar https://download.opensuse.org/repositories/home:/totoshko88:/rust
 sudo zypper ref
 sudo zypper in rustconn
 
+# Slowroll
+sudo zypper ar https://download.opensuse.org/repositories/home:/totoshko88:/rustconn/openSUSE_Slowroll/ rustconn
+sudo zypper ref
+sudo zypper in rustconn
+
 # Leap 16.0
 sudo zypper ar https://download.opensuse.org/repositories/home:/totoshko88:/rustconn/openSUSE_Leap_16.0/ rustconn
 sudo zypper ref
 sudo zypper in rustconn
 ```
 
-OBS packages use tiered feature flags: `adw-1-8` for Tumbleweed/Fedora 43+, `adw-1-7` for Leap 16.0/Fedora 42, baseline for older distros.
+OBS packages use tiered feature flags based on the distro's libadwaita version:
+`adw-1-8` for Tumbleweed/Slowroll/Ubuntu 26.04, `adw-1-7` for Leap 16.0/Fedora 44/Debian 13,
+baseline for Ubuntu 24.04 LTS.
+
+All OBS packages: https://build.opensuse.org/package/show/home:totoshko88:rustconn/rustconn
+
+## Arch Linux (AUR, community-maintained)
+
+```bash
+# Using yay
+yay -S rustconn
+
+# Using paru
+paru -S rustconn
+```
+
+AUR package: https://aur.archlinux.org/packages/rustconn
+
+## FreeBSD (Ports, community-maintained)
+
+```bash
+pkg install rustconn
+```
+
+FreeBSD port: https://www.freshports.org/net/rustconn/
 
 ## From Source
 

@@ -22,8 +22,19 @@ override_dh_auto_configure:
 	echo 'directory = "vendor"' >> .cargo/config.toml
 
 override_dh_auto_build:
-	# Ubuntu 26.04+ has GNOME 50 (libadwaita 1.9) — enable adw-1-8 features
-	. "$$HOME/.cargo/env" && cargo build --release -p rustconn --features adw-1-8 -p rustconn-cli
+	# Detect libadwaita version and set feature flags accordingly:
+	#   adw-1-8: libadwaita >= 1.8 (Ubuntu 26.04+)
+	#   adw-1-6: libadwaita >= 1.6 (Ubuntu 24.10, 25.04)
+	#   (none):  libadwaita 1.5 baseline (Ubuntu 24.04)
+	ADW_VERSION=$$(pkg-config --modversion libadwaita-1 2>/dev/null | cut -d. -f1,2); \
+	ADW_FEATURES=""; \
+	case "$$ADW_VERSION" in \
+		1.8*|1.9*) ADW_FEATURES="--features adw-1-8" ;; \
+		1.7*)       ADW_FEATURES="--features adw-1-7" ;; \
+		1.6*)       ADW_FEATURES="--features adw-1-6" ;; \
+	esac; \
+	echo "=== libadwaita $$ADW_VERSION => features: $$ADW_FEATURES ==="; \
+	. "$$HOME/.cargo/env" && cargo build --release -p rustconn $$ADW_FEATURES -p rustconn-cli
 
 override_dh_auto_install:
 	# Binaries
@@ -41,12 +52,15 @@ override_dh_auto_install:
 		debian/rustconn/usr/share/icons/hicolor/128x128/apps/io.github.totoshko88.RustConn.png
 	install -Dm644 rustconn/assets/icons/hicolor/256x256/apps/io.github.totoshko88.RustConn.png \
 		debian/rustconn/usr/share/icons/hicolor/256x256/apps/io.github.totoshko88.RustConn.png
+	# MIME type for .rdp files
+	install -Dm644 rustconn/assets/io.github.totoshko88.RustConn-rdp.xml \
+		debian/rustconn/usr/share/mime/packages/io.github.totoshko88.RustConn-rdp.xml
 	# Locale files (compile .po to .mo)
 	for po_file in po/*.po; do \
-		[ -f "$po_file" ] || continue; \
-		lang=$(basename "$po_file" .po); \
-		mkdir -p debian/rustconn/usr/share/locale/$lang/LC_MESSAGES; \
-		msgfmt -o debian/rustconn/usr/share/locale/$lang/LC_MESSAGES/rustconn.mo "$po_file"; \
+		[ -f "$$po_file" ] || continue; \
+		lang=$$(basename "$$po_file" .po); \
+		mkdir -p debian/rustconn/usr/share/locale/$$lang/LC_MESSAGES; \
+		msgfmt -o debian/rustconn/usr/share/locale/$$lang/LC_MESSAGES/rustconn.mo "$$po_file"; \
 	done
 
 override_dh_auto_test:

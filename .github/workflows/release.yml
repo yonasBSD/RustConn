@@ -113,7 +113,7 @@ jobs:
     name: Build RPM Package
     runs-on: ubuntu-24.04
     container:
-      image: fedora:41
+      image: fedora:44
     steps:
       - name: Install build tools
         run: |
@@ -382,7 +382,7 @@ jobs:
 
           ### Fedora
           \`\`\`bash
-          sudo dnf install rustconn-${VERSION}-1.fc41.x86_64.rpm
+          sudo dnf install rustconn-${VERSION}-1.fc44.x86_64.rpm
           \`\`\`
 
           ### AppImage
@@ -391,19 +391,22 @@ jobs:
           ./RustConn-${VERSION}-x86_64.AppImage
           \`\`\`
 
-          ### openSUSE (OBS)
+          ### openSUSE / Debian / Ubuntu (OBS)
           Packages available at: https://build.opensuse.org/package/show/home:totoshko88:rustconn/rustconn
 
           \`\`\`bash
-          # Tumbleweed
+          # openSUSE Tumbleweed
           sudo zypper ar https://download.opensuse.org/repositories/home:/totoshko88:/rustconn/openSUSE_Tumbleweed/ rustconn
           sudo zypper ref
           sudo zypper in rustconn
 
-          # Leap 16.0
+          # openSUSE Leap 16.0
           sudo zypper ar https://download.opensuse.org/repositories/home:/totoshko88:/rustconn/16.0/ rustconn
           sudo zypper ref
           sudo zypper in rustconn
+
+          # Debian 13 (Trixie) / Ubuntu 24.04 / Ubuntu 26.04
+          # See docs/INSTALL.md for apt repository setup
           \`\`\`
           EOF
 
@@ -535,6 +538,24 @@ jobs:
           
           # Update spec version
           sed -i "s/^Version:.*$/Version:        $VERSION/" "$OBS_DIR/rustconn.spec"
+          
+          # Update debian.dsc version and tarball name
+          sed -i "s/^Version:.*$/Version: $VERSION-1/" "$OBS_DIR/debian.dsc"
+          sed -i "s/^DEBTRANSFORM-TAR:.*$/DEBTRANSFORM-TAR: rustconn-$VERSION.tar.xz/" "$OBS_DIR/debian.dsc"
+          
+          # Update debian.changelog — prepend new entry
+          DATE_RFC2822=$(date -R)
+          NEW_ENTRY="rustconn ($VERSION-1) unstable; urgency=medium\n"
+          # Extract changes from CHANGELOG.md
+          while IFS= read -r line; do
+            NEW_ENTRY="$NEW_ENTRY\n  $line"
+          done < version_changes.txt
+          NEW_ENTRY="$NEW_ENTRY\n\n -- Anton Isaiev <totoshko88@gmail.com>  $DATE_RFC2822\n"
+          
+          if [ -f "$OBS_DIR/debian.changelog" ]; then
+            printf "%b\n" "$NEW_ENTRY" | cat - "$OBS_DIR/debian.changelog" > temp_dch
+            mv temp_dch "$OBS_DIR/debian.changelog"
+          fi
           
           # Copy vendor tarball (generated earlier in this job)
           cp vendor.tar.zst "$OBS_DIR/vendor.tar.zst"

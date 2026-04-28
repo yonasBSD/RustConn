@@ -4,39 +4,52 @@
   <person userid="totoshko88" role="maintainer"/>
   <person userid="totoshko88" role="bugowner"/>
   
-  <!-- openSUSE Tumbleweed - has Rust 1.95+ in Factory -->
+  <!-- openSUSE Tumbleweed — devel:languages:rust provides Rust 1.95+ when Factory lags -->
   <repository name="openSUSE_Tumbleweed">
+    <path project="devel:languages:rust" repository="openSUSE_Tumbleweed"/>
     <path project="openSUSE:Factory" repository="snapshot"/>
     <arch>x86_64</arch>
   </repository>
   
-  <!-- openSUSE Slowroll - same packages as Tumbleweed, rolling slower -->
+  <!-- openSUSE Slowroll — uses devel:languages:rust Tumbleweed repo for Rust 1.95+ -->
   <repository name="openSUSE_Slowroll">
+    <path project="devel:languages:rust" repository="openSUSE_Tumbleweed"/>
     <path project="openSUSE:Slowroll" repository="standard"/>
     <arch>x86_64</arch>
   </repository>
   
-  <!-- openSUSE Leap 16.0 with devel:languages:rust for Rust 1.95 -->
+  <!-- openSUSE Leap 16.0 — devel:languages:rust for Rust 1.95 -->
   <repository name="openSUSE_Leap_16.0">
     <path project="devel:languages:rust" repository="16.0"/>
     <path project="openSUSE:Leap:16.0" repository="standard"/>
     <arch>x86_64</arch>
   </repository>
   
-  <!-- Fedora 42 has Rust 1.93 in system repos -->
-  <repository name="Fedora_42">
-    <path project="Fedora:42" repository="standard"/>
+  <!-- Fedora 44 — Rust 1.95+ in system repos -->
+  <repository name="Fedora_44">
+    <path project="Fedora:44" repository="standard"/>
     <arch>x86_64</arch>
   </repository>
   
-  <!-- Fedora 43 has Rust 1.90 in system repos -->
-  <repository name="Fedora_43">
-    <path project="Fedora:43" repository="standard"/>
+  <!-- Debian 13 (Trixie) — GTK4 4.18, libadwaita 1.7, Rust via rustup
+       openSUSE:Tools provides obs-service-* packages for buildtime services -->
+  <repository name="Debian_13">
+    <path project="openSUSE:Tools" repository="Debian_13"/>
+    <path project="Debian:13" repository="standard"/>
     <arch>x86_64</arch>
   </repository>
   
-  <!-- Note: Ubuntu/Debian not supported in OBS - system Rust too old (1.75-1.85)
-       Ubuntu 26.04 (resolute) will have Rust 1.95 - can add when released
-       Debian 13 (trixie) has Rust 1.90 in backports but OBS can't use backports as BuildRequires
-       Use GitHub releases for .deb and AppImage packages -->
+  <!-- Ubuntu 24.04 LTS (Noble) — GTK4 4.14, libadwaita 1.5, Rust via rustup -->
+  <repository name="xUbuntu_24.04">
+    <path project="openSUSE:Tools" repository="xUbuntu_24.04"/>
+    <path project="Ubuntu:24.04" repository="universe"/>
+    <arch>x86_64</arch>
+  </repository>
+  
+  <!-- Ubuntu 26.04 LTS (Resolute) — GNOME 50, GTK4 4.18, libadwaita 1.9, Rust via rustup -->
+  <repository name="xUbuntu_26.04">
+    <path project="openSUSE:Tools" repository="xUbuntu_26.04"/>
+    <path project="Ubuntu:26.04" repository="universe"/>
+    <arch>x86_64</arch>
+  </repository>
 </project>
