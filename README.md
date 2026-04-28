@@ -1,6 +1,21 @@
-# RustConn
+<p align="center">
+  <img src="rustconn/assets/icons/hicolor/128x128/apps/io.github.totoshko88.RustConn.png" width="96" alt="RustConn">
+</p>
+<h1 align="center">RustConn</h1>
+<p align="center">
+  Modern connection manager for Linux — SSH, RDP, VNC, SPICE, and more
+</p>
+<p align="center">
+  <a href="https://flathub.org/apps/io.github.totoshko88.RustConn"><img src="https://img.shields.io/flathub/v/io.github.totoshko88.RustConn" alt="Flathub"></a>
+  <a href="https://snapcraft.io/rustconn"><img src="https://img.shields.io/badge/snap-rustconn-blue" alt="Snap"></a>
+  <a href="https://aur.archlinux.org/packages/rustconn"><img src="https://img.shields.io/aur/version/rustconn" alt="AUR"></a>
+  <a href="https://build.opensuse.org/package/show/home:totoshko88:rustconn/rustconn"><img src="https://img.shields.io/badge/OBS-rustconn-green" alt="OBS"></a>
+  <a href="https://www.freshports.org/net/rustconn/"><img src="https://img.shields.io/badge/FreeBSD-ports-red" alt="FreeBSD"></a>
+  <a href="https://github.com/totoshko88/RustConn/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/totoshko88/RustConn/ci.yml?label=CI" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License"></a>
+</p>
 
-Manage remote connections easily.
+---
 
 RustConn is a connection orchestrator for Linux with a GTK4/Wayland-native interface.
 It brings SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and Zero Trust connections under one roof — with embedded Rust clients where possible and seamless integration with external tools where needed.
@@ -35,13 +50,6 @@ It brings SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and Zero Trust
 
 ## Installation
 
-| Method | Notes |
-|--------|-------|
-| **Flatpak** | Recommended. Extensions mechanism built-in, sandboxed |
-| **Package manager** | Uses system dependencies (GTK4, VTE, libadwaita) |
-| **Snap** | Strict confinement, requires additional permissions |
-| **From source** | Requires Rust 1.95+, GTK4 dev libraries |
-
 <a href="https://flathub.org/apps/io.github.totoshko88.RustConn">
   <img width="200" alt="Download on Flathub" src="https://flathub.org/api/badge?locale=en"/>
 </a>
@@ -50,25 +58,17 @@ It brings SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and Zero Trust
 flatpak install flathub io.github.totoshko88.RustConn
 ```
 
-**Snap** / **AppImage** / **Debian** / **openSUSE (OBS)** — see [Installation Guide](docs/INSTALL.md)
-
-```bash
-# Snap (strict confinement - requires interface connections)
-sudo snap install rustconn
-sudo snap connect rustconn:ssh-keys
-# See docs/SNAP.md for all required permissions
-```
-
-```bash
-# From source
-git clone https://github.com/totoshko88/rustconn.git
-cd rustconn
-cargo build --release
-./target/release/rustconn
-```
-
-**Build dependencies:** GTK4 4.14+, VTE4, libadwaita, Rust 1.95+ | **Optional:** FreeRDP, TigerVNC, virt-viewer, picocom, kubectl
-
+| Method | Command / Link |
+|--------|---------------|
+| **Flatpak** (recommended) | `flatpak install flathub io.github.totoshko88.RustConn` |
+| **Snap** | `sudo snap install rustconn` ([permissions](docs/SNAP.md)) |
+| **Debian 13 / Ubuntu 24.04 / Ubuntu 26.04** | OBS apt repository ([setup](docs/INSTALL.md#debian--ubuntu-obs-repository)) |
+| **openSUSE** (Tumbleweed, Slowroll, Leap 16.0) | OBS zypper repository ([setup](docs/INSTALL.md#opensuse-obs)) |
+| **Fedora 44** | OBS dnf repository ([setup](docs/INSTALL.md#fedora-obs)) |
+| **Arch Linux** | `yay -S rustconn` ([AUR](https://aur.archlinux.org/packages/rustconn), community) |
+| **FreeBSD** | `pkg install rustconn` ([ports](https://www.freshports.org/net/rustconn/), community) |
+| **AppImage** | [GitHub Releases](https://github.com/totoshko88/RustConn/releases) |
+| **From source** | Rust 1.95+, GTK4 4.14+ ([build guide](docs/BUILD.md)) |
 
 ## Quick Start
 
@@ -79,13 +79,25 @@ cargo build --release
 | `Ctrl+,` | Settings |
 | `Ctrl+Shift+S/H` | Split vertical/horizontal |
 
-Full documentation: [User Guide](docs/USER_GUIDE.md)
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [User Guide](docs/USER_GUIDE.md) | Complete usage documentation |
+| [Installation](docs/INSTALL.md) | All installation methods and repository setup |
+| [Build Guide](docs/BUILD.md) | Building from source, feature flags, per-distro prerequisites |
+| [CLI Reference](docs/CLI_REFERENCE.md) | `rustconn-cli` commands and examples |
+| [Architecture](docs/ARCHITECTURE.md) | Crate structure and design decisions |
+| [CI & Build Flow](docs/CI_BUILD_FLOW.md) | CI pipelines, OBS packaging, Flathub release process |
+| [Zero Trust](docs/ZERO_TRUST.md) | AWS SSM, GCP IAP, Azure, OCI, Cloudflare, Teleport, Tailscale, Boundary |
 
 ## Support
 
-[![Donatello](https://img.shields.io/badge/Donatello-Support-ff5e5b)](https://donatello.to/totoshko88)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi)](https://ko-fi.com/totoshko88)
-[![Monobank](https://img.shields.io/badge/Monobank-UAH-black?logo=monobank)](https://send.monobank.ua/jar/2UgaGcQ3JC)
+<p>
+  <a href="https://donatello.to/totoshko88"><img src="https://img.shields.io/badge/Donatello-Support-ff5e5b" alt="Donatello"></a>
+  <a href="https://ko-fi.com/totoshko88"><img src="https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi" alt="Ko-fi"></a>
+  <a href="https://send.monobank.ua/jar/2UgaGcQ3JC"><img src="https://img.shields.io/badge/Monobank-UAH-black" alt="Monobank"></a>
+</p>
 
 ## License
 
