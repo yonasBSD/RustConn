@@ -31,6 +31,12 @@
     <arch>x86_64</arch>
   </repository>
   
+  <!-- Fedora 43 — GNOME 49, libadwaita 1.8, Rust 1.95+ in system repos -->
+  <repository name="Fedora_43">
+    <path project="Fedora:43" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+  
   <!-- Debian 13 (Trixie) — GTK4 4.18, libadwaita 1.7
        Rust 1.95 provided via standalone toolchain in rust-toolchain.tar.zst -->
   <repository name="Debian_13">
