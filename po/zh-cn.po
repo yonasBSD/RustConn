@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-28 03:11+0300\n"
-"PO-Revision-Date: 2026-04-25 10:46+0000\n"
+"POT-Creation-Date: 2026-04-30 14:08+0800\n"
+"PO-Revision-Date: 2026-04-30 14:42+0800\n"
 "Last-Translator: GaaChun <zeonsinsang@163.com>\n"
 "Language-Team: Chinese(Simplified)\n"
 "Language: zh-cn\n"
@@ -60,15 +60,15 @@ msgstr "保存"
 msgid "Initialization Error"
 msgstr "初始化错误"
 
-#: rustconn/src/app.rs:340
+#: rustconn/src/app.rs:347
 msgid "{} credentials migrated from legacy encryption to AES-256-GCM"
 msgstr "{} 个凭据已从旧版加密迁移到 AES-256-GCM"
 
-#: rustconn/src/app.rs:648
+#: rustconn/src/app.rs:655
 msgid "{} backend unavailable. Using fallback."
 msgstr "{} 后端不可用，使用备用。"
 
-#: rustconn/src/app.rs:738
+#: rustconn/src/app.rs:745
 msgid ""
 "Modern connection manager for Linux with a GTK4/Wayland-native interface. "
 "Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust "
@@ -78,35 +78,35 @@ msgstr ""
 "序管理 SSH、RDP、VNC、SPICE、Telnet、串口、Kubernetes 和零信任连接。"
 
 #. Translators: Replace this with your name and language, e.g. "John Doe (German)"
-#: rustconn/src/app.rs:774
+#: rustconn/src/app.rs:781
 msgid "translator-credits"
 msgstr "GaaChun (简体中文)"
 
-#: rustconn/src/app.rs:781
+#: rustconn/src/app.rs:788
 msgid "User Guide"
 msgstr "用户指南"
 
-#: rustconn/src/app.rs:785
+#: rustconn/src/app.rs:792
 msgid "Installation"
 msgstr "安装"
 
-#: rustconn/src/app.rs:789
+#: rustconn/src/app.rs:796
 msgid "Releases"
 msgstr "发布"
 
-#: rustconn/src/app.rs:793
+#: rustconn/src/app.rs:800
 msgid "Changelog"
 msgstr "更新日志"
 
-#: rustconn/src/app.rs:803
+#: rustconn/src/app.rs:810
 msgid "Special Thanks"
 msgstr "特别感谢"
 
-#: rustconn/src/app.rs:818
+#: rustconn/src/app.rs:825
 msgid "Made in Ukraine"
 msgstr "乌克兰制造"
 
-#: rustconn/src/app.rs:819
+#: rustconn/src/app.rs:826
 msgid "All contributors and supporters"
 msgstr "所有贡献者和支持者"
 
@@ -212,7 +212,6 @@ msgid "No clusters defined. Click 'New Cluster' to create one."
 msgstr "未定义集群。点击'新建集群'创建一个。"
 
 #: rustconn/src/dialogs/command_palette.rs:71
-#, c-format
 msgid "Search connections, > commands, @ tags, # groups, % tabs"
 msgstr "搜索连接、> 命令、@ 标签、# 组、% 标签页"
 
@@ -472,7 +471,7 @@ msgstr "等待启动时间"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:646
 #: rustconn/src/dialogs/connection/general_tab.rs:77
-#: rustconn/src/dialogs/export.rs:376 rustconn/src/dialogs/settings/mod.rs:1118
+#: rustconn/src/dialogs/export.rs:376 rustconn/src/dialogs/settings/mod.rs:1174
 #: rustconn/src/dialogs/template.rs:506
 #: rustconn/src/window/connection_dialogs.rs:247
 #: rustconn/src/window/edit_dialogs.rs:260
@@ -481,34 +480,34 @@ msgid "Name"
 msgstr "名称"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:648
-#: rustconn/src/dialogs/settings/mod.rs:1120
+#: rustconn/src/dialogs/settings/mod.rs:1176
 msgid "Rule name"
 msgstr "规则名称"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:655
-#: rustconn/src/dialogs/settings/mod.rs:1128
+#: rustconn/src/dialogs/settings/mod.rs:1184
 msgid "Pattern (regex)"
 msgstr "模式（正则）"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:657
-#: rustconn/src/dialogs/settings/mod.rs:1130
+#: rustconn/src/dialogs/settings/mod.rs:1186
 msgid "Regex pattern to match"
 msgstr "要匹配的正则表达式"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:665
-#: rustconn/src/dialogs/settings/mod.rs:1139
+#: rustconn/src/dialogs/settings/mod.rs:1195
 msgid "Enable rule"
 msgstr "启用规则"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:672
 #: rustconn/src/dialogs/connection/dialog.rs:4308
-#: rustconn/src/dialogs/settings/mod.rs:1147
+#: rustconn/src/dialogs/settings/mod.rs:1203
 msgid "Delete rule"
 msgstr "删除规则"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:676
 #: rustconn/src/dialogs/connection/dialog.rs:4311
-#: rustconn/src/dialogs/settings/mod.rs:1152
+#: rustconn/src/dialogs/settings/mod.rs:1208
 msgid "Delete highlight rule"
 msgstr "删除高亮规则"
 
@@ -1967,54 +1966,54 @@ msgstr "从父组继承"
 msgid "Default tries ~/.ssh/id_rsa, id_ed25519, id_ecdsa automatically"
 msgstr "默认自动尝试 ~/.ssh/id_rsa、id_ed25519、id_ecdsa"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6537
-#: rustconn/src/dialogs/connection/dialog.rs:6786
+#: rustconn/src/dialogs/connection/dialog.rs:6510
+#: rustconn/src/dialogs/connection/dialog.rs:6759
 msgid "Cannot Load Password"
 msgstr "无法加载密码"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6538
+#: rustconn/src/dialogs/connection/dialog.rs:6511
 msgid "Please enter a connection name or host first."
 msgstr "请先输入连接名称或主机。"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6655
-#: rustconn/src/dialogs/connection/dialog.rs:6757
-#: rustconn/src/dialogs/connection/dialog.rs:6765
+#: rustconn/src/dialogs/connection/dialog.rs:6628
+#: rustconn/src/dialogs/connection/dialog.rs:6730
+#: rustconn/src/dialogs/connection/dialog.rs:6738
 msgid "Password Not Found"
 msgstr "密码未找到"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6656
-#: rustconn/src/dialogs/connection/dialog.rs:6758
-#: rustconn/src/dialogs/connection/dialog.rs:6766
+#: rustconn/src/dialogs/connection/dialog.rs:6629
+#: rustconn/src/dialogs/connection/dialog.rs:6731
+#: rustconn/src/dialogs/connection/dialog.rs:6739
 msgid "No password found in vault for this connection."
 msgstr "保险库中未找到此连接的密码。"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6665
-#: rustconn/src/dialogs/connection/dialog.rs:6773
+#: rustconn/src/dialogs/connection/dialog.rs:6638
+#: rustconn/src/dialogs/connection/dialog.rs:6746
 msgid "Failed to Load Password"
 msgstr "加载密码失败"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6666
-#: rustconn/src/dialogs/connection/dialog.rs:6774
+#: rustconn/src/dialogs/connection/dialog.rs:6639
+#: rustconn/src/dialogs/connection/dialog.rs:6747
 msgid "Could not load password from vault."
 msgstr "无法从保险库加载密码。"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6677
+#: rustconn/src/dialogs/connection/dialog.rs:6650
 msgid "Vault Not Configured"
 msgstr "保险库未配置"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6678
+#: rustconn/src/dialogs/connection/dialog.rs:6651
 msgid "Please configure a secret backend in Settings → Secrets."
 msgstr "请在设置 → 密钥中配置密钥后端。"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6787
+#: rustconn/src/dialogs/connection/dialog.rs:6760
 msgid "Password loading is only available for Vault source."
 msgstr "密码加载仅适用于保险库源。"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6931
+#: rustconn/src/dialogs/connection/dialog.rs:6904
 msgid "Managed by cloud sync"
 msgstr "由云同步管理"
 
-#: rustconn/src/dialogs/connection/dialog.rs:6975
+#: rustconn/src/dialogs/connection/dialog.rs:6948
 msgid "Edit Connection (Synced)"
 msgstr "编辑连接（已同步）"
 
@@ -2381,49 +2380,6 @@ msgstr "添加时间戳"
 msgid "Prepend timestamp to each log line"
 msgstr "在每行日志前添加时间戳"
 
-#: rustconn/src/dialogs/connection/mosh.rs:35
-msgid "SSH Handshake"
-msgstr "SSH 握手"
-
-#: rustconn/src/dialogs/connection/mosh.rs:36
-msgid "MOSH uses SSH for the initial connection handshake."
-msgstr "MOSH 使用 SSH 进行初始连接握手。"
-
-#: rustconn/src/dialogs/connection/mosh.rs:50
-#: rustconn/src/dialogs/connection/ssh.rs:109
-msgid "MOSH Settings"
-msgstr "MOSH 设置"
-
-#: rustconn/src/dialogs/connection/mosh.rs:51
-#: rustconn/src/dialogs/connection/ssh.rs:110
-msgid "Configure UDP port range and prediction behavior."
-msgstr "配置 UDP 端口范围和预测行为。"
-
-#: rustconn/src/dialogs/connection/mosh.rs:61
-#: rustconn/src/dialogs/connection/ssh.rs:121
-msgid "Adaptive"
-msgstr "自适应"
-
-#: rustconn/src/dialogs/connection/mosh.rs:61
-#: rustconn/src/dialogs/connection/ssh.rs:121
-msgid "Always"
-msgstr "始终"
-
-#: rustconn/src/dialogs/connection/mosh.rs:61
-#: rustconn/src/dialogs/connection/ssh.rs:121
-msgid "Never"
-msgstr "永不"
-
-#: rustconn/src/dialogs/connection/mosh.rs:69
-#: rustconn/src/dialogs/connection/ssh.rs:129
-msgid "Predict Mode"
-msgstr "预测模式"
-
-#: rustconn/src/dialogs/connection/mosh.rs:70
-#: rustconn/src/dialogs/connection/ssh.rs:130
-msgid "Controls speculative local echo of keystrokes"
-msgstr "控制键盘敲击的推测性本地回显"
-
 #: rustconn/src/dialogs/connection/serial.rs:50
 msgid "Device"
 msgstr "设备"
@@ -2507,6 +2463,34 @@ msgstr "流控制"
 #: rustconn/src/dialogs/connection/serial.rs:212
 msgid "Data flow management method"
 msgstr "数据流管理方法"
+
+#: rustconn/src/dialogs/connection/ssh.rs:109
+msgid "MOSH Settings"
+msgstr "MOSH 设置"
+
+#: rustconn/src/dialogs/connection/ssh.rs:110
+msgid "Configure UDP port range and prediction behavior."
+msgstr "配置 UDP 端口范围和预测行为。"
+
+#: rustconn/src/dialogs/connection/ssh.rs:121
+msgid "Adaptive"
+msgstr "自适应"
+
+#: rustconn/src/dialogs/connection/ssh.rs:121
+msgid "Always"
+msgstr "始终"
+
+#: rustconn/src/dialogs/connection/ssh.rs:121
+msgid "Never"
+msgstr "永不"
+
+#: rustconn/src/dialogs/connection/ssh.rs:129
+msgid "Predict Mode"
+msgstr "预测模式"
+
+#: rustconn/src/dialogs/connection/ssh.rs:130
+msgid "Controls speculative local echo of keystrokes"
+msgstr "控制键盘敲击的推测性本地回显"
 
 #: rustconn/src/dialogs/connection/ssh.rs:191
 #: rustconn/src/dialogs/template.rs:621 rustconn/src/window/edit_dialogs.rs:918
@@ -3940,10 +3924,22 @@ msgstr "导入 · 已同步"
 msgid "Sync error"
 msgstr "同步错误"
 
-#: rustconn/src/dialogs/settings/cloud_sync_tab.rs:156
+#: rustconn/src/dialogs/settings/cloud_sync_tab.rs:154
+msgid "Available for import"
+msgstr "可供导入"
+
+#: rustconn/src/dialogs/settings/cloud_sync_tab.rs:158
 #: rustconn/src/window/edit_dialogs.rs:1097
 msgid "Import"
 msgstr "导入"
+
+#: rustconn/src/dialogs/settings/cloud_sync_tab.rs:162
+msgid "Import this file as a new group"
+msgstr "将此文件导入为新分组"
+
+#: rustconn/src/dialogs/settings/cloud_sync_tab.rs:163
+msgid "Import sync file"
+msgstr "导入同步文件"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:26
 msgid "Keybindings"
@@ -4122,11 +4118,7 @@ msgstr "已恢复 {} 个文件。重启以应用。"
 msgid "Restore Error"
 msgstr "恢复错误"
 
-#: rustconn/src/dialogs/settings/mod.rs:593
-msgid "Available for import"
-msgstr "可供导入"
-
-#: rustconn/src/dialogs/settings/mod.rs:677
+#: rustconn/src/dialogs/settings/mod.rs:733
 msgid "Failed to start"
 msgstr "启动失败"
 
@@ -5798,8 +5790,8 @@ msgstr "全局变量"
 
 #: rustconn/src/dialogs/variables.rs:147
 msgid ""
-"Define variables that can be used in connections                  with "
-"${variable_name} syntax"
+"Define variables that can be used in connections                  with $"
+"{variable_name} syntax"
 msgstr "定义可用于连接的变量                  语法为 ${variable_name}"
 
 #: rustconn/src/dialogs/variables.rs:203
@@ -6383,7 +6375,7 @@ msgid "Basic Information"
 msgstr "基本信息"
 
 #: rustconn/src/split_view/bridge.rs:1708
-#: rustconn/assets/io.github.totoshko88.RustConn.desktop:4
+#: rustconn/assets/io.github.totoshko88.RustConn.desktop:3
 msgid "Manage remote connections easily"
 msgstr "轻松管理远程连接"
 
@@ -6849,80 +6841,89 @@ msgstr "未配置用户名"
 msgid "Username copied"
 msgstr "用户名已复制"
 
-#: rustconn/src/window/edit_actions.rs:152
-msgid "Cached password is empty"
-msgstr "缓存的密码为空"
-
-#: rustconn/src/window/edit_actions.rs:159
+#: rustconn/src/window/edit_actions.rs:160
 msgid "Password copied (auto-clears in 30s)"
 msgstr "密码已复制（30秒后自动清除）"
 
-#: rustconn/src/window/edit_actions.rs:180
-msgid "Connect first to cache credentials"
-msgstr "请先连接以缓存凭据"
+#: rustconn/src/window/edit_actions.rs:182
+msgid "Cached password is empty"
+msgstr "缓存的密码为空"
 
-#: rustconn/src/window/edit_actions.rs:264
+#: rustconn/src/window/edit_actions.rs:202
+msgid "Password is empty"
+msgstr "密码为空"
+
+#: rustconn/src/window/edit_actions.rs:208
+#: rustconn/src/window/edit_actions.rs:214
+msgid "No password configured for this connection"
+msgstr "此连接未配置密码"
+
+#: rustconn/src/window/edit_actions.rs:220
+msgid "Could not retrieve password from secret backend"
+msgstr "无法从密钥后端获取密码"
+
+#: rustconn/src/window/edit_actions.rs:307
 msgid "Item restored"
 msgstr "项目已恢复"
 
-#: rustconn/src/window/edit_actions.rs:355
+#: rustconn/src/window/edit_actions.rs:398
 msgid "Wake On LAN sent to {} — waiting for host to come online..."
 msgstr "已发送 Wake On LAN 到 {} — 等待主机上线..."
 
-#: rustconn/src/window/edit_actions.rs:395
+#: rustconn/src/window/edit_actions.rs:438
 msgid "{} is online — connecting..."
 msgstr "{} 已上线 — 正在连接..."
 
-#: rustconn/src/window/edit_actions.rs:410
+#: rustconn/src/window/edit_actions.rs:453
 msgid "{} did not come online after WoL"
 msgstr "{} 在 WoL 后未上线"
 
-#: rustconn/src/window/edit_actions.rs:422
+#: rustconn/src/window/edit_actions.rs:465
 msgid "Failed to send Wake On LAN packet. Check network permissions."
 msgstr "发送 Wake On LAN 数据包失败。请检查网络权限。"
 
-#: rustconn/src/window/edit_actions.rs:468
+#: rustconn/src/window/edit_actions.rs:511
 msgid "Checking if {} is online..."
 msgstr "正在检查 {} 是否在线..."
 
-#: rustconn/src/window/edit_actions.rs:499
+#: rustconn/src/window/edit_actions.rs:542
 msgid "{} is online"
 msgstr "{} 已在线"
 
-#: rustconn/src/window/edit_actions.rs:514
+#: rustconn/src/window/edit_actions.rs:557
 msgid "{} did not come online within timeout"
 msgstr "{} 在超时前未上线"
 
-#: rustconn/src/window/edit_actions.rs:521
+#: rustconn/src/window/edit_actions.rs:564
 msgid "Host check failed: {}"
 msgstr "主机检查失败：{}"
 
-#: rustconn/src/window/edit_actions.rs:586
-#: rustconn/src/window/edit_actions.rs:701
+#: rustconn/src/window/edit_actions.rs:629
+#: rustconn/src/window/edit_actions.rs:744
 msgid "SFTP is only available for SSH connections."
 msgstr "SFTP 仅适用于 SSH 连接。"
 
-#: rustconn/src/window/edit_actions.rs:632
+#: rustconn/src/window/edit_actions.rs:675
 msgid "SSH key not available"
 msgstr "SSH 密钥不可用"
 
-#: rustconn/src/window/edit_actions.rs:640
+#: rustconn/src/window/edit_actions.rs:683
 msgid "Failed to add SSH key to agent."
 msgstr "添加 SSH 密钥到 agent 失败。"
 
-#: rustconn/src/window/edit_actions.rs:655
+#: rustconn/src/window/edit_actions.rs:698
 msgid "Midnight Commander (mc) is not installed."
 msgstr "Midnight Commander (mc) 未安装。"
 
-#: rustconn/src/window/edit_actions.rs:660
+#: rustconn/src/window/edit_actions.rs:703
 msgid "Opening mc SFTP..."
 msgstr "正在打开 mc SFTP..."
 
-#: rustconn/src/window/edit_actions.rs:709
+#: rustconn/src/window/edit_actions.rs:752
 msgid "Opening SFTP..."
 msgstr "正在打开 SFTP..."
 
-#: rustconn/src/window/edit_actions.rs:877 rustconn/src/window/mod.rs:2611
+#: rustconn/src/window/edit_actions.rs:920 rustconn/src/window/mod.rs:2611
 #: rustconn/src/window/mod.rs:2796 rustconn/src/window/protocols.rs:157
 #: rustconn/src/window/protocols.rs:804 rustconn/src/window/protocols.rs:1006
 #: rustconn/src/window/protocols.rs:1872 rustconn/src/window/protocols.rs:2592
@@ -7556,17 +7557,22 @@ msgstr "关于"
 msgid "Quit"
 msgstr "退出"
 
-#: rustconn/assets/io.github.totoshko88.RustConn.desktop:3
+#: rustconn/assets/io.github.totoshko88.RustConn.desktop:2
 msgid "RustConn"
 msgstr "RustConn"
 
-#: rustconn/assets/io.github.totoshko88.RustConn.desktop:16
-msgid ""
-"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;"
-"kubernetes;k8s;serial;sftp;"
-msgstr ""
-"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;"
-"kubernetes;k8s;serial;sftp;"
+#: rustconn/assets/io.github.totoshko88.RustConn.desktop:15
+msgid "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+
+#~ msgid "SSH Handshake"
+#~ msgstr "SSH 握手"
+
+#~ msgid "MOSH uses SSH for the initial connection handshake."
+#~ msgstr "MOSH 使用 SSH 进行初始连接握手。"
+
+#~ msgid "Connect first to cache credentials"
+#~ msgstr "请先连接以缓存凭据"
 
 #~ msgid "Search connections, > commands, @ tags, # groups"
 #~ msgstr "搜索连接，> 命令，@ 标签，# 组"
