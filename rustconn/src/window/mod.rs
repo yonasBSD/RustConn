@@ -54,6 +54,9 @@ type SharedColorPool = Rc<RefCell<ColorPool>>;
 /// Shared toast overlay reference
 pub type SharedToastOverlay = Rc<ToastOverlay>;
 
+/// Shared tunnel manager for standalone SSH tunnels
+pub type SharedTunnelManager = Rc<RefCell<rustconn_core::tunnel_manager::TunnelManager>>;
+
 /// Main application window wrapper
 ///
 /// Provides access to the main window and its components.
@@ -77,6 +80,7 @@ pub struct MainWindow {
     toast_overlay: SharedToastOverlay,
     monitoring: Rc<MonitoringCoordinator>,
     activity_coordinator: types::SharedActivityCoordinator,
+    tunnel_manager: SharedTunnelManager,
 }
 
 impl MainWindow {
@@ -121,14 +125,14 @@ impl MainWindow {
         // reset to default to avoid an overly wide sidebar on HiDPI displays.
         let saved_width = with_state(&state, |s| s.settings().ui.sidebar_width);
         // Migration: reset sidebar width if it was set by an older version.
-        // - Values > 400 came from the old 360px minimum (too wide on HiDPI)
-        // - Values < 320 came from the intermediate 240/280/300px default (too narrow for filters)
-        // Only keep values in the 320..=400 range that the user intentionally set.
+        // - Values > 500 came from the old 360px minimum (too wide on HiDPI)
+        // - Values < 260 are below the minimum
+        // Only keep values in the 260..=500 range that the user intentionally set.
         let sidebar_width = match saved_width {
-            Some(w) if (320..=400).contains(&w) => w,
+            Some(w) if (260..=500).contains(&w) => w,
             _ => 320,
         };
-        overlay_split_view.set_max_sidebar_width(f64::from(sidebar_width.clamp(260, 600)));
+        overlay_split_view.set_max_sidebar_width(f64::from(sidebar_width.clamp(260, 500)));
         overlay_split_view.set_min_sidebar_width(260.0);
         overlay_split_view.set_sidebar_width_fraction(0.27);
         overlay_split_view.set_enable_show_gesture(true);
@@ -388,6 +392,11 @@ impl MainWindow {
         // Create external window manager
         let external_window_manager = Rc::new(ExternalWindowManager::new());
 
+        // Create tunnel manager for standalone SSH tunnels
+        let tunnel_manager: SharedTunnelManager = Rc::new(RefCell::new(
+            rustconn_core::tunnel_manager::TunnelManager::new(),
+        ));
+
         let main_window = Self {
             window,
             sidebar,
@@ -402,6 +411,7 @@ impl MainWindow {
             toast_overlay,
             monitoring,
             activity_coordinator,
+            tunnel_manager,
         };
 
         // Set up window actions
@@ -727,6 +737,7 @@ impl MainWindow {
         let notebook_clone = notebook.clone();
         let monitoring_clone = self.monitoring.clone();
         let sidebar_clone = sidebar.clone();
+        let overlay_split_view_clone = self.overlay_split_view.clone();
         settings_action.connect_activate(move |_, _| {
             if let Some(win) = window_weak.upgrade() {
                 Self::show_settings_dialog(
@@ -735,6 +746,7 @@ impl MainWindow {
                     notebook_clone.clone(),
                     monitoring_clone.clone(),
                     sidebar_clone.clone(),
+                    overlay_split_view_clone.clone(),
                 );
             }
         });
@@ -753,6 +765,23 @@ impl MainWindow {
         // Only enable in Flatpak environment
         flatpak_components_action.set_enabled(rustconn_core::flatpak::is_flatpak());
         window.add_action(&flatpak_components_action);
+
+        // SSH Tunnels action — opens the standalone tunnel manager window
+        let ssh_tunnels_action = gio::SimpleAction::new("ssh-tunnels", None);
+        let window_weak = window.downgrade();
+        let state_clone = state.clone();
+        let tunnel_manager_clone = self.tunnel_manager.clone();
+        ssh_tunnels_action.connect_activate(move |_, _| {
+            if let Some(win) = window_weak.upgrade() {
+                let manager = crate::dialogs::TunnelManagerWindow::new(
+                    Some(win.upcast_ref()),
+                    state_clone.clone(),
+                    tunnel_manager_clone.clone(),
+                );
+                manager.present();
+            }
+        });
+        window.add_action(&ssh_tunnels_action);
 
         // Open password vault action - opens the configured password manager
         let open_keepass_action = gio::SimpleAction::new("open-keepass", None);
@@ -1557,6 +1586,7 @@ impl MainWindow {
         let app = window.application().and_downcast::<adw::Application>();
         if let Some(app) = app {
             app.set_accels_for_action("win.toggle-sidebar", &["F9"]);
+            app.set_accels_for_action("win.ssh-tunnels", &["<Control>t"]);
         }
     }
 
@@ -1936,9 +1966,13 @@ impl MainWindow {
         let split_view_clone = split_view_for_close;
         let sidebar_clone = sidebar.clone();
         let notebook_for_close = terminal_notebook.clone();
+        let tunnel_manager_for_close = self.tunnel_manager.clone();
         window.connect_close_request(move |win| {
             // Flush all active session recordings before shutdown
             notebook_for_close.flush_active_recordings();
+
+            // Stop all standalone SSH tunnels
+            tunnel_manager_for_close.borrow_mut().stop_all();
 
             // Save window geometry and expanded groups state
             let (width, height) = win.default_size();
@@ -4103,6 +4137,7 @@ impl MainWindow {
         notebook: SharedNotebook,
         monitoring: Rc<crate::monitoring::MonitoringCoordinator>,
         sidebar: SharedSidebar,
+        overlay_split_view: adw::OverlaySplitView,
     ) {
         let mut dialog = SettingsDialog::new(None);
 
@@ -4149,6 +4184,12 @@ impl MainWindow {
 
                 // Apply protocol filter visibility setting
                 sidebar.set_filter_visible(settings.ui.show_protocol_filters);
+
+                // Apply sidebar width setting
+                if let Some(w) = settings.ui.sidebar_width {
+                    let width = f64::from(w.clamp(260, 500));
+                    overlay_split_view.set_max_sidebar_width(width);
+                }
 
                 // Apply monitoring settings to active bars
                 monitoring.apply_settings_to_all(&settings.monitoring);
@@ -4417,6 +4458,68 @@ impl MainWindow {
                 }
             }
         }
+
+        // Auto-start standalone tunnels (runs regardless of startup action)
+        Self::auto_start_tunnels(&self.state, &self.tunnel_manager);
+
+        // Health check polling for standalone tunnels (every 5 seconds)
+        {
+            let tm = self.tunnel_manager.clone();
+            let state_c = self.state.clone();
+            glib::timeout_add_local(std::time::Duration::from_secs(5), move || {
+                let failed = tm.borrow_mut().health_check();
+                if !failed.is_empty() {
+                    // Auto-reconnect failed tunnels
+                    let tunnels = state_c.borrow().settings().standalone_tunnels.clone();
+                    let connections: Vec<_> = state_c
+                        .borrow()
+                        .list_connections()
+                        .into_iter()
+                        .cloned()
+                        .collect();
+                    for id in &failed {
+                        if let Some(tunnel) = tunnels.iter().find(|t| t.id == *id)
+                            && tunnel.auto_reconnect
+                            && tunnel.enabled
+                        {
+                            // Check if tunnel exceeded max reconnect attempts
+                            if tm.borrow().exceeded_max_reconnects(*id) {
+                                tracing::warn!(
+                                    tunnel = %tunnel.name,
+                                    tunnel_id = %id,
+                                    "Tunnel exceeded max reconnect attempts, giving up"
+                                );
+                                continue;
+                            }
+
+                            if let Some(conn) =
+                                connections.iter().find(|c| c.id == tunnel.connection_id)
+                            {
+                                tracing::info!(tunnel = %tunnel.name, "Auto-reconnecting failed tunnel");
+                                // Resolve cached password for reconnection
+                                let cached_pw: Option<secrecy::SecretString> = state_c
+                                    .try_borrow()
+                                    .ok()
+                                    .and_then(|s| {
+                                        s.get_cached_credentials(tunnel.connection_id).cloned()
+                                    })
+                                    .and_then(|c| {
+                                        use secrecy::ExposeSecret;
+                                        if c.password.expose_secret().is_empty() {
+                                            None
+                                        } else {
+                                            Some(c.password.clone())
+                                        }
+                                    });
+                                let _ =
+                                    tm.borrow_mut().start(tunnel, conn, cached_pw.as_ref(), &[]);
+                            }
+                        }
+                    }
+                }
+                glib::ControlFlow::Continue
+            });
+        }
     }
 
     /// Returns a reference to the terminal notebook
@@ -4426,6 +4529,63 @@ impl MainWindow {
     #[allow(dead_code)]
     pub fn terminal_notebook(&self) -> &TerminalNotebook {
         &self.terminal_notebook
+    }
+
+    /// Auto-starts standalone tunnels that have `auto_start` and `enabled` set
+    fn auto_start_tunnels(state: &SharedAppState, tunnel_manager: &SharedTunnelManager) {
+        let tunnels = state.borrow().settings().standalone_tunnels.clone();
+        let auto_tunnels: Vec<_> = tunnels
+            .iter()
+            .filter(|t| t.auto_start && t.enabled)
+            .collect();
+
+        if auto_tunnels.is_empty() {
+            return;
+        }
+
+        tracing::info!(
+            count = auto_tunnels.len(),
+            "Auto-starting standalone tunnels"
+        );
+
+        let connections: Vec<_> = state
+            .borrow()
+            .list_connections()
+            .into_iter()
+            .cloned()
+            .collect();
+
+        for tunnel in auto_tunnels {
+            let conn = connections.iter().find(|c| c.id == tunnel.connection_id);
+            if let Some(conn) = conn {
+                // Resolve cached password for the connection
+                let cached_pw: Option<secrecy::SecretString> = state
+                    .try_borrow()
+                    .ok()
+                    .and_then(|s| s.get_cached_credentials(tunnel.connection_id).cloned())
+                    .and_then(|c| {
+                        use secrecy::ExposeSecret;
+                        if c.password.expose_secret().is_empty() {
+                            None
+                        } else {
+                            Some(c.password.clone())
+                        }
+                    });
+                if let Err(e) =
+                    tunnel_manager
+                        .borrow_mut()
+                        .start(tunnel, conn, cached_pw.as_ref(), &[])
+                {
+                    tracing::warn!(tunnel = %tunnel.name, %e, "Failed to auto-start tunnel");
+                }
+            } else {
+                tracing::warn!(
+                    tunnel = %tunnel.name,
+                    connection_id = %tunnel.connection_id,
+                    "SSH connection not found for auto-start tunnel"
+                );
+            }
+        }
     }
 
     /// Saves the current expanded groups state to settings
@@ -4460,6 +4620,7 @@ impl MainWindow {
             None,
             &terminal_settings,
             None,
+            &[],
         );
 
         // Get user's default shell

@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Wed Apr 29 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.6
+
+- Update to version 0.12.6
+- [Fixed] Expect script variables not substituted — ${VAR} references
+  in Expect rule responses were sent as literal text instead of being
+  resolved; now uses VariableManager to substitute global variables
+  before creating automation triggers (#105)
+- [Added] SSH verbose mode for connection debugging — new Verbose
+  toggle in SSH connection settings adds -v flag to the SSH command,
+  showing detailed debug output to help diagnose connection issues (#106)
+
+-------------------------------------------------------------------
 Tue Apr 29 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.5
 
 - Update to version 0.12.5

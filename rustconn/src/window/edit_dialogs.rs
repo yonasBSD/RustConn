@@ -1638,6 +1638,7 @@ fn start_quick_telnet(
         None,
         terminal_settings,
         None,
+        &[],
     );
     notebook.spawn_telnet(
         session_id,
@@ -1662,6 +1663,7 @@ fn start_quick_ssh(
         None,
         terminal_settings,
         None,
+        &[],
     );
     notebook.spawn_ssh(
         session_id,

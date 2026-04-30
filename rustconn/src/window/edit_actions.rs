@@ -710,6 +710,7 @@ impl MainWindow {
                     None,
                     &terminal_settings,
                     None,
+                    &[],
                 );
 
                 let downloads = rustconn_core::sftp::get_downloads_dir();
@@ -1006,6 +1007,7 @@ impl MainWindow {
                 None,
                 &terminal_settings,
                 None,
+                &[],
             );
 
             let downloads = rustconn_core::sftp::get_downloads_dir();

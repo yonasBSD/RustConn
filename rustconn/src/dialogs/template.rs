@@ -2401,6 +2401,7 @@ impl TemplateDialog {
             ssh_agent_socket: None,
             keep_alive_interval: None,
             keep_alive_count_max: None,
+            verbose: false,
         };
 
         if !custom_options_text.is_empty() {

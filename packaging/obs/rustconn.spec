@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.12.5
+Version:        0.12.6
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -235,6 +235,15 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Wed Apr 29 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.6-1
+- [Fixed] Expect script variables not substituted — ${VAR} references
+  in Expect rule responses were sent as literal text instead of being
+  resolved; now uses VariableManager to substitute global variables
+  before creating automation triggers (#105)
+- [Added] SSH verbose mode for connection debugging — new Verbose
+  toggle in SSH connection settings adds -v flag to the SSH command,
+  showing detailed debug output to help diagnose connection issues (#106)
+
 * Tue Apr 29 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.5-1
 - [Fixed] Settings dialog overflows after Hoop.dev install — hoop
   version outputs JSON; added dedicated parser that extracts only

@@ -60,6 +60,9 @@ pub struct AppSettings {
     /// Cloud Sync settings
     #[serde(default)]
     pub sync: SyncSettings,
+    /// Standalone SSH tunnels (port forwarding without terminal sessions)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub standalone_tunnels: Vec<crate::models::StandaloneTunnel>,
 }
 
 /// Terminal-related settings

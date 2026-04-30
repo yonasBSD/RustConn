@@ -114,6 +114,8 @@ pub struct SettingsDialog {
     color_tabs_by_protocol: CheckButton,
     // Protocol filter visibility
     show_protocol_filters: CheckButton,
+    // Sidebar width setting
+    sidebar_width_row: adw::SpinRow,
     // SSH Agent settings
     ssh_agent_status_label: Label,
     ssh_agent_socket_label: Label,
@@ -198,6 +200,7 @@ impl SettingsDialog {
             startup_action_dropdown,
             color_tabs_by_protocol,
             show_protocol_filters,
+            sidebar_width_row,
         ) = create_ui_page();
 
         let (
@@ -508,6 +511,7 @@ impl SettingsDialog {
             startup_action_dropdown,
             color_tabs_by_protocol,
             show_protocol_filters,
+            sidebar_width_row,
             ssh_agent_status_label,
             ssh_agent_socket_label,
             ssh_agent_start_button,
@@ -817,6 +821,7 @@ impl SettingsDialog {
             &self.startup_action_dropdown,
             &self.color_tabs_by_protocol,
             &self.show_protocol_filters,
+            &self.sidebar_width_row,
             &settings.ui,
             &conn_refs,
         );
@@ -941,6 +946,7 @@ impl SettingsDialog {
         let startup_action_dropdown_clone = self.startup_action_dropdown.clone();
         let color_tabs_by_protocol_clone = self.color_tabs_by_protocol.clone();
         let show_protocol_filters_clone = self.show_protocol_filters.clone();
+        let sidebar_width_row_clone = self.sidebar_width_row.clone();
         let connections_clone = self.connections.clone();
         let keybindings_overrides_clone = self.keybindings_overrides.clone();
 
@@ -1063,6 +1069,7 @@ impl SettingsDialog {
                 &startup_action_dropdown_clone,
                 &color_tabs_by_protocol_clone,
                 &show_protocol_filters_clone,
+                &sidebar_width_row_clone,
                 &conn_refs,
             );
             drop(conn_refs);
@@ -1113,6 +1120,7 @@ impl SettingsDialog {
                     sync_settings.simple_sync_enabled = cloud_sync_simple_sync_clone.is_active();
                     sync_settings
                 },
+                standalone_tunnels: settings_clone.borrow().standalone_tunnels.clone(),
             };
 
             // Update stored settings

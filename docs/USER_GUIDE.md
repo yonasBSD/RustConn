@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.12.5** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.12.6** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -50,6 +50,7 @@ RustConn is a modern connection manager designed for Linux with Wayland-first ap
    - [Connection History & Statistics](#connection-history)
    - [Encrypted Documents](#encrypted-documents)
    - [Remote Monitoring](#remote-monitoring)
+   - [SSH Tunnel Manager](#ssh-tunnel-manager)
 8. [Settings](#settings)
    - [Custom Keybindings](#custom-keybindings)
    - [Adaptive UI](#adaptive-ui)
@@ -201,8 +202,27 @@ Expect rules automate interactive prompts during connection. Each rule matches a
 | `\[sudo\] password` | `${password}` | Sudo password prompt |
 | `Are you sure.*continue` | `yes` | SSH host key confirmation |
 | `Select option:` | `2` | Menu navigation |
+| `Enter token:` | `${MFA_TOKEN}` | Use a global variable for MFA |
 
 Rules execute in priority order. After matching, the response is sent followed by Enter.
+
+**Variable Substitution in Responses:**
+
+Expect rule responses support `${VARIABLE_NAME}` placeholders that are resolved at connection time using Global Variables. This lets you use dynamic values (passwords, tokens, environment-specific strings) without hardcoding them into rules.
+
+- `${password}` — resolves to the connection's password from the configured secret backend
+- `${MY_VARIABLE}` — resolves to the value of the global variable `MY_VARIABLE` (defined in Menu → Tools → Variables)
+- Undefined variables remain as literal text (e.g., `${UNKNOWN}` is sent as-is)
+- If substitution fails, the raw response text is used as a fallback (with a warning in the log)
+
+**Example — multi-step login with variables:**
+
+| Pattern | Response | Description |
+|---------|----------|-------------|
+| `Username:` | `${PROD_USER}` | Global variable with username |
+| `Password:` | `${password}` | Password from vault |
+| `Verification code:` | `${OTP_CODE}` | Global variable (set before connecting) |
+| `Select environment` | `production` | Static text, no variable needed |
 
 ### Pre/Post Connection Tasks
 
@@ -276,11 +296,12 @@ Temporary connection without saving:
 | Connect | Double-click, Enter, or right-click → Connect |
 | Edit | Ctrl+E or right-click → Edit |
 | Rename | F2 or right-click → Rename |
-| View Details | Right-click → View Details (opens Info tab) |
 | Duplicate | Ctrl+D or right-click → Duplicate |
-| Copy/Paste | Ctrl+C / Ctrl+V |
+| Copy/Paste | Ctrl+C / Ctrl+V (sidebar focus) or Menu → Copy/Paste Connection |
 | Delete | Delete key or right-click → Delete (moves to Trash) |
 | Move to Group | Drag-drop or right-click → Move to Group |
+| Run Snippet | Right-click → Run Snippet... (sends snippet to active session) |
+| Start/Stop Recording | Right-click connected session → Start/Stop Recording |
 
 ### Undo/Trash Functionality
 
@@ -335,7 +356,7 @@ Protocol-specific options are configured in the connection dialog's protocol tab
 
 | Protocol | Options |
 |----------|---------|
-| SSH | Auth method (password, publickey, keyboard-interactive, agent, security-key/FIDO2), key source (default/file/agent), proxy jump (Jump Host), ProxyJump, IdentitiesOnly, ControlMaster, agent forwarding, Waypipe (Wayland forwarding), X11 forwarding, compression, startup command, custom SSH options, port forwarding (local/remote/dynamic) |
+| SSH | Auth method (password, publickey, keyboard-interactive, agent, security-key/FIDO2), key source (default/file/agent), proxy jump (Jump Host), ProxyJump, IdentitiesOnly, ControlMaster, agent forwarding, Waypipe (Wayland forwarding), X11 forwarding, compression, startup command, verbose mode, custom SSH options, port forwarding (local/remote/dynamic) |
 | RDP | Client mode (embedded/external), performance mode (quality/balanced/speed), resolution, color depth, display scale override, audio redirection, RDP gateway (host, port, username), keyboard layout, disable NLA, clipboard sharing, shared folders, mouse jiggler (prevent idle disconnect, configurable interval 10–600s), custom FreeRDP arguments |
 | VNC | Client mode (embedded/external), performance mode (quality/balanced/speed), encoding (Auto/Tight/ZRLE/Hextile/Raw/CopyRect), compression level, quality level, display scale override, view-only mode, scaling, clipboard sharing, custom arguments |
 | SPICE | TLS encryption, CA certificate (with inline validation), skip certificate verification, USB redirection, clipboard sharing, image compression (Auto/Off/GLZ/LZ/QUIC), proxy URL, shared folders |
@@ -389,6 +410,7 @@ The SSH tab in the connection dialog contains session-level toggles that control
 | Compression | `-C` | Compress the SSH data stream — useful on slow or high-latency connections |
 | Connection Multiplexing | `ControlMaster=auto` | Reuse a single TCP connection for multiple SSH sessions to the same host. Subsequent connections open instantly without re-authenticating. RustConn adds `ControlPersist=10m` so the master connection stays alive for 10 minutes after the last session closes |
 | Waypipe | `waypipe ssh ...` | Forward Wayland GUI applications (see [Waypipe](#waypipe-wayland-forwarding) below) |
+| Verbose | `-v` | Show detailed SSH debug output in the terminal for diagnosing connection issues (auth failures, key negotiation, resets) |
 
 **Configure:**
 1. Edit an SSH connection → **Protocol** tab
@@ -437,6 +459,25 @@ The command is appended to the SSH invocation and executes in the remote shell i
 - `htop` — open system monitor on connect
 - `cd /var/log && tail -f syslog` — jump to logs
 - `tmux attach || tmux new` — attach to or create a tmux session
+
+#### Verbose Mode (Connection Debugging)
+
+Enable SSH debug output to diagnose connection issues such as resets by remote devices, authentication failures, or key negotiation problems.
+
+**Configure:**
+1. Edit an SSH connection → **Protocol** tab → **Session** group
+2. Enable the **Verbose** checkbox
+3. Save and connect
+
+When enabled, RustConn adds the `-v` flag to the SSH command. Detailed debug output appears directly in the terminal, showing each handshake phase, key exchange, authentication method tried, and any errors.
+
+**When to use:**
+- Connection is reset by the remote device without explanation
+- Authentication fails but the reason is unclear
+- Need to verify which SSH key or auth method is being used
+- Diagnosing proxy jump or port forwarding issues
+
+**Tip:** Disable verbose mode after debugging — the output is noisy and clutters normal terminal sessions.
 
 #### Waypipe (Wayland Forwarding)
 
@@ -1064,11 +1105,11 @@ RustConn/
 Pin frequently used connections to a dedicated "Favorites" section at the top of the sidebar.
 
 **Pin a Connection:**
-- Right-click a connection → **Pin to Favorites**
+- Right-click a connection → **Pin / Unpin**
 - The connection appears in the ★ Favorites group at the top of the sidebar
 
 **Unpin a Connection:**
-- Right-click a pinned connection → **Unpin from Favorites**
+- Right-click a pinned connection → **Pin / Unpin**
 - The connection returns to its original group
 
 Favorites persist across sessions. Pinned connections remain in their original group as well — the Favorites section shows a reference, not a move.
@@ -1377,6 +1418,60 @@ Download and install additional CLI tools directly within the Flatpak sandbox:
 
 **Installation Location:** `~/.var/app/io.github.totoshko88.RustConn/cli/`
 
+### SSH Tunnel Manager
+
+Standalone window for managing SSH port-forwarding tunnels that run independently of terminal sessions. Unlike per-connection port forwarding (which requires an active SSH terminal tab), standalone tunnels run in the background as headless `ssh -N` processes.
+
+**Open:** Menu → **SSH Tunnels** or **Ctrl+T**
+
+**Create a Tunnel:**
+1. Open SSH Tunnel Manager (Ctrl+T)
+2. Click **Add Tunnel** (+ button or the button on the empty state page)
+3. Enter a name (e.g., "MySQL prod", "SOCKS proxy")
+4. Select an existing SSH connection — the tunnel inherits host, port, username, SSH key, jump host, and credentials from this connection
+5. Add one or more port forwarding rules:
+
+| Direction | SSH Flag | Example | Description |
+|-----------|----------|---------|-------------|
+| Local (`-L`) | `-L 3306:db.internal:3306` | Forward local port 3306 to `db.internal:3306` through the tunnel |
+| Remote (`-R`) | `-R 9000:localhost:3000` | Expose local port 3000 on the remote server's port 9000 |
+| Dynamic (`-D`) | `-D 1080` | SOCKS proxy on local port 1080 |
+
+6. Optionally enable **Auto-start** (tunnel starts when RustConn launches) and **Auto-reconnect** (tunnel restarts if the SSH process exits unexpectedly)
+7. Click **Save**
+
+**Manage Tunnels:**
+
+The tunnel manager window shows two groups:
+- **Active** — currently running tunnels with a stop button
+- **Stopped** — idle tunnels with a start button
+
+Each tunnel row displays the connection name, forwarding summary (e.g., "L 3306→db:3306, D 1080"), and status. Click the toggle to start or stop a tunnel. Use the edit (pencil) and delete (trash) buttons to modify or remove tunnels.
+
+**Tunnel Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| Auto-start | Start this tunnel automatically when RustConn launches | Off |
+| Auto-reconnect | Restart the tunnel if the SSH process exits unexpectedly | Off |
+| Enabled | Disabled tunnels are skipped by auto-start | On |
+
+**Use Cases:**
+- Access a database behind a firewall: `L 3306:db.internal:3306` → connect your DB client to `localhost:3306`
+- SOCKS proxy for browsing through a remote network: `D 1080` → configure browser to use `localhost:1080`
+- Expose a local dev server to a remote machine: `R 8080:localhost:3000`
+- Persistent tunnels that survive terminal tab closes — the tunnel keeps running until you stop it or quit RustConn
+
+**Difference from Per-connection Port Forwarding:**
+
+| Feature | Per-connection (SSH tab) | Standalone Tunnel Manager |
+|---------|--------------------------|---------------------------|
+| Lifecycle | Tied to terminal session | Independent background process |
+| Terminal | Opens a terminal tab | No terminal (headless `ssh -N`) |
+| Management | Configured per-connection | Centralized in Tunnel Manager |
+| Auto-start | No | Yes |
+| Auto-reconnect | No | Yes |
+
 ---
 
 ## Settings
@@ -1402,7 +1497,7 @@ The settings dialog uses `adw::PreferencesDialog` with built-in search. Settings
 
 ### Interface page
 
-**Appearance group:** Theme (System, Light, Dark), Language (UI language selector, restart required), Color tabs by protocol.
+**Appearance group:** Theme (System, Light, Dark), Language (UI language selector, restart required), Color tabs by protocol, Sidebar width (260–500 pixels, default 320).
 
 **Window group:** Remember size (restore window geometry on startup).
 
@@ -2033,6 +2128,7 @@ RustConn uses VTE, which passes all keystrokes to the shell. Configure vim/emacs
 | Ctrl+Shift+I | Statistics |
 | Ctrl+G | Password Generator |
 | Ctrl+Shift+L | Wake On LAN |
+| Ctrl+T | SSH Tunnel Manager |
 | Ctrl+? / F1 | Keyboard Shortcuts |
 | Ctrl+Q | Quit |
 

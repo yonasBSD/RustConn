@@ -1034,6 +1034,7 @@ impl TerminalNotebook {
             automation,
             &rustconn_core::config::TerminalSettings::default(),
             None,
+            &[], // no variables for default tab
         )
     }
 
@@ -1041,6 +1042,10 @@ impl TerminalNotebook {
     ///
     /// When `theme_override` is `Some`, the per-connection colors are applied
     /// on top of the global theme. When `None`, the global theme is used as-is.
+    ///
+    /// `global_variables` are used to substitute `${VAR}` references in
+    /// Expect-rule responses before the automation session is created.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_terminal_tab_with_settings(
         &self,
         connection_id: Uuid,
@@ -1049,6 +1054,7 @@ impl TerminalNotebook {
         automation: Option<&AutomationConfig>,
         settings: &rustconn_core::config::TerminalSettings,
         theme_override: Option<&rustconn_core::models::ConnectionThemeOverride>,
+        global_variables: &[rustconn_core::Variable],
     ) -> Uuid {
         let session_id = Uuid::new_v4();
         self.remove_welcome_page();
@@ -1056,6 +1062,15 @@ impl TerminalNotebook {
         let terminal = Terminal::new();
         terminal.set_hexpand(true);
         terminal.set_vexpand(true);
+
+        // Build a VariableManager for substituting ${VAR} in Expect responses
+        let var_manager = {
+            let mut mgr = rustconn_core::variables::VariableManager::new();
+            for var in global_variables {
+                mgr.set_global(var.clone());
+            }
+            mgr
+        };
 
         // Setup automation if configured
         if let Some(cfg) = automation
@@ -1068,9 +1083,24 @@ impl TerminalNotebook {
                     continue;
                 }
                 if let Ok(regex) = Regex::new(&rule.pattern) {
+                    // Substitute ${VAR} references in the response text
+                    let resolved_response = var_manager
+                        .substitute_for_command(
+                            &rule.response,
+                            rustconn_core::variables::VariableScope::Global,
+                        )
+                        .unwrap_or_else(|e| {
+                            tracing::warn!(
+                                response = %rule.response,
+                                error = %e,
+                                "Variable substitution failed in expect response, using raw text"
+                            );
+                            rule.response.clone()
+                        });
+
                     triggers.push(Trigger {
                         pattern: regex,
-                        response: rule.response.clone(),
+                        response: resolved_response,
                         one_shot: rule.one_shot,
                         timeout_ms: rule.timeout_ms,
                         created_at: now,

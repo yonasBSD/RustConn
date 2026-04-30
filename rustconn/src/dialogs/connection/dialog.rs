@@ -149,6 +149,7 @@ pub struct ConnectionDialog {
     ssh_waypipe: CheckButton,
     ssh_x11_forwarding: CheckButton,
     ssh_compression: CheckButton,
+    ssh_verbose: CheckButton,
     ssh_startup_entry: Entry,
     ssh_options_entry: Entry,
     ssh_agent_socket_entry: adw::EntryRow,
@@ -484,6 +485,7 @@ impl ConnectionDialog {
         let ssh_waypipe = ssh_widgets.waypipe;
         let ssh_x11_forwarding = ssh_widgets.x11_forwarding;
         let ssh_compression = ssh_widgets.compression;
+        let ssh_verbose = ssh_widgets.verbose;
         let ssh_startup_entry = ssh_widgets.startup_entry;
         let ssh_options_entry = ssh_widgets.options_entry;
         let mosh_settings_group = ssh_widgets.mosh_group;
@@ -820,6 +822,7 @@ impl ConnectionDialog {
             &ssh_waypipe,
             &ssh_x11_forwarding,
             &ssh_compression,
+            &ssh_verbose,
             &ssh_startup_entry,
             &ssh_options_entry,
             &ssh_agent_socket_entry,
@@ -995,6 +998,7 @@ impl ConnectionDialog {
             ssh_waypipe,
             ssh_x11_forwarding,
             ssh_compression,
+            ssh_verbose,
             ssh_startup_entry,
             ssh_options_entry,
             ssh_agent_socket_entry,
@@ -1877,6 +1881,7 @@ impl ConnectionDialog {
         ssh_waypipe: &CheckButton,
         ssh_x11_forwarding: &CheckButton,
         ssh_compression: &CheckButton,
+        ssh_verbose: &CheckButton,
         ssh_startup_entry: &Entry,
         ssh_options_entry: &Entry,
         ssh_agent_socket_entry: &adw::EntryRow,
@@ -2038,6 +2043,7 @@ impl ConnectionDialog {
         let ssh_waypipe = ssh_waypipe.clone();
         let ssh_x11_forwarding = ssh_x11_forwarding.clone();
         let ssh_compression = ssh_compression.clone();
+        let ssh_verbose = ssh_verbose.clone();
         let ssh_startup_entry = ssh_startup_entry.clone();
         let ssh_options_entry = ssh_options_entry.clone();
         let ssh_agent_socket_entry = ssh_agent_socket_entry.clone();
@@ -2212,6 +2218,7 @@ impl ConnectionDialog {
                 ssh_waypipe: &ssh_waypipe,
                 ssh_x11_forwarding: &ssh_x11_forwarding,
                 ssh_compression: &ssh_compression,
+                ssh_verbose: &ssh_verbose,
                 ssh_startup_entry: &ssh_startup_entry,
                 ssh_options_entry: &ssh_options_entry,
                 ssh_agent_socket_entry: &ssh_agent_socket_entry,
@@ -5881,6 +5888,7 @@ impl ConnectionDialog {
         self.ssh_waypipe.set_active(ssh.waypipe);
         self.ssh_x11_forwarding.set_active(ssh.x11_forwarding);
         self.ssh_compression.set_active(ssh.compression);
+        self.ssh_verbose.set_active(ssh.verbose);
         if let Some(ref cmd) = ssh.startup_command {
             self.ssh_startup_entry.set_text(cmd);
         }
@@ -6977,6 +6985,7 @@ struct ConnectionDialogData<'a> {
     ssh_waypipe: &'a CheckButton,
     ssh_x11_forwarding: &'a CheckButton,
     ssh_compression: &'a CheckButton,
+    ssh_verbose: &'a CheckButton,
     ssh_startup_entry: &'a Entry,
     ssh_options_entry: &'a Entry,
     ssh_agent_socket_entry: &'a adw::EntryRow,
@@ -7976,6 +7985,7 @@ impl ConnectionDialogData<'_> {
             waypipe: self.ssh_waypipe.is_active(),
             x11_forwarding: self.ssh_x11_forwarding.is_active(),
             compression: self.ssh_compression.is_active(),
+            verbose: self.ssh_verbose.is_active(),
             custom_options,
             startup_command,
             sftp_enabled: true,

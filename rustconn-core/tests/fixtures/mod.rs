@@ -38,6 +38,7 @@ pub fn sample_ssh_connection_with_key() -> Connection {
         ssh_agent_socket: None,
         keep_alive_interval: None,
         keep_alive_count_max: None,
+        verbose: false,
     };
 
     let mut conn = Connection::new(
@@ -77,6 +78,7 @@ pub fn sample_ssh_connection_custom_port() -> Connection {
         ssh_agent_socket: None,
         keep_alive_interval: None,
         keep_alive_count_max: None,
+        verbose: false,
     };
 
     let mut conn = Connection::new(
@@ -114,6 +116,7 @@ pub fn sample_ssh_connection_with_proxy() -> Connection {
         ssh_agent_socket: None,
         keep_alive_interval: None,
         keep_alive_count_max: None,
+        verbose: false,
     };
 
     let mut conn = Connection::new(

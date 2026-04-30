@@ -202,6 +202,13 @@ fn start_ssh_connection_internal(
         .map(|s| s.settings().terminal.clone())
         .unwrap_or_default();
 
+    // Get global variables for substitution (secret values resolved from vault)
+    let global_variables = state
+        .try_borrow()
+        .ok()
+        .map(|s| crate::state::resolve_global_variables(s.settings()))
+        .unwrap_or_default();
+
     // Create terminal tab for SSH with user settings
     let session_id = notebook.create_terminal_tab_with_settings(
         connection_id,
@@ -210,6 +217,7 @@ fn start_ssh_connection_internal(
         Some(&conn.automation),
         &terminal_settings,
         conn.theme_override.as_ref(),
+        &global_variables,
     );
 
     // Apply highlight rules (built-in defaults + global + per-connection)
@@ -250,13 +258,6 @@ fn start_ssh_connection_internal(
         rustconn_core::ProtocolConfig::Ssh(ssh)
             if ssh.jump_host_id.is_some()
     ) || ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups).is_some();
-
-    // Get global variables for substitution (secret values resolved from vault)
-    let global_variables = state
-        .try_borrow()
-        .ok()
-        .map(|s| crate::state::resolve_global_variables(s.settings()))
-        .unwrap_or_default();
 
     // Apply variable substitution to host and username (e.g., ${VAR_NAME} -> actual value)
     let host = substitute_variables(&conn.host, &global_variables);
@@ -1913,6 +1914,13 @@ fn start_telnet_connection_internal(
         .map(|s| s.settings().terminal.clone())
         .unwrap_or_default();
 
+    // Get global variables for substitution (secret values resolved from vault)
+    let global_variables = state
+        .try_borrow()
+        .ok()
+        .map(|s| crate::state::resolve_global_variables(s.settings()))
+        .unwrap_or_default();
+
     // Create terminal tab for Telnet
     let session_id = notebook.create_terminal_tab_with_settings(
         connection_id,
@@ -1921,6 +1929,7 @@ fn start_telnet_connection_internal(
         Some(&conn.automation),
         &terminal_settings,
         conn.theme_override.as_ref(),
+        &global_variables,
     );
 
     // Apply highlight rules (built-in defaults + global + per-connection)
@@ -1943,13 +1952,6 @@ fn start_telnet_connection_internal(
     if let Some(entry_id) = history_entry_id {
         notebook.set_history_entry_id(session_id, entry_id);
     }
-
-    // Get global variables for substitution (secret values resolved from vault)
-    let global_variables = state
-        .try_borrow()
-        .ok()
-        .map(|s| crate::state::resolve_global_variables(s.settings()))
-        .unwrap_or_default();
 
     let host = substitute_variables(&conn.host, &global_variables);
 
@@ -2139,6 +2141,13 @@ pub fn start_zerotrust_connection(
         .map(|s| s.settings().terminal.clone())
         .unwrap_or_default();
 
+    // Get global variables for substitution in Expect responses
+    let global_variables = state
+        .try_borrow()
+        .ok()
+        .map(|s| crate::state::resolve_global_variables(s.settings()))
+        .unwrap_or_default();
+
     // Create terminal tab for Zero Trust with provider-specific protocol
     let tab_protocol = format!("zerotrust:{provider_key}");
     let session_id = notebook.create_terminal_tab_with_settings(
@@ -2148,6 +2157,7 @@ pub fn start_zerotrust_connection(
         Some(&automation_config),
         &terminal_settings,
         conn.theme_override.as_ref(),
+        &global_variables,
     );
 
     // Record connection start in history
@@ -2263,6 +2273,13 @@ pub fn start_serial_connection(
         .map(|s| s.settings().terminal.clone())
         .unwrap_or_default();
 
+    // Get global variables for substitution in Expect responses
+    let global_variables = state
+        .try_borrow()
+        .ok()
+        .map(|s| crate::state::resolve_global_variables(s.settings()))
+        .unwrap_or_default();
+
     // Create terminal tab for Serial
     let session_id = notebook.create_terminal_tab_with_settings(
         connection_id,
@@ -2271,6 +2288,7 @@ pub fn start_serial_connection(
         Some(&conn.automation),
         &terminal_settings,
         conn.theme_override.as_ref(),
+        &global_variables,
     );
 
     // Apply highlight rules (built-in defaults + global + per-connection)
@@ -2425,6 +2443,13 @@ pub fn start_kubernetes_connection(
         .map(|s| s.settings().terminal.clone())
         .unwrap_or_default();
 
+    // Get global variables for substitution in Expect responses
+    let global_variables = state
+        .try_borrow()
+        .ok()
+        .map(|s| crate::state::resolve_global_variables(s.settings()))
+        .unwrap_or_default();
+
     // Create terminal tab for Kubernetes
     let session_id = notebook.create_terminal_tab_with_settings(
         connection_id,
@@ -2433,6 +2458,7 @@ pub fn start_kubernetes_connection(
         Some(&conn.automation),
         &terminal_settings,
         conn.theme_override.as_ref(),
+        &global_variables,
     );
 
     // Apply highlight rules (built-in defaults + global + per-connection)
@@ -2665,6 +2691,13 @@ fn start_mosh_connection_internal(
         .map(|s| s.settings().terminal.clone())
         .unwrap_or_default();
 
+    // Get global variables for substitution in Expect responses
+    let global_variables = state
+        .try_borrow()
+        .ok()
+        .map(|s| crate::state::resolve_global_variables(s.settings()))
+        .unwrap_or_default();
+
     // Create terminal tab for MOSH
     let session_id = notebook.create_terminal_tab_with_settings(
         connection_id,
@@ -2673,6 +2706,7 @@ fn start_mosh_connection_internal(
         Some(&conn.automation),
         &terminal_settings,
         conn.theme_override.as_ref(),
+        &global_variables,
     );
 
     // Apply highlight rules (built-in defaults + global + per-connection)

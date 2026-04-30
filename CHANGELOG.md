@@ -5,6 +5,35 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.6] - 2026-04-30
+
+### Fixed
+- **Expect script variables not substituted** — `${MY_PASSWORD}` and other `${VAR}` references in Expect rule responses were sent as literal text instead of being resolved to their actual values; now uses `VariableManager` to substitute global variables before creating automation triggers ([#105](https://github.com/totoshko88/RustConn/issues/105))
+- **GNOME HIG: missing ellipsis on menu items** — "Active Sessions" and "SSH Tunnels" in the hamburger menu now use ellipsis ("Active Sessions...", "SSH Tunnels...") to indicate they open a dialog/window, per GNOME HIG conventions
+- **False `c-format` flag on command palette search string** — `xgettext` incorrectly marked `"Search connections, > commands, @ tags, # groups, % tabs"` as a C format string; `% T` was interpreted as a format specifier, causing `msgfmt --check` to fail in 14 languages; removed the flag from POT and all 16 PO files
+- **Corrupted `Plural-Forms` in uk.po** — `%` characters in the Ukrainian plural formula were replaced with `{}` placeholders during a previous i18n update; restored the correct `nplurals=3` formula
+
+### Added
+- **SSH verbose mode for connection debugging** — new "Verbose" toggle in SSH connection settings adds `-v` flag to the SSH command, showing detailed debug output in the terminal to help diagnose connection issues such as resets by remote devices ([#106](https://github.com/totoshko88/RustConn/issues/106))
+- **Sidebar width setting** — new "Sidebar width" control in Settings → Appearance allows adjusting the sidebar width from 260 to 500 pixels; applied immediately and persisted across sessions ([#96](https://github.com/totoshko88/RustConn/issues/96))
+- **SSH Tunnel Manager** — standalone window for managing headless SSH port-forwarding tunnels without terminal sessions; supports Local/Remote/Dynamic forwards, auto-start on launch, auto-reconnect, and references existing SSH connections for host/key configuration; accessible via menu or Ctrl+T ([#96](https://github.com/totoshko88/RustConn/issues/96))
+
+### Improved
+- **GNOME HIG: tunnel delete confirmation** — deleting a tunnel from the SSH Tunnel Manager now shows an `AdwAlertDialog` confirmation ("Delete Tunnel? — Tunnel "…" will be permanently removed.") with a destructive "Delete" button; previously the tunnel was removed immediately without confirmation
+- **GNOME HIG: tunnel dialog inline validation** — the Save button in the Add/Edit Tunnel dialog is disabled while the tunnel name is empty, preventing accidental saves of unnamed tunnels; previously the dialog silently refused to save without any visual feedback
+
+### Documentation
+- **User Guide: SSH Tunnel Manager** — complete section with create/manage workflow, tunnel options table, use case examples, and comparison with per-connection port forwarding
+- **User Guide: SSH verbose mode** — new section under SSH → Session Options with configuration steps and when-to-use guidance
+- **User Guide: Expect variable substitution** — documented `${VARIABLE_NAME}` placeholder support in Expect rule responses with multi-step login example
+- **User Guide: Sidebar width** — added to Settings → Appearance documentation
+- **User Guide: context menu corrections** — removed non-existent "View Details" entry, fixed "Pin to Favorites"→"Pin / Unpin" to match code, added undocumented "Run Snippet..." and "Start/Stop Recording" entries, clarified Copy/Paste Connection scope (sidebar focus + hamburger menu only)
+- **User Guide: Ctrl+T shortcut** — added SSH Tunnel Manager shortcut to Keyboard Shortcuts table
+
+### Translations
+- All 16 languages (be, cs, da, de, es, fr, it, kk, nl, pl, pt, sk, sv, uk, uz, zh-cn) aligned to 1748 translatable strings with 0 untranslated entries
+- **Chinese Simplified (zh-cn)** — merged community translation update from GaaChun ([PR #108](https://github.com/totoshko88/RustConn/pull/108)); filled 36 new strings from 0.12.6; 20 fuzzy entries remaining (upstream review pending)
+
 ## [0.12.5] - 2026-04-29
 
 ### Fixed

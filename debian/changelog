@@ -1,3 +1,15 @@
+rustconn (0.12.6-1) unstable; urgency=medium
+
+  * [Fixed] Expect script variables not substituted — ${VAR} references
+    in Expect rule responses were sent as literal text instead of being
+    resolved; now uses VariableManager to substitute global variables
+    before creating automation triggers (#105)
+  * [Added] SSH verbose mode for connection debugging — new Verbose
+    toggle in SSH connection settings adds -v flag to the SSH command,
+    showing detailed debug output to help diagnose connection issues (#106)
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Wed, 29 Apr 2026 12:00:00 +0200
+
 rustconn (0.12.5-1) unstable; urgency=medium
 
   * [Fixed] Settings dialog overflows after Hoop.dev install — hoop

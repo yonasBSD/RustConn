@@ -143,7 +143,7 @@ pub fn create_app_menu() -> gio::Menu {
     tools_section.append(Some(&i18n("Clusters...")), Some("win.manage-clusters"));
     tools_section.append(Some(&i18n("Templates...")), Some("win.manage-templates"));
     tools_section.append(Some(&i18n("Variables...")), Some("win.manage-variables"));
-    tools_section.append(Some(&i18n("Active Sessions")), Some("win.show-sessions"));
+    tools_section.append(Some(&i18n("Active Sessions...")), Some("win.show-sessions"));
     tools_section.append(
         Some(&i18n("Connection History...")),
         Some("win.show-history"),
@@ -177,6 +177,7 @@ pub fn create_app_menu() -> gio::Menu {
 
     // App section
     let app_section = gio::Menu::new();
+    app_section.append(Some(&i18n("SSH Tunnels...")), Some("win.ssh-tunnels"));
     app_section.append(Some(&i18n("Settings")), Some("win.settings"));
     // Flatpak Components menu item - only visible in Flatpak environment
     // The action is always registered but does nothing outside Flatpak

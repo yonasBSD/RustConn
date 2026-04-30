@@ -472,6 +472,7 @@ impl AsbruImporter {
                         ssh_agent_socket: None,
                         keep_alive_interval: None,
                         keep_alive_count_max: None,
+                        verbose: false,
                     }),
                     22u16,
                 )

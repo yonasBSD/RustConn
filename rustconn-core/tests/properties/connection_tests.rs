@@ -109,6 +109,7 @@ fn arb_ssh_config() -> impl Strategy<Value = SshConfig> {
                     ssh_agent_socket: None,
                     keep_alive_interval: None,
                     keep_alive_count_max: None,
+                    verbose: false,
                 }
             },
         )

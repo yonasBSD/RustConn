@@ -131,6 +131,15 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.12.6" date="2026-04-29">
+      <description>
+        <p>Version 0.12.6 — Bug fix and SSH debugging:</p>
+        <ul>
+          <li>Fixed Expect script variables not substituted — ${VAR} references in Expect rule responses now resolved via VariableManager (#105)</li>
+          <li>SSH verbose mode for connection debugging — new Verbose toggle adds -v flag to SSH command for detailed debug output (#106)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.12.5" date="2026-04-29">
       <description>
         <p>Version 0.12.5 — Bug fixes for settings dialog and tray icon:</p>

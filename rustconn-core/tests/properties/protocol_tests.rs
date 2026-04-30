@@ -62,6 +62,7 @@ fn arb_ssh_config() -> impl Strategy<Value = SshConfig> {
                     ssh_agent_socket: None,
                     keep_alive_interval: None,
                     keep_alive_count_max: None,
+                    verbose: false,
                 }
             },
         )
@@ -822,6 +823,7 @@ fn arb_ssh_config_with_identities_only() -> impl Strategy<Value = SshConfig> {
                     ssh_agent_socket: None,
                     keep_alive_interval: None,
                     keep_alive_count_max: None,
+                    verbose: false,
                 }
             },
         )
@@ -862,6 +864,7 @@ fn arb_ssh_config_with_agent_fingerprint() -> impl Strategy<Value = SshConfig> {
                 ssh_agent_socket: None,
                 keep_alive_interval: None,
                 keep_alive_count_max: None,
+                verbose: false,
             }
         })
 }
@@ -1022,6 +1025,7 @@ fn arb_ssh_config_with_file_key_source() -> impl Strategy<Value = SshConfig> {
                     ssh_agent_socket: None,
                     keep_alive_interval: None,
                     keep_alive_count_max: None,
+                    verbose: false,
                 }
             },
         )
@@ -1061,6 +1065,7 @@ fn arb_ssh_config_with_agent_key_source() -> impl Strategy<Value = SshConfig> {
                     ssh_agent_socket: None,
                     keep_alive_interval: None,
                     keep_alive_count_max: None,
+                    verbose: false,
                 }
             },
         )
@@ -1594,6 +1599,7 @@ fn arb_ssh_config_with_port_forwards() -> impl Strategy<Value = SshConfig> {
             ssh_agent_socket: None,
             keep_alive_interval: None,
             keep_alive_count_max: None,
+            verbose: false,
         })
 }
 
@@ -1651,7 +1657,7 @@ proptest! {
             waypipe: false,
             ssh_agent_socket: None,
             keep_alive_interval: None,
-            keep_alive_count_max: None,
+            keep_alive_count_max: None, verbose: false,
         };
         let args = config.build_command_args();
 

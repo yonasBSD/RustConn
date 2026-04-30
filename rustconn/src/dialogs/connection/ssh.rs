@@ -45,6 +45,7 @@ pub struct SshOptionsWidgets {
     pub waypipe: CheckButton,
     pub x11_forwarding: CheckButton,
     pub compression: CheckButton,
+    pub verbose: CheckButton,
     pub startup_entry: Entry,
     pub options_entry: Entry,
     /// MOSH settings group (hidden by default, shown when protocol is MOSH)
@@ -98,6 +99,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         waypipe,
         x11_forwarding,
         compression,
+        verbose,
         startup_entry,
         options_entry,
         ssh_agent_socket_entry,
@@ -158,6 +160,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         waypipe,
         x11_forwarding,
         compression,
+        verbose,
         startup_entry,
         options_entry,
         mosh_group,
@@ -511,6 +514,7 @@ fn create_session_group() -> (
     CheckButton,
     CheckButton,
     CheckButton,
+    CheckButton,
     Entry,
     Entry,
     adw::EntryRow,
@@ -542,6 +546,12 @@ fn create_session_group() -> (
         .subtitle("Enable compression for slow connections (-C)")
         .build();
     session_group.add(&compression_row);
+
+    // Verbose/debug switch
+    let (verbose_row, verbose) = CheckboxRowBuilder::new("Verbose")
+        .subtitle("Show SSH debug output for troubleshooting (-v)")
+        .build();
+    session_group.add(&verbose_row);
 
     // Startup command entry
     let (startup_row, startup_entry) = EntryRowBuilder::new("Startup Command")
@@ -593,6 +603,7 @@ fn create_session_group() -> (
         waypipe,
         x11_forwarding,
         compression,
+        verbose,
         startup_entry,
         options_entry,
         ssh_agent_socket_entry,

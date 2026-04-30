@@ -244,6 +244,7 @@ impl SshConfigImporter {
             keep_alive_count_max: options
                 .get("serveralivecountmax")
                 .and_then(|v| v.parse::<u32>().ok()),
+            verbose: false,
         };
 
         // Create connection

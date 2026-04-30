@@ -13,6 +13,7 @@ mod protocol;
 mod smart_folder;
 mod snippet;
 mod template;
+mod tunnel;
 
 pub use connection::{
     AutomationConfig, Connection, ConnectionThemeOverride, PasswordSource, WindowGeometry,
@@ -38,3 +39,4 @@ pub use protocol::{
 pub use smart_folder::SmartFolder;
 pub use snippet::{Snippet, SnippetVariable};
 pub use template::{ConnectionTemplate, TemplateError, group_templates_by_protocol};
+pub use tunnel::{StandaloneTunnel, TunnelStatus};

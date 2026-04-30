@@ -64,6 +64,7 @@ pub mod template;
 pub mod terminal_themes;
 pub mod testing;
 pub mod tracing;
+pub mod tunnel_manager;
 pub mod variables;
 pub mod vnc_client;
 pub mod wol;
@@ -148,8 +149,8 @@ pub use models::{
     ProtocolConfig, ProtocolType, RdpConfig, RdpGateway, Resolution, ScaleOverride, SerialBaudRate,
     SerialConfig, SerialDataBits, SerialFlowControl, SerialParity, SerialStopBits, Snippet,
     SnippetVariable, SpiceConfig, SpiceImageCompression, SshAuthMethod, SshConfig, SshKeySource,
-    TelnetBackspaceSends, TelnetConfig, TelnetDeleteSends, TemplateError, VncConfig,
-    WindowGeometry, WindowMode, group_templates_by_protocol,
+    StandaloneTunnel, TelnetBackspaceSends, TelnetConfig, TelnetDeleteSends, TemplateError,
+    TunnelStatus, VncConfig, WindowGeometry, WindowMode, group_templates_by_protocol,
 };
 pub use password_generator::{
     CharacterSet, PasswordGenerator, PasswordGeneratorConfig, PasswordGeneratorError,

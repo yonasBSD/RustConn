@@ -24,6 +24,7 @@ pub fn create_ui_page() -> (
     DropDown,
     CheckButton,
     CheckButton,
+    adw::SpinRow,
 ) {
     let page = adw::PreferencesPage::builder()
         .title(i18n("Interface"))
@@ -124,6 +125,14 @@ pub fn create_ui_page() -> (
         .build();
     show_filters_row.add_prefix(&show_protocol_filters);
     appearance_group.add(&show_filters_row);
+
+    // Sidebar width SpinRow
+    let sidebar_width_row = adw::SpinRow::builder()
+        .title(i18n("Sidebar width"))
+        .subtitle(i18n("Width of the connection sidebar in pixels"))
+        .adjustment(&gtk4::Adjustment::new(320.0, 260.0, 500.0, 10.0, 50.0, 0.0))
+        .build();
+    appearance_group.add(&sidebar_width_row);
 
     page.add(&appearance_group);
 
@@ -254,6 +263,7 @@ pub fn create_ui_page() -> (
         startup_action_dropdown,
         color_tabs_by_protocol,
         show_protocol_filters,
+        sidebar_width_row,
     )
 }
 
@@ -297,6 +307,7 @@ pub fn load_ui_settings(
     startup_action_dropdown: &DropDown,
     color_tabs_by_protocol: &CheckButton,
     show_protocol_filters: &CheckButton,
+    sidebar_width_row: &adw::SpinRow,
     settings: &UiSettings,
     connections: &[&Connection],
 ) {
@@ -344,6 +355,10 @@ pub fn load_ui_settings(
 
     show_protocol_filters.set_active(settings.show_protocol_filters);
 
+    // Load sidebar width (default 320 if not set)
+    let sidebar_w = settings.sidebar_width.unwrap_or(320);
+    sidebar_width_row.set_value(f64::from(sidebar_w.clamp(260, 500)));
+
     // Populate startup action dropdown with connections
     let entries = build_startup_entries(connections);
     let mut labels: Vec<String> = vec![i18n("Do nothing"), i18n("Local Shell")];
@@ -380,6 +395,7 @@ pub fn collect_ui_settings(
     startup_action_dropdown: &DropDown,
     color_tabs_by_protocol: &CheckButton,
     show_protocol_filters: &CheckButton,
+    sidebar_width_row: &adw::SpinRow,
     connections: &[&Connection],
 ) -> UiSettings {
     let mut selected_scheme = ColorScheme::System;
@@ -425,7 +441,7 @@ pub fn collect_ui_settings(
         remember_window_geometry: remember_geometry.is_active(),
         window_width: None,
         window_height: None,
-        sidebar_width: None,
+        sidebar_width: Some(sidebar_width_row.value().clamp(260.0, 500.0) as i32),
         enable_tray_icon: enable_tray_icon.is_active(),
         minimize_to_tray: minimize_to_tray.is_active(),
         expanded_groups: std::collections::HashSet::new(),

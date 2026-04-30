@@ -815,6 +815,10 @@ pub struct SshConfig {
     /// `None` uses SSH default (3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keep_alive_count_max: Option<u32>,
+    /// Enable verbose/debug output for SSH connections (`-v` flag).
+    /// Useful for diagnosing connection issues (e.g., reset by remote device).
+    #[serde(default)]
+    pub verbose: bool,
 }
 
 fn default_true() -> bool {
@@ -845,6 +849,11 @@ impl SshConfig {
     #[allow(clippy::too_many_lines)]
     pub fn build_command_args(&self) -> Vec<String> {
         let mut args = Vec::new();
+
+        // Add verbose flag for debugging connection issues
+        if self.verbose {
+            args.push("-v".to_string());
+        }
 
         // Determine if we should add IdentitiesOnly based on key source
         // File auth method should always use IdentitiesOnly to prevent "Too many auth failures"

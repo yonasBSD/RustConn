@@ -113,6 +113,7 @@ fn arb_ssh_config() -> impl Strategy<Value = SshConfig> {
                     ssh_agent_socket: None,
                     keep_alive_interval: None,
                     keep_alive_count_max: None,
+                    verbose: false,
                 }
             },
         )
@@ -512,6 +513,7 @@ fn arb_full_settings() -> impl Strategy<Value = AppSettings> {
                     smart_folders: Vec::new(),
                     ssh_agent_socket: None,
                     sync: SyncSettings::default(),
+                    standalone_tunnels: Vec::new(),
                 }
             },
         )
