@@ -68,7 +68,7 @@ pub fn create_header_bar() -> adw::HeaderBar {
     // Add menu button (rightmost)
     let menu_button = MenuButton::builder()
         .icon_name("open-menu-symbolic")
-        .tooltip_text(i18n("Menu"))
+        .tooltip_text(i18n("Menu (F10)"))
         .build();
     menu_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Menu"))]);
 
@@ -121,10 +121,11 @@ pub fn create_header_bar() -> adw::HeaderBar {
 ///
 /// Menu sections:
 /// 1. Connections: New Connection, New Group, Quick Connect, Local Shell
-/// 2. Tools: Snippets, Clusters, Templates, Sessions, History, Statistics, Password Generator
+/// 2. Tools: Snippets, Clusters, Templates, Variables, Sessions, History, Statistics,
+///    Password Generator, Wake On LAN, Recordings, SSH Tunnels
 /// 3. File: Import, Export
 /// 4. Edit: Copy Connection, Paste Connection
-/// 5. App: Settings, Flatpak Components (if Flatpak), About, Quit
+/// 5. App: Settings, Flatpak Components (if Flatpak), Keyboard Shortcuts, About, Quit
 #[must_use]
 pub fn create_app_menu() -> gio::Menu {
     let menu = gio::Menu::new();
@@ -158,6 +159,7 @@ pub fn create_app_menu() -> gio::Menu {
         Some("win.wake-on-lan-dialog"),
     );
     tools_section.append(Some(&i18n("Recordings...")), Some("win.manage-recordings"));
+    tools_section.append(Some(&i18n("SSH Tunnels...")), Some("win.ssh-tunnels"));
     menu.append_section(None, &tools_section);
 
     // File section (import/export connections)
@@ -177,8 +179,7 @@ pub fn create_app_menu() -> gio::Menu {
 
     // App section
     let app_section = gio::Menu::new();
-    app_section.append(Some(&i18n("SSH Tunnels...")), Some("win.ssh-tunnels"));
-    app_section.append(Some(&i18n("Settings")), Some("win.settings"));
+    app_section.append(Some(&i18n("Settings...")), Some("win.settings"));
     // Flatpak Components menu item - only visible in Flatpak environment
     // The action is always registered but does nothing outside Flatpak
     if rustconn_core::flatpak::is_flatpak() {
@@ -187,6 +188,7 @@ pub fn create_app_menu() -> gio::Menu {
             Some("win.flatpak-components"),
         );
     }
+    app_section.append(Some(&i18n("Keyboard Shortcuts...")), Some("app.shortcuts"));
     app_section.append(Some(&i18n("About")), Some("app.about"));
     app_section.append(Some(&i18n("Quit")), Some("app.quit"));
     menu.append_section(None, &app_section);

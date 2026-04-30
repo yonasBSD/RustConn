@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.12.6
+Version:        0.12.7
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -235,6 +235,15 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu Apr 30 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.7-1
+- [Fixed] Group credentials: Variable source shows password field
+  instead of variable selector — now shows dropdown populated with
+  secret global variables (#109)
+- [Fixed] Group credentials: saving Variable source stored empty
+  string instead of actual variable name
+- [Improved] GNOME HIG: accessible labels, menu reorganization,
+  Keyboard Shortcuts entry added to app menu
+
 * Wed Apr 29 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.6-1
 - [Fixed] Expect script variables not substituted — ${VAR} references
   in Expect rule responses were sent as literal text instead of being

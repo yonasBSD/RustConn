@@ -1,3 +1,15 @@
+rustconn (0.12.7-1) unstable; urgency=medium
+
+  * [Fixed] Group credentials: Variable source shows password field
+    instead of variable selector — now shows dropdown populated with
+    secret global variables (#109)
+  * [Fixed] Group credentials: saving Variable source stored empty
+    string instead of actual variable name
+  * [Improved] GNOME HIG: accessible labels, menu reorganization,
+    Keyboard Shortcuts entry added to app menu
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Thu, 30 Apr 2026 12:00:00 +0200
+
 rustconn (0.12.6-1) unstable; urgency=medium
 
   * [Fixed] Expect script variables not substituted — ${VAR} references

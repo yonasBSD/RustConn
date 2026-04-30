@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.12.6** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.12.7** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -1069,13 +1069,14 @@ This is useful for reorganizing large numbers of connections, cleaning up after 
 Groups can store default credentials (Username, Password, Domain) that are inherited by their children.
 
 **Configure Group Credentials:**
-1. In "New Group" or "Edit Group" dialog, fill in the **Default Credentials** section
+1. In "New Group" or "Edit Group" dialog, expand the **Default Credentials** section
 2. Select **Password Source**:
-   - **KeePass** — Store in KeePass database (hierarchical: `RustConn/Groups/{path}`)
-   - **Keyring** — Store in system keyring (libsecret)
-   - **Bitwarden** — Store in Bitwarden vault
-3. Click the **folder icon** next to password field to load existing password from vault
-4. Password source auto-selects based on your preferred backend in Settings
+   - **Prompt** — Ask for password on each connection
+   - **Vault** — Store in the configured secret backend (KeePass, Keyring, Bitwarden, 1Password, Passbolt); click the **folder icon** to load an existing password from the vault
+   - **Variable** — Use a named secret global variable (dropdown shows only variables marked as secret in Settings → Variables)
+   - **Inherit** — Inherit from parent group
+   - **None** — No password
+3. Password source determines which UI is shown: Vault shows a password field with load button, Variable shows a dropdown of secret variables
 
 **Inherit Credentials:**
 1. Create a connection inside the group
@@ -2129,6 +2130,7 @@ RustConn uses VTE, which passes all keystrokes to the shell. Configure vim/emacs
 | Ctrl+G | Password Generator |
 | Ctrl+Shift+L | Wake On LAN |
 | Ctrl+T | SSH Tunnel Manager |
+| F10 | Open Menu |
 | Ctrl+? / F1 | Keyboard Shortcuts |
 | Ctrl+Q | Quit |
 

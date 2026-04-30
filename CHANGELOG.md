@@ -5,6 +5,24 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.7] - 2026-05-01
+
+### Fixed
+- **Group credentials: Variable source shows password field instead of variable selector** — when editing a group and choosing "Variables" as the credential type, the dialog incorrectly displayed a password entry field; now shows a dropdown populated with secret global variables, matching the behavior of individual connection editing ([#109](https://github.com/totoshko88/RustConn/issues/109))
+- **Group credentials: saving Variable source stored empty string** — selecting "Variable" and saving the group produced `PasswordSource::Variable("")` instead of the actual variable name; now correctly reads the selected variable from the dropdown
+- **Group credentials: no validation for empty variable selection** — saving with "Variable" source when no secret global variables exist silently stored an empty variable name; now shows a validation error prompting the user to select a variable
+
+### Improved
+- **GNOME HIG: accessible labels for group credential widgets** — added `LabelledBy` relations for the password source dropdown, password entry, and variable dropdown in the group edit dialog so screen readers can announce their purpose
+- **GNOME HIG: menu button tooltip shows F10 shortcut** — the hamburger menu button tooltip now reads "Menu (F10)", consistent with other header bar buttons that show their keyboard shortcut
+- **GNOME HIG: "SSH Tunnels" moved to Tools section** — SSH Tunnels was in the App section alongside Settings/About/Quit; moved to the Tools section where it logically belongs with other management dialogs
+- **GNOME HIG: "Settings" menu item ellipsis** — "Settings" now shows as "Settings..." to indicate it opens a window, per GNOME HIG ellipsis convention
+- **GNOME HIG: "Keyboard Shortcuts" added to app menu** — the existing `app.shortcuts` action (F1) was not discoverable from the hamburger menu; added "Keyboard Shortcuts..." entry in the App section before About, matching standard GNOME app layout
+
+### Documentation
+- **User Guide: group credentials rewritten** — replaced outdated KeePass/Keyring/Bitwarden password source list with the current unified model (Prompt, Vault, Variable, Inherit, None); documented that Variable source shows a dropdown of secret global variables
+- **User Guide: F10 shortcut** — added F10 (Open Menu) to the Application keyboard shortcuts table
+
 ## [0.12.6] - 2026-04-30
 
 ### Fixed

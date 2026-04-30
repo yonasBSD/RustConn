@@ -684,17 +684,65 @@ pub fn show_edit_group_dialog(
     password_value_row.add_suffix(&password_load_btn);
     credentials_expander.add_row(&password_value_row);
 
-    // Show/hide password value row based on source selection
-    // Show for KeePass(1), Keyring(2), Bitwarden(3), 1Password(4)
-    let show_value = matches!(initial_source_idx, 1..=4);
-    password_value_row.set_visible(show_value);
+    // Variable dropdown row (visible for Variable source)
+    let variable_name_list = gtk4::StringList::new(&[]);
+    let variable_dropdown = gtk4::DropDown::builder()
+        .model(&variable_name_list)
+        .valign(gtk4::Align::Center)
+        .build();
+    let variable_action_row = adw::ActionRow::builder().title(i18n("Variable")).build();
+    variable_action_row.add_suffix(&variable_dropdown);
+    credentials_expander.add_row(&variable_action_row);
 
-    // Connect password source dropdown to show/hide value row
+    // Accessible label relations for screen readers
+    password_source_dropdown.update_relation(&[gtk4::accessible::Relation::LabelledBy(&[
+        password_source_row.upcast_ref(),
+    ])]);
+    password_entry.update_relation(&[gtk4::accessible::Relation::LabelledBy(&[
+        password_value_row.upcast_ref(),
+    ])]);
+    variable_dropdown.update_relation(&[gtk4::accessible::Relation::LabelledBy(&[
+        variable_action_row.upcast_ref(),
+    ])]);
+
+    // Populate variable dropdown with secret global variables
+    {
+        let state_ref = state.borrow();
+        let global_vars = state_ref.settings().global_variables.clone();
+        if let Some(sl) = variable_name_list.downcast_ref::<gtk4::StringList>() {
+            for var in &global_vars {
+                if var.is_secret {
+                    sl.append(&var.name);
+                }
+            }
+        }
+        drop(state_ref);
+
+        // Pre-select the matching variable if group uses Variable source
+        if let Some(PasswordSource::Variable(ref var_name)) = group.password_source {
+            for i in 0..variable_name_list.n_items() {
+                if variable_name_list.string(i).is_some_and(|s| s == *var_name) {
+                    variable_dropdown.set_selected(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Show/hide rows based on source selection
+    // Vault(1) → password value row; Variable(2) → variable dropdown row
+    let show_password = initial_source_idx == 1;
+    let show_variable = initial_source_idx == 2;
+    password_value_row.set_visible(show_password);
+    variable_action_row.set_visible(show_variable);
+
+    // Connect password source dropdown to show/hide value and variable rows
     let value_row_clone = password_value_row.clone();
+    let variable_row_clone = variable_action_row.clone();
     password_source_dropdown.connect_selected_notify(move |dropdown| {
         let selected = dropdown.selected();
-        let show = matches!(selected, 1..=4);
-        value_row_clone.set_visible(show);
+        value_row_clone.set_visible(selected == 1);
+        variable_row_clone.set_visible(selected == 2);
     });
 
     // Connect password visibility toggle
@@ -1246,6 +1294,7 @@ pub fn show_edit_group_dialog(
     let credentials_expander_clone = credentials_expander;
     let ssh_expander_clone = ssh_expander;
     let ssh_jump_host_dropdown_clone = ssh_jump_host_dropdown;
+    let variable_dropdown_clone = variable_dropdown;
     let old_name = group.name;
 
     save_btn.connect_clicked(move |_| {
@@ -1271,7 +1320,22 @@ pub fn show_edit_group_dialog(
         let new_password_source = match password_source_idx {
             0 => PasswordSource::Prompt,
             1 => PasswordSource::Vault,
-            2 => PasswordSource::Variable(String::new()),
+            2 => {
+                // Variable — get selected variable name from dropdown
+                let selected = variable_dropdown_clone.selected();
+                let var_name = variable_dropdown_clone
+                    .model()
+                    .and_then(|m| {
+                        m.downcast_ref::<gtk4::StringList>()
+                            .and_then(|sl| sl.string(selected))
+                    })
+                    .map_or_else(String::new, |s| s.to_string());
+                if var_name.is_empty() {
+                    alert::show_validation_error(&window_clone, &i18n("Please select a variable"));
+                    return;
+                }
+                PasswordSource::Variable(var_name)
+            }
             3 => PasswordSource::Inherit,
             _ => PasswordSource::None,
         };
