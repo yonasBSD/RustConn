@@ -84,13 +84,8 @@ impl Protocol for SftpProtocol {
 
     fn capabilities(&self) -> ProtocolCapabilities {
         ProtocolCapabilities {
-            embedded: false,
-            external_fallback: true,
             file_transfer: true,
-            audio: false,
-            clipboard: false,
-            split_view: false,
-            terminal_based: false,
+            ..ProtocolCapabilities::external_only(false)
         }
     }
 

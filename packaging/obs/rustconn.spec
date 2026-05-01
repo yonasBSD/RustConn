@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.12.7
+Version:        0.12.8
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -195,6 +195,8 @@ install -Dm644 rustconn/assets/io.github.totoshko88.RustConn.desktop \
     %{buildroot}%{_datadir}/applications/io.github.totoshko88.RustConn.desktop
 install -Dm644 rustconn/assets/io.github.totoshko88.RustConn-rdp.xml \
     %{buildroot}%{_datadir}/mime/packages/io.github.totoshko88.RustConn-rdp.xml
+install -Dm644 rustconn/assets/io.github.totoshko88.RustConn-vv.xml \
+    %{buildroot}%{_datadir}/mime/packages/io.github.totoshko88.RustConn-vv.xml
 install -Dm644 rustconn/assets/io.github.totoshko88.RustConn.metainfo.xml \
     %{buildroot}%{_datadir}/metainfo/io.github.totoshko88.RustConn.metainfo.xml
 
@@ -226,6 +228,7 @@ done
 %{_bindir}/rustconn-cli
 %{_datadir}/applications/io.github.totoshko88.RustConn.desktop
 %{_datadir}/mime/packages/io.github.totoshko88.RustConn-rdp.xml
+%{_datadir}/mime/packages/io.github.totoshko88.RustConn-vv.xml
 %{_datadir}/metainfo/io.github.totoshko88.RustConn.metainfo.xml
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 %dir %{_datadir}/locale/uz
@@ -235,6 +238,28 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu May 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.8-1
+- [Added] Generic async cache Cached<T> — new rustconn-core/src/cache.rs
+  module providing a thread-safe, TTL-based cache with automatic refresh
+  via the LoadCacheObject trait; uses double-checked locking with
+  tokio::sync::RwLock for concurrent read access; supports incremental
+  updates, explicit invalidation, and configurable TTL (default 60s)
+- [Added] Busy-state indicator BusyStack — new rustconn-core/src/busy.rs
+  module providing a thread-safe RAII counter for tracking in-flight
+  operations; callback fires on 0→1 (busy) and 1→0 (idle) transitions;
+  nested operations handled correctly without extra callbacks;
+  integrated into GUI — header bar spinner appears during connections
+- [Added] Extended ProtocolCapabilities — added 9 new capability flags:
+  multi_monitor, usb_redirection, port_forwarding, wayland_forwarding,
+  x11_forwarding, session_recording, remote_monitoring, command_snippets,
+  wake_on_lan; enables UI to adapt controls per-protocol
+- [Added] Connection fallback chain ConnectionFallback<T> — generic
+  mechanism for trying multiple connection strategies in priority order
+- [Added] Virt-viewer .vv file open support — open SPICE/VNC connections
+  from libvirt, Proxmox VE, oVirt directly from the file manager
+- [Added] Connection failure toast with connection name
+- [Dependencies] Teleport CLI 18.7.5 → 18.7.6 (security patch)
+
 * Thu Apr 30 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.7-1
 - [Fixed] Group credentials: Variable source shows password field
   instead of variable selector — now shows dropdown populated with

@@ -94,7 +94,12 @@ impl Protocol for SpiceProtocol {
     }
 
     fn capabilities(&self) -> ProtocolCapabilities {
-        ProtocolCapabilities::external_only(true)
+        ProtocolCapabilities {
+            multi_monitor: true,
+            usb_redirection: true,
+            audio: true,
+            ..ProtocolCapabilities::external_only(true)
+        }
     }
 
     fn build_command(&self, connection: &Connection) -> Option<Vec<String>> {

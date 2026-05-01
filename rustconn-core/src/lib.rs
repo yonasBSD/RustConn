@@ -26,6 +26,8 @@
 
 pub mod activity_monitor;
 pub mod automation;
+pub mod busy;
+pub mod cache;
 pub mod cli_download;
 pub mod cluster;
 pub mod config;
@@ -85,6 +87,8 @@ pub use automation::{
     KeySequenceResult, SpecialKey, TaskCondition, TaskError, TaskExecutor, TaskResult, TaskTiming,
     builtin_templates, templates_for_protocol,
 };
+pub use busy::{BusyGuard, BusyStack};
+pub use cache::{CacheRef, Cached, DEFAULT_CACHE_TTL_SECS, LoadCacheObject};
 pub use cli_download::{
     ChecksumPolicy, CliDownloadError, CliDownloadResult, ComponentCategory,
     DOWNLOADABLE_COMPONENTS, DownloadCancellation, DownloadProgress, DownloadableComponent,
@@ -105,6 +109,7 @@ pub use config::{
 pub use connection::{
     ConnectionManager, LazyGroupLoader, PortCheckError, PortCheckResult, RetryConfig, RetryState,
     SelectionState, VirtualScrollConfig, check_interning_stats, check_port, check_port_async,
+    fallback::{ConnectionFallback, ConnectionStrategy, FallbackError, StrategyAttempt},
     get_interning_stats, intern_connection_strings, intern_hostname, intern_protocol_name,
     intern_username, log_interning_stats, log_interning_stats_with_warning,
 };

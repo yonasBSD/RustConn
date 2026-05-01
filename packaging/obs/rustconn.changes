@@ -1,4 +1,34 @@
 -------------------------------------------------------------------
+Thu May 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.8
+
+- Update to version 0.12.8
+- [Added] Generic async cache Cached<T> — new rustconn-core/src/cache.rs
+  module providing a thread-safe, TTL-based cache with automatic refresh
+  via the LoadCacheObject trait; uses double-checked locking with
+  tokio::sync::RwLock for concurrent read access; supports incremental
+  updates, explicit invalidation, and configurable TTL (default 60s)
+- [Added] Busy-state indicator BusyStack — new rustconn-core/src/busy.rs
+  module providing a thread-safe RAII counter for tracking in-flight
+  operations; callback fires on 0→1 (busy) and 1→0 (idle) transitions;
+  nested operations handled correctly without extra callbacks;
+  integrated into GUI — header bar spinner appears during connections
+- [Added] Extended ProtocolCapabilities — added 9 new capability flags:
+  multi_monitor, usb_redirection, port_forwarding, wayland_forwarding,
+  x11_forwarding, session_recording, remote_monitoring, command_snippets,
+  wake_on_lan; enables UI to adapt controls per-protocol
+- [Added] Connection fallback chain ConnectionFallback<T> — generic
+  mechanism for trying multiple connection strategies in priority order;
+  ConnectionStrategy trait with name(), is_available(), and async connect();
+  FallbackError collects all attempt details for diagnostics
+- [Added] Virt-viewer .vv file open support — open SPICE/VNC connections
+  from libvirt, Proxmox VE, oVirt directly from the file manager or
+  command line (rustconn file.vv); MIME type registration in desktop file
+  and metainfo
+- [Added] Connection failure toast — error toast with connection name
+  shown when a connection fails to start
+- [Dependencies] Teleport CLI 18.7.5 → 18.7.6 (security patch)
+
+-------------------------------------------------------------------
 Thu Apr 30 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.7
 
 - Update to version 0.12.7

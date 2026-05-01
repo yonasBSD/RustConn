@@ -146,6 +146,18 @@ fn parse_cli_args() -> Option<rustconn_core::config::StartupAction> {
                     eprintln!("Error: RDP file not found: {}", args[i]);
                     std::process::exit(1);
                 }
+                // Check if argument is a .vv file path (virt-viewer)
+                if std::path::Path::new(&args[i])
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("vv"))
+                {
+                    let path = std::path::PathBuf::from(&args[i]);
+                    if path.exists() {
+                        return Some(StartupAction::VvFile(path));
+                    }
+                    eprintln!("Error: Virt-viewer file not found: {}", args[i]);
+                    std::process::exit(1);
+                }
                 // Ignore unknown args (GTK may pass its own)
             }
         }
@@ -174,14 +186,15 @@ pub fn take_cli_connect_name() -> Option<String> {
 
 fn print_usage() {
     println!(
-        "Usage: rustconn [OPTIONS] [FILE.rdp]\n\n\
+        "Usage: rustconn [OPTIONS] [FILE.rdp|FILE.vv]\n\n\
          Options:\n  \
            --shell              Open a local shell on startup\n  \
            --connect <NAME|UUID> Connect to a saved connection\n  \
            -h, --help           Print this help message\n  \
            -V, --version        Print version\n\n\
          Arguments:\n  \
-           FILE.rdp             Open and connect from an .rdp file"
+           FILE.rdp             Open and connect from an .rdp file\n  \
+           FILE.vv              Open and connect from a virt-viewer .vv file"
     );
 }
 

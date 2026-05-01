@@ -20,6 +20,7 @@ cp rustconn/assets/io.github.totoshko88.RustConn.desktop "$DESKTOP_DIR/"
 MIME_DIR="$PREFIX/share/mime/packages"
 mkdir -p "$MIME_DIR"
 cp rustconn/assets/io.github.totoshko88.RustConn-rdp.xml "$MIME_DIR/"
+cp rustconn/assets/io.github.totoshko88.RustConn-vv.xml "$MIME_DIR/"
 
 # Install locale files (if compiled .mo files exist)
 if [ -d "po" ]; then

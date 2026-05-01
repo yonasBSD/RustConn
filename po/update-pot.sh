@@ -51,3 +51,13 @@ fi
 
 echo "Generated ${POTFILE}"
 echo "Strings: $(grep -c '^msgid ' "${POTFILE}") entries"
+
+# Fix false c-format flag on command palette search string.
+# xgettext --language=C misinterprets "% tabs" as a C format specifier.
+# See CHANGELOG 0.12.6 for details.
+sed -i '/^#, c-format$/{
+  N
+  /Search connections, > commands, @ tags, # groups, % tabs/{
+    s/^#, c-format\n//
+  }
+}' "${POTFILE}"

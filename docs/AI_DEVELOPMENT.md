@@ -1,6 +1,6 @@
 # AI-Assisted Development Architecture
 
-**Version 0.12.7** | Last updated: April 2026
+**Version 0.12.8** | Last updated: April 2026
 
 This document describes the Kiro AI agent infrastructure used to automate
 development workflows, enforce architectural constraints, and streamline the

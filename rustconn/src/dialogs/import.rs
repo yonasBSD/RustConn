@@ -23,7 +23,7 @@ use rustconn_core::progress::LocalProgressReporter;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, i18n_f};
 
 /// Import dialog for importing connections from external sources
 pub struct ImportDialog {
@@ -1956,8 +1956,10 @@ impl ImportDialog {
                         stack_clone.set_visible_child_name("progress");
                         btn_clone.set_sensitive(false);
                         progress_bar_clone.set_fraction(0.5);
-                        progress_label_clone
-                            .set_text(&format!("Importing from {}...", path.display()));
+                        progress_label_clone.set_text(&i18n_f(
+                            "Importing from {}...",
+                            &[&path.display().to_string()],
+                        ));
 
                         let importer = VirtViewerImporter::new();
                         let result =

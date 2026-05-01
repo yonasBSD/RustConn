@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.12.7** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.12.8** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -1800,6 +1800,51 @@ Deletions are tracked via tombstones (auto-cleaned after 30 days). The `device_i
 ### SSH Key Inheritance
 
 Groups can define SSH settings (auth method, key path, proxy jump, agent socket) that child connections inherit. This avoids duplicating key paths across dozens of connections and keeps `ssh_key_path` local-only per device.
+
+### Flatpak: Granting Filesystem Access for Cloud Sync
+
+Flatpak sandboxes restrict filesystem access by default. Cloud Sync requires read/write access to your sync directory (e.g. Google Drive, Syncthing, Nextcloud folder).
+
+**Grant access to a specific directory:**
+
+```bash
+flatpak override --user --filesystem=/path/to/your/sync/folder io.github.totoshko88.RustConn
+```
+
+**Common examples:**
+
+```bash
+# Google Drive (via GNOME Online Accounts)
+flatpak override --user --filesystem=xdg-run/gvfs io.github.totoshko88.RustConn
+
+# Syncthing default folder
+flatpak override --user --filesystem=~/Sync io.github.totoshko88.RustConn
+
+# Nextcloud
+flatpak override --user --filesystem=~/Nextcloud io.github.totoshko88.RustConn
+
+# Dropbox
+flatpak override --user --filesystem=~/Dropbox io.github.totoshko88.RustConn
+
+# Custom path
+flatpak override --user --filesystem=/mnt/shared/rustconn-sync io.github.totoshko88.RustConn
+```
+
+**Verify access:**
+
+```bash
+flatpak info --show-permissions io.github.totoshko88.RustConn | grep filesystem
+```
+
+**Revoke access:**
+
+```bash
+flatpak override --user --nofilesystem=/path/to/folder io.github.totoshko88.RustConn
+```
+
+After granting access, restart RustConn and set the sync directory in Settings → Cloud Sync.
+
+> **Note:** You can also use [Flatseal](https://flathub.org/apps/com.github.tchx84.Flatseal) for a graphical interface to manage Flatpak permissions.
 
 **Configure:**
 1. Edit a group → SSH Settings section
