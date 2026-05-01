@@ -1,4 +1,22 @@
 -------------------------------------------------------------------
+Thu May 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.9
+
+- Update to version 0.12.9
+- [Fixed] Export group exports entire tree instead of selected subtree —
+  when exporting a specific group via the Export dialog's group filter,
+  all groups were included in the output file even though connections
+  were correctly filtered; now both connections and groups are filtered
+  to the selected group and its descendants
+- [Added] Snippet variable substitution from Global Variables — snippets
+  containing ${VARIABLE} placeholders now automatically resolve values
+  from Global Variables before execution; if all variables are resolved,
+  the snippet executes immediately without showing the input dialog
+- [Added] Dynamic Folders — new DynamicFolderConfig on ConnectionGroup
+  allows generating connections from an external script; supports SSH,
+  RDP, VNC, SPICE, Telnet, and MOSH protocols; connections are read-only
+  with stable deterministic UUIDs across refreshes
+
+-------------------------------------------------------------------
 Thu May 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.8
 
 - Update to version 0.12.8

@@ -1004,16 +1004,16 @@ impl ExportDialog {
 
             // Perform export on a background thread to avoid blocking the UI
             let all_conns = connections.borrow().clone();
-            let grps = groups.borrow().clone();
+            let all_grps = groups.borrow().clone();
             let snips = snippets.borrow().clone();
 
-            // Filter connections by selected group (and its descendants)
-            let conns = {
+            // Filter connections and groups by selected group (and its descendants)
+            let (conns, grps) = {
                 let filter_idx = group_filter_dropdown.selected() as usize;
                 let filter_data = groups_filter_data.borrow();
                 if filter_idx == 0 || filter_idx >= filter_data.len() {
                     // "All connections" — no filtering
-                    all_conns
+                    (all_conns, all_grps)
                 } else if let Some(root_group_id) = filter_data[filter_idx].0 {
                     // Collect the selected group and all its descendants
                     let mut matching_group_ids = std::collections::HashSet::new();
@@ -1022,7 +1022,7 @@ impl ExportDialog {
                     let mut changed = true;
                     while changed {
                         changed = false;
-                        for g in &grps {
+                        for g in &all_grps {
                             if let Some(pid) = g.parent_id
                                 && matching_group_ids.contains(&pid)
                                 && matching_group_ids.insert(g.id)
@@ -1031,15 +1031,20 @@ impl ExportDialog {
                             }
                         }
                     }
-                    all_conns
+                    let filtered_conns = all_conns
                         .into_iter()
                         .filter(|c| {
                             c.group_id
                                 .is_some_and(|gid| matching_group_ids.contains(&gid))
                         })
-                        .collect()
+                        .collect();
+                    let filtered_grps = all_grps
+                        .into_iter()
+                        .filter(|g| matching_group_ids.contains(&g.id))
+                        .collect();
+                    (filtered_conns, filtered_grps)
                 } else {
-                    all_conns
+                    (all_conns, all_grps)
                 }
             };
 

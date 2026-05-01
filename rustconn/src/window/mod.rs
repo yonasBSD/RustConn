@@ -718,6 +718,142 @@ impl MainWindow {
         });
         window.add_action(&sync_now_action);
 
+        // Refresh Dynamic Folder action — executes the script and updates connections
+        let refresh_dynamic_action = gio::SimpleAction::new("refresh-dynamic-folder", None);
+        let state_clone = state.clone();
+        let sidebar_clone = sidebar.clone();
+        let toast_clone = self.toast_overlay.clone();
+        refresh_dynamic_action.connect_activate(move |_, _| {
+            let Some(item) = sidebar_clone.get_selected_item() else {
+                return;
+            };
+            if !item.is_group() {
+                return;
+            }
+            let Ok(group_id) = uuid::Uuid::parse_str(&item.id()) else {
+                return;
+            };
+
+            let config = {
+                let Ok(state_ref) = state_clone.try_borrow() else {
+                    return;
+                };
+                let Some(group) = state_ref.get_group(group_id) else {
+                    return;
+                };
+                group.dynamic_folder.clone()
+            };
+
+            let Some(config) = config else {
+                return;
+            };
+
+            let state_for_task = state_clone.clone();
+            let sidebar_for_task = sidebar_clone.clone();
+            let toast_for_task = toast_clone.clone();
+            let group_name = item.name();
+
+            // Run the script asynchronously
+            crate::utils::spawn_blocking_with_callback(
+                move || {
+                    crate::async_utils::with_runtime(|rt| {
+                        rt.block_on(rustconn_core::dynamic_folder::execute_script(&config))
+                    })
+                },
+                move |result| {
+                    let result = match result {
+                        Ok(inner) => inner,
+                        Err(rt_err) => {
+                            let msg = crate::i18n::i18n_f(
+                                "Dynamic folder '{}' failed: {}",
+                                &[&group_name, &rt_err],
+                            );
+                            toast_for_task.show_error(&msg);
+                            return;
+                        }
+                    };
+                    match result {
+                        Ok(folder_result) => {
+                            let count = folder_result.entries.len();
+                            let warnings = folder_result.warnings.clone();
+
+                            // Convert entries to connections and update state
+                            if let Ok(mut state_mut) = state_for_task.try_borrow_mut() {
+                                // Remove old dynamic connections for this group
+                                let old_dynamic: Vec<uuid::Uuid> = state_mut
+                                    .get_connections_by_group(group_id)
+                                    .iter()
+                                    .filter(|c| c.is_dynamic)
+                                    .map(|c| c.id)
+                                    .collect();
+                                for conn_id in old_dynamic {
+                                    let _ = state_mut.connection_manager().delete_connection(conn_id);
+                                }
+
+                                // Add new dynamic connections
+                                for entry in &folder_result.entries {
+                                    let conn = rustconn_core::dynamic_folder::entry_to_connection(
+                                        entry, group_id,
+                                    );
+                                    let _ = state_mut.create_connection(conn);
+                                }
+
+                                // Update group's last_refreshed_at
+                                if let Some(mut group) = state_mut.get_group(group_id).cloned()
+                                    && let Some(ref mut df) = group.dynamic_folder
+                                {
+                                    df.last_refreshed_at = Some(chrono::Utc::now());
+                                    df.last_error = None;
+                                    let _ = state_mut
+                                        .connection_manager()
+                                        .update_group(group_id, group);
+                                }
+
+                                drop(state_mut);
+                                Self::reload_sidebar_preserving_state(
+                                    &state_for_task,
+                                    &sidebar_for_task,
+                                );
+                            }
+
+                            // Show warnings if any
+                            for warning in &warnings {
+                                tracing::warn!(group = %group_name, %warning, "Dynamic folder warning");
+                            }
+
+                            let msg = crate::i18n::i18n_f(
+                                "Refreshed '{}': {} connections generated",
+                                &[&group_name, &count.to_string()],
+                            );
+                            toast_for_task.show_success(&msg);
+                        }
+                        Err(e) => {
+                            let error_msg = e.to_string();
+                            tracing::error!(group = %group_name, error = %error_msg, "Dynamic folder refresh failed");
+
+                            // Update group's last_error
+                            if let Ok(mut state_mut) = state_for_task.try_borrow_mut()
+                                && let Some(mut group) = state_mut.get_group(group_id).cloned()
+                                && let Some(ref mut df) = group.dynamic_folder
+                            {
+                                df.last_error = Some(error_msg.clone());
+                                let _ = state_mut
+                                    .connection_manager()
+                                    .update_group(group_id, group);
+                            }
+
+                            let msg = crate::i18n::i18n_f(
+                                "Dynamic folder '{}' failed: {}",
+                                &[&group_name, &error_msg],
+                            );
+                            toast_for_task.show_error(&msg);
+                        }
+                    }
+                },
+            );
+        });
+        window.add_action(&refresh_dynamic_action);
+
         // New connection from connection context (pre-selects the group of the selected connection)
         let new_conn_from_ctx_action = gio::SimpleAction::new("new-connection-from-context", None);
         let window_weak = window.downgrade();

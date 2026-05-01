@@ -459,6 +459,7 @@ The `run` subcommand without `--execute` only prints the expanded command (safe 
 | `group list` | List all groups (`--format`) |
 | `group show <name>` | Show group details and connections |
 | `group create` | Create a group (`--name`, `--parent`, `--description`, `--icon`) |
+| `group edit <name>` | Edit group properties (`--new-name`, `--parent`, `--description`, `--icon`, `--ssh-key-path`, `--ssh-auth-method`, `--ssh-proxy-jump`, `--ssh-agent-socket`) |
 | `group delete <name>` | Delete a group |
 | `group add-connection` | Add connection to group (`-g group -c connection`) |
 | `group remove-connection` | Remove connection from group (`-g group -c connection`) |
@@ -467,6 +468,8 @@ The `run` subcommand without `--execute` only prints the expanded command (safe 
 rustconn-cli group list
 rustconn-cli group create --name "Staging"
 rustconn-cli group create --name "EU" --parent "Production" --icon "🇪🇺"
+rustconn-cli group edit "Staging" --new-name "Staging EU" --icon "🇪🇺" --parent "Production"
+rustconn-cli group edit "Production" --ssh-auth-method publickey --ssh-key-path ~/.ssh/id_ed25519
 rustconn-cli group add-connection -g "Production" -c "Web-01"
 rustconn-cli group remove-connection -g "Production" -c "Web-01"
 rustconn-cli group delete "Old Group"
@@ -583,6 +586,28 @@ rustconn-cli smart-folder create --name "Production SSH" --protocol ssh --host-p
 rustconn-cli smart-folder create --name "Tagged Web" --tags "web,frontend"
 rustconn-cli smart-folder show "Production SSH"
 rustconn-cli smart-folder delete "Old Folder"
+```
+
+### dynamic-folder — Manage dynamic folders
+
+Dynamic folders generate connections by executing a user-defined script.
+
+| Subcommand | Description |
+|------------|-------------|
+| `dynamic-folder list` | List groups with dynamic folder configuration (`--format`) |
+| `dynamic-folder show <name>` | Show configuration and generated connections |
+| `dynamic-folder refresh <name>` | Execute the script and update connections |
+| `dynamic-folder set <name>` | Create or update dynamic folder (`--script`, `--workdir`, `--timeout`, `--refresh-interval`) |
+| `dynamic-folder remove <name>` | Remove dynamic folder and its generated connections |
+
+```bash
+rustconn-cli dynamic-folder list
+rustconn-cli dynamic-folder list --format json
+rustconn-cli dynamic-folder show "AWS Servers"
+rustconn-cli dynamic-folder set "AWS Servers" --script 'aws ec2 describe-instances ...' --timeout 60
+rustconn-cli dynamic-folder set "K8s Nodes" --script 'kubectl get nodes -o json | jq ...' --refresh-interval 300
+rustconn-cli dynamic-folder refresh "AWS Servers"
+rustconn-cli dynamic-folder remove "AWS Servers"
 ```
 
 ### recording — Manage session recordings

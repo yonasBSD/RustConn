@@ -6,6 +6,7 @@
 mod connection;
 mod credentials;
 mod custom_property;
+mod dynamic_folder;
 mod group;
 mod highlight;
 mod history;
@@ -21,6 +22,9 @@ pub use connection::{
 };
 pub use credentials::Credentials;
 pub use custom_property::{CustomProperty, PropertyType};
+pub use dynamic_folder::{
+    DynamicConnectionEntry, DynamicConnectionId, DynamicFolderConfig, DynamicFolderResult,
+};
 pub use group::ConnectionGroup;
 pub use highlight::HighlightRule;
 pub use history::{ConnectionHistoryEntry, ConnectionStatistics, HistorySettings};

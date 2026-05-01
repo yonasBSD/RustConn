@@ -1,6 +1,6 @@
 # RustConn Architecture Guide
 
-**Version 0.12.8** | Last updated: April 2026
+**Version 0.12.9** | Last updated: May 2026
 
 This document describes the internal architecture of RustConn for contributors and maintainers.
 
@@ -998,7 +998,7 @@ rustconn/src/
 rustconn-core/src/
 ├── lib.rs                 # Public API re-exports
 ├── error.rs               # Error types
-├── models/                # Data models (incl. smart_folder.rs, highlight.rs)
+├── models/                # Data models (incl. smart_folder.rs, highlight.rs, dynamic_folder.rs)
 ├── config/                # Settings persistence, keybindings
 ├── connection/            # Connection management
 │   ├── mod.rs             # Module exports
@@ -1051,6 +1051,7 @@ rustconn-core/src/
 │   ├── quick_actions.rs   # Windows admin quick actions (key sequences)
 │   └── ...
 ├── cli_download.rs        # Flatpak CLI download manager
+├── dynamic_folder.rs      # Dynamic folder executor — script execution, JSON parsing, entry→Connection conversion
 ├── highlight.rs           # Text highlighting rules engine (CompiledHighlightRules, find_matches)
 ├── smart_folder.rs        # SmartFolderManager — dynamic connection grouping with filter evaluation
 ├── sftp.rs                # SFTP URI/command builders, ssh-add, mc FISH VFS

@@ -38,6 +38,10 @@ pub fn cmd_group(config_path: Option<&Path>, subcmd: GroupCommands) -> Result<()
         }
         GroupCommands::Edit {
             name,
+            new_name,
+            parent,
+            description,
+            icon,
             ssh_key_path,
             ssh_auth_method,
             ssh_proxy_jump,
@@ -45,6 +49,10 @@ pub fn cmd_group(config_path: Option<&Path>, subcmd: GroupCommands) -> Result<()
         } => cmd_group_edit(
             config_path,
             &name,
+            new_name.as_deref(),
+            parent.as_deref(),
+            description.as_deref(),
+            icon.as_deref(),
             ssh_key_path.as_deref(),
             ssh_auth_method.as_deref(),
             ssh_proxy_jump.as_deref(),
@@ -360,22 +368,31 @@ fn cmd_group_remove_connection(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_group_edit(
     config_path: Option<&Path>,
     name: &str,
+    new_name: Option<&str>,
+    parent: Option<&str>,
+    description: Option<&str>,
+    icon: Option<&str>,
     ssh_key_path: Option<&str>,
     ssh_auth_method: Option<&str>,
     ssh_proxy_jump: Option<&str>,
     ssh_agent_socket: Option<&str>,
 ) -> Result<(), CliError> {
-    if ssh_key_path.is_none()
+    if new_name.is_none()
+        && parent.is_none()
+        && description.is_none()
+        && icon.is_none()
+        && ssh_key_path.is_none()
         && ssh_auth_method.is_none()
         && ssh_proxy_jump.is_none()
         && ssh_agent_socket.is_none()
     {
         return Err(CliError::Group(
-            "No fields to update. Use --ssh-key-path, --ssh-auth-method, \
-             --ssh-proxy-jump, or --ssh-agent-socket"
+            "No fields to update. Use --new-name, --parent, --description, --icon, \
+             --ssh-key-path, --ssh-auth-method, --ssh-proxy-jump, or --ssh-agent-socket"
                 .to_string(),
         ));
     }
@@ -396,6 +413,26 @@ fn cmd_group_edit(
     let group_name = group.name.clone();
     let mut updated = Vec::new();
 
+    if let Some(nn) = new_name {
+        group.name = nn.to_string();
+        updated.push(format!("name = {nn}"));
+    }
+    if let Some(desc) = description {
+        group.description = if desc.is_empty() {
+            None
+        } else {
+            Some(desc.to_string())
+        };
+        updated.push(format!("description = {desc}"));
+    }
+    if let Some(ic) = icon {
+        group.icon = if ic.is_empty() {
+            None
+        } else {
+            Some(ic.to_string())
+        };
+        updated.push(format!("icon = {ic}"));
+    }
     if let Some(path) = ssh_key_path {
         group.ssh_key_path = Some(PathBuf::from(path));
         updated.push(format!("ssh_key_path = {path}"));
@@ -413,11 +450,42 @@ fn cmd_group_edit(
         updated.push(format!("ssh_agent_socket = {socket}"));
     }
 
+    // Handle parent change separately (needs to resolve parent name to UUID)
+    if let Some(p) = parent {
+        let group = groups
+            .iter_mut()
+            .find(|g| {
+                g.name == new_name.map_or(group_name.as_str(), |n| n) || g.id.to_string() == name
+            })
+            .ok_or_else(|| CliError::Group(format!("Group not found: {name}")))?;
+
+        if p.eq_ignore_ascii_case("none") || p == "-" {
+            group.parent_id = None;
+            updated.push("parent = (root)".to_string());
+        } else {
+            let parent_id = groups
+                .iter()
+                .find(|g| g.name.eq_ignore_ascii_case(p) || g.id.to_string() == p)
+                .map(|g| g.id)
+                .ok_or_else(|| CliError::Group(format!("Parent group not found: {p}")))?;
+            let group = groups
+                .iter_mut()
+                .find(|g| {
+                    g.name == new_name.map_or(group_name.as_str(), |n| n)
+                        || g.id.to_string() == name
+                })
+                .ok_or_else(|| CliError::Group(format!("Group not found: {name}")))?;
+            group.parent_id = Some(parent_id);
+            updated.push(format!("parent = {p}"));
+        }
+    }
+
     config_manager
         .save_groups(&groups)
         .map_err(|e| CliError::Group(format!("Failed to save groups: {e}")))?;
 
-    println!("Updated group '{group_name}': {}", updated.join(", "));
+    let display_name = new_name.unwrap_or(&group_name);
+    println!("Updated group '{display_name}': {}", updated.join(", "));
 
     Ok(())
 }

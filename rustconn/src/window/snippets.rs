@@ -237,6 +237,7 @@ pub fn show_snippets_manager(
     });
 
     // Connect execute button
+    let state_for_exec = state.clone();
     let state_clone = state;
     let list_clone = snippets_list;
     let notebook_clone = notebook;
@@ -249,7 +250,7 @@ pub fn show_snippets_manager(
             let state_ref = state_clone.borrow();
             if let Some(snippet) = state_ref.get_snippet(id).cloned() {
                 drop(state_ref);
-                execute_snippet(&manager_clone, &notebook_clone, &snippet);
+                execute_snippet(&manager_clone, &notebook_clone, &snippet, &state_for_exec);
             }
         }
     });
@@ -388,7 +389,7 @@ pub fn show_snippet_picker(window: &gtk4::Window, state: SharedAppState, noteboo
             let state_ref = state_clone.borrow();
             if let Some(snippet) = state_ref.get_snippet(id).cloned() {
                 drop(state_ref);
-                execute_snippet(&window_clone, &notebook_clone, &snippet);
+                execute_snippet(&window_clone, &notebook_clone, &snippet, &state_clone);
                 window_clone.close();
             }
         }
@@ -402,6 +403,7 @@ pub fn execute_snippet(
     parent: &impl IsA<gtk4::Window>,
     notebook: &SharedNotebook,
     snippet: &rustconn_core::models::Snippet,
+    state: &SharedAppState,
 ) {
     // Check if there's an active terminal
     if notebook.get_active_terminal().is_none() {
@@ -421,8 +423,49 @@ pub fn execute_snippet(
         // No variables, execute directly
         notebook.send_text(&format!("{}\n", snippet.command));
     } else {
-        // Show variable input dialog
-        show_variable_input_dialog(parent, notebook, snippet);
+        // Try to resolve variables from Global Variables first
+        let state_ref = state.borrow();
+        let global_variables = crate::state::resolve_global_variables(state_ref.settings());
+        drop(state_ref);
+
+        let mut var_manager = rustconn_core::variables::VariableManager::new();
+        for var in &global_variables {
+            var_manager.set_global(var.clone());
+        }
+
+        let mut resolved: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        let mut unresolved: Vec<String> = Vec::new();
+
+        for var_name in &variables {
+            match var_manager.resolve(var_name, rustconn_core::variables::VariableScope::Global) {
+                Ok(value) => {
+                    resolved.insert(var_name.clone(), value);
+                }
+                Err(_) => {
+                    // Check snippet-defined defaults as fallback
+                    if let Some(var_def) = snippet.variables.iter().find(|v| &v.name == var_name)
+                        && let Some(ref default) = var_def.default_value
+                    {
+                        resolved.insert(var_name.clone(), default.clone());
+                    } else {
+                        unresolved.push(var_name.clone());
+                    }
+                }
+            }
+        }
+
+        if unresolved.is_empty() {
+            // All variables resolved — execute directly
+            let substituted = rustconn_core::snippet::SnippetManager::substitute_variables(
+                &snippet.command,
+                &resolved,
+            );
+            notebook.send_text(&format!("{substituted}\n"));
+        } else {
+            // Some variables unresolved — show dialog with pre-filled values
+            show_variable_input_dialog(parent, notebook, snippet, &resolved);
+        }
     }
 }
 
@@ -431,6 +474,7 @@ pub fn show_variable_input_dialog(
     parent: &impl IsA<gtk4::Window>,
     notebook: &SharedNotebook,
     snippet: &rustconn_core::models::Snippet,
+    prefilled: &std::collections::HashMap<String, String>,
 ) {
     let var_window = adw::Window::builder()
         .title(i18n("Enter Variable Values"))
@@ -470,14 +514,20 @@ pub fn show_variable_input_dialog(
 
         let entry = gtk4::Entry::builder().hexpand(true).build();
 
-        // Set default value if available
-        if let Some(var_def) = snippet.variables.iter().find(|v| &v.name == var_name) {
-            if let Some(ref default) = var_def.default_value {
-                entry.set_text(default);
-            }
-            if let Some(ref desc) = var_def.description {
-                entry.set_placeholder_text(Some(desc));
-            }
+        // Set default value if available (prefilled from Global Variables takes priority)
+        if let Some(prefilled_value) = prefilled.get(var_name) {
+            entry.set_text(prefilled_value);
+        } else if let Some(var_def) = snippet.variables.iter().find(|v| &v.name == var_name)
+            && let Some(ref default) = var_def.default_value
+        {
+            entry.set_text(default);
+        }
+
+        // Set placeholder from snippet variable description
+        if let Some(var_def) = snippet.variables.iter().find(|v| &v.name == var_name)
+            && let Some(ref desc) = var_def.description
+        {
+            entry.set_placeholder_text(Some(desc));
         }
 
         #[allow(clippy::cast_possible_wrap)]

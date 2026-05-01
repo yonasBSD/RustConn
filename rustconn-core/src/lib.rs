@@ -35,6 +35,7 @@ pub mod connection;
 pub mod dialog_utils;
 pub mod document;
 pub mod drag_drop;
+pub mod dynamic_folder;
 pub mod embedded_client_error;
 pub mod error;
 pub mod export;
@@ -149,7 +150,8 @@ pub use import::{
 };
 pub use models::{
     Connection, ConnectionGroup, ConnectionHistoryEntry, ConnectionStatistics, ConnectionTemplate,
-    Credentials, CustomProperty, HighlightRule, HistorySettings, KubernetesConfig, MoshConfig,
+    Credentials, CustomProperty, DynamicConnectionEntry, DynamicConnectionId, DynamicFolderConfig,
+    DynamicFolderResult, HighlightRule, HistorySettings, KubernetesConfig, MoshConfig,
     MoshPredictMode, PasswordSource, PortForward, PortForwardDirection, PropertyType,
     ProtocolConfig, ProtocolType, RdpConfig, RdpGateway, Resolution, ScaleOverride, SerialBaudRate,
     SerialConfig, SerialDataBits, SerialFlowControl, SerialParity, SerialStopBits, Snippet,

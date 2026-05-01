@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.12.8
+Version:        0.12.9
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,21 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu May 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.9-1
+- [Fixed] Export group exports entire tree instead of selected subtree —
+  when exporting a specific group via the Export dialog's group filter,
+  all groups were included in the output file even though connections
+  were correctly filtered; now both connections and groups are filtered
+  to the selected group and its descendants
+- [Added] Snippet variable substitution from Global Variables — snippets
+  containing ${VARIABLE} placeholders now automatically resolve values
+  from Global Variables before execution; if all variables are resolved,
+  the snippet executes immediately without showing the input dialog
+- [Added] Dynamic Folders — new DynamicFolderConfig on ConnectionGroup
+  allows generating connections from an external script; supports SSH,
+  RDP, VNC, SPICE, Telnet, and MOSH protocols; connections are read-only
+  with stable deterministic UUIDs across refreshes
+
 * Thu May 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.12.8-1
 - [Added] Generic async cache Cached<T> — new rustconn-core/src/cache.rs
   module providing a thread-safe, TTL-based cache with automatic refresh

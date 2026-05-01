@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.12.8** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.12.9** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -35,6 +35,7 @@ RustConn is a modern connection manager designed for Linux with Wayland-first ap
    - [Groups](#groups)
    - [Favorites](#favorites)
    - [Smart Folders](#smart-folders)
+   - [Dynamic Folders](#dynamic-folders)
    - [Custom Icons](#custom-icons)
    - [Tab Coloring](#tab-coloring)
    - [Tab Grouping](#tab-grouping)
@@ -1141,6 +1142,113 @@ Smart Folders are dynamic, filter-based views that automatically group connectio
 - Right-click a Smart Folder → **Edit** or **Delete**
 - Empty filter criteria → empty result (not "match all")
 
+### Dynamic Folders
+
+Dynamic Folders generate connections automatically by executing a user-defined script. Unlike Smart Folders (which filter existing connections), Dynamic Folders create new connections from external data sources — cloud APIs, infrastructure tools, or custom scripts.
+
+**Use Cases:**
+- Import EC2 instances from AWS: `aws ec2 describe-instances --query ...`
+- List Kubernetes nodes: `kubectl get nodes -o json | jq ...`
+- Query Ansible inventory: `ansible-inventory --list | jq ...`
+- Scan Proxmox VMs: custom API script
+- Read from a CMDB or asset database
+
+**Configure a Dynamic Folder:**
+1. Create or edit a group
+2. In the group settings, expand **Dynamic Folder** section
+3. Enter the script command (executed via `sh -c`)
+4. Optionally set:
+   - **Working Directory** — where the script runs
+   - **Timeout** — maximum execution time (default: 30 seconds)
+   - **Refresh Interval** — auto-refresh period (leave empty for manual only)
+5. Save
+
+**Script Output Format:**
+
+The script must output a JSON array to stdout:
+
+```json
+[
+  {
+    "name": "web-01",
+    "host": "10.0.1.10",
+    "port": 22,
+    "protocol": "ssh",
+    "username": "admin",
+    "group": "web-servers",
+    "tags": ["production", "nginx"],
+    "description": "Primary web server"
+  },
+  {
+    "name": "db-master",
+    "host": "10.0.2.5",
+    "protocol": "ssh"
+  }
+]
+```
+
+**Required fields:** `name`, `host`
+
+**Optional fields:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `port` | Protocol default (22, 3389, 5900...) | Connection port |
+| `protocol` | `ssh` | One of: `ssh`, `rdp`, `vnc`, `spice`, `telnet`, `mosh` |
+| `username` | None | Login username |
+| `group` | None | Sub-group path within the dynamic folder |
+| `tags` | `[]` | Tags for filtering |
+| `description` | None | Connection description |
+
+**Behavior:**
+- Generated connections are **read-only** — they cannot be edited or moved manually
+- Connections have stable IDs across refreshes (based on name + host + protocol hash)
+- Invalid entries (empty name or host) are skipped with a warning
+- The script's stderr is logged for debugging
+- Non-zero exit code → error shown in sidebar tooltip
+
+**Refresh:**
+- **Manual:** Right-click the dynamic group → **Refresh Dynamic Folder**
+- **Automatic:** If refresh interval is configured, the folder refreshes periodically
+
+**CLI Commands:**
+
+```bash
+# List all groups with dynamic folders
+rustconn-cli dynamic-folder list
+
+# Show configuration and generated connections
+rustconn-cli dynamic-folder show "AWS Servers"
+
+# Create/update dynamic folder on a group
+rustconn-cli dynamic-folder set "AWS Servers" --script 'aws ec2 describe-instances ...' --timeout 60
+
+# Refresh (execute script and update connections)
+rustconn-cli dynamic-folder refresh "AWS Servers"
+
+# Remove dynamic folder and generated connections
+rustconn-cli dynamic-folder remove "AWS Servers"
+
+# JSON output for scripting
+rustconn-cli dynamic-folder list --format json
+```
+
+**Example Scripts:**
+
+```bash
+# AWS EC2 instances (requires aws-cli)
+aws ec2 describe-instances --query 'Reservations[].Instances[].{name:Tags[?Key==`Name`].Value|[0],host:PrivateIpAddress}' --output json
+
+# Kubernetes nodes
+kubectl get nodes -o json | jq '[.items[] | {name: .metadata.name, host: (.status.addresses[] | select(.type=="InternalIP") | .address), protocol: "ssh"}]'
+
+# Simple static list from a file
+cat ~/infrastructure/servers.json
+
+# Proxmox VMs via API
+curl -s -k "https://proxmox:8006/api2/json/nodes/pve/qemu" -H "Authorization: PVEAPIToken=..." | jq '[.data[] | {name: .name, host: .name, protocol: "spice"}]'
+```
+
 ### Custom Icons
 
 Set custom emoji or GTK icon names on connections and groups to visually distinguish them in the sidebar.
@@ -1237,6 +1345,31 @@ pg_dump -h ${host} -U ${user} -d ${database} > /tmp/${database}_backup.sql
 1. Connect to a terminal session (SSH, Telnet, Serial, Kubernetes, or local shell)
 2. Menu → Tools → **Execute Snippet** (or use Command Palette → Snippets)
 3. Select a snippet, fill in variable values, click **Execute**
+
+**Global Variables Auto-Resolution:**
+
+Snippet variables are automatically resolved from Global Variables (Menu → Tools → Variables) before execution. This means you can define common values once and reuse them across all snippets without manual input.
+
+**Resolution order:**
+1. **Global Variables** — if a `${VAR}` matches a defined global variable (including vault-backed secrets), its value is used automatically
+2. **Snippet defaults** — if no global variable matches, the snippet's own default value is used
+3. **Manual input** — if neither is available, the variable input dialog appears
+
+If all variables are resolved automatically, the snippet executes immediately without showing any dialog.
+
+**Example — zero-prompt snippet execution:**
+```bash
+# Snippet: sudo systemctl restart ${SERVICE_NAME}
+# Global Variable: SERVICE_NAME = nginx
+# Result: executes immediately → "sudo systemctl restart nginx\n"
+```
+
+**Example — partial resolution:**
+```bash
+# Snippet: pg_dump -h ${DB_HOST} -U ${DB_USER} -d ${database}
+# Global Variables: DB_HOST = db.prod.internal, DB_USER = admin
+# Result: dialog appears with DB_HOST and DB_USER pre-filled, only "database" needs input
+```
 
 **Organization:** Snippets support categories and tags for filtering.
 

@@ -155,7 +155,14 @@ pub fn setup_list_item(
                 .unwrap_or(false);
 
             // Detect SSH protocol from the ConnectionItem data
-            let (is_ssh, is_connected, conn_id_str, sync_mode_str, is_root_group) = list_item_weak
+            let (
+                is_ssh,
+                is_connected,
+                conn_id_str,
+                sync_mode_str,
+                is_root_group,
+                has_dynamic_folder,
+            ) = list_item_weak
                 .upgrade()
                 .and_then(|li| li.item())
                 .and_then(|obj| obj.downcast::<gtk4::TreeListRow>().ok())
@@ -169,6 +176,7 @@ pub fn setup_list_item(
                     let id = item.id();
                     let sm = item.sync_mode();
                     let root = item.is_root_group();
+                    let dynamic = item.has_dynamic_folder();
                     tracing::debug!(
                         name = %item.name(),
                         protocol = %p,
@@ -177,9 +185,9 @@ pub fn setup_list_item(
                         %id,
                         "Context menu: ConnectionItem status"
                     );
-                    (ssh, connected, id, sm, root)
+                    (ssh, connected, id, sm, root, dynamic)
                 })
-                .unwrap_or((false, false, String::new(), String::new(), false));
+                .unwrap_or((false, false, String::new(), String::new(), false, false));
 
             let is_recording = if is_connected && !conn_id_str.is_empty() {
                 recording_checker
@@ -200,6 +208,7 @@ pub fn setup_list_item(
                 is_recording,
                 &sync_mode_str,
                 is_root_group,
+                has_dynamic_folder,
             );
 
             // Claim the gesture so the event does not propagate further into

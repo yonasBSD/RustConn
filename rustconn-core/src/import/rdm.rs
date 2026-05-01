@@ -250,6 +250,7 @@ impl RdmImporter {
             ssh_jump_host_id: None,
             ssh_agent_socket: None,
             sync_mode: SyncMode::None,
+            dynamic_folder: None,
             sync_file: None,
             last_synced_at: None,
         }
@@ -373,6 +374,7 @@ impl RdmImporter {
             theme_override: None,
             session_recording_enabled: false,
             highlight_rules: Vec::new(),
+            is_dynamic: false,
         })
     }
 }

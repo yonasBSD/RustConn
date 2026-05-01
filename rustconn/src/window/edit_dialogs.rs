@@ -1239,6 +1239,77 @@ pub fn show_edit_group_dialog(
         sync_group_for_parent.set_visible(row.selected() == 0);
     });
 
+    // === Dynamic Folder Section ===
+    let dynamic_expander = adw::ExpanderRow::builder()
+        .title(i18n("Dynamic Folder"))
+        .subtitle(i18n("Generate connections from a script"))
+        .show_enable_switch(true)
+        .expanded(group.dynamic_folder.is_some())
+        .enable_expansion(group.dynamic_folder.is_some())
+        .build();
+
+    let dynamic_script_row = adw::EntryRow::builder()
+        .title(i18n("Script"))
+        .text(
+            group
+                .dynamic_folder
+                .as_ref()
+                .map_or("", |df| df.script.as_str()),
+        )
+        .build();
+    dynamic_script_row.set_tooltip_text(Some(&i18n("Shell command executed via sh -c")));
+    dynamic_expander.add_row(&dynamic_script_row);
+
+    let dynamic_workdir_row = adw::EntryRow::builder()
+        .title(i18n("Working Directory"))
+        .text(
+            group
+                .dynamic_folder
+                .as_ref()
+                .and_then(|df| df.working_directory.as_ref())
+                .map_or("", |p| p.to_str().unwrap_or("")),
+        )
+        .build();
+    dynamic_expander.add_row(&dynamic_workdir_row);
+
+    let dynamic_timeout_row = adw::SpinRow::builder()
+        .title(i18n("Timeout (seconds)"))
+        .adjustment(&gtk4::Adjustment::new(
+            group
+                .dynamic_folder
+                .as_ref()
+                .map_or(30.0, |df| df.timeout_secs as f64),
+            1.0,
+            300.0,
+            1.0,
+            10.0,
+            0.0,
+        ))
+        .build();
+    dynamic_expander.add_row(&dynamic_timeout_row);
+
+    let dynamic_refresh_row = adw::SpinRow::builder()
+        .title(i18n("Refresh Interval (seconds)"))
+        .subtitle(i18n("0 = manual only"))
+        .adjustment(&gtk4::Adjustment::new(
+            group
+                .dynamic_folder
+                .as_ref()
+                .and_then(|df| df.refresh_interval_secs)
+                .map_or(0.0, |s| s as f64),
+            0.0,
+            86400.0,
+            10.0,
+            60.0,
+            0.0,
+        ))
+        .build();
+    dynamic_expander.add_row(&dynamic_refresh_row);
+
+    let dynamic_group = adw::PreferencesGroup::new();
+    dynamic_group.add(&dynamic_expander);
+    content.append(&dynamic_group);
+
     // === Description Section ===
     let description_group = adw::PreferencesGroup::builder()
         .title(i18n("Description"))
@@ -1295,6 +1366,11 @@ pub fn show_edit_group_dialog(
     let ssh_expander_clone = ssh_expander;
     let ssh_jump_host_dropdown_clone = ssh_jump_host_dropdown;
     let variable_dropdown_clone = variable_dropdown;
+    let dynamic_expander_clone = dynamic_expander;
+    let dynamic_script_row_clone = dynamic_script_row;
+    let dynamic_workdir_row_clone = dynamic_workdir_row;
+    let dynamic_timeout_row_clone = dynamic_timeout_row;
+    let dynamic_refresh_row_clone = dynamic_refresh_row;
     let old_name = group.name;
 
     save_btn.connect_clicked(move |_| {
@@ -1468,6 +1544,40 @@ pub fn show_edit_group_dialog(
                     updated.sync_file = Some(
                         rustconn_core::sync::group_export::group_name_to_filename(&updated.name),
                     );
+                }
+
+                // Update Dynamic Folder configuration
+                if dynamic_expander_clone.enables_expansion() {
+                    let script = dynamic_script_row_clone.text().trim().to_string();
+                    if script.is_empty() {
+                        alert::show_validation_error(
+                            &window_clone,
+                            &i18n("Dynamic Folder script cannot be empty"),
+                        );
+                        return;
+                    }
+                    let workdir = dynamic_workdir_row_clone.text().trim().to_string();
+                    let timeout_secs = dynamic_timeout_row_clone.value() as u64;
+                    let refresh_secs = dynamic_refresh_row_clone.value() as u64;
+
+                    let mut config = rustconn_core::DynamicFolderConfig::new(script);
+                    if !workdir.is_empty() {
+                        config.working_directory = Some(std::path::PathBuf::from(workdir));
+                    }
+                    config.timeout_secs = timeout_secs;
+                    config.refresh_interval_secs = if refresh_secs > 0 {
+                        Some(refresh_secs)
+                    } else {
+                        None
+                    };
+                    // Preserve last_refreshed_at and last_error from existing config
+                    if let Some(ref existing) = existing.dynamic_folder {
+                        config.last_refreshed_at = existing.last_refreshed_at;
+                        config.last_error = existing.last_error.clone();
+                    }
+                    updated.dynamic_folder = Some(config);
+                } else {
+                    updated.dynamic_folder = None;
                 }
 
                 // Capture old groups snapshot before update for vault migration

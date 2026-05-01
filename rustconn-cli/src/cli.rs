@@ -432,6 +432,13 @@ pub enum Commands {
     )]
     SmartFolder(SmartFolderCommands),
 
+    /// Manage dynamic folders
+    #[command(
+        subcommand,
+        about = "Manage dynamic folders (script-generated connections)"
+    )]
+    DynamicFolder(DynamicFolderCommands),
+
     /// Manage session recordings
     #[command(subcommand, about = "Manage session recordings")]
     Recording(RecordingCommands),
@@ -707,10 +714,26 @@ pub enum GroupCommands {
     },
 
     /// Edit group SSH inheritance settings
-    #[command(about = "Edit group properties (SSH inheritance fields)")]
+    #[command(about = "Edit group properties (name, icon, parent, SSH inheritance)")]
     Edit {
         /// Group name or ID
         name: String,
+
+        /// New name for the group
+        #[arg(long)]
+        new_name: Option<String>,
+
+        /// New parent group name or ID (use "none" to move to root)
+        #[arg(long)]
+        parent: Option<String>,
+
+        /// Description
+        #[arg(long)]
+        description: Option<String>,
+
+        /// Custom icon (emoji or GTK icon name)
+        #[arg(long)]
+        icon: Option<String>,
 
         /// SSH key path for inheritance by child connections (local-only)
         #[arg(long)]
@@ -1028,6 +1051,62 @@ pub enum SmartFolderCommands {
     #[command(about = "Delete a smart folder")]
     Delete {
         /// Smart folder name or ID
+        name: String,
+    },
+}
+
+/// Dynamic folder subcommands
+#[derive(Subcommand)]
+pub enum DynamicFolderCommands {
+    /// List groups with dynamic folder configuration
+    #[command(about = "List groups with dynamic folder configuration")]
+    List {
+        /// Output format
+        #[arg(short, long, default_value = "table", value_enum)]
+        format: OutputFormat,
+    },
+
+    /// Refresh a dynamic folder (execute its script)
+    #[command(about = "Execute the dynamic folder script and update connections")]
+    Refresh {
+        /// Group name or ID containing the dynamic folder
+        name: String,
+    },
+
+    /// Show dynamic folder configuration for a group
+    #[command(about = "Show dynamic folder configuration and generated connections")]
+    Show {
+        /// Group name or ID
+        name: String,
+    },
+
+    /// Set (create or update) a dynamic folder on a group
+    #[command(about = "Configure a dynamic folder script on a group")]
+    Set {
+        /// Group name or ID
+        name: String,
+
+        /// Shell script to execute (run via sh -c)
+        #[arg(short, long)]
+        script: String,
+
+        /// Working directory for the script
+        #[arg(short, long)]
+        workdir: Option<String>,
+
+        /// Script timeout in seconds (default: 30)
+        #[arg(short, long, default_value = "30")]
+        timeout: u64,
+
+        /// Auto-refresh interval in seconds (0 = manual only)
+        #[arg(short, long, default_value = "0")]
+        refresh_interval: u64,
+    },
+
+    /// Remove dynamic folder configuration from a group
+    #[command(about = "Remove dynamic folder configuration from a group")]
+    Remove {
+        /// Group name or ID
         name: String,
     },
 }

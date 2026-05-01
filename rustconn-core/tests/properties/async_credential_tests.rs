@@ -89,6 +89,7 @@ fn create_test_connection(
         activity_monitor_config: None,
         session_recording_enabled: false,
         highlight_rules: Vec::new(),
+        is_dynamic: false,
     }
 }
 

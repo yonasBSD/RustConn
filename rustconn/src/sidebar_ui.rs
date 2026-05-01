@@ -84,6 +84,7 @@ pub fn show_context_menu_for_item(
     is_recording: bool,
     sync_mode: &str,
     is_root_group: bool,
+    has_dynamic_folder: bool,
 ) {
     let Some(root) = widget.root() else { return };
     let Some(window) = root.downcast_ref::<gtk4::ApplicationWindow>() else {
@@ -122,6 +123,14 @@ pub fn show_context_menu_for_item(
             items.push(ContextMenuItem::action(
                 &i18n("Enable Cloud Sync..."),
                 "edit-connection",
+            ));
+        }
+        // § Dynamic Folder
+        if has_dynamic_folder {
+            items.push(ContextMenuItem::Separator);
+            items.push(ContextMenuItem::action(
+                &i18n("Refresh Dynamic Folder"),
+                "refresh-dynamic-folder",
             ));
         }
     } else {

@@ -5,6 +5,19 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.9] - 2026-05-02
+
+### Fixed
+- **Export group exports entire tree instead of selected subtree** — when exporting a specific group via the Export dialog's group filter, all groups were included in the output file even though connections were correctly filtered; now both connections and groups are filtered to the selected group and its descendants; previously importing such an export recreated the entire group hierarchy instead of just the selected branch
+
+### Added
+- **Snippet variable substitution from Global Variables** — snippets containing `${VARIABLE}` placeholders now automatically resolve values from Global Variables (Menu → Tools → Variables) before execution; if all variables are resolved, the snippet executes immediately without showing the input dialog; partially resolved variables pre-fill the dialog with known values; resolution order: Global Variables → snippet-defined defaults → manual input; uses the same `VariableManager` and vault-backed secret resolution as Expect rules and SSH connections
+- **Dynamic Folders** — new `DynamicFolderConfig` on `ConnectionGroup` allows generating connections from an external script; the script runs via `sh -c` with configurable timeout (default 30s) and optional working directory; output is a JSON array of `[{name, host, port?, protocol?, username?, group?, tags?, description?}]`; connections are read-only (`is_dynamic` flag) with stable deterministic UUIDs across refreshes; supports SSH, RDP, VNC, SPICE, Telnet, and MOSH protocols; async executor in `rustconn-core/src/dynamic_folder.rs` with entry validation, warnings for empty name/host, and `thiserror`-based error types; model in `rustconn-core/src/models/dynamic_folder.rs`; **GUI**: group edit dialog with ExpanderRow for script/timeout/working directory/refresh interval configuration; context menu "Refresh Dynamic Folder" action with async execution and toast notifications; **CLI**: `dynamic-folder list`, `dynamic-folder show`, `dynamic-folder refresh` subcommands with table/JSON/CSV output
+
+### Improved
+- **CLI `group edit` extended** — `group edit` now supports `--new-name`, `--parent` (use "none" for root), `--description`, and `--icon` in addition to the existing SSH inheritance fields; enables full group management from the CLI without GUI
+- **CLI `dynamic-folder set/remove`** — full CRUD for dynamic folders via CLI: `set` creates or updates the script configuration on any group, `remove` clears the configuration and deletes generated connections
+
 ## [0.12.8] - 2026-05-01
 
 ### Added

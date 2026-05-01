@@ -7,6 +7,7 @@ mod completions;
 mod connect;
 mod delete;
 mod duplicate;
+mod dynamic_folder;
 mod export_import;
 mod group;
 mod list;
@@ -198,6 +199,7 @@ pub fn dispatch(config_path: Option<&Path>, command: Commands) -> Result<(), Cli
         Commands::Var(subcmd) => variable::cmd_var(config_path, subcmd),
         Commands::Secret(subcmd) => secret::cmd_secret(config_path, subcmd),
         Commands::SmartFolder(subcmd) => smart_folder::cmd_smart_folder(config_path, subcmd),
+        Commands::DynamicFolder(subcmd) => dynamic_folder::cmd_dynamic_folder(config_path, subcmd),
         Commands::Recording(subcmd) => recording::cmd_recording(subcmd),
         Commands::Duplicate { name, new_name } => {
             duplicate::cmd_duplicate(config_path, &name, new_name.as_deref())

@@ -64,6 +64,10 @@ pub enum CliError {
     #[error("Smart folder error: {0}")]
     SmartFolder(String),
 
+    /// Dynamic folder error
+    #[error("Dynamic folder error: {0}")]
+    DynamicFolder(String),
+
     /// Recording error
     #[error("Recording error: {0}")]
     Recording(String),
@@ -122,6 +126,7 @@ impl CliError {
             | Self::Variable(_)
             | Self::Secret(_)
             | Self::SmartFolder(_)
+            | Self::DynamicFolder(_)
             | Self::Recording(_)
             | Self::Protocol(_) => exit_codes::GENERAL_ERROR,
         }

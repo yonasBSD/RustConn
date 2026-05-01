@@ -1659,6 +1659,9 @@ mod imp {
         /// Whether this group is a root group (parent_id is None).
         #[property(get, set)]
         is_root_group: RefCell<bool>,
+        /// Whether this group has a dynamic folder configuration.
+        #[property(get, set)]
+        has_dynamic_folder: RefCell<bool>,
         pub(super) children: RefCell<Option<gio::ListStore>>,
     }
 
@@ -1778,6 +1781,29 @@ impl ConnectionItem {
         sync_error: &str,
         is_root_group: bool,
     ) -> Self {
+        Self::new_group_full_with_dynamic(
+            id,
+            name,
+            icon,
+            sync_mode,
+            sync_error,
+            is_root_group,
+            false,
+        )
+    }
+
+    /// Creates a new group item with all properties including dynamic folder flag
+    #[must_use]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_group_full_with_dynamic(
+        id: &str,
+        name: &str,
+        icon: &str,
+        sync_mode: &str,
+        sync_error: &str,
+        is_root_group: bool,
+        has_dynamic_folder: bool,
+    ) -> Self {
         let item: Self = glib::Object::builder()
             .property("id", id)
             .property("name", name)
@@ -1790,6 +1816,7 @@ impl ConnectionItem {
             .property("sync-mode", sync_mode)
             .property("sync-error", sync_error)
             .property("is-root-group", is_root_group)
+            .property("has-dynamic-folder", has_dynamic_folder)
             .build();
 
         // Initialize children store for groups

@@ -173,13 +173,14 @@ pub fn rebuild_sidebar_sorted(state: &SharedAppState, sidebar: &SharedSidebar) {
             .get(&group.id)
             .and_then(|s| s.last_error.as_deref())
             .unwrap_or("");
-        let group_item = ConnectionItem::new_group_full(
+        let group_item = ConnectionItem::new_group_full_with_dynamic(
             &group.id.to_string(),
             &group.name,
             icon,
             sync_mode_str,
             sync_error,
             true, // root groups
+            group.dynamic_folder.is_some(),
         );
         add_sorted_group_children(&state_ref, sidebar, &group_item, group.id);
         store.append(&group_item);
@@ -225,10 +226,14 @@ pub fn add_sorted_group_children(
 
     for child_group in &child_groups {
         let icon = child_group.icon.as_deref().unwrap_or("");
-        let child_item = ConnectionItem::new_group_with_icon(
+        let child_item = ConnectionItem::new_group_full_with_dynamic(
             &child_group.id.to_string(),
             &child_group.name,
             icon,
+            "none",
+            "",
+            false,
+            child_group.dynamic_folder.is_some(),
         );
         add_sorted_group_children(state, sidebar, &child_item, child_group.id);
         parent_item.add_child(&child_item);
