@@ -319,11 +319,12 @@ mod tests {
     async fn test_cache_construction_error() {
         let cache: Cached<Failing> = Cached::with_ttl((), Duration::from_mins(1));
 
-        let result = cache.get().await;
-        assert!(result.is_err());
-        let err = result.err().expect("expected error");
+        let err = {
+            let result = cache.get().await;
+            assert!(result.is_err());
+            result.err().expect("expected error")
+        };
         assert_eq!(err, "construction failed");
-        drop(err);
         assert!(!cache.is_valid().await);
     }
 
