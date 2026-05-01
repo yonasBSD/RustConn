@@ -40,6 +40,7 @@
     <binary>rustconn</binary>
     <binary>rustconn-cli</binary>
     <mediatype>application/x-rdp</mediatype>
+    <mediatype>application/x-virt-viewer</mediatype>
   </provides>
   <translation type="gettext">rustconn</translation>
   <categories>
@@ -131,6 +132,19 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.12.8" date="2026-05-01">
+      <description>
+        <p>Version 0.12.8 — Field Monitor-inspired infrastructure improvements:</p>
+        <ul>
+          <li>Generic async cache Cached&lt;T&gt; — thread-safe, TTL-based cache with automatic refresh and double-checked locking</li>
+          <li>Busy-state indicator BusyStack — RAII counter for tracking in-flight operations; header bar spinner shows during connections</li>
+          <li>Extended ProtocolCapabilities with 9 new flags: multi_monitor, usb_redirection, port_forwarding, wayland/x11_forwarding, session_recording, remote_monitoring, command_snippets, wake_on_lan</li>
+          <li>Connection fallback chain ConnectionFallback&lt;T&gt; — generic mechanism for trying multiple connection strategies in priority order</li>
+          <li>Virt-viewer .vv file support — open SPICE/VNC connections from libvirt, Proxmox VE, oVirt directly from the file manager</li>
+          <li>Connection failure toast notification with connection name</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.12.7" date="2026-04-30">
       <description>
         <p>Version 0.12.7 — Group credentials fix and GNOME HIG improvements:</p>

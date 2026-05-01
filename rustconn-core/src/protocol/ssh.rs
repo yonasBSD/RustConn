@@ -81,7 +81,12 @@ impl Protocol for SshProtocol {
     }
 
     fn capabilities(&self) -> ProtocolCapabilities {
-        ProtocolCapabilities::terminal()
+        ProtocolCapabilities {
+            port_forwarding: true,
+            wayland_forwarding: true,
+            x11_forwarding: true,
+            ..ProtocolCapabilities::terminal()
+        }
     }
 
     fn build_command(&self, connection: &Connection) -> Option<Vec<String>> {

@@ -204,6 +204,42 @@ fn default_port_for_spice(fields: &HashMap<String, String>) -> u16 {
         .unwrap_or(5900)
 }
 
+impl VirtViewerImporter {
+    /// Parses a single `.vv` file and returns the first connection.
+    ///
+    /// Convenience method for startup actions (analogous to
+    /// `RdpFileImporter::parse_rdp_file`). For batch import with
+    /// skipped-entry reporting, use `import_from_path()` instead.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ImportError` if the file cannot be read, has no
+    /// `[virt-viewer]` section, or the connection type is unsupported.
+    pub fn parse_vv_file(path: &Path) -> Result<Connection, ImportError> {
+        let content = read_import_file(path, "virt-viewer")?;
+        let source_path = path.display().to_string();
+
+        let fields = Self::parse_vv_section(&content).ok_or_else(|| ImportError::ParseError {
+            source_name: "virt-viewer".to_string(),
+            reason: "No [virt-viewer] section found in file".to_string(),
+        })?;
+
+        let mut result = ImportResult::new();
+        Self::convert_to_connection(&fields, &source_path, &mut result).ok_or_else(|| {
+            // Use the first skipped entry reason if available
+            let reason = result
+                .skipped
+                .first()
+                .map(|s| s.reason.clone())
+                .unwrap_or_else(|| "Failed to parse virt-viewer connection".to_string());
+            ImportError::ParseError {
+                source_name: "virt-viewer".to_string(),
+                reason,
+            }
+        })
+    }
+}
+
 impl ImportSource for VirtViewerImporter {
     fn source_id(&self) -> &'static str {
         "virt_viewer"

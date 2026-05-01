@@ -13,16 +13,32 @@ use libadwaita as adw;
 ///
 /// Layout:
 /// - Left side (pack_start): Quick Connect, Add, Remove, Add Group
-/// - Center: Title
+/// - Center: Title + Spinner
 /// - Right side (pack_end): Menu, Settings, Split Vertical, Split Horizontal
+///
+/// Returns the header bar and the busy spinner widget (initially hidden).
 #[must_use]
-pub fn create_header_bar() -> adw::HeaderBar {
+pub fn create_header_bar() -> (adw::HeaderBar, gtk4::Spinner) {
     let header_bar = adw::HeaderBar::new();
 
-    // Add title
+    // Title area: label + spinner in a horizontal box
+    let title_box = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
+    title_box.set_halign(gtk4::Align::Center);
+    title_box.set_valign(gtk4::Align::Center);
+
     let title = Label::new(Some("RustConn"));
     title.add_css_class("title");
-    header_bar.set_title_widget(Some(&title));
+    title_box.append(&title);
+
+    let busy_spinner = gtk4::Spinner::new();
+    busy_spinner.set_visible(false);
+    busy_spinner.set_tooltip_text(Some(&i18n("Operation in progress")));
+    busy_spinner.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Operation in progress",
+    ))]);
+    title_box.append(&busy_spinner);
+
+    header_bar.set_title_widget(Some(&title_box));
 
     // === Left side (pack_start) - Primary connection actions ===
     // Order: Sidebar Toggle, Quick Connect, Add, Remove, Add Group
@@ -114,7 +130,7 @@ pub fn create_header_bar() -> adw::HeaderBar {
     shell_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Open Local Shell"))]);
     header_bar.pack_end(&shell_button);
 
-    header_bar
+    (header_bar, busy_spinner)
 }
 
 /// Creates the application menu

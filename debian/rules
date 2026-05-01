@@ -21,6 +21,9 @@ override_dh_auto_install:
 	# MIME type for .rdp files
 	install -Dm644 rustconn/assets/io.github.totoshko88.RustConn-rdp.xml \
 		debian/rustconn/usr/share/mime/packages/io.github.totoshko88.RustConn-rdp.xml
+	# MIME type for .vv files (virt-viewer)
+	install -Dm644 rustconn/assets/io.github.totoshko88.RustConn-vv.xml \
+		debian/rustconn/usr/share/mime/packages/io.github.totoshko88.RustConn-vv.xml
 	# Icons - hicolor theme (for desktop/launcher)
 	install -Dm644 rustconn/assets/icons/hicolor/scalable/apps/io.github.totoshko88.RustConn.svg \
 		debian/rustconn/usr/share/icons/hicolor/scalable/apps/io.github.totoshko88.RustConn.svg

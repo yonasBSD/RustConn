@@ -445,6 +445,8 @@ pub enum StartupAction {
     Connection(uuid::Uuid),
     /// Open and connect from an `.rdp` file
     RdpFile(std::path::PathBuf),
+    /// Open and connect from a virt-viewer `.vv` file (SPICE/VNC)
+    VvFile(std::path::PathBuf),
 }
 
 /// Maximum number of search history entries to persist

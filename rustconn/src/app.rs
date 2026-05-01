@@ -292,6 +292,16 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
                             }
                             Err(e) => {
                                 tracing::warn!(%e, "Auto-export failed");
+                                // In Flatpak, show a one-time toast with actionable hint
+                                if rustconn_core::flatpak::is_flatpak()
+                                    && e.contains("not configured")
+                                {
+                                    tracing::info!(
+                                        "Flatpak: grant filesystem access with: \
+                                         flatpak override --user --filesystem=/path/to/sync \
+                                         io.github.totoshko88.RustConn"
+                                    );
+                                }
                             }
                         }
                     }

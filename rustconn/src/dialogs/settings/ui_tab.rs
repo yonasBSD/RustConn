@@ -370,7 +370,7 @@ pub fn load_ui_settings(
 
     // Select the current startup action
     let selected = match &settings.startup_action {
-        StartupAction::None | StartupAction::RdpFile(_) => 0,
+        StartupAction::None | StartupAction::RdpFile(_) | StartupAction::VvFile(_) => 0,
         StartupAction::LocalShell => 1,
         StartupAction::Connection(id) => entries
             .iter()

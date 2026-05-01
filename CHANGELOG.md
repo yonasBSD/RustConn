@@ -5,6 +5,24 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.8] - 2026-05-01
+
+### Added
+- **Generic async cache `Cached<T>`** — new `rustconn-core/src/cache.rs` module providing a thread-safe, TTL-based cache with automatic refresh via the `LoadCacheObject` trait; uses double-checked locking with `tokio::sync::RwLock` for concurrent read access; supports incremental updates through `previous_value` parameter, explicit invalidation, and configurable TTL (default 60s); replaces ad-hoc caching patterns across the codebase 
+- **Busy-state indicator `BusyStack`** — new `rustconn-core/src/busy.rs` module providing a thread-safe RAII counter for tracking in-flight operations; callback fires on 0→1 (busy) and 1→0 (idle) transitions; nested operations handled correctly without extra callbacks; `Clone` for sharing across components; **integrated into GUI** — header bar spinner appears during connection attempts via `glib::MainContext` channel bridge 
+- **Extended `ProtocolCapabilities`** — added 9 new capability flags: `multi_monitor`, `usb_redirection`, `port_forwarding`, `wayland_forwarding`, `x11_forwarding`, `session_recording`, `remote_monitoring`, `command_snippets`, `wake_on_lan`; enables UI to adapt controls per-protocol 
+  - SSH: `port_forwarding`, `wayland_forwarding`, `x11_forwarding`, `session_recording`, `remote_monitoring`, `command_snippets`
+  - RDP: `multi_monitor`
+  - SPICE: `multi_monitor`, `usb_redirection`, `audio`
+  - All terminal protocols: `session_recording`, `remote_monitoring`, `command_snippets`, `wake_on_lan`
+  - All graphical protocols: `wake_on_lan`
+- **Connection fallback chain `ConnectionFallback<T>`** — new `rustconn-core/src/connection/fallback.rs` module providing a generic mechanism for trying multiple connection strategies in priority order; `ConnectionStrategy` trait with `name()`, `is_available()`, and async `connect()`; unavailable strategies are skipped automatically; `FallbackError` collects all attempt details for diagnostics; integrated with `tracing` for structured logging 
+- **Virt-viewer `.vv` file open support** — RustConn can now open `.vv` files (SPICE/VNC from libvirt, Proxmox VE, oVirt) directly from the file manager or command line (`rustconn file.vv`); adds `StartupAction::VvFile`, `VirtViewerImporter::parse_vv_file()` convenience method, `application/x-virt-viewer` MIME type registration in desktop file and metainfo, and MIME XML definition; completes parity with `.rdp` file support 
+- **Connection failure toast** — when a connection fails to start, an error toast now shows the connection name (`"Connection to 'name' failed"`); previously the sidebar turned red with no further feedback
+
+### Dependencies
+- Teleport CLI 18.7.5 → 18.7.6 (security: authorization bypass in encrypted session recordings, cross-node recording access, SSRF via AWS database endpoint)
+
 ## [0.12.7] - 2026-05-01
 
 ### Fixed

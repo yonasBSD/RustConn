@@ -76,7 +76,10 @@ impl Protocol for RdpProtocol {
     }
 
     fn capabilities(&self) -> ProtocolCapabilities {
-        ProtocolCapabilities::graphical(true, true, true)
+        ProtocolCapabilities {
+            multi_monitor: true,
+            ..ProtocolCapabilities::graphical(true, true, true)
+        }
     }
 
     fn build_command(&self, connection: &Connection) -> Option<Vec<String>> {

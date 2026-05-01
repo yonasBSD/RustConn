@@ -57,6 +57,24 @@ pub type SharedToastOverlay = Rc<ToastOverlay>;
 /// Shared tunnel manager for standalone SSH tunnels
 pub type SharedTunnelManager = Rc<RefCell<rustconn_core::tunnel_manager::TunnelManager>>;
 
+// Thread-local busy stack for connection operations.
+//
+// Stored in a thread-local because GTK is single-threaded and the
+// static `start_connection_*` methods need access without threading
+// the stack through every call site.
+thread_local! {
+    static BUSY_STACK: RefCell<Option<rustconn_core::BusyStack>> = const { RefCell::new(None) };
+}
+
+/// Acquires a busy guard from the thread-local [`BusyStack`].
+///
+/// Returns `None` if the stack has not been initialised yet (before
+/// `MainWindow::new` runs). The returned [`BusyGuard`] keeps the
+/// header-bar spinner visible until dropped.
+fn acquire_busy_guard() -> Option<rustconn_core::BusyGuard> {
+    BUSY_STACK.with(|cell| cell.borrow().as_ref().map(rustconn_core::BusyStack::busy))
+}
+
 /// Main application window wrapper
 ///
 /// Provides access to the main window and its components.
@@ -81,6 +99,8 @@ pub struct MainWindow {
     monitoring: Rc<MonitoringCoordinator>,
     activity_coordinator: types::SharedActivityCoordinator,
     tunnel_manager: SharedTunnelManager,
+    /// Busy-state tracker — shows/hides header bar spinner on 0→1 / 1→0 transitions
+    busy_stack: rustconn_core::BusyStack,
 }
 
 impl MainWindow {
@@ -114,8 +134,39 @@ impl MainWindow {
             }
         });
 
-        // Create header bar
-        let header_bar = ui::create_header_bar();
+        // Create header bar with busy spinner
+        let (header_bar, busy_spinner) = ui::create_header_bar();
+
+        // Create BusyStack that shows/hides the header bar spinner.
+        // GTK widgets are !Send, so we bridge via std::sync::mpsc channel.
+        // The BusyStack callback (Send+Sync) sends a bool, and a
+        // glib::idle_add_local receiver dispatches it on the main thread.
+        let (busy_tx, busy_rx) =
+            std::sync::mpsc::channel::<bool>();
+        let busy_stack = rustconn_core::BusyStack::new(move |busy| {
+            let _ = busy_tx.send(busy);
+            // Wake the main loop so it processes the message promptly
+            let ctx = glib::MainContext::ref_thread_default();
+            ctx.wakeup();
+        });
+        {
+            let spinner = busy_spinner;
+            let rx = std::sync::Mutex::new(busy_rx);
+            glib::timeout_add_local(std::time::Duration::from_millis(50), move || {
+                if let Ok(guard) = rx.lock() {
+                    // Drain all pending messages, apply the latest state
+                    let mut latest = None;
+                    while let Ok(busy) = guard.try_recv() {
+                        latest = Some(busy);
+                    }
+                    if let Some(busy) = latest {
+                        spinner.set_spinning(busy);
+                        spinner.set_visible(busy);
+                    }
+                }
+                glib::ControlFlow::Continue
+            });
+        }
 
         // Create the main layout with OverlaySplitView (GNOME HIG)
         let overlay_split_view = adw::OverlaySplitView::new();
@@ -412,10 +463,16 @@ impl MainWindow {
             monitoring,
             activity_coordinator,
             tunnel_manager,
+            busy_stack,
         };
 
         // Set up window actions
         main_window.setup_actions();
+
+        // Publish BusyStack to thread-local so static methods can acquire guards
+        BUSY_STACK.with(|cell| {
+            *cell.borrow_mut() = Some(main_window.busy_stack.clone());
+        });
 
         // Set up recording checker for sidebar context menu
         {
@@ -634,7 +691,23 @@ impl MainWindow {
                             Self::reload_sidebar_preserving_state(&state_clone, &sidebar_clone);
                         }
                         Err(e) => {
-                            let msg = crate::i18n::i18n_f("Sync failed: {}", &[&e]);
+                            let error_str = e.to_string();
+                            let msg = if error_str.contains("not configured")
+                                && rustconn_core::flatpak::is_flatpak()
+                            {
+                                crate::i18n::i18n(
+                                    "Sync directory is not configured. In Flatpak, grant filesystem access first: flatpak override --user --filesystem=/path/to/sync io.github.totoshko88.RustConn",
+                                )
+                            } else if error_str.contains("not writable")
+                                && rustconn_core::flatpak::is_flatpak()
+                            {
+                                crate::i18n::i18n_f(
+                                    "Sync directory is not accessible from Flatpak sandbox. Run: flatpak override --user --filesystem={} io.github.totoshko88.RustConn",
+                                    &[&error_str],
+                                )
+                            } else {
+                                crate::i18n::i18n_f("Sync failed: {}", &[&error_str])
+                            };
                             toast_clone.show_error(&msg);
                         }
                     }
@@ -2265,10 +2338,16 @@ impl MainWindow {
         connection_id: Uuid,
         activity: Option<types::SharedActivityCoordinator>,
     ) {
+        // Acquire busy guard — spinner shows while connection is in progress.
+        // The guard is moved into closures so it stays alive until the
+        // connection completes (or the credential dialog is dismissed).
+        let busy_guard = acquire_busy_guard();
+
         // Get connection info and cached credentials (fast, non-blocking)
         let (protocol_type, cached_credentials) = {
             let Ok(state_ref) = state.try_borrow() else {
                 tracing::warn!("Could not borrow state for credential resolution");
+                drop(busy_guard);
                 return;
             };
 
@@ -2326,6 +2405,8 @@ impl MainWindow {
 
             // Handle CredentialResolutionResult variants with appropriate dialogs
             state_ref.resolve_credentials_gtk(connection_id, move |result| {
+                // Keep busy guard alive until the callback completes
+                let _busy_guard = busy_guard;
                 use rustconn_core::sync::CredentialResolutionResult;
 
                 let resolution = match result {
@@ -3022,6 +3103,17 @@ impl MainWindow {
                 }
                 types::ConnectionStartResult::Failed => {
                     sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                    // Show connection failure toast with connection name
+                    if let Ok(state_ref) = state.try_borrow() {
+                        if let Some(conn) = state_ref.get_connection(connection_id) {
+                            let name = conn.name.clone();
+                            drop(state_ref);
+                            crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
+                                "Connection to \u{2018}{}\u{2019} failed",
+                                &[&name],
+                            ));
+                        }
+                    }
                     return None;
                 }
             };
@@ -4454,6 +4546,42 @@ impl MainWindow {
                         );
                         self.toast_overlay
                             .show_warning(&crate::i18n::i18n("Failed to open .rdp file"));
+                    }
+                }
+            }
+            StartupAction::VvFile(path) => {
+                tracing::info!(path = %path.display(), "Startup action: opening .vv file");
+                match rustconn_core::import::VirtViewerImporter::parse_vv_file(path) {
+                    Ok(connection) => {
+                        let conn_id = connection.id;
+                        if let Ok(mut state_mut) = self.state.try_borrow_mut()
+                            && let Err(e) = state_mut.create_connection(connection)
+                        {
+                            tracing::error!(%e, "Failed to add imported .vv connection");
+                        }
+                        Self::start_connection_with_split(
+                            &self.state,
+                            &self.terminal_notebook,
+                            &self.split_view,
+                            &self.sidebar,
+                            &self.monitoring,
+                            conn_id,
+                            Some(&self.activity_coordinator),
+                        );
+                        let state_clone = self.state.clone();
+                        let sidebar_clone = Rc::clone(&self.sidebar);
+                        glib::idle_add_local_once(move || {
+                            Self::reload_sidebar_preserving_state(&state_clone, &sidebar_clone);
+                        });
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            ?e,
+                            path = %path.display(),
+                            "Failed to parse .vv file"
+                        );
+                        self.toast_overlay
+                            .show_warning(&crate::i18n::i18n("Failed to open .vv file"));
                     }
                 }
             }
