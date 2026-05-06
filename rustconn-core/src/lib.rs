@@ -55,6 +55,7 @@ pub mod search;
 pub mod secret;
 pub mod session;
 pub mod sftp;
+pub mod shell_escape;
 pub mod smart_folder;
 pub mod snap;
 pub mod snippet;

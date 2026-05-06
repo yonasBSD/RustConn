@@ -1,4 +1,4 @@
-use super::super::{RdpClientCommand, RdpClientError};
+use super::super::{RdpClientCommand, RdpClientError, RdpClientEvent};
 use ironrdp::cliprdr::CliprdrClient;
 use ironrdp::pdu::input::MousePdu;
 use ironrdp::pdu::input::fast_path::{FastPathInputEvent, KeyboardFlags};
@@ -13,6 +13,7 @@ pub async fn process_command<W: FramedWrite>(
     active_stage: &mut ActiveStage,
     image: &mut DecodedImage,
     writer: &mut W,
+    event_tx: &std::sync::mpsc::Sender<RdpClientEvent>,
 ) -> Result<bool, RdpClientError> {
     match cmd {
         RdpClientCommand::Disconnect => {
@@ -90,10 +91,11 @@ pub async fn process_command<W: FramedWrite>(
                 }
             } else {
                 tracing::debug!(
-                    "Display Control not available for resize {}x{}",
+                    "Display Control not available for resize {}x{} — signaling GUI for reconnect",
                     width,
                     height
                 );
+                let _ = event_tx.send(RdpClientEvent::DisplayControlUnavailable { width, height });
             }
         }
         RdpClientCommand::RefreshScreen => {

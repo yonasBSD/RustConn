@@ -33,6 +33,7 @@ impl super::EmbeddedRdpWidget {
             let remote_clipboard_text = self.remote_clipboard_text.clone();
             let container = self.container.clone();
             let status_label = self.status_label.clone();
+            let suppressed = self.clipboard_sync_suppressed.clone();
 
             copy_btn.connect_clicked(move |_| {
                 let current_state = *state.borrow();
@@ -52,6 +53,10 @@ impl super::EmbeddedRdpWidget {
                 if let Some(ref text) = *remote_clipboard_text.borrow() {
                     let char_count = text.len();
 
+                    // Suppress the clipboard-changed handler so we don't
+                    // send this text back to the server in a feedback loop.
+                    *suppressed.borrow_mut() = true;
+
                     // Use the root widget's display for clipboard access —
                     // on Wayland the clipboard is tied to the focused surface,
                     // and the top-level window surface is the most reliable owner.
@@ -63,6 +68,15 @@ impl super::EmbeddedRdpWidget {
                         container.display().clipboard()
                     };
                     clipboard.set_text(text);
+
+                    // Re-enable sync after a short delay (GTK emits changed asynchronously)
+                    let suppressed_restore = suppressed.clone();
+                    glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(100),
+                        move || {
+                            *suppressed_restore.borrow_mut() = false;
+                        },
+                    );
 
                     tracing::debug!(
                         protocol = "rdp",
@@ -86,7 +100,7 @@ impl super::EmbeddedRdpWidget {
             });
         }
 
-        // Paste button - send local clipboard text to remote
+        // Paste button - send local clipboard text to remote and simulate Ctrl+V
         {
             #[cfg(feature = "rdp-embedded")]
             let ironrdp_tx = self.ironrdp_command_tx.clone();
@@ -136,17 +150,44 @@ impl super::EmbeddedRdpWidget {
 
                                 #[cfg(feature = "rdp-embedded")]
                                 if using_ironrdp {
-                                    // Send clipboard text via IronRDP CLIPRDR channel
                                     if let Some(ref sender) = *tx.borrow() {
+                                        // Step 1: Update the server's clipboard via CLIPRDR
                                         let _ = sender.send(RdpClientCommand::ClipboardText(
                                             text.to_string(),
                                         ));
+
+                                        // Step 2: After a short delay (let the server process
+                                        // the format list + data request), send Ctrl+V to
+                                        // actually paste into the active window.
+                                        let tx_paste = tx.clone();
+                                        glib::timeout_add_local_once(
+                                            std::time::Duration::from_millis(150),
+                                            move || {
+                                                if let Some(ref sender) = *tx_paste.borrow() {
+                                                    // Ctrl+V: Ctrl down (0x1D), V down (0x2F),
+                                                    // V up, Ctrl up
+                                                    let keys = vec![
+                                                        (0x1D, true, false),  // Ctrl down
+                                                        (0x2F, true, false),  // V down
+                                                        (0x2F, false, false), // V up
+                                                        (0x1D, false, false), // Ctrl up
+                                                    ];
+                                                    let _ = sender.send(
+                                                        RdpClientCommand::SendKeySequence { keys },
+                                                    );
+                                                    tracing::debug!(
+                                                        protocol = "rdp",
+                                                        "Paste button: sent Ctrl+V to server"
+                                                    );
+                                                }
+                                            },
+                                        );
+
                                         tracing::debug!(
                                             protocol = "rdp",
                                             chars = char_count,
                                             "Paste button: sent local clipboard to server"
                                         );
-                                        // Show brief feedback
                                         show_status_briefly(
                                             &status,
                                             &i18n_f("Pasted {} chars", &[&char_count.to_string()]),

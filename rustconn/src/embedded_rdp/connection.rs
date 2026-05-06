@@ -410,15 +410,20 @@ impl super::EmbeddedRdpWidget {
         let audio_player = self.audio_player.clone();
         let clipboard_handler_id = self.clipboard_handler_id.clone();
 
-        // Flag to suppress clipboard change events when we set the clipboard
-        // ourselves (Phase 2 auto-sync), preventing feedback loops.
-        let clipboard_sync_suppressed: Rc<RefCell<bool>> = Rc::new(RefCell::new(false));
+        // Use the struct-level suppression flag so both the Copy button handler
+        // and the Phase 2 auto-sync can suppress the clipboard-changed callback.
+        let clipboard_sync_suppressed = self.clipboard_sync_suppressed.clone();
 
         // Capture fallback-related state for auto-fallback on protocol errors
         // (e.g. xrdp ServerDemandActive incompatibility — IronRDP issue #139)
         let on_fallback = self.on_fallback.clone();
         let fallback_config = self.config.clone();
         let fallback_process = self.process.clone();
+
+        // Capture reconnect callback and file DnD circuit breaker for event handling
+        let on_reconnect = self.on_reconnect.clone();
+        let config = self.config.clone();
+        let file_dnd_cb = self.file_dnd_circuit_breaker.clone();
 
         // Capture effective scale for cursor size correction
         let cursor_scale = effective_scale;
@@ -1022,6 +1027,57 @@ impl super::EmbeddedRdpWidget {
                                     "Clipboard file size"
                                 );
                                 file_transfer.borrow_mut().update_size(stream_id, size);
+                            }
+                            RdpClientEvent::DisplayControlUnavailable { width, height } => {
+                                // Server does not support Display Control Channel
+                                // (e.g. Windows Server without RDPEDISP). The only
+                                // way to change resolution is a full reconnect.
+                                // We always reconnect here — the "Reconnect on Resize"
+                                // toggle controls whether resize.rs sends the initial
+                                // SetDesktopSize attempt at all (force path), but once
+                                // we already tried dynamic resize and the server said
+                                // "no", reconnect is the correct fallback.
+                                tracing::info!(
+                                    protocol = "rdp",
+                                    width,
+                                    height,
+                                    "Display Control Channel unavailable — \
+                                     reconnecting with new resolution"
+                                );
+                                // Update config with the requested resolution
+                                {
+                                    let current_config = config.borrow().clone();
+                                    if let Some(mut cfg) = current_config {
+                                        cfg = cfg.with_resolution(
+                                            u32::from(width),
+                                            u32::from(height),
+                                        );
+                                        *config.borrow_mut() = Some(cfg);
+                                    }
+                                }
+                                // Disconnect current session
+                                if let Some(ref sender) = *ironrdp_tx.borrow() {
+                                    let _ = sender.send(RdpClientCommand::Disconnect);
+                                }
+                                // Trigger reconnect via callback
+                                let reconnect_cb_clone = on_reconnect.clone();
+                                glib::timeout_add_local_once(
+                                    std::time::Duration::from_millis(500),
+                                    move || {
+                                        if let Some(ref callback) = *reconnect_cb_clone.borrow() {
+                                            callback();
+                                        }
+                                    },
+                                );
+                            }
+                            RdpClientEvent::FileClipboardUnsupported => {
+                                tracing::info!(
+                                    protocol = "rdp",
+                                    "Server does not support file clipboard — disabling file DnD"
+                                );
+                                file_dnd_cb
+                                    .borrow_mut()
+                                    .disable("Server does not support file clipboard");
                             }
                         }
                     }

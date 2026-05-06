@@ -366,6 +366,14 @@ label.error {
                 border-color 150ms ease-in-out;
 }
 
+/* Terminal file drag-and-drop highlight */
+.terminal-drop-highlight {
+    background-color: alpha(@accent_color, 0.1);
+    box-shadow: inset 0 0 0 2px alpha(@accent_color, 0.6);
+    transition: background-color 150ms ease-in-out,
+                box-shadow 150ms ease-in-out;
+}
+
 /* Requirement 8.3: Distinguish between Empty_Panel and Occupied_Panel drop targets */
 /* Empty panel drop target - uses accent color (inviting) */
 .drop-target-empty {

@@ -114,7 +114,7 @@ impl super::EmbeddedRdpWidget {
                 let force_reconnect = config
                     .borrow()
                     .as_ref()
-                    .map_or(false, |c| c.reconnect_on_resize);
+                    .is_some_and(|c| c.reconnect_on_resize);
 
                 let source_id = glib::timeout_add_local_once(
                     std::time::Duration::from_millis(500),

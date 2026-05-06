@@ -22,12 +22,14 @@ pub fn cmd_smart_folder(
         SmartFolderCommands::Show { name } => cmd_smart_folder_show(config_path, &name),
         SmartFolderCommands::Create {
             name,
+            icon,
             protocol,
             host_pattern,
             tags,
         } => cmd_smart_folder_create(
             config_path,
             &name,
+            icon.as_deref(),
             protocol.as_deref(),
             host_pattern.as_deref(),
             tags.as_deref(),
@@ -35,6 +37,7 @@ pub fn cmd_smart_folder(
         SmartFolderCommands::Edit {
             name,
             new_name,
+            icon,
             protocol,
             host_pattern,
             tags,
@@ -42,6 +45,7 @@ pub fn cmd_smart_folder(
             config_path,
             &name,
             new_name.as_deref(),
+            icon.as_deref(),
             protocol.as_deref(),
             host_pattern.as_deref(),
             tags.as_deref(),
@@ -135,6 +139,9 @@ fn cmd_smart_folder_show(config_path: Option<&Path>, name: &str) -> Result<(), C
 
     println!("Smart Folder: {}", folder.name);
     println!("  ID: {}", folder.id);
+    if let Some(ref icon) = folder.icon {
+        println!("  Icon: {icon}");
+    }
     if let Some(ref proto) = folder.filter_protocol {
         println!("  Protocol: {proto:?}");
     }
@@ -159,6 +166,7 @@ fn cmd_smart_folder_show(config_path: Option<&Path>, name: &str) -> Result<(), C
 fn cmd_smart_folder_create(
     config_path: Option<&Path>,
     name: &str,
+    icon: Option<&str>,
     protocol: Option<&str>,
     host_pattern: Option<&str>,
     tags: Option<&str>,
@@ -192,6 +200,7 @@ fn cmd_smart_folder_create(
         filter_host_pattern: host_pattern.map(String::from),
         filter_group_id: None,
         sort_order: settings.smart_folders.len() as i32,
+        icon: icon.map(String::from),
     };
 
     let id = folder.id;
@@ -210,6 +219,7 @@ fn cmd_smart_folder_edit(
     config_path: Option<&Path>,
     name: &str,
     new_name: Option<&str>,
+    icon: Option<&str>,
     protocol: Option<&str>,
     host_pattern: Option<&str>,
     tags: Option<&str>,
@@ -229,6 +239,13 @@ fn cmd_smart_folder_edit(
 
     if let Some(n) = new_name {
         folder.name = n.to_string();
+    }
+    if let Some(i) = icon {
+        if i.eq_ignore_ascii_case("none") {
+            folder.icon = None;
+        } else {
+            folder.icon = Some(i.to_string());
+        }
     }
     if let Some(p) = protocol {
         if p.eq_ignore_ascii_case("none") {

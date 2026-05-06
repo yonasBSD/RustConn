@@ -31,4 +31,10 @@ pub struct SmartFolder {
     /// Display order in sidebar
     #[serde(default)]
     pub sort_order: i32,
+    /// Custom icon for the smart folder (emoji/unicode character)
+    ///
+    /// When `None`, the default 📁 icon is used.
+    /// Examples: `"🚀"`, `"🏢"`, `"🔒"`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
 }

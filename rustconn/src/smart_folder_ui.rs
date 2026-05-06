@@ -162,8 +162,9 @@ fn build_expandable_folder_row(folder: &SmartFolder, connections: &[&Connection]
     arrow.add_css_class("dim-label");
     header.append(&arrow);
 
-    // Folder icon
-    let icon = Label::new(Some("📁"));
+    // Folder icon (custom emoji or default 📁)
+    let icon_str = folder.icon.as_deref().unwrap_or("📁");
+    let icon = Label::new(Some(icon_str));
     header.append(&icon);
 
     // Folder name
@@ -274,11 +275,27 @@ fn build_connection_row(conn: &Connection) -> ListBoxRow {
     hbox.set_margin_start(4);
     hbox.set_margin_end(4);
 
-    // Protocol icon
-    let icon_name = get_protocol_icon(conn.protocol);
-    let icon = Image::from_icon_name(icon_name);
-    icon.set_pixel_size(16);
-    hbox.append(&icon);
+    // Connection icon: custom (emoji or GTK icon name) or protocol-based
+    let custom_icon = conn.icon.as_deref().unwrap_or("");
+    if custom_icon.is_empty() {
+        let icon_name = get_protocol_icon(conn.protocol);
+        let icon = Image::from_icon_name(icon_name);
+        icon.set_pixel_size(16);
+        hbox.append(&icon);
+    } else if custom_icon.chars().count() <= 2
+        && custom_icon.chars().next().is_some_and(|c| !c.is_ascii())
+    {
+        // Emoji/unicode — show as a label
+        let emoji_lbl = Label::new(Some(custom_icon));
+        emoji_lbl.add_css_class("emoji-icon");
+        emoji_lbl.set_width_chars(2);
+        hbox.append(&emoji_lbl);
+    } else {
+        // GTK icon name
+        let icon = Image::from_icon_name(custom_icon);
+        icon.set_pixel_size(16);
+        hbox.append(&icon);
+    }
 
     // Connection name
     let name_label = Label::new(Some(&conn.name));

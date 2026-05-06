@@ -114,6 +114,7 @@ fn matching_smart_folder(
         filter_host_pattern: Some(host_pattern),
         filter_group_id: group_id,
         sort_order: 0,
+        icon: None,
     }
 }
 
@@ -172,6 +173,7 @@ proptest! {
             filter_host_pattern: None,
             filter_group_id: None,
             sort_order: 0,
+            icon: None,
         };
 
         let mgr = SmartFolderManager::new();
@@ -212,6 +214,7 @@ fn arb_smart_folder() -> impl Strategy<Value = SmartFolder> {
                     None
                 },
                 sort_order: sort,
+                icon: None,
             },
         )
 }
@@ -232,6 +235,7 @@ proptest! {
         prop_assert_eq!(&folder.filter_host_pattern, &restored.filter_host_pattern);
         prop_assert_eq!(&folder.filter_group_id, &restored.filter_group_id);
         prop_assert_eq!(folder.sort_order, restored.sort_order);
+        prop_assert_eq!(&folder.icon, &restored.icon);
     }
 }
 
@@ -256,6 +260,7 @@ proptest! {
             filter_host_pattern: None,
             filter_group_id: None,
             sort_order: 0,
+            icon: None,
         };
 
         let mgr = SmartFolderManager::new();

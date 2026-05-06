@@ -142,6 +142,8 @@ pub struct ConnectionDialog {
     ssh_key_button: Button,
     ssh_agent_key_dropdown: DropDown,
     ssh_agent_keys: Rc<RefCell<Vec<rustconn_core::ssh_agent::AgentKey>>>,
+    /// Pending agent key selection (fingerprint, comment) to restore after refresh
+    pending_agent_selection: Rc<RefCell<Option<(String, String)>>>,
     ssh_jump_host_dropdown: DropDown,
     ssh_proxy_entry: Entry,
     ssh_identities_only: CheckButton,
@@ -469,6 +471,10 @@ impl ConnectionDialog {
         // Storage for agent keys (populated when dialog is shown)
         let ssh_agent_keys: Rc<RefCell<Vec<rustconn_core::ssh_agent::AgentKey>>> =
             Rc::new(RefCell::new(Vec::new()));
+
+        // Pending agent key selection to restore after refresh_agent_keys()
+        let pending_agent_selection: Rc<RefCell<Option<(String, String)>>> =
+            Rc::new(RefCell::new(None));
 
         // Storage for port forwarding rules (created before SSH options so we can
         // append the port forwarding group to the SSH panel)
@@ -1007,6 +1013,7 @@ impl ConnectionDialog {
             ssh_key_button,
             ssh_agent_key_dropdown,
             ssh_agent_keys,
+            pending_agent_selection,
             ssh_jump_host_dropdown,
             ssh_proxy_entry,
             ssh_identities_only,
@@ -6075,6 +6082,9 @@ impl ConnectionDialog {
                 self.ssh_key_entry.set_sensitive(false);
                 self.ssh_key_button.set_sensitive(false);
                 self.ssh_agent_key_dropdown.set_sensitive(true);
+                // Store pending selection for restore after refresh_agent_keys()
+                *self.pending_agent_selection.borrow_mut() =
+                    Some((fingerprint.clone(), comment.clone()));
                 // Try to select the matching agent key in the dropdown
                 self.select_agent_key_by_fingerprint(fingerprint, comment);
             }
@@ -7330,6 +7340,11 @@ impl ConnectionDialog {
         if self.ssh_key_source_dropdown.selected() == 2 {
             // Agent source is selected
             self.ssh_agent_key_dropdown.set_sensitive(has_keys);
+        }
+
+        // Restore pending agent key selection (set by set_ssh_config before keys were loaded)
+        if let Some((ref fingerprint, ref comment)) = *self.pending_agent_selection.borrow() {
+            self.select_agent_key_by_fingerprint(fingerprint, comment);
         }
     }
 

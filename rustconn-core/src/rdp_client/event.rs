@@ -510,6 +510,25 @@ pub enum RdpClientEvent {
 
     /// Audio channel closed
     AudioClose,
+
+    /// Display Control Channel is not available on this server.
+    ///
+    /// Emitted when `encode_resize` returns `None`, indicating the server
+    /// does not support MS-RDPEDISP dynamic resolution changes. The GUI
+    /// should fall back to a full reconnect with the new resolution.
+    DisplayControlUnavailable {
+        /// Requested width that could not be applied
+        width: u16,
+        /// Requested height that could not be applied
+        height: u16,
+    },
+
+    /// Server does not support file clipboard (`STREAM_FILECLIP_ENABLED`).
+    ///
+    /// Emitted during capability negotiation when the server's CLIPRDR
+    /// general capabilities do not include the file stream flag. The GUI
+    /// should disable file drag-and-drop for this session.
+    FileClipboardUnsupported,
 }
 
 /// Commands sent from GUI to RDP client

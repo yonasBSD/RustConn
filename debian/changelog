@@ -1,15 +1,13 @@
 rustconn (0.13.5-1) unstable; urgency=medium
 
-  * [Fixed] RDP: dynamic resize without reconnect via Display Control
-    Channel — window resize no longer triggers a full session
-    disconnect/reconnect cycle; the new resolution is sent in-place via
-    the MS-RDPEDISP Display Control Virtual Channel (SetDesktopSize →
-    encode_resize); the session continues seamlessly with the server-side
-    desktop resized to match the new widget dimensions; debounce (500ms)
-    and threshold (50px) remain to avoid flooding the server; FreeRDP
-    external mode still falls back to reconnect (#131)
+  * Version bump to 0.13.5
+  * Added Drag & Drop file paths into VTE terminals (#74)
+  * Added Drag & Drop files to RDP clipboard via CLIPRDR (#74)
+  * Added RDP "Reconnect on Resize" option for legacy servers
+  * Fixed RDP dynamic resize without reconnect via Display Control Channel (#131)
+  * Fixed SSH agent key selection not remembered in connection dialog (#125)
 
- -- Anton Isaiev <totoshko88@gmail.com>  Tue, 06 May 2026 12:00:00 +0000
+ -- Anton Isaiev <totoshko88@gmail.com>  Tue, 06 May 2026 12:00:00 +0200
 
 rustconn (0.13.4-1) unstable; urgency=medium
 

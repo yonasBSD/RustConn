@@ -30,7 +30,7 @@ use tracing::{debug, trace, warn};
 /// Proxy for sending clipboard messages to the main event loop
 #[derive(Clone, Debug)]
 pub struct RustConnClipboardProxy {
-    event_tx: Sender<RdpClientEvent>,
+    pub(crate) event_tx: Sender<RdpClientEvent>,
 }
 
 impl RustConnClipboardProxy {
@@ -185,6 +185,13 @@ impl CliprdrBackend for RustConnClipboardBackend {
         }
         if capabilities.contains(ClipboardGeneralCapabilityFlags::STREAM_FILECLIP_ENABLED) {
             debug!("Server supports file stream clipboard");
+        } else {
+            // Server does not support file clipboard — notify GUI to disable file DnD
+            debug!("Server does NOT support file stream clipboard — disabling file DnD");
+            let _ = self
+                .proxy
+                .event_tx
+                .send(RdpClientEvent::FileClipboardUnsupported);
         }
         if capabilities.contains(ClipboardGeneralCapabilityFlags::FILECLIP_NO_FILE_PATHS) {
             debug!("Server prefers file clipboard without paths");
