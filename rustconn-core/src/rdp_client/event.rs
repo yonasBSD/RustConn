@@ -529,6 +529,24 @@ pub enum RdpClientEvent {
     /// general capabilities do not include the file stream flag. The GUI
     /// should disable file drag-and-drop for this session.
     FileClipboardUnsupported,
+
+    /// Server requested file contents from us (client → server file transfer).
+    ///
+    /// Emitted by the clipboard backend when the server requests file data
+    /// after we announced files via `FileGroupDescriptorW`. The session loop
+    /// should read the file and respond via `submit_file_contents`.
+    FileContentsRequested {
+        /// Stream ID for matching request/response
+        stream_id: u32,
+        /// File index in the announced file list
+        file_index: u32,
+        /// Whether the server wants the file size (true) or data (false)
+        is_size_request: bool,
+        /// Byte offset for data requests
+        offset: u64,
+        /// Number of bytes requested (for data requests)
+        requested_size: u32,
+    },
 }
 
 /// Commands sent from GUI to RDP client
@@ -673,6 +691,17 @@ pub enum RdpClientCommand {
         inter_char_delay_ms: u32,
         /// Initial delay before typing starts in milliseconds (default: 0)
         initial_delay_ms: u32,
+    },
+
+    /// Store local file paths in the clipboard backend for file DnD transfer.
+    ///
+    /// Called by the GUI after files are dropped onto the RDP widget.
+    /// The paths are indexed by position matching the `FileGroupDescriptorW`
+    /// announcement order. When the server requests file contents, the
+    /// session loop reads from these stored paths.
+    StoreLocalFiles {
+        /// Local file paths in the same order as announced in FileGroupDescriptorW
+        paths: Vec<std::path::PathBuf>,
     },
 }
 

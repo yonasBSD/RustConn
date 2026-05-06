@@ -76,7 +76,7 @@ impl SmartFolderDialog {
         // Header bar with Save/Create icon button (GNOME HIG)
         let header = adw::HeaderBar::new();
         let save_btn = if is_edit {
-            let btn = Button::from_icon_name("document-save-symbolic");
+            let btn = Button::from_icon_name("media-floppy-symbolic");
             btn.set_tooltip_text(Some(&i18n("Save")));
             btn.update_property(&[gtk4::accessible::Property::Label(&i18n("Save"))]);
             btn

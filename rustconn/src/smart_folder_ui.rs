@@ -189,9 +189,10 @@ fn build_expandable_folder_row(folder: &SmartFolder, connections: &[&Connection]
         .build();
 
     let conn_list = ListBox::new();
-    conn_list.set_selection_mode(SelectionMode::None);
+    conn_list.set_selection_mode(SelectionMode::Single);
     conn_list.add_css_class("navigation-sidebar");
     conn_list.set_margin_start(20);
+    conn_list.set_activate_on_single_click(false);
 
     for conn in connections {
         let conn_row = build_connection_row(conn);
@@ -259,6 +260,24 @@ fn build_expandable_folder_row(folder: &SmartFolder, connections: &[&Connection]
             action.activate(Some(&conn_id.to_variant()));
         }
     });
+
+    // --- Right-click on connection row → context menu ---
+    let conn_ctx_gesture = gtk4::GestureClick::new();
+    conn_ctx_gesture.set_button(gdk::BUTTON_SECONDARY);
+    conn_ctx_gesture.connect_pressed(move |gesture, _n, _x, y| {
+        if let Some(widget) = gesture.widget()
+            && let Some(list_box) = widget.downcast_ref::<ListBox>()
+            && let Some(row) = list_box.row_at_y(y as i32)
+        {
+            let conn_id = row.widget_name();
+            if conn_id.is_empty() {
+                return;
+            }
+            list_box.select_row(Some(&row));
+            show_connection_context_menu_in_smart_folder(&row, conn_id.to_string());
+        }
+    });
+    conn_list.add_controller(conn_ctx_gesture);
 
     outer
 }
@@ -397,6 +416,184 @@ fn show_smart_folder_context_menu(
     };
 
     popover.set_pointing_to(Some(&gdk::Rectangle::new(popup_x, popup_y, 1, 1)));
+    popover.set_autohide(true);
+    popover.set_has_arrow(true);
+
+    popover.connect_closed(|p| {
+        p.unparent();
+    });
+
+    popover.popup();
+}
+
+/// Shows a context menu for a connection row inside a smart folder.
+///
+/// Provides the most common actions: Connect, Edit, Copy Username/Password,
+/// Wake On LAN, Check if Online, and Delete. Actions that require sidebar
+/// selection first select the connection in the main sidebar via
+/// `select-item-by-id` action, then activate the standard window action.
+fn show_connection_context_menu_in_smart_folder(row: &ListBoxRow, conn_id: String) {
+    let Some(root) = row.root() else { return };
+    let Some(window) = root.downcast_ref::<gtk4::ApplicationWindow>() else {
+        return;
+    };
+
+    let popover = gtk4::Popover::new();
+
+    let menu_box = GtkBox::new(Orientation::Vertical, 0);
+    menu_box.set_margin_top(6);
+    menu_box.set_margin_bottom(6);
+    menu_box.set_margin_start(6);
+    menu_box.set_margin_end(6);
+
+    let create_menu_button = |label: &str| -> Button {
+        let btn = Button::with_label(label);
+        btn.set_has_frame(false);
+        btn.add_css_class("flat");
+        btn.set_halign(gtk4::Align::Start);
+        btn
+    };
+
+    let popover_ref = popover.downgrade();
+
+    // Connect
+    let connect_btn = create_menu_button(&i18n("Connect"));
+    let win = window.clone();
+    let id = conn_id.clone();
+    let popover_c = popover_ref.clone();
+    connect_btn.connect_clicked(move |_| {
+        if let Some(p) = popover_c.upgrade() {
+            p.popdown();
+        }
+        if let Some(action) = win.lookup_action("connect-to") {
+            action.activate(Some(&id.to_variant()));
+        }
+    });
+    menu_box.append(&connect_btn);
+
+    // Separator
+    menu_box.append(&gtk4::Separator::new(Orientation::Horizontal));
+
+    // Edit
+    let edit_btn = create_menu_button(&i18n("Edit"));
+    let win = window.clone();
+    let id = conn_id.clone();
+    let popover_c = popover_ref.clone();
+    edit_btn.connect_clicked(move |_| {
+        if let Some(p) = popover_c.upgrade() {
+            p.popdown();
+        }
+        if let Some(action) = win.lookup_action("select-item-by-id") {
+            action.activate(Some(&id.to_variant()));
+        }
+        if let Some(action) = win.lookup_action("edit-connection") {
+            action.activate(None);
+        }
+    });
+    menu_box.append(&edit_btn);
+
+    // Separator
+    menu_box.append(&gtk4::Separator::new(Orientation::Horizontal));
+
+    // Copy Username
+    let copy_user_btn = create_menu_button(&i18n("Copy Username"));
+    let win = window.clone();
+    let id = conn_id.clone();
+    let popover_c = popover_ref.clone();
+    copy_user_btn.connect_clicked(move |_| {
+        if let Some(p) = popover_c.upgrade() {
+            p.popdown();
+        }
+        if let Some(action) = win.lookup_action("select-item-by-id") {
+            action.activate(Some(&id.to_variant()));
+        }
+        if let Some(action) = win.lookup_action("copy-username") {
+            action.activate(None);
+        }
+    });
+    menu_box.append(&copy_user_btn);
+
+    // Copy Password
+    let copy_pass_btn = create_menu_button(&i18n("Copy Password"));
+    let win = window.clone();
+    let id = conn_id.clone();
+    let popover_c = popover_ref.clone();
+    copy_pass_btn.connect_clicked(move |_| {
+        if let Some(p) = popover_c.upgrade() {
+            p.popdown();
+        }
+        if let Some(action) = win.lookup_action("select-item-by-id") {
+            action.activate(Some(&id.to_variant()));
+        }
+        if let Some(action) = win.lookup_action("copy-password") {
+            action.activate(None);
+        }
+    });
+    menu_box.append(&copy_pass_btn);
+
+    // Separator
+    menu_box.append(&gtk4::Separator::new(Orientation::Horizontal));
+
+    // Wake On LAN
+    let wol_btn = create_menu_button(&i18n("Wake On LAN"));
+    let win = window.clone();
+    let id = conn_id.clone();
+    let popover_c = popover_ref.clone();
+    wol_btn.connect_clicked(move |_| {
+        if let Some(p) = popover_c.upgrade() {
+            p.popdown();
+        }
+        if let Some(action) = win.lookup_action("select-item-by-id") {
+            action.activate(Some(&id.to_variant()));
+        }
+        if let Some(action) = win.lookup_action("wake-on-lan") {
+            action.activate(None);
+        }
+    });
+    menu_box.append(&wol_btn);
+
+    // Check if Online
+    let check_btn = create_menu_button(&i18n("Check if Online"));
+    let win = window.clone();
+    let id = conn_id.clone();
+    let popover_c = popover_ref.clone();
+    check_btn.connect_clicked(move |_| {
+        if let Some(p) = popover_c.upgrade() {
+            p.popdown();
+        }
+        if let Some(action) = win.lookup_action("select-item-by-id") {
+            action.activate(Some(&id.to_variant()));
+        }
+        if let Some(action) = win.lookup_action("check-host-online") {
+            action.activate(None);
+        }
+    });
+    menu_box.append(&check_btn);
+
+    // Separator
+    menu_box.append(&gtk4::Separator::new(Orientation::Horizontal));
+
+    // Delete
+    let delete_btn = create_menu_button(&i18n("Delete"));
+    delete_btn.add_css_class("error");
+    let win = window.clone();
+    let id = conn_id;
+    let popover_c = popover_ref;
+    delete_btn.connect_clicked(move |_| {
+        if let Some(p) = popover_c.upgrade() {
+            p.popdown();
+        }
+        if let Some(action) = win.lookup_action("select-item-by-id") {
+            action.activate(Some(&id.to_variant()));
+        }
+        if let Some(action) = win.lookup_action("delete-connection") {
+            action.activate(None);
+        }
+    });
+    menu_box.append(&delete_btn);
+
+    popover.set_child(Some(&menu_box));
+    popover.set_parent(row);
     popover.set_autohide(true);
     popover.set_has_arrow(true);
 

@@ -172,7 +172,7 @@ pub fn start_ssh_connection(
                         {
                             crate::toast::show_retry_toast_on_window(
                                 window,
-                                &crate::i18n::i18n("Connection failed. Host unreachable."),
+                                &e.to_string(),
                                 &connection_id.to_string(),
                             );
                         }
@@ -871,7 +871,7 @@ pub fn start_vnc_connection(
                         {
                             crate::toast::show_retry_toast_on_window(
                                 window,
-                                &crate::i18n::i18n("Connection failed. Host unreachable."),
+                                &e.to_string(),
                                 &connection_id.to_string(),
                             );
                         }
@@ -1073,7 +1073,7 @@ pub fn start_spice_connection(
                         {
                             crate::toast::show_retry_toast_on_window(
                                 window,
-                                &crate::i18n::i18n("Connection failed. Host unreachable."),
+                                &e.to_string(),
                                 &connection_id.to_string(),
                             );
                         }
@@ -1939,7 +1939,7 @@ pub fn start_telnet_connection(
                     {
                         crate::toast::show_retry_toast_on_window(
                             window,
-                            &crate::i18n::i18n("Connection failed. Host unreachable."),
+                            &e.to_string(),
                             &connection_id.to_string(),
                         );
                     }
@@ -2693,7 +2693,7 @@ pub fn start_mosh_connection(
                     {
                         crate::toast::show_retry_toast_on_window(
                             window,
-                            &crate::i18n::i18n("Connection failed. Host unreachable."),
+                            &e.to_string(),
                             &connection_id.to_string(),
                         );
                     }

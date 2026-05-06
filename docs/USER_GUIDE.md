@@ -1250,6 +1250,16 @@ Smart Folders are dynamic, filter-based views that automatically group connectio
 
 4. Click **Create**
 
+**Custom Icons:**
+
+Smart Folders support custom emoji icons displayed in the sidebar instead of the default 📁. Set the icon in the "Icon" field when creating or editing a Smart Folder, or via CLI:
+
+```bash
+rustconn-cli smart-folder create --name "Production" --icon "🏢" --protocol ssh
+rustconn-cli smart-folder edit "Production" --icon "🚀"   # Change icon
+rustconn-cli smart-folder edit "Production" --icon "none"  # Reset to default 📁
+```
+
 **Behavior:**
 - Smart Folders appear in a dedicated sidebar section with a 🔍 icon
 - Connections in Smart Folders are read-only (no drag-drop)

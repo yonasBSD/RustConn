@@ -5337,7 +5337,7 @@ impl ConnectionDialog {
         self.window.set_title(Some(&i18n("Edit Connection")));
         // Switch from Create icon to Save icon for edit mode
         self.save_button.set_label("");
-        self.save_button.set_icon_name("document-save-symbolic");
+        self.save_button.set_icon_name("media-floppy-symbolic");
         self.save_button.set_tooltip_text(Some(&i18n("Save")));
         self.save_button
             .update_property(&[gtk4::accessible::Property::Label(&i18n("Save"))]);

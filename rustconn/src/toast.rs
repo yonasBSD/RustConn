@@ -116,7 +116,11 @@ impl ToastOverlay {
         let toast = adw::Toast::new(message);
         toast.set_priority(toast_type.priority());
         if let Some(title) = toast_type.custom_title() {
-            toast.set_custom_title(Some(&Self::build_toast_title_widget(&title, toast_type)));
+            let title_text = format!("{title}: {message}");
+            toast.set_custom_title(Some(&Self::build_toast_title_widget(
+                &title_text,
+                toast_type,
+            )));
         }
         self.overlay.add_toast(toast);
     }
@@ -256,8 +260,9 @@ pub fn show_missing_cli_toast(window: &impl IsA<gui::Window>, message: &str) {
     {
         let toast = adw::Toast::new(message);
         toast.set_priority(adw::ToastPriority::High);
+        let title_text = format!("{}: {}", crate::i18n::i18n("Error"), message);
         toast.set_custom_title(Some(&ToastOverlay::build_toast_title_widget(
-            &crate::i18n::i18n("Error"),
+            &title_text,
             ToastType::Error,
         )));
         if rustconn_core::flatpak::is_flatpak() {
@@ -285,8 +290,9 @@ pub fn show_retry_toast_on_window(
         toast.set_button_label(Some(&crate::i18n::i18n("Retry")));
         toast.set_action_name(Some("win.retry-connect"));
         toast.set_action_target_value(Some(&glib::Variant::from(connection_id)));
+        let title_text = format!("{}: {}", crate::i18n::i18n("Error"), message);
         toast.set_custom_title(Some(&ToastOverlay::build_toast_title_widget(
-            &crate::i18n::i18n("Error"),
+            &title_text,
             ToastType::Error,
         )));
         overlay.add_toast(toast);

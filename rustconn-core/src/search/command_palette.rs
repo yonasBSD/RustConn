@@ -142,7 +142,7 @@ pub fn builtin_commands() -> Vec<PaletteItem> {
             .with_description("Ctrl+I")
             .with_priority(60),
         PaletteItem::new("Export", CommandPaletteAction::Export)
-            .with_icon("document-save-symbolic")
+            .with_icon("media-floppy-symbolic")
             .with_description("Ctrl+Shift+E")
             .with_priority(55),
         PaletteItem::new("Settings", CommandPaletteAction::OpenSettings)

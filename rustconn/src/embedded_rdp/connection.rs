@@ -839,6 +839,12 @@ impl super::EmbeddedRdpWidget {
                             RdpClientEvent::ServerMessage(msg) => {
                                 tracing::debug!(protocol = "rdp", message = %msg, "Server message");
                             }
+                            RdpClientEvent::FileContentsRequested { .. } => {
+                                // File contents requests are handled directly in the
+                                // session thread via handle_file_contents_request().
+                                // This event is only emitted for observability; no
+                                // GUI action needed.
+                            }
                             #[cfg(feature = "rdp-audio")]
                             RdpClientEvent::AudioFormatChanged(format) => {
                                 tracing::debug!(
@@ -1048,10 +1054,8 @@ impl super::EmbeddedRdpWidget {
                                 {
                                     let current_config = config.borrow().clone();
                                     if let Some(mut cfg) = current_config {
-                                        cfg = cfg.with_resolution(
-                                            u32::from(width),
-                                            u32::from(height),
-                                        );
+                                        cfg = cfg
+                                            .with_resolution(u32::from(width), u32::from(height));
                                         *config.borrow_mut() = Some(cfg);
                                     }
                                 }

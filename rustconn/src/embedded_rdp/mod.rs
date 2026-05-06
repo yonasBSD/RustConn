@@ -487,6 +487,11 @@ impl EmbeddedRdpWidget {
                         // Build FileGroupDescriptorW and announce to server
                         let descriptor = file_dnd::build_file_group_descriptor(&files);
 
+                        // Store file paths in the backend for later file contents requests
+                        let paths: Vec<std::path::PathBuf> =
+                            files.iter().map(|f| f.path.clone()).collect();
+                        let _ = sender.send(RdpClientCommand::StoreLocalFiles { paths });
+
                         // Store file paths for later on_file_contents_request
                         // and announce CF_HDROP format to server
                         let format_info = rustconn_core::ClipboardFormatInfo::new(

@@ -200,9 +200,16 @@ fn arb_smart_folder() -> impl Strategy<Value = SmartFolder> {
         prop::option::of("\\*\\.[a-z]{2,6}\\.[a-z]{2,4}"), // filter_host_pattern
         any::<bool>(),                                     // has group_id
         any::<i32>(),                                      // sort_order
+        prop::option::of(prop::sample::select(vec![
+            "🚀".to_string(),
+            "🏢".to_string(),
+            "🔒".to_string(),
+            "🐳".to_string(),
+            "⭐".to_string(),
+        ])), // icon
     )
         .prop_map(
-            |(name, proto, tags, host_pat, has_group, sort)| SmartFolder {
+            |(name, proto, tags, host_pat, has_group, sort, icon)| SmartFolder {
                 id: Uuid::new_v4(),
                 name,
                 filter_protocol: proto,
@@ -214,7 +221,7 @@ fn arb_smart_folder() -> impl Strategy<Value = SmartFolder> {
                     None
                 },
                 sort_order: sort,
-                icon: None,
+                icon,
             },
         )
 }

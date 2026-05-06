@@ -597,16 +597,18 @@ Smart folders dynamically group connections based on filter criteria.
 |------------|-------------|
 | `smart-folder list` | List all smart folders (`--format`) |
 | `smart-folder show <name>` | Show matching connections |
-| `smart-folder create` | Create a smart folder (`--name`, `--protocol`, `--host-pattern`, `--tags`) |
-| `smart-folder edit <name>` | Edit a smart folder (`--new-name`, `--protocol`, `--host-pattern`, `--tags`; use `"none"` to clear a filter) |
+| `smart-folder create` | Create a smart folder (`--name`, `--icon`, `--protocol`, `--host-pattern`, `--tags`) |
+| `smart-folder edit <name>` | Edit a smart folder (`--new-name`, `--icon`, `--protocol`, `--host-pattern`, `--tags`; use `"none"` to clear a filter) |
 | `smart-folder delete <name>` | Delete a smart folder |
 
 ```bash
 rustconn-cli smart-folder list
 rustconn-cli smart-folder create --name "Production SSH" --protocol ssh --host-pattern "*.prod.*"
 rustconn-cli smart-folder create --name "Tagged Web" --tags "web,frontend"
+rustconn-cli smart-folder create --name "Rockets" --icon "🚀" --protocol ssh
 rustconn-cli smart-folder edit "Production SSH" --host-pattern "*.production.*"
 rustconn-cli smart-folder edit "Tagged Web" --tags "none"          # Clear tag filter
+rustconn-cli smart-folder edit "Rockets" --icon "none"             # Clear custom icon
 rustconn-cli smart-folder show "Production SSH"
 rustconn-cli smart-folder delete "Old Folder"
 ```
