@@ -1433,6 +1433,13 @@ pub struct RdpConfig {
     /// Range: 0–5000ms. Default: 0ms.
     #[serde(default)]
     pub autotype_initial_delay_ms: u32,
+
+    /// Force full reconnect on window resize instead of using Display Control Channel.
+    /// Useful for legacy RDP servers that don't support MS-RDPEDISP or when the
+    /// server ignores dynamic resolution changes.
+    /// Default: false (use Display Control for seamless resize).
+    #[serde(default)]
+    pub reconnect_on_resize: bool,
 }
 
 impl RdpConfig {

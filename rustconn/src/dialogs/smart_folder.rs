@@ -37,6 +37,7 @@ const PROTOCOL_VARIANTS: &[ProtocolType] = &[
 pub struct SmartFolderDialog {
     window: adw::Window,
     name_entry: Entry,
+    icon_entry: Entry,
     protocol_dropdown: DropDown,
     host_pattern_entry: Entry,
     tags_entry: Entry,
@@ -75,7 +76,7 @@ impl SmartFolderDialog {
         // Header bar with Save/Create icon button (GNOME HIG)
         let header = adw::HeaderBar::new();
         let save_btn = if is_edit {
-            let btn = Button::from_icon_name("document-save-symbolic");
+            let btn = Button::from_icon_name("media-floppy-symbolic");
             btn.set_tooltip_text(Some(&i18n("Save")));
             btn.update_property(&[gtk4::accessible::Property::Label(&i18n("Save"))]);
             btn
@@ -120,6 +121,14 @@ impl SmartFolderDialog {
             .build();
         name_row.set_activatable_widget(Some(&name_entry));
         name_group.add(&name_row);
+
+        let (icon_row, icon_entry) = EntryRowBuilder::new(&i18n("Icon"))
+            .placeholder("📁")
+            .subtitle(&i18n("Optional emoji"))
+            .build();
+        icon_row.set_activatable_widget(Some(&icon_entry));
+        name_group.add(&icon_row);
+
         content.append(&name_group);
 
         // === Filters section ===
@@ -184,6 +193,7 @@ impl SmartFolderDialog {
         let dialog = Self {
             window,
             name_entry,
+            icon_entry,
             protocol_dropdown,
             host_pattern_entry,
             tags_entry,
@@ -206,6 +216,11 @@ impl SmartFolderDialog {
     fn populate(&self, folder: &SmartFolder) {
         *self.editing_id.borrow_mut() = Some(folder.id);
         self.name_entry.set_text(&folder.name);
+
+        // Icon
+        if let Some(ref icon) = folder.icon {
+            self.icon_entry.set_text(icon);
+        }
 
         // Protocol
         if let Some(proto) = &folder.filter_protocol
@@ -264,6 +279,7 @@ impl SmartFolderDialog {
         let window = self.window.clone();
         let on_save = self.on_save.clone();
         let name_entry = self.name_entry.clone();
+        let icon_entry = self.icon_entry.clone();
         let protocol_dropdown = self.protocol_dropdown.clone();
         let host_pattern_entry = self.host_pattern_entry.clone();
         let tags_entry = self.tags_entry.clone();
@@ -309,6 +325,14 @@ impl SmartFolderDialog {
             let selected_group = group_dropdown.selected() as usize;
             let filter_group_id = group_ids.borrow().get(selected_group).copied().flatten();
 
+            // Icon
+            let icon_text = icon_entry.text().trim().to_string();
+            let icon = if icon_text.is_empty() {
+                None
+            } else {
+                Some(icon_text)
+            };
+
             let id = editing_id.borrow().unwrap_or_else(Uuid::new_v4);
 
             let folder = SmartFolder {
@@ -319,6 +343,7 @@ impl SmartFolderDialog {
                 filter_host_pattern,
                 filter_group_id,
                 sort_order: 0,
+                icon,
             };
 
             if let Some(ref cb) = *on_save.borrow() {

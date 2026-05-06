@@ -1,4 +1,4 @@
-use super::super::{RdpClientCommand, RdpClientError};
+use super::super::{RdpClientCommand, RdpClientError, RdpClientEvent};
 use ironrdp::cliprdr::CliprdrClient;
 use ironrdp::pdu::input::MousePdu;
 use ironrdp::pdu::input::fast_path::{FastPathInputEvent, KeyboardFlags};
@@ -13,6 +13,7 @@ pub async fn process_command<W: FramedWrite>(
     active_stage: &mut ActiveStage,
     image: &mut DecodedImage,
     writer: &mut W,
+    event_tx: &std::sync::mpsc::Sender<RdpClientEvent>,
 ) -> Result<bool, RdpClientError> {
     match cmd {
         RdpClientCommand::Disconnect => {
@@ -90,10 +91,11 @@ pub async fn process_command<W: FramedWrite>(
                 }
             } else {
                 tracing::debug!(
-                    "Display Control not available for resize {}x{}",
+                    "Display Control not available for resize {}x{} — signaling GUI for reconnect",
                     width,
                     height
                 );
+                let _ = event_tx.send(RdpClientEvent::DisplayControlUnavailable { width, height });
             }
         }
         RdpClientCommand::RefreshScreen => {
@@ -177,6 +179,14 @@ pub async fn process_command<W: FramedWrite>(
         RdpClientCommand::RequestClipboardData { format_id } => {
             handle_clipboard_request(active_stage, writer, format_id).await;
         }
+        RdpClientCommand::StoreLocalFiles { paths } => {
+            if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>()
+                && let Some(backend) = cliprdr
+                    .downcast_backend_mut::<super::super::clipboard::RustConnClipboardBackend>()
+            {
+                backend.set_local_file_paths(paths);
+            }
+        }
         RdpClientCommand::RequestFileContents {
             stream_id,
             file_index,
@@ -192,7 +202,8 @@ pub async fn process_command<W: FramedWrite>(
                 request_size,
                 offset,
                 length,
-            );
+            )
+            .await;
         }
     }
     Ok(false)
@@ -397,10 +408,10 @@ async fn handle_clipboard_request<W: FramedWrite>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn handle_file_contents_request<W: FramedWrite>(
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+async fn handle_file_contents_request<W: FramedWrite>(
     active_stage: &mut ActiveStage,
-    _writer: &mut W,
+    writer: &mut W,
     stream_id: u32,
     file_index: u32,
     request_size: bool,
@@ -416,32 +427,139 @@ fn handle_file_contents_request<W: FramedWrite>(
         length
     );
 
-    if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>() {
-        // Build the file contents request
-        let flags = if request_size {
-            ironrdp::cliprdr::pdu::FileContentsFlags::SIZE
-        } else {
-            ironrdp::cliprdr::pdu::FileContentsFlags::DATA
-        };
-
-        let request = ironrdp::cliprdr::pdu::FileContentsRequest {
-            stream_id,
-            index: file_index,
-            flags,
-            position: offset,
-            requested_size: length,
-            data_id: None,
-        };
-
-        // Try to send the request through the cliprdr client
-        // Note: The cliprdr API may not expose file contents request directly,
-        // so we log the attempt for now
-        tracing::debug!("File contents request prepared: {:?}", request);
-
-        // The actual sending depends on the cliprdr API
-        // For now, we acknowledge the request was processed
-        let _ = cliprdr;
+    // Get the file path from the clipboard backend's stored local files
+    let file_path = if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>()
+        && let Some(backend) =
+            cliprdr.downcast_backend_mut::<super::super::clipboard::RustConnClipboardBackend>()
+    {
+        backend.local_file_paths().get(file_index as usize).cloned()
     } else {
-        tracing::warn!("CLIPRDR channel not available for file contents request");
+        None
+    };
+
+    let Some(path) = file_path else {
+        tracing::warn!(
+            "File contents request for unknown index {}: no local file stored",
+            file_index
+        );
+        // Send error response
+        if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>() {
+            let response = ironrdp::cliprdr::pdu::FileContentsResponse::new_error(stream_id);
+            if let Ok(messages) = cliprdr.submit_file_contents(response)
+                && let Ok(frame) = active_stage.process_svc_processor_messages(messages)
+            {
+                let _ = writer.write_all(&frame).await;
+            }
+        }
+        return;
+    };
+
+    if request_size {
+        // Return file size as u64
+        match std::fs::metadata(&path) {
+            Ok(meta) => {
+                let size = meta.len();
+                tracing::debug!("File size response: index={}, size={}", file_index, size);
+                if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>() {
+                    let response = ironrdp::cliprdr::pdu::FileContentsResponse::new_size_response(
+                        stream_id, size,
+                    );
+                    if let Ok(messages) = cliprdr.submit_file_contents(response)
+                        && let Ok(frame) = active_stage.process_svc_processor_messages(messages)
+                    {
+                        let _ = writer.write_all(&frame).await;
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to get file metadata for index {}: {}",
+                    file_index,
+                    e
+                );
+                if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>() {
+                    let response =
+                        ironrdp::cliprdr::pdu::FileContentsResponse::new_error(stream_id);
+                    if let Ok(messages) = cliprdr.submit_file_contents(response)
+                        && let Ok(frame) = active_stage.process_svc_processor_messages(messages)
+                    {
+                        let _ = writer.write_all(&frame).await;
+                    }
+                }
+            }
+        }
+    } else {
+        // Return file data chunk
+        use std::io::{Read, Seek, SeekFrom};
+
+        match std::fs::File::open(&path) {
+            Ok(mut file) => {
+                if let Err(e) = file.seek(SeekFrom::Start(offset)) {
+                    tracing::warn!("Failed to seek file index {}: {}", file_index, e);
+                    if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>() {
+                        let response =
+                            ironrdp::cliprdr::pdu::FileContentsResponse::new_error(stream_id);
+                        if let Ok(messages) = cliprdr.submit_file_contents(response)
+                            && let Ok(frame) = active_stage.process_svc_processor_messages(messages)
+                        {
+                            let _ = writer.write_all(&frame).await;
+                        }
+                    }
+                    return;
+                }
+
+                let mut buf = vec![0u8; length as usize];
+                match file.read(&mut buf) {
+                    Ok(bytes_read) => {
+                        buf.truncate(bytes_read);
+                        tracing::debug!(
+                            "File data response: index={}, offset={}, bytes={}",
+                            file_index,
+                            offset,
+                            bytes_read
+                        );
+                        if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>()
+                        {
+                            let response =
+                                ironrdp::cliprdr::pdu::FileContentsResponse::new_data_response(
+                                    stream_id, buf,
+                                );
+                            if let Ok(messages) = cliprdr.submit_file_contents(response)
+                                && let Ok(frame) =
+                                    active_stage.process_svc_processor_messages(messages)
+                            {
+                                let _ = writer.write_all(&frame).await;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to read file index {}: {}", file_index, e);
+                        if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>()
+                        {
+                            let response =
+                                ironrdp::cliprdr::pdu::FileContentsResponse::new_error(stream_id);
+                            if let Ok(messages) = cliprdr.submit_file_contents(response)
+                                && let Ok(frame) =
+                                    active_stage.process_svc_processor_messages(messages)
+                            {
+                                let _ = writer.write_all(&frame).await;
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to open file index {}: {}", file_index, e);
+                if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>() {
+                    let response =
+                        ironrdp::cliprdr::pdu::FileContentsResponse::new_error(stream_id);
+                    if let Ok(messages) = cliprdr.submit_file_contents(response)
+                        && let Ok(frame) = active_stage.process_svc_processor_messages(messages)
+                    {
+                        let _ = writer.write_all(&frame).await;
+                    }
+                }
+            }
+        }
     }
 }

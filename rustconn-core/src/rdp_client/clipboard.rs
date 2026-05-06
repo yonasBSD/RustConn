@@ -30,7 +30,7 @@ use tracing::{debug, trace, warn};
 /// Proxy for sending clipboard messages to the main event loop
 #[derive(Clone, Debug)]
 pub struct RustConnClipboardProxy {
-    event_tx: Sender<RdpClientEvent>,
+    pub(crate) event_tx: Sender<RdpClientEvent>,
 }
 
 impl RustConnClipboardProxy {
@@ -91,6 +91,9 @@ pub struct RustConnClipboardBackend {
     pending_copy_data: HashMap<u32, Vec<u8>>,
     /// Server's negotiated capabilities
     server_capabilities: ClipboardGeneralCapabilityFlags,
+    /// Local file paths for client → server file transfer (DnD).
+    /// Indexed by file_index as announced in `FileGroupDescriptorW`.
+    local_file_paths: Vec<std::path::PathBuf>,
 }
 
 impl_as_any!(RustConnClipboardBackend);
@@ -105,6 +108,7 @@ impl RustConnClipboardBackend {
             pending_paste_format: None,
             pending_copy_data: HashMap::new(),
             server_capabilities: ClipboardGeneralCapabilityFlags::empty(),
+            local_file_paths: Vec::new(),
         }
     }
 
@@ -130,6 +134,22 @@ impl RustConnClipboardBackend {
     /// Clears all pending copy data
     pub fn clear_pending_copy_data(&mut self) {
         self.pending_copy_data.clear();
+    }
+
+    /// Sets the local file paths for client → server file transfer.
+    ///
+    /// Called by the GUI when files are dropped onto the RDP widget.
+    /// The paths are indexed by position matching the `FileGroupDescriptorW`
+    /// announcement order.
+    pub fn set_local_file_paths(&mut self, paths: Vec<std::path::PathBuf>) {
+        debug!("Storing {} local file paths for DnD transfer", paths.len());
+        self.local_file_paths = paths;
+    }
+
+    /// Returns the stored local file paths (for external access).
+    #[must_use]
+    pub fn local_file_paths(&self) -> &[std::path::PathBuf] {
+        &self.local_file_paths
     }
 
     /// Returns the server's negotiated capabilities
@@ -185,6 +205,13 @@ impl CliprdrBackend for RustConnClipboardBackend {
         }
         if capabilities.contains(ClipboardGeneralCapabilityFlags::STREAM_FILECLIP_ENABLED) {
             debug!("Server supports file stream clipboard");
+        } else {
+            // Server does not support file clipboard — notify GUI to disable file DnD
+            debug!("Server does NOT support file stream clipboard — disabling file DnD");
+            let _ = self
+                .proxy
+                .event_tx
+                .send(RdpClientEvent::FileClipboardUnsupported);
         }
         if capabilities.contains(ClipboardGeneralCapabilityFlags::FILECLIP_NO_FILE_PATHS) {
             debug!("Server prefers file clipboard without paths");
@@ -355,18 +382,18 @@ impl CliprdrBackend for RustConnClipboardBackend {
             request.flags
         );
 
-        // Notify GUI about the file contents request
-        // The GUI should respond with the file data via ClipboardData command
         let is_size_request = request.flags.contains(FileContentsFlags::SIZE);
 
         let _ = self
             .proxy
             .event_tx
-            .send(RdpClientEvent::ServerMessage(format!(
-                "Server requested file contents: index={}, {}",
-                request.index,
-                if is_size_request { "size" } else { "data" }
-            )));
+            .send(RdpClientEvent::FileContentsRequested {
+                stream_id: request.stream_id,
+                file_index: request.index,
+                is_size_request,
+                offset: request.position,
+                requested_size: request.requested_size,
+            });
     }
 
     fn on_file_contents_response(&mut self, response: FileContentsResponse<'_>) {

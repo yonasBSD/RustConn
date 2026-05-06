@@ -19,6 +19,16 @@ use tokio::process::Command;
 /// Default timeout for SSH monitoring commands (seconds)
 const SSH_EXEC_TIMEOUT_SECS: u64 = 10;
 
+/// Directory for SSH ControlMaster sockets used by monitoring.
+/// Each monitoring session gets a unique socket so multiple connections
+/// don't interfere with each other.
+fn monitoring_control_path(host: &str, port: u16) -> String {
+    // Use XDG_RUNTIME_DIR if available (tmpfs, user-private), fall back to /tmp
+    let dir = std::env::var("XDG_RUNTIME_DIR")
+        .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().to_string());
+    format!("{dir}/rustconn-mon-{host}-{port}-%r")
+}
+
 /// Environment variable name used to pass the password to the askpass script.
 /// Intentionally obscure to reduce exposure in `/proc/PID/environ`.
 const ASKPASS_ENV_VAR: &str = "_RC_MON_PW";
@@ -170,9 +180,20 @@ pub fn ssh_exec_factory(
         let password = password.clone();
         let jump_host = jump_host.clone();
         let askpass_script = askpass_script.clone();
+        let control_path = monitoring_control_path(&host, port);
 
         Box::pin(async move {
             let mut cmd = Command::new("ssh");
+
+            // Use ControlMaster to multiplex monitoring commands over a single
+            // SSH connection. This avoids repeated SSH agent confirmations
+            // (e.g., Bitwarden) for every monitoring poll cycle.
+            // "auto" means: become master if no socket exists, otherwise reuse.
+            cmd.arg("-o").arg("ControlMaster=auto");
+            cmd.arg("-o").arg(format!("ControlPath={control_path}"));
+            // Keep the master connection alive for 30s after last use,
+            // covering the typical 3s monitoring interval with margin.
+            cmd.arg("-o").arg("ControlPersist=30");
 
             if let (Some(pw), Some(script)) = (&password, &askpass_script) {
                 // SSH_ASKPASS mechanism: OpenSSH calls the script to get

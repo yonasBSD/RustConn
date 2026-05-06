@@ -9,6 +9,7 @@
 //! - `config` - Terminal appearance and behavior configuration
 
 mod config;
+pub mod file_drop;
 pub mod highlight_overlay;
 pub mod playback;
 pub mod tab_container;
@@ -1163,6 +1164,10 @@ impl TerminalNotebook {
         // so they follow it when reparented between TabView and split view.
         config::setup_context_menu(&terminal);
 
+        // Drag-and-drop: insert shell-escaped file paths when files are
+        // dragged from a file manager onto the terminal (GNOME Terminal behavior).
+        file_drop::setup_file_drop_target(&terminal);
+
         // Wrap in TabPageContainer to guarantee non-zero allocation for TabOverview
         let tab_container = TabPageContainer::single(&container);
 
@@ -1364,10 +1369,17 @@ impl TerminalNotebook {
     ) {
         self.remove_welcome_page();
 
+        // Wrap in ToastOverlay for file DnD notifications
+        let toast_overlay = libadwaita::ToastOverlay::new();
+        toast_overlay.set_child(Some(widget.widget()));
+        toast_overlay.set_hexpand(true);
+        toast_overlay.set_vexpand(true);
+        widget.set_toast_overlay(toast_overlay.clone());
+
         let container = GtkBox::new(Orientation::Vertical, 0);
         container.set_hexpand(true);
         container.set_vexpand(true);
-        container.append(widget.widget());
+        container.append(&toast_overlay);
 
         let tab_container = TabPageContainer::single(&container);
         let page = self.tab_view.append(tab_container.widget());

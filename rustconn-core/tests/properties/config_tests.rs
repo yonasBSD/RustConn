@@ -188,6 +188,7 @@ fn arb_rdp_config() -> impl Strategy<Value = RdpConfig> {
                 jump_host_id: None,
                 autotype_delay_ms: 20,
                 autotype_initial_delay_ms: 0,
+                reconnect_on_resize: false,
             },
         )
 }

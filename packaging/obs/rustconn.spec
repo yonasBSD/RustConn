@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.13.4
+Version:        0.13.5
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,14 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Tue May 06 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.5-0
+- Version bump to 0.13.5
+- Added Drag & Drop file paths into VTE terminals (#74)
+- Added Drag & Drop files to RDP clipboard via CLIPRDR (#74)
+- Added RDP "Reconnect on Resize" option for legacy servers
+- Fixed RDP dynamic resize without reconnect via Display Control Channel (#131)
+- Fixed SSH agent key selection not remembered in connection dialog (#125)
+
 * Mon May 05 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.4-1
 - [Added] RDP Autotype: send text as keystrokes bypassing clipboard
   restrictions — Type Clipboard and Type Text toolbar buttons in embedded

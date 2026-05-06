@@ -105,7 +105,7 @@ impl ExportDialog {
 
         // Header bar with Export icon button and standard window buttons (GNOME HIG)
         let header = adw::HeaderBar::new();
-        let export_button = Button::from_icon_name("document-save-symbolic");
+        let export_button = Button::from_icon_name("media-floppy-symbolic");
         export_button.set_tooltip_text(Some(&i18n("Export")));
         export_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Export"))]);
         export_button.add_css_class("suggested-action");

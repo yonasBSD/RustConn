@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.13.4** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.13.5** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -579,6 +579,23 @@ This uses the RDP clipboard channel (`CF_HDROP` / `FILEDESCRIPTORW` format) and 
 #### HiDPI Support
 
 On HiDPI/4K displays, the embedded IronRDP client automatically sends the correct scale factor to the Windows server (e.g. 200% on a 2× display), so remote UI elements render at the correct logical size. The Scale Override setting in the connection dialog allows manual adjustment if needed.
+
+#### Dynamic Resolution on Resize
+
+When you resize the RustConn window, the embedded RDP session automatically adjusts its resolution to match the new window size. This works in two ways depending on server capabilities:
+
+1. **Display Control Channel (MS-RDPEDISP)** — modern Windows 10/11 desktops and properly configured Windows Server with Remote Desktop Session Host support seamless in-place resolution changes without disconnecting. The session continues uninterrupted.
+
+2. **Automatic reconnect fallback** — if the server does not support the Display Control Channel (common on Windows Server 2008/2012/2016 without the RDSH role, or older RDP configurations), RustConn automatically performs a brief reconnect with the new resolution. This avoids distorted scaling where the remote desktop is stretched or squished to fit the new window size.
+
+**"Reconnect on Resize" option** (Connection Dialog → Protocol → Features):
+
+| Setting | Behavior |
+|---------|----------|
+| Unchecked (default) | Tries dynamic resize first; if server doesn't support it, falls back to reconnect automatically |
+| Checked | Always reconnects immediately on resize without attempting dynamic resize; useful when you know the server doesn't support Display Control and want to skip the 500ms detection delay |
+
+**Tip:** For Windows Server connections where you notice a brief reconnect on every resize, enable "Reconnect on Resize" to make the transition slightly faster by skipping the Display Control probe.
 
 #### Clipboard
 
@@ -1232,6 +1249,16 @@ Smart Folders are dynamic, filter-based views that automatically group connectio
 | Parent Group | Connections in a specific group | Production |
 
 4. Click **Create**
+
+**Custom Icons:**
+
+Smart Folders support custom emoji icons displayed in the sidebar instead of the default 📁. Set the icon in the "Icon" field when creating or editing a Smart Folder, or via CLI:
+
+```bash
+rustconn-cli smart-folder create --name "Production" --icon "🏢" --protocol ssh
+rustconn-cli smart-folder edit "Production" --icon "🚀"   # Change icon
+rustconn-cli smart-folder edit "Production" --icon "none"  # Reset to default 📁
+```
 
 **Behavior:**
 - Smart Folders appear in a dedicated sidebar section with a 🔍 icon

@@ -383,7 +383,7 @@ impl RecordingsDialog {
 
         let export_label = format!("{} {}", i18n("Export recording"), display);
         let export_button = Button::builder()
-            .icon_name("document-save-symbolic")
+            .icon_name("media-floppy-symbolic")
             .tooltip_text(i18n("Export recording"))
             .css_classes(["flat"])
             .valign(gtk4::Align::Center)

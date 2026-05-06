@@ -142,6 +142,8 @@ pub struct ConnectionDialog {
     ssh_key_button: Button,
     ssh_agent_key_dropdown: DropDown,
     ssh_agent_keys: Rc<RefCell<Vec<rustconn_core::ssh_agent::AgentKey>>>,
+    /// Pending agent key selection (fingerprint, comment) to restore after refresh
+    pending_agent_selection: Rc<RefCell<Option<(String, String)>>>,
     ssh_jump_host_dropdown: DropDown,
     ssh_proxy_entry: Entry,
     ssh_identities_only: CheckButton,
@@ -179,6 +181,7 @@ pub struct ConnectionDialog {
     rdp_jiggler_interval_spin: gtk4::SpinButton,
     rdp_autotype_delay_spin: gtk4::SpinButton,
     rdp_autotype_initial_delay_spin: gtk4::SpinButton,
+    rdp_reconnect_on_resize_check: CheckButton,
     rdp_jump_host_dropdown: DropDown,
     rdp_connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     rdp_shared_folders: Rc<RefCell<Vec<SharedFolder>>>,
@@ -469,6 +472,10 @@ impl ConnectionDialog {
         let ssh_agent_keys: Rc<RefCell<Vec<rustconn_core::ssh_agent::AgentKey>>> =
             Rc::new(RefCell::new(Vec::new()));
 
+        // Pending agent key selection to restore after refresh_agent_keys()
+        let pending_agent_selection: Rc<RefCell<Option<(String, String)>>> =
+            Rc::new(RefCell::new(None));
+
         // Storage for port forwarding rules (created before SSH options so we can
         // append the port forwarding group to the SSH panel)
         let ssh_port_forwards: Rc<RefCell<Vec<rustconn_core::models::PortForward>>> =
@@ -537,6 +544,7 @@ impl ConnectionDialog {
             rdp_jiggler_interval_spin,
             rdp_autotype_delay_spin,
             rdp_autotype_initial_delay_spin,
+            rdp_reconnect_on_resize_check,
             rdp_jump_host_dropdown,
             rdp_shared_folders,
             rdp_shared_folders_list,
@@ -856,6 +864,7 @@ impl ConnectionDialog {
             &rdp_jiggler_interval_spin,
             &rdp_autotype_delay_spin,
             &rdp_autotype_initial_delay_spin,
+            &rdp_reconnect_on_resize_check,
             &rdp_jump_host_dropdown,
             &rdp_connections_data,
             &rdp_shared_folders,
@@ -1004,6 +1013,7 @@ impl ConnectionDialog {
             ssh_key_button,
             ssh_agent_key_dropdown,
             ssh_agent_keys,
+            pending_agent_selection,
             ssh_jump_host_dropdown,
             ssh_proxy_entry,
             ssh_identities_only,
@@ -1040,6 +1050,7 @@ impl ConnectionDialog {
             rdp_jiggler_interval_spin,
             rdp_autotype_delay_spin,
             rdp_autotype_initial_delay_spin,
+            rdp_reconnect_on_resize_check,
             rdp_jump_host_dropdown,
             rdp_connections_data,
             rdp_shared_folders,
@@ -1917,6 +1928,7 @@ impl ConnectionDialog {
         rdp_jiggler_interval_spin: &SpinButton,
         rdp_autotype_delay_spin: &SpinButton,
         rdp_autotype_initial_delay_spin: &SpinButton,
+        rdp_reconnect_on_resize_check: &CheckButton,
         rdp_jump_host_dropdown: &DropDown,
         rdp_connections_data: &Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
         rdp_shared_folders: &Rc<RefCell<Vec<SharedFolder>>>,
@@ -2084,6 +2096,7 @@ impl ConnectionDialog {
         let rdp_jiggler_interval_spin = rdp_jiggler_interval_spin.clone();
         let rdp_autotype_delay_spin = rdp_autotype_delay_spin.clone();
         let rdp_autotype_initial_delay_spin = rdp_autotype_initial_delay_spin.clone();
+        let rdp_reconnect_on_resize_check = rdp_reconnect_on_resize_check.clone();
         let rdp_jump_host_dropdown = rdp_jump_host_dropdown.clone();
         let rdp_connections_data = rdp_connections_data.clone();
         let rdp_shared_folders = rdp_shared_folders.clone();
@@ -2265,6 +2278,7 @@ impl ConnectionDialog {
                 rdp_jiggler_interval_spin: &rdp_jiggler_interval_spin,
                 rdp_autotype_delay_spin: &rdp_autotype_delay_spin,
                 rdp_autotype_initial_delay_spin: &rdp_autotype_initial_delay_spin,
+                rdp_reconnect_on_resize_check: &rdp_reconnect_on_resize_check,
                 rdp_jump_host_dropdown: &rdp_jump_host_dropdown,
                 rdp_connections_data: &rdp_connections_data,
                 rdp_shared_folders: &rdp_shared_folders,
@@ -2428,6 +2442,7 @@ impl ConnectionDialog {
         SpinButton,
         SpinButton,
         SpinButton,
+        CheckButton,
         DropDown,
         Rc<RefCell<Vec<SharedFolder>>>,
         gtk4::ListBox,
@@ -2690,6 +2705,18 @@ impl ConnectionDialog {
             .build();
         autotype_initial_row.add_suffix(&rdp_autotype_initial_delay_spin);
         features_group.add(&autotype_initial_row);
+
+        // Reconnect on Resize — force full reconnect instead of Display Control
+        let rdp_reconnect_on_resize_check = CheckButton::new();
+        let reconnect_resize_row = adw::ActionRow::builder()
+            .title(i18n("Reconnect on Resize"))
+            .subtitle(i18n(
+                "Full reconnect instead of dynamic resize (for legacy servers or fixed resolution)",
+            ))
+            .activatable_widget(&rdp_reconnect_on_resize_check)
+            .build();
+        reconnect_resize_row.add_suffix(&rdp_reconnect_on_resize_check);
+        features_group.add(&reconnect_resize_row);
 
         // Disable NLA
         let disable_nla_check = CheckButton::new();
@@ -2985,6 +3012,7 @@ impl ConnectionDialog {
             rdp_jiggler_interval_spin,
             rdp_autotype_delay_spin,
             rdp_autotype_initial_delay_spin,
+            rdp_reconnect_on_resize_check,
             rdp_jump_host_dropdown,
             shared_folders,
             folders_list,
@@ -5309,7 +5337,7 @@ impl ConnectionDialog {
         self.window.set_title(Some(&i18n("Edit Connection")));
         // Switch from Create icon to Save icon for edit mode
         self.save_button.set_label("");
-        self.save_button.set_icon_name("document-save-symbolic");
+        self.save_button.set_icon_name("media-floppy-symbolic");
         self.save_button.set_tooltip_text(Some(&i18n("Save")));
         self.save_button
             .update_property(&[gtk4::accessible::Property::Label(&i18n("Save"))]);
@@ -6054,6 +6082,9 @@ impl ConnectionDialog {
                 self.ssh_key_entry.set_sensitive(false);
                 self.ssh_key_button.set_sensitive(false);
                 self.ssh_agent_key_dropdown.set_sensitive(true);
+                // Store pending selection for restore after refresh_agent_keys()
+                *self.pending_agent_selection.borrow_mut() =
+                    Some((fingerprint.clone(), comment.clone()));
                 // Try to select the matching agent key in the dropdown
                 self.select_agent_key_by_fingerprint(fingerprint, comment);
             }
@@ -6260,6 +6291,8 @@ impl ConnectionDialog {
             .set_value(f64::from(rdp.autotype_delay_ms));
         self.rdp_autotype_initial_delay_spin
             .set_value(f64::from(rdp.autotype_initial_delay_ms));
+        self.rdp_reconnect_on_resize_check
+            .set_active(rdp.reconnect_on_resize);
         self.rdp_disable_nla_check.set_active(rdp.disable_nla);
         self.rdp_security_layer_dropdown
             .set_selected(rdp.security_layer.index());
@@ -7308,6 +7341,11 @@ impl ConnectionDialog {
             // Agent source is selected
             self.ssh_agent_key_dropdown.set_sensitive(has_keys);
         }
+
+        // Restore pending agent key selection (set by set_ssh_config before keys were loaded)
+        if let Some((ref fingerprint, ref comment)) = *self.pending_agent_selection.borrow() {
+            self.select_agent_key_by_fingerprint(fingerprint, comment);
+        }
     }
 
     /// Formats an agent key for short display in dropdown button
@@ -7500,6 +7538,7 @@ struct ConnectionDialogData<'a> {
     rdp_jiggler_interval_spin: &'a SpinButton,
     rdp_autotype_delay_spin: &'a SpinButton,
     rdp_autotype_initial_delay_spin: &'a SpinButton,
+    rdp_reconnect_on_resize_check: &'a CheckButton,
     rdp_jump_host_dropdown: &'a DropDown,
     rdp_connections_data: &'a Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     rdp_shared_folders: &'a Rc<RefCell<Vec<SharedFolder>>>,
@@ -8584,6 +8623,7 @@ impl ConnectionDialogData<'_> {
             },
             autotype_delay_ms: self.rdp_autotype_delay_spin.value() as u32,
             autotype_initial_delay_ms: self.rdp_autotype_initial_delay_spin.value() as u32,
+            reconnect_on_resize: self.rdp_reconnect_on_resize_check.is_active(),
         }
     }
 

@@ -159,6 +159,7 @@ pub fn sample_rdp_connection_with_domain() -> Connection {
         jump_host_id: None,
         autotype_delay_ms: 20,
         autotype_initial_delay_ms: 0,
+        reconnect_on_resize: false,
     };
 
     let mut conn = Connection::new(

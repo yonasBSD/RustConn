@@ -50,7 +50,7 @@ pub async fn run_active_session(
 
         // Process commands from GUI (non-blocking)
         while let Ok(cmd) = command_rx.try_recv() {
-            if process_command(cmd, &mut active_stage, &mut image, &mut writer).await? {
+            if process_command(cmd, &mut active_stage, &mut image, &mut writer, &event_tx).await? {
                 return Ok(());
             }
         }

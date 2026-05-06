@@ -512,6 +512,9 @@ fn start_embedded_rdp_session(
     embedded_config.autotype_delay_ms = rdp_config.autotype_delay_ms;
     embedded_config.autotype_initial_delay_ms = rdp_config.autotype_initial_delay_ms;
 
+    // Pass reconnect-on-resize preference (legacy server compatibility)
+    embedded_config.reconnect_on_resize = rdp_config.reconnect_on_resize;
+
     // Pass certificate verification setting
     embedded_config.ignore_certificate = rdp_config.ignore_certificate;
 

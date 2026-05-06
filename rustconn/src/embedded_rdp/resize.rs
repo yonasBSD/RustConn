@@ -1,7 +1,19 @@
 //! Resize handler for the embedded RDP widget
 //!
-//! Contains debounced resize logic that triggers resolution changes
-//! after the widget stops being resized.
+//! Contains debounced resize logic that triggers dynamic resolution changes
+//! via the Display Control Channel (MS-RDPEDISP) without reconnecting.
+//!
+//! ## How it works
+//!
+//! When the widget is resized:
+//! 1. The current image is immediately scaled to fit (visual feedback)
+//! 2. After 500ms of no further resize, a `SetDesktopSize` command is sent
+//!    via the Display Control Channel (DVC)
+//! 3. The server responds with a new resolution and the session continues
+//!    seamlessly — no disconnect/reconnect cycle
+//!
+//! If the server does not support Display Control (e.g. Windows Server 2008),
+//! `encode_resize` returns `None` and we fall back to a full reconnect.
 
 use gtk4::glib;
 use gtk4::prelude::*;
@@ -11,7 +23,7 @@ use super::types::RdpConnectionState;
 use crate::i18n::i18n;
 
 /// Minimum pixel difference (in device pixels) before triggering an RDP
-/// resolution change on widget resize. Prevents unnecessary reconnects
+/// resolution change on widget resize. Prevents unnecessary resize requests
 /// from minor layout adjustments.
 const RESIZE_THRESHOLD_PX: u32 = 50;
 
@@ -19,11 +31,12 @@ const RESIZE_THRESHOLD_PX: u32 = 50;
 use rustconn_core::rdp_client::RdpClientCommand;
 
 impl super::EmbeddedRdpWidget {
-    /// Sets up the resize handler with debounced reconnect for resolution change
+    /// Sets up the resize handler with debounced dynamic resolution change
     ///
     /// When the widget is resized, we:
     /// 1. Immediately scale the current image to fit
-    /// 2. After 2 seconds of no resize, reconnect with new resolution
+    /// 2. After 500ms of no resize, send `SetDesktopSize` via Display Control Channel
+    /// 3. If Display Control is unavailable, fall back to reconnect
     ///
     /// # Requirements Coverage
     ///
@@ -40,6 +53,7 @@ impl super::EmbeddedRdpWidget {
         let ironrdp_tx = self.ironrdp_command_tx.clone();
         let status_label = self.status_label.clone();
         let on_reconnect = self.on_reconnect.clone();
+        let is_ironrdp = self.is_ironrdp.clone();
 
         let handler_id = self
             .drawing_area
@@ -88,7 +102,7 @@ impl super::EmbeddedRdpWidget {
                     source_id.remove();
                 }
 
-                // Schedule reconnect after 500ms of no resize
+                // Schedule resolution change after 500ms of no resize
                 let rdp_w = rdp_width.clone();
                 let rdp_h = rdp_height.clone();
                 let timer = reconnect_timer.clone();
@@ -96,6 +110,11 @@ impl super::EmbeddedRdpWidget {
                 let tx = ironrdp_tx.clone();
                 let sl = status_label.clone();
                 let reconnect_cb = on_reconnect.clone();
+                let using_ironrdp = *is_ironrdp.borrow();
+                let force_reconnect = config
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|c| c.reconnect_on_resize);
 
                 let source_id = glib::timeout_add_local_once(
                     std::time::Duration::from_millis(500),
@@ -106,7 +125,7 @@ impl super::EmbeddedRdpWidget {
                         let current_rdp_w = *rdp_w.borrow();
                         let current_rdp_h = *rdp_h.borrow();
 
-                        // Only reconnect if size actually changed significantly (>50px device)
+                        // Only resize if size actually changed significantly (>50px device)
                         let w_diff = (device_width as i32 - current_rdp_w as i32).unsigned_abs();
                         let h_diff = (device_height as i32 - current_rdp_h as i32).unsigned_abs();
 
@@ -114,17 +133,6 @@ impl super::EmbeddedRdpWidget {
                             // Round down to multiple of 4 for RDP compatibility
                             let rounded_width = (device_width / 4) * 4;
                             let rounded_height = (device_height / 4) * 4;
-
-                            tracing::info!(
-                                "[RDP Resize] Reconnecting with new resolution: {}x{} -> {}x{} \
-                                 (rounded from {}x{})",
-                                current_rdp_w,
-                                current_rdp_h,
-                                rounded_width,
-                                rounded_height,
-                                device_width,
-                                device_height
-                            );
 
                             // Update config with new resolution
                             {
@@ -135,25 +143,75 @@ impl super::EmbeddedRdpWidget {
                                 }
                             }
 
-                            // Disconnect current session
-                            if let Some(ref sender) = *tx.borrow() {
-                                let _ = sender.send(RdpClientCommand::Disconnect);
+                            if using_ironrdp && !force_reconnect {
+                                // IronRDP path: use Display Control Channel for
+                                // seamless resize without reconnect (MS-RDPEDISP)
+                                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                                let w = rounded_width as u16;
+                                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                                let h = rounded_height as u16;
+
+                                if let Some(ref sender) = *tx.borrow() {
+                                    let _ = sender.send(RdpClientCommand::SetDesktopSize {
+                                        width: w,
+                                        height: h,
+                                    });
+                                }
+
+                                tracing::info!(
+                                    "[RDP Resize] Dynamic resize via Display Control: \
+                                     {}x{} -> {}x{} (rounded from {}x{})",
+                                    current_rdp_w,
+                                    current_rdp_h,
+                                    rounded_width,
+                                    rounded_height,
+                                    device_width,
+                                    device_height
+                                );
+
+                                // Brief status indicator
+                                sl.set_text(&i18n("Resizing…"));
+                                sl.set_visible(true);
+                                let sl_hide = sl.clone();
+                                glib::timeout_add_local_once(
+                                    std::time::Duration::from_secs(2),
+                                    move || {
+                                        sl_hide.set_visible(false);
+                                    },
+                                );
+                            } else {
+                                // FreeRDP external path: must reconnect (no DVC access)
+                                tracing::info!(
+                                    "[RDP Resize] Reconnecting (FreeRDP) with new resolution: \
+                                     {}x{} -> {}x{} (rounded from {}x{})",
+                                    current_rdp_w,
+                                    current_rdp_h,
+                                    rounded_width,
+                                    rounded_height,
+                                    device_width,
+                                    device_height
+                                );
+
+                                // Disconnect current session
+                                if let Some(ref sender) = *tx.borrow() {
+                                    let _ = sender.send(RdpClientCommand::Disconnect);
+                                }
+
+                                // Show reconnecting status
+                                sl.set_text(&i18n("Reconnecting..."));
+                                sl.set_visible(true);
+
+                                // Trigger reconnect via callback after short delay
+                                let reconnect_cb_clone = reconnect_cb.clone();
+                                glib::timeout_add_local_once(
+                                    std::time::Duration::from_millis(500),
+                                    move || {
+                                        if let Some(ref callback) = *reconnect_cb_clone.borrow() {
+                                            callback();
+                                        }
+                                    },
+                                );
                             }
-
-                            // Show reconnecting status
-                            sl.set_text(&i18n("Reconnecting..."));
-                            sl.set_visible(true);
-
-                            // Trigger reconnect via callback after short delay
-                            let reconnect_cb_clone = reconnect_cb.clone();
-                            glib::timeout_add_local_once(
-                                std::time::Duration::from_millis(500),
-                                move || {
-                                    if let Some(ref callback) = *reconnect_cb_clone.borrow() {
-                                        callback();
-                                    }
-                                },
-                            );
                         }
                     },
                 );

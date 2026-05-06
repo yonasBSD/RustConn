@@ -463,7 +463,7 @@ pub fn show_edit_group_dialog(
     group_window.set_transient_for(Some(window));
 
     let header = adw::HeaderBar::new();
-    let save_btn = gtk4::Button::from_icon_name("document-save-symbolic");
+    let save_btn = gtk4::Button::from_icon_name("media-floppy-symbolic");
     save_btn.set_tooltip_text(Some(&i18n("Save")));
     save_btn.update_property(&[gtk4::accessible::Property::Label(&i18n("Save"))]);
     save_btn.add_css_class("suggested-action");

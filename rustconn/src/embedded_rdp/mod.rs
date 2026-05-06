@@ -51,11 +51,13 @@ mod autotype;
 mod clipboard;
 mod connection;
 mod drawing;
+pub mod file_dnd;
 mod input;
 mod resize;
 
 // Re-export types for external use
 pub use buffer::{CairoBackedBuffer, PixelBuffer, WaylandSurfaceHandle};
+pub use file_dnd::{FileDndCircuitBreaker, LocalFileInfo};
 pub use launcher::SafeFreeRdpLauncher;
 pub use thread::FreeRdpThread;
 #[cfg(feature = "rdp-embedded")]
@@ -210,8 +212,15 @@ pub struct EmbeddedRdpWidget {
     /// Signal handler ID for local clipboard change monitoring (Phase 3)
     #[cfg(feature = "rdp-embedded")]
     clipboard_handler_id: Rc<RefCell<Option<glib::SignalHandlerId>>>,
+    /// Flag to suppress clipboard change events when we set the clipboard
+    /// ourselves (Copy button or Phase 2 auto-sync), preventing feedback loops.
+    clipboard_sync_suppressed: Rc<RefCell<bool>>,
     /// Mouse jiggler timer source ID (sends periodic mouse moves to prevent idle disconnect)
     jiggler_timer: Rc<RefCell<Option<glib::SourceId>>>,
+    /// Circuit breaker for file drag-and-drop (auto-disables after repeated failures)
+    file_dnd_circuit_breaker: Rc<RefCell<file_dnd::FileDndCircuitBreaker>>,
+    /// Toast overlay for file DnD notifications (set via `set_toast_overlay`)
+    toast_overlay: Rc<RefCell<Option<libadwaita::ToastOverlay>>>,
 }
 
 impl EmbeddedRdpWidget {
@@ -415,7 +424,10 @@ impl EmbeddedRdpWidget {
             resize_handler_id: Rc::new(RefCell::new(None)),
             #[cfg(feature = "rdp-embedded")]
             clipboard_handler_id: Rc::new(RefCell::new(None)),
+            clipboard_sync_suppressed: Rc::new(RefCell::new(false)),
             jiggler_timer: Rc::new(RefCell::new(None)),
+            file_dnd_circuit_breaker: Rc::new(RefCell::new(file_dnd::FileDndCircuitBreaker::new())),
+            toast_overlay: Rc::new(RefCell::new(None)),
         };
 
         widget.setup_drawing();
@@ -432,8 +444,119 @@ impl EmbeddedRdpWidget {
         widget.setup_visibility_handler();
         #[cfg(feature = "rdp-embedded")]
         widget.setup_save_files_button(&save_files_button);
+        widget.setup_file_dnd();
 
         widget
+    }
+
+    /// Sets up file drag-and-drop on the RDP drawing area.
+    ///
+    /// When files are dropped, they are announced to the RDP server via the
+    /// CLIPRDR file clipboard channel. Includes circuit breaker logic that
+    /// auto-disables after 3 consecutive failures with a toast notification.
+    fn setup_file_dnd(&self) {
+        #[cfg(feature = "rdp-embedded")]
+        {
+            let circuit_breaker = self.file_dnd_circuit_breaker.clone();
+            let ironrdp_tx = self.ironrdp_command_tx.clone();
+            let state = self.state.clone();
+            let is_embedded = self.is_embedded.clone();
+            let status_label = self.status_label.clone();
+            let cb_for_callback = self.file_dnd_circuit_breaker.clone();
+            let toast_overlay_ref = self.toast_overlay.clone();
+
+            file_dnd::setup_rdp_file_drop_target(
+                self.drawing_area.upcast_ref::<gtk4::Widget>(),
+                circuit_breaker,
+                toast_overlay_ref,
+                move |files| {
+                    let current_state = *state.borrow();
+                    let embedded = *is_embedded.borrow();
+
+                    if current_state != RdpConnectionState::Connected || !embedded {
+                        tracing::debug!(
+                            protocol = "rdp",
+                            ?current_state,
+                            embedded,
+                            "File DnD: not connected or not embedded"
+                        );
+                        return;
+                    }
+
+                    if let Some(ref sender) = *ironrdp_tx.borrow() {
+                        // Build FileGroupDescriptorW and announce to server
+                        let descriptor = file_dnd::build_file_group_descriptor(&files);
+
+                        // Store file paths in the backend for later file contents requests
+                        let paths: Vec<std::path::PathBuf> =
+                            files.iter().map(|f| f.path.clone()).collect();
+                        let _ = sender.send(RdpClientCommand::StoreLocalFiles { paths });
+
+                        // Store file paths for later on_file_contents_request
+                        // and announce CF_HDROP format to server
+                        let format_info = rustconn_core::ClipboardFormatInfo::new(
+                            rustconn_core::ClipboardFormatInfo::FILE_LIST,
+                            Some("FileGroupDescriptorW".to_string()),
+                        );
+
+                        // Send clipboard copy announcement with file list format
+                        let _ = sender.send(RdpClientCommand::ClipboardCopy(vec![format_info]));
+
+                        // Store the descriptor data as pending copy data
+                        let _ = sender.send(RdpClientCommand::ClipboardData {
+                            format_id: rustconn_core::ClipboardFormatInfo::FILE_LIST,
+                            data: descriptor,
+                        });
+
+                        cb_for_callback.borrow_mut().record_success();
+
+                        // Show brief status feedback
+                        let file_count = files.len().to_string();
+                        status_label.set_text(&crate::i18n::i18n_f(
+                            "{} file(s) ready to paste on remote",
+                            &[&file_count],
+                        ));
+                        status_label.set_visible(true);
+                        let hide_label = status_label.clone();
+                        glib::timeout_add_local_once(
+                            std::time::Duration::from_secs(3),
+                            move || {
+                                hide_label.set_visible(false);
+                            },
+                        );
+
+                        tracing::info!(
+                            protocol = "rdp",
+                            file_count = files.len(),
+                            "Announced files to RDP server via CLIPRDR"
+                        );
+                    } else {
+                        tracing::warn!(
+                            protocol = "rdp",
+                            "File DnD: IronRDP command channel not available"
+                        );
+                        cb_for_callback
+                            .borrow_mut()
+                            .record_failure("Clipboard channel not ready");
+                    }
+                },
+            );
+        }
+    }
+
+    /// Returns a reference to the file DnD circuit breaker for external monitoring.
+    #[must_use]
+    pub fn file_dnd_circuit_breaker(&self) -> &Rc<RefCell<file_dnd::FileDndCircuitBreaker>> {
+        &self.file_dnd_circuit_breaker
+    }
+
+    /// Sets the toast overlay for file DnD notifications.
+    ///
+    /// Should be called after the widget is added to the window hierarchy.
+    /// The toast overlay is used to show "File drag disabled" messages when
+    /// the circuit breaker trips.
+    pub fn set_toast_overlay(&self, overlay: libadwaita::ToastOverlay) {
+        *self.toast_overlay.borrow_mut() = Some(overlay);
     }
 
     /// Sets up visibility handler to redraw when widget becomes visible again

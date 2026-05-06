@@ -341,6 +341,34 @@ impl MainWindow {
         });
         window.add_action(&retry_action);
 
+        // Connect-to action — connects to a specific connection by ID (used by smart folders)
+        let connect_to_action = gio::SimpleAction::new("connect-to", Some(glib::VariantTy::STRING));
+        let state_clone = state.clone();
+        let notebook_clone = self.terminal_notebook.clone();
+        let split_view_clone = self.split_view.clone();
+        let sidebar_clone = sidebar.clone();
+        let monitoring_clone = self.monitoring.clone();
+        let activity_clone_ct = self.activity_coordinator.clone();
+        connect_to_action.connect_activate(move |_, param| {
+            if let Some(param) = param
+                && let Some(id_str) = param.get::<String>()
+                && let Ok(conn_id) = Uuid::parse_str(&id_str)
+            {
+                tracing::info!(%conn_id, "Connecting to connection by ID");
+                sidebar_clone.update_connection_status(&conn_id.to_string(), "connecting");
+                Self::start_connection_with_credential_resolution(
+                    state_clone.clone(),
+                    notebook_clone.clone(),
+                    split_view_clone.clone(),
+                    sidebar_clone.clone(),
+                    monitoring_clone.clone(),
+                    conn_id,
+                    Some(activity_clone_ct.clone()),
+                );
+            }
+        });
+        window.add_action(&connect_to_action);
+
         // Wake On LAN action — sends WoL packet for selected connection
         let wol_action = gio::SimpleAction::new("wake-on-lan", None);
         let state_clone = state.clone();

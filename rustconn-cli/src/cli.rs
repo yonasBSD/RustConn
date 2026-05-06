@@ -1152,6 +1152,10 @@ pub enum SmartFolderCommands {
         #[arg(short, long)]
         name: String,
 
+        /// Custom icon (emoji, e.g. "🚀")
+        #[arg(short, long)]
+        icon: Option<String>,
+
         /// Filter by protocol (ssh, rdp, vnc, etc.)
         #[arg(short, long)]
         protocol: Option<String>,
@@ -1174,6 +1178,10 @@ pub enum SmartFolderCommands {
         /// New name
         #[arg(long)]
         new_name: Option<String>,
+
+        /// New icon (emoji; use "none" to clear)
+        #[arg(short, long)]
+        icon: Option<String>,
 
         /// New protocol filter (ssh, rdp, vnc, etc.; use "none" to clear)
         #[arg(short, long)]
