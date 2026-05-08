@@ -5057,7 +5057,9 @@ impl MainWindow {
             if let Some(terminal) = notebook.get_terminal(session_id) {
                 use vte4::prelude::*;
                 let last_resize = std::sync::Arc::new(std::sync::Mutex::new(
-                    std::time::Instant::now().checked_sub(std::time::Duration::from_secs(1)).unwrap(),
+                    std::time::Instant::now()
+                        .checked_sub(std::time::Duration::from_secs(1))
+                        .unwrap(),
                 ));
                 terminal.connect_char_size_changed(move |term, _width, _height| {
                     let rows = term.row_count();

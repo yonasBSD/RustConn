@@ -223,6 +223,21 @@ fn build_jump_host_args(cmd: &mut Command, jump_host: &str, identity_file: Optio
     }
 }
 
+/// Waits for the main SSH session's ControlMaster socket to appear.
+///
+/// Polls for up to 5 seconds (50 × 100ms) checking if any socket file
+/// matching the control path pattern exists. Returns `true` if found.
+async fn wait_for_control_socket(control_path: &str) -> bool {
+    let socket_prefix = control_path.replace("-%r", "-");
+    for _ in 0..50 {
+        if std::path::Path::new(control_path).exists() || glob_socket_exists(&socket_prefix) {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    false
+}
+
 /// Builds an SSH exec closure for use with [`super::start_collector`].
 ///
 /// The returned closure spawns `ssh` with the given host/port/user and
@@ -284,26 +299,7 @@ pub fn ssh_exec_factory(
             let mut cmd = Command::new("ssh");
 
             // Wait for the main SSH session's ControlMaster socket to appear.
-            // The main VTE session creates the socket after authentication;
-            // monitoring starts shortly after (cursor_row > 2), but there may
-            // be a brief race. Poll for up to 5 seconds before falling back.
-            let socket_ready = {
-                // ControlPath contains %r which SSH expands to the remote username.
-                // We check for any file matching the pattern prefix.
-                let socket_prefix = control_path.replace("-%r", "-");
-                let mut ready = false;
-                for _ in 0..50 {
-                    // Check if any socket file matching our pattern exists
-                    if std::path::Path::new(&control_path).exists()
-                        || glob_socket_exists(&socket_prefix)
-                    {
-                        ready = true;
-                        break;
-                    }
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                }
-                ready
-            };
+            let socket_ready = wait_for_control_socket(&control_path).await;
 
             if socket_ready {
                 // Socket exists — connect as slave only (no new auth needed).

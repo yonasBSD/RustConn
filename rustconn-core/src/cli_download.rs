@@ -576,15 +576,17 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         name: "Teleport",
         description: "For Teleport access",
         category: ComponentCategory::ZeroTrust,
-        install_method: InstallMethod::Download,
-        download_url: Some("https://cdn.teleport.dev/teleport-v18.7.6-linux-amd64-bin.tar.gz"),
-        aarch64_url: Some("https://cdn.teleport.dev/teleport-v18.7.6-linux-arm64-bin.tar.gz"),
+        install_method: InstallMethod::CustomScript,
+        // URL is resolved dynamically in install_teleport() by querying
+        // GitHub API for the latest release tag.
+        download_url: Some("https://api.github.com/repos/gravitational/teleport/releases/latest"),
+        aarch64_url: Some("https://api.github.com/repos/gravitational/teleport/releases/latest"),
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~100 MB",
         binary_name: "tsh",
         install_subdir: "teleport",
-        pinned_version: Some("18.7.6"),
+        pinned_version: None,
         works_in_sandbox: true,
     },
     DownloadableComponent {
@@ -592,18 +594,17 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         name: "Tailscale",
         description: "For Tailscale SSH",
         category: ComponentCategory::ZeroTrust,
-        install_method: InstallMethod::Download,
-        download_url: Some("https://pkgs.tailscale.com/stable/tailscale_1.96.4_amd64.tgz"),
-        aarch64_url: Some("https://pkgs.tailscale.com/stable/tailscale_1.96.4_arm64.tgz"),
-        // Tailscale publishes platform-specific patches (e.g. macOS-only),
-        // so a pinned version may not exist for Linux. Use SkipLatest to
-        // avoid 404 errors when the pinned version is macOS-only (#81).
+        install_method: InstallMethod::CustomScript,
+        // URL is resolved dynamically in install_tailscale() by parsing
+        // the latest version from https://pkgs.tailscale.com/stable/
+        download_url: Some("https://pkgs.tailscale.com/stable/"),
+        aarch64_url: Some("https://pkgs.tailscale.com/stable/"),
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~25 MB",
         binary_name: "tailscale",
         install_subdir: "tailscale",
-        pinned_version: Some("1.96.4"),
+        pinned_version: None,
         works_in_sandbox: true,
     },
     DownloadableComponent {
@@ -633,23 +634,15 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         name: "HashiCorp Boundary",
         description: "For Boundary access",
         category: ComponentCategory::ZeroTrust,
-        install_method: InstallMethod::Download,
-        download_url: Some(
-            "https://releases.hashicorp.com/boundary/0.21.3/\
-             boundary_0.21.3_linux_amd64.zip",
-        ),
-        aarch64_url: Some(
-            "https://releases.hashicorp.com/boundary/0.21.3/\
-             boundary_0.21.3_linux_arm64.zip",
-        ),
-        checksum: ChecksumPolicy::Static(
-            "1a948c143b849cedba91127aa11155c6006d84051282a0d93f3d89525b460d12",
-        ),
+        install_method: InstallMethod::CustomScript,
+        download_url: Some("https://checkpoint-api.hashicorp.com/v1/check/boundary"),
+        aarch64_url: Some("https://checkpoint-api.hashicorp.com/v1/check/boundary"),
+        checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~50 MB",
         binary_name: "boundary",
         install_subdir: "boundary",
-        pinned_version: Some("0.21.3"),
+        pinned_version: None,
         works_in_sandbox: true,
     },
     DownloadableComponent {
@@ -657,19 +650,15 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         name: "Hoop.dev",
         description: "For Hoop.dev access",
         category: ComponentCategory::ZeroTrust,
-        install_method: InstallMethod::Download,
-        download_url: Some(
-            "https://releases.hoop.dev/release/1.62.0/hoop_1.62.0_Linux_x86_64.tar.gz",
-        ),
-        aarch64_url: Some(
-            "https://releases.hoop.dev/release/1.62.0/hoop_1.62.0_Linux_arm64.tar.gz",
-        ),
+        install_method: InstallMethod::CustomScript,
+        download_url: Some("https://releases.hoop.dev/release/latest.txt"),
+        aarch64_url: Some("https://releases.hoop.dev/release/latest.txt"),
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~30 MB",
         binary_name: "hoop",
         install_subdir: "hoop",
-        pinned_version: Some("1.62.0"),
+        pinned_version: None,
         works_in_sandbox: true,
     },
     // Password manager CLIs
@@ -678,18 +667,15 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         name: "Bitwarden CLI",
         description: "For Bitwarden integration",
         category: ComponentCategory::PasswordManager,
-        install_method: InstallMethod::Download,
-        download_url: Some(
-            "https://github.com/bitwarden/clients/releases/download/\
-             cli-v2026.4.1/bw-linux-2026.4.1.zip",
-        ),
+        install_method: InstallMethod::CustomScript,
+        download_url: Some("https://api.github.com/repos/bitwarden/clients/releases"),
         aarch64_url: None,
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~50 MB",
         binary_name: "bw",
         install_subdir: "bitwarden",
-        pinned_version: Some("2026.4.1"),
+        pinned_version: None,
         works_in_sandbox: true,
     },
     DownloadableComponent {
@@ -697,21 +683,15 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         name: "1Password CLI",
         description: "For 1Password integration",
         category: ComponentCategory::PasswordManager,
-        install_method: InstallMethod::Download,
-        download_url: Some(
-            "https://cache.agilebits.com/dist/1P/op2/pkg/v2.34.0/\
-             op_linux_amd64_v2.34.0.zip",
-        ),
-        aarch64_url: Some(
-            "https://cache.agilebits.com/dist/1P/op2/pkg/v2.34.0/\
-             op_linux_arm64_v2.34.0.zip",
-        ),
+        install_method: InstallMethod::CustomScript,
+        download_url: Some("https://app-updates.agilebits.com/check/1/0/CLI2/en/2.0.0/N"),
+        aarch64_url: Some("https://app-updates.agilebits.com/check/1/0/CLI2/en/2.0.0/N"),
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~15 MB",
         binary_name: "op",
         install_subdir: "1password",
-        pinned_version: Some("2.34.0"),
+        pinned_version: None,
         works_in_sandbox: true,
     },
     // Container orchestration CLIs
@@ -720,16 +700,17 @@ pub static DOWNLOADABLE_COMPONENTS: &[DownloadableComponent] = &[
         name: "kubectl",
         description: "Kubernetes CLI for pod shell connections",
         category: ComponentCategory::ContainerOrchestration,
-        install_method: InstallMethod::Download,
-        download_url: Some("https://dl.k8s.io/release/v1.36.0/bin/linux/amd64/kubectl"),
-        aarch64_url: Some("https://dl.k8s.io/release/v1.36.0/bin/linux/arm64/kubectl"),
-        // kubectl is a single binary — checksum changes per release
+        install_method: InstallMethod::CustomScript,
+        // URL is resolved dynamically in install_kubectl() by querying
+        // https://dl.k8s.io/release/stable.txt for the latest version.
+        download_url: Some("https://dl.k8s.io/release/stable.txt"),
+        aarch64_url: Some("https://dl.k8s.io/release/stable.txt"),
         checksum: ChecksumPolicy::SkipLatest,
         pip_package: None,
         size_hint: "~50 MB",
         binary_name: "kubectl",
         install_subdir: "kubectl",
-        pinned_version: Some("1.36.0"),
+        pinned_version: None,
         works_in_sandbox: true,
     },
 ];
@@ -1470,10 +1451,784 @@ async fn install_custom_component(
         return install_aws_cli(component, cli_dir, progress_callback, cancel_token).await;
     }
 
+    // Special handling for Tailscale (auto-detect latest version)
+    if component.id == "tailscale" {
+        return install_tailscale(component, cli_dir, progress_callback, cancel_token).await;
+    }
+
+    // Special handling for kubectl (auto-detect latest stable version)
+    if component.id == "kubectl" {
+        return install_kubectl(component, cli_dir, progress_callback, cancel_token).await;
+    }
+
+    // Special handling for Teleport tsh (auto-detect latest version from GitHub)
+    if component.id == "tsh" {
+        return install_teleport(component, cli_dir, progress_callback, cancel_token).await;
+    }
+
+    // Special handling for Boundary (auto-detect latest version from HashiCorp API)
+    if component.id == "boundary" {
+        return install_boundary(component, cli_dir, progress_callback, cancel_token).await;
+    }
+
+    // Special handling for Hoop (auto-detect latest version)
+    if component.id == "hoop" {
+        return install_hoop(component, cli_dir, progress_callback, cancel_token).await;
+    }
+
+    // Special handling for Bitwarden CLI (auto-detect latest version from GitHub)
+    if component.id == "bw" {
+        return install_bitwarden(component, cli_dir, progress_callback, cancel_token).await;
+    }
+
+    // Special handling for 1Password CLI (auto-detect latest version)
+    if component.id == "op" {
+        return install_1password(component, cli_dir, progress_callback, cancel_token).await;
+    }
+
     Err(CliDownloadError::NotAvailable(format!(
         "Custom installation not implemented for {}",
         component.id
     )))
+}
+
+/// Installs kubectl by auto-detecting the latest stable version from
+/// `https://dl.k8s.io/release/stable.txt` and downloading the binary.
+async fn install_kubectl(
+    component: &DownloadableComponent,
+    cli_dir: &Path,
+    progress_callback: ProgressCallback,
+    cancel_token: DownloadCancellation,
+) -> CliDownloadResult<PathBuf> {
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: "Detecting latest kubectl version...".to_string(),
+        });
+    }
+
+    // Fetch latest stable version
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    let version = client
+        .get("https://dl.k8s.io/release/stable.txt")
+        .send()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?
+        .text()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?
+        .trim()
+        .to_string();
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    let arch = if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "amd64"
+    };
+
+    let download_url = format!("https://dl.k8s.io/release/{version}/bin/linux/{arch}/kubectl");
+
+    tracing::info!(%version, %download_url, "kubectl: detected latest stable version");
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: format!("Downloading kubectl {version}..."),
+        });
+    }
+
+    let bytes = download_with_progress(&download_url, &progress_callback, &cancel_token).await?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    // kubectl is a single binary — just write it with execute permission
+    let install_dir = cli_dir.join(component.install_subdir);
+    tokio::fs::create_dir_all(&install_dir).await?;
+
+    let binary_path = install_dir.join(component.binary_name);
+    tokio::fs::write(&binary_path, &bytes).await?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&binary_path, std::fs::Permissions::from_mode(0o755))
+            .map_err(CliDownloadError::IoError)?;
+    }
+
+    // Write version file for update detection
+    let version_file = install_dir.join(".version");
+    tokio::fs::write(&version_file, &version).await?;
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: format!("kubectl {version} installed successfully"),
+        });
+    }
+
+    Ok(binary_path)
+}
+
+/// Installs Teleport tsh by auto-detecting the latest version from GitHub
+/// releases API and downloading the tar.gz from CDN.
+async fn install_teleport(
+    component: &DownloadableComponent,
+    cli_dir: &Path,
+    progress_callback: ProgressCallback,
+    cancel_token: DownloadCancellation,
+) -> CliDownloadResult<PathBuf> {
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: "Detecting latest Teleport version...".to_string(),
+        });
+    }
+
+    // Fetch latest version from GitHub releases API
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .user_agent("RustConn")
+        .build()
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    let response = client
+        .get("https://api.github.com/repos/gravitational/teleport/releases/latest")
+        .send()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?
+        .text()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    // Parse tag_name from JSON response (e.g. "v18.7.6")
+    let tag_re = regex::Regex::new(r#""tag_name"\s*:\s*"v([^"]+)""#)
+        .map_err(|e| CliDownloadError::NotAvailable(format!("Regex error: {e}")))?;
+
+    let version = tag_re
+        .captures(&response)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+        .ok_or_else(|| {
+            CliDownloadError::NotAvailable(
+                "Could not detect latest Teleport version from GitHub API".to_string(),
+            )
+        })?;
+
+    let arch = if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "amd64"
+    };
+
+    let download_url =
+        format!("https://cdn.teleport.dev/teleport-v{version}-linux-{arch}-bin.tar.gz");
+
+    tracing::info!(%version, %download_url, "Teleport: detected latest version");
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: format!("Downloading Teleport {version}..."),
+        });
+    }
+
+    let bytes = download_with_progress(&download_url, &progress_callback, &cancel_token).await?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: "Extracting Teleport...".to_string(),
+        });
+    }
+
+    let install_dir = cli_dir.join(component.install_subdir);
+    tokio::fs::create_dir_all(&install_dir).await?;
+
+    extract_tar_gz(&bytes, &install_dir)?;
+
+    let binary_path = install_dir.join(component.binary_name);
+    if !binary_path.exists() {
+        return Err(CliDownloadError::NotAvailable(
+            "tsh binary not found after extraction".to_string(),
+        ));
+    }
+
+    // Write version file for update detection
+    let version_file = install_dir.join(".version");
+    tokio::fs::write(&version_file, &version).await?;
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: format!("Teleport {version} installed successfully"),
+        });
+    }
+
+    Ok(binary_path)
+}
+
+/// Installs Tailscale by auto-detecting the latest stable version from
+/// `https://pkgs.tailscale.com/stable/` and downloading the appropriate tgz.
+///
+/// This avoids hardcoding a version that may become stale or be macOS-only.
+async fn install_tailscale(
+    component: &DownloadableComponent,
+    cli_dir: &Path,
+    progress_callback: ProgressCallback,
+    cancel_token: DownloadCancellation,
+) -> CliDownloadResult<PathBuf> {
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: "Detecting latest Tailscale version...".to_string(),
+        });
+    }
+
+    // Fetch the stable packages page to find the latest Linux tgz version
+    let index_url = "https://pkgs.tailscale.com/stable/";
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    let index_body = client
+        .get(index_url)
+        .send()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?
+        .text()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    // Parse latest version from the page: look for tailscale_X.Y.Z_amd64.tgz
+    let arch_suffix = if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "amd64"
+    };
+
+    let pattern = format!("tailscale_([0-9]+\\.[0-9]+\\.[0-9]+)_{arch_suffix}\\.tgz");
+    let re = regex::Regex::new(&pattern)
+        .map_err(|e| CliDownloadError::NotAvailable(format!("Regex error: {e}")))?;
+
+    let version = re
+        .captures(&index_body)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+        .ok_or_else(|| {
+            CliDownloadError::NotAvailable(
+                "Could not detect latest Tailscale version from stable page".to_string(),
+            )
+        })?;
+
+    let download_url =
+        format!("https://pkgs.tailscale.com/stable/tailscale_{version}_{arch_suffix}.tgz");
+
+    tracing::info!(%version, %download_url, "Tailscale: detected latest version");
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: format!("Downloading Tailscale {version}..."),
+        });
+    }
+
+    let bytes = download_with_progress(&download_url, &progress_callback, &cancel_token).await?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: "Extracting Tailscale...".to_string(),
+        });
+    }
+
+    // The tgz contains tailscale_X.Y.Z_arch/ directory with binaries.
+    // Extract to a temp location, then move binaries to install_subdir.
+    let install_dir = cli_dir.join(component.install_subdir);
+    tokio::fs::create_dir_all(&install_dir).await?;
+
+    extract_tar_gz(&bytes, &install_dir)?;
+
+    let binary_path = install_dir.join(component.binary_name);
+    if !binary_path.exists() {
+        return Err(CliDownloadError::NotAvailable(
+            "Tailscale binary not found after extraction".to_string(),
+        ));
+    }
+
+    // Write version file for update detection
+    let version_file = install_dir.join(".version");
+    tokio::fs::write(&version_file, &version).await?;
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: format!("Tailscale {version} installed successfully"),
+        });
+    }
+
+    Ok(binary_path)
+}
+
+/// Installs HashiCorp Boundary by auto-detecting the latest version from
+/// the HashiCorp checkpoint API and downloading the zip archive.
+async fn install_boundary(
+    component: &DownloadableComponent,
+    cli_dir: &Path,
+    progress_callback: ProgressCallback,
+    cancel_token: DownloadCancellation,
+) -> CliDownloadResult<PathBuf> {
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: "Detecting latest Boundary version...".to_string(),
+        });
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    let response = client
+        .get("https://checkpoint-api.hashicorp.com/v1/check/boundary")
+        .send()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?
+        .text()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    // Parse current_version from JSON response (e.g. "0.21.3")
+    let version_re = regex::Regex::new(r#""current_version"\s*:\s*"([^"]+)""#)
+        .map_err(|e| CliDownloadError::NotAvailable(format!("Regex error: {e}")))?;
+
+    let version = version_re
+        .captures(&response)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+        .ok_or_else(|| {
+            CliDownloadError::NotAvailable(
+                "Could not detect latest Boundary version from checkpoint API".to_string(),
+            )
+        })?;
+
+    let arch = if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "amd64"
+    };
+
+    let download_url = format!(
+        "https://releases.hashicorp.com/boundary/{version}/boundary_{version}_linux_{arch}.zip"
+    );
+
+    tracing::info!(%version, %download_url, "Boundary: detected latest version");
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: format!("Downloading Boundary {version}..."),
+        });
+    }
+
+    let bytes = download_with_progress(&download_url, &progress_callback, &cancel_token).await?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: "Extracting Boundary...".to_string(),
+        });
+    }
+
+    let install_dir = cli_dir.join(component.install_subdir);
+    tokio::fs::create_dir_all(&install_dir).await?;
+
+    extract_zip(&bytes, &install_dir)?;
+
+    let binary_path = install_dir.join(component.binary_name);
+    if !binary_path.exists() {
+        return Err(CliDownloadError::NotAvailable(
+            "boundary binary not found after extraction".to_string(),
+        ));
+    }
+
+    // Write version file for update detection
+    let version_file = install_dir.join(".version");
+    tokio::fs::write(&version_file, &version).await?;
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: format!("Boundary {version} installed successfully"),
+        });
+    }
+
+    Ok(binary_path)
+}
+
+/// Installs Hoop by auto-detecting the latest version from
+/// `https://releases.hoop.dev/release/latest.txt` and downloading the tar.gz.
+async fn install_hoop(
+    component: &DownloadableComponent,
+    cli_dir: &Path,
+    progress_callback: ProgressCallback,
+    cancel_token: DownloadCancellation,
+) -> CliDownloadResult<PathBuf> {
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: "Detecting latest Hoop version...".to_string(),
+        });
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    let version = client
+        .get("https://releases.hoop.dev/release/latest.txt")
+        .send()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?
+        .text()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?
+        .trim()
+        .to_string();
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    if version.is_empty() {
+        return Err(CliDownloadError::NotAvailable(
+            "Could not detect latest Hoop version from latest.txt".to_string(),
+        ));
+    }
+
+    let arch = if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "x86_64"
+    };
+
+    let download_url =
+        format!("https://releases.hoop.dev/release/{version}/hoop_{version}_Linux_{arch}.tar.gz");
+
+    tracing::info!(%version, %download_url, "Hoop: detected latest version");
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: format!("Downloading Hoop {version}..."),
+        });
+    }
+
+    let bytes = download_with_progress(&download_url, &progress_callback, &cancel_token).await?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: "Extracting Hoop...".to_string(),
+        });
+    }
+
+    let install_dir = cli_dir.join(component.install_subdir);
+    tokio::fs::create_dir_all(&install_dir).await?;
+
+    extract_tar_gz(&bytes, &install_dir)?;
+
+    let binary_path = install_dir.join(component.binary_name);
+    if !binary_path.exists() {
+        return Err(CliDownloadError::NotAvailable(
+            "hoop binary not found after extraction".to_string(),
+        ));
+    }
+
+    // Write version file for update detection
+    let version_file = install_dir.join(".version");
+    tokio::fs::write(&version_file, &version).await?;
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: format!("Hoop {version} installed successfully"),
+        });
+    }
+
+    Ok(binary_path)
+}
+
+/// Installs Bitwarden CLI by auto-detecting the latest version from GitHub
+/// releases API and downloading the zip archive.
+async fn install_bitwarden(
+    component: &DownloadableComponent,
+    cli_dir: &Path,
+    progress_callback: ProgressCallback,
+    cancel_token: DownloadCancellation,
+) -> CliDownloadResult<PathBuf> {
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: "Detecting latest Bitwarden CLI version...".to_string(),
+        });
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .user_agent("RustConn")
+        .build()
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    let response = client
+        .get("https://api.github.com/repos/bitwarden/clients/releases?per_page=30")
+        .send()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?
+        .text()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    // Find first release with tag starting with "cli-v" (e.g. "cli-v2026.4.1")
+    let tag_re = regex::Regex::new(r#""tag_name"\s*:\s*"cli-v([^"]+)""#)
+        .map_err(|e| CliDownloadError::NotAvailable(format!("Regex error: {e}")))?;
+
+    let version = tag_re
+        .captures(&response)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+        .ok_or_else(|| {
+            CliDownloadError::NotAvailable(
+                "Could not detect latest Bitwarden CLI version from GitHub API".to_string(),
+            )
+        })?;
+
+    let download_url = format!(
+        "https://github.com/bitwarden/clients/releases/download/cli-v{version}/bw-linux-{version}.zip"
+    );
+
+    tracing::info!(%version, %download_url, "Bitwarden CLI: detected latest version");
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: format!("Downloading Bitwarden CLI {version}..."),
+        });
+    }
+
+    let bytes = download_with_progress(&download_url, &progress_callback, &cancel_token).await?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: "Extracting Bitwarden CLI...".to_string(),
+        });
+    }
+
+    let install_dir = cli_dir.join(component.install_subdir);
+    tokio::fs::create_dir_all(&install_dir).await?;
+
+    extract_zip(&bytes, &install_dir)?;
+
+    let binary_path = install_dir.join(component.binary_name);
+    if !binary_path.exists() {
+        return Err(CliDownloadError::NotAvailable(
+            "bw binary not found after extraction".to_string(),
+        ));
+    }
+
+    // Write version file for update detection
+    let version_file = install_dir.join(".version");
+    tokio::fs::write(&version_file, &version).await?;
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: format!("Bitwarden CLI {version} installed successfully"),
+        });
+    }
+
+    Ok(binary_path)
+}
+
+/// Installs 1Password CLI by auto-detecting the latest version from
+/// the AgileBits update check API and downloading the zip archive.
+async fn install_1password(
+    component: &DownloadableComponent,
+    cli_dir: &Path,
+    progress_callback: ProgressCallback,
+    cancel_token: DownloadCancellation,
+) -> CliDownloadResult<PathBuf> {
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: "Detecting latest 1Password CLI version...".to_string(),
+        });
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    let response = client
+        .get("https://app-updates.agilebits.com/check/1/0/CLI2/en/2.0.0/N")
+        .send()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?
+        .text()
+        .await
+        .map_err(|e| CliDownloadError::DownloadFailed(e.to_string()))?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    // Parse version from JSON response (e.g. "2.34.0")
+    let version_re = regex::Regex::new(r#""version"\s*:\s*"([^"]+)""#)
+        .map_err(|e| CliDownloadError::NotAvailable(format!("Regex error: {e}")))?;
+
+    let version = version_re
+        .captures(&response)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+        .ok_or_else(|| {
+            CliDownloadError::NotAvailable(
+                "Could not detect latest 1Password CLI version from update API".to_string(),
+            )
+        })?;
+
+    let arch = if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "amd64"
+    };
+
+    let download_url = format!(
+        "https://cache.agilebits.com/dist/1P/op2/pkg/v{version}/op_linux_{arch}_v{version}.zip"
+    );
+
+    tracing::info!(%version, %download_url, "1Password CLI: detected latest version");
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: 0,
+            total: None,
+            status: format!("Downloading 1Password CLI {version}..."),
+        });
+    }
+
+    let bytes = download_with_progress(&download_url, &progress_callback, &cancel_token).await?;
+
+    if cancel_token.is_cancelled() {
+        return Err(CliDownloadError::Cancelled);
+    }
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: "Extracting 1Password CLI...".to_string(),
+        });
+    }
+
+    let install_dir = cli_dir.join(component.install_subdir);
+    tokio::fs::create_dir_all(&install_dir).await?;
+
+    extract_zip(&bytes, &install_dir)?;
+
+    let binary_path = install_dir.join(component.binary_name);
+    if !binary_path.exists() {
+        return Err(CliDownloadError::NotAvailable(
+            "op binary not found after extraction".to_string(),
+        ));
+    }
+
+    // Write version file for update detection
+    let version_file = install_dir.join(".version");
+    tokio::fs::write(&version_file, &version).await?;
+
+    if let Some(ref cb) = progress_callback {
+        cb(DownloadProgress {
+            downloaded: bytes.len() as u64,
+            total: Some(bytes.len() as u64),
+            status: format!("1Password CLI {version} installed successfully"),
+        });
+    }
+
+    Ok(binary_path)
 }
 
 #[allow(clippy::too_many_lines)]
