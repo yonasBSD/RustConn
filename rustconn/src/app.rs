@@ -198,16 +198,22 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
         // any widget references held by tray state callbacks.
         tray_shutdown.borrow_mut().take();
 
-        // Close SSH ControlMaster sockets for all connections that were active.
+        // Close SSH ControlMaster sockets for connections that had active sessions.
         // This prevents stale sockets from lingering after app exit.
         let connections: Vec<_> = state_shutdown
             .try_borrow()
             .ok()
             .map(|state_ref| {
-                state_ref
-                    .list_connections()
+                let ssh_connection_ids: std::collections::HashSet<_> = state_ref
+                    .active_sessions()
+                    .iter()
+                    .filter(|s| s.protocol == "ssh")
+                    .map(|s| s.connection_id)
+                    .collect();
+
+                ssh_connection_ids
                     .into_iter()
-                    .filter(|c| c.protocol == rustconn_core::models::ProtocolType::Ssh)
+                    .filter_map(|id| state_ref.get_connection(id))
                     .map(|c| (c.host.clone(), c.port, c.username.clone()))
                     .collect::<Vec<_>>()
             })
@@ -217,14 +223,13 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
             let rt = tokio::runtime::Runtime::new().ok();
             if let Some(rt) = rt {
                 rt.block_on(async {
-                    for (host, port, username) in &connections {
-                        rustconn_core::close_control_socket(
-                            host,
-                            *port,
-                            username.as_deref(),
-                        )
-                        .await;
-                    }
+                    let futures: Vec<_> = connections
+                        .iter()
+                        .map(|(host, port, username)| {
+                            rustconn_core::close_control_socket(host, *port, username.as_deref())
+                        })
+                        .collect();
+                    futures::future::join_all(futures).await;
                 });
             }
         }

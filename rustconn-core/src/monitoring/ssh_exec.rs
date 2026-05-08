@@ -50,16 +50,12 @@ pub fn ssh_control_path(host: &str, port: u16) -> String {
     // Reserve ~20 chars for /%r expansion and null terminator.
     let max_host_len = 40;
     let short_host = if host.len() > max_host_len {
-        &host[..max_host_len]
+        // Truncate at a valid char boundary to avoid panic on IDN hostnames.
+        &host[..host.floor_char_boundary(max_host_len)]
     } else {
         host
     };
     format!("{dir}/rc-{short_host}-{port}-%r")
-}
-
-/// Legacy monitoring-only control path (now delegates to shared path).
-fn monitoring_control_path(host: &str, port: u16) -> String {
-    ssh_control_path(host, port)
 }
 
 /// Checks if any file exists with the given prefix (for socket detection).
@@ -80,14 +76,12 @@ fn glob_socket_exists(prefix: &str) -> bool {
         return false;
     };
 
-    entries
-        .filter_map(Result::ok)
-        .any(|entry| {
-            entry
-                .file_name()
-                .to_string_lossy()
-                .starts_with(file_prefix_str.as_ref())
-        })
+    entries.filter_map(Result::ok).any(|entry| {
+        entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with(file_prefix_str.as_ref())
+    })
 }
 
 /// Environment variable name used to pass the password to the askpass script.
@@ -284,7 +278,7 @@ pub fn ssh_exec_factory(
         let password = password.clone();
         let jump_host = jump_host.clone();
         let askpass_script = askpass_script.clone();
-        let control_path = monitoring_control_path(&host, port);
+        let control_path = ssh_control_path(&host, port);
 
         Box::pin(async move {
             let mut cmd = Command::new("ssh");

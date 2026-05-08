@@ -14,6 +14,7 @@ path = "src/main.rs"
 [dependencies]
 rustconn-core = { path = "../rustconn-core", version = "0.13.0" }
 tokio = { workspace = true }
+futures = { workspace = true }
 gtk4 = { workspace = true, features = ["v4_14"] }
 libadwaita = { workspace = true }
 gdk4-wayland = { version = "0.11", optional = true }

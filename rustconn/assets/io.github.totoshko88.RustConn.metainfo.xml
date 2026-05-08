@@ -152,6 +152,7 @@
           <li>SSH ControlMaster sockets cleaned up on application exit via ssh -O exit</li>
           <li>SSH control socket path shortened for macOS compatibility (104-byte Unix socket limit)</li>
           <li>Auto-reconnect no longer loops infinitely on rapid crashes — skipped if session crashes within 5 seconds of starting</li>
+          <li>Flatpak local shell PTY resize now propagates to host via flatpak-spawn stty</li>
         </ul>
       </description>
     </release>

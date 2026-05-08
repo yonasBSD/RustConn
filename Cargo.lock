@@ -4726,11 +4726,12 @@ dependencies = [
 
 [[package]]
 name = "rustconn"
-version = "0.13.6"
+version = "0.13.7"
 dependencies = [
  "chrono",
  "cpal",
  "dirs",
+ "futures",
  "gdk4-wayland",
  "gettext-rs",
  "gtk4",
@@ -4755,7 +4756,7 @@ dependencies = [
 
 [[package]]
 name = "rustconn-cli"
-version = "0.13.6"
+version = "0.13.7"
 dependencies = [
  "chrono",
  "clap",
@@ -4776,7 +4777,7 @@ dependencies = [
 
 [[package]]
 name = "rustconn-core"
-version = "0.13.6"
+version = "0.13.7"
 dependencies = [
  "ar",
  "argon2",

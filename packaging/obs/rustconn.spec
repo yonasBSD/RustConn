@@ -249,6 +249,8 @@ done
   stay within 104-byte Unix socket path limit
 - [Fixed] Auto-reconnect: no longer loops infinitely on rapid crashes —
   if session crashes within 5s of starting, auto-reconnect is skipped
+- [Fixed] Flatpak: local shell PTY resize now propagates to host —
+  VTE resize forwarded via flatpak-spawn stty to host-side PTY (#122)
 
 * Wed May 07 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.6-1
 - [Improved] Preferences: Monitoring moved to its own page with dedicated
