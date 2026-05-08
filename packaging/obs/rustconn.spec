@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.13.6
+Version:        0.13.7
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,18 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu May 08 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.7-1
+- [Fixed] SSH: monitoring no longer triggers a second agent confirmation —
+  monitoring waits up to 5s for ControlMaster socket, connects as slave
+  only; falls back to own master if socket never appears (#125)
+- [Fixed] SSH: ControlMaster sockets cleaned up on application exit —
+  all sockets gracefully closed via ssh -O exit on shutdown (#125)
+- [Fixed] SSH: control socket path shortened for macOS compatibility —
+  ControlPath changed to rc-{host}-{port}-%r; uses /tmp on macOS to
+  stay within 104-byte Unix socket path limit
+- [Fixed] Auto-reconnect: no longer loops infinitely on rapid crashes —
+  if session crashes within 5s of starting, auto-reconnect is skipped
+
 * Wed May 07 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.6-1
 - [Improved] Preferences: Monitoring moved to its own page with dedicated
   tab and utilities-system-monitor-symbolic icon (#125)

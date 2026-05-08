@@ -144,6 +144,17 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.13.7" date="2026-05-08">
+      <description>
+        <p>Version 0.13.7 — SSH ControlMaster reliability and auto-reconnect safety:</p>
+        <ul>
+          <li>SSH monitoring no longer triggers a second agent confirmation — waits for ControlMaster socket and connects as slave only</li>
+          <li>SSH ControlMaster sockets cleaned up on application exit via ssh -O exit</li>
+          <li>SSH control socket path shortened for macOS compatibility (104-byte Unix socket limit)</li>
+          <li>Auto-reconnect no longer loops infinitely on rapid crashes — skipped if session crashes within 5 seconds of starting</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.13.6" date="2026-05-07">
       <description>
         <p>Version 0.13.6 — Monitoring preferences, SSH ControlMaster, CLI formats, security hardening:</p>
