@@ -7898,10 +7898,14 @@ impl ConnectionDialogData<'_> {
         }
 
         // Set remote monitoring override
-        // When toggle is ON (default), no override needed — global settings apply.
+        // When toggle is ON, store explicit enabled override so it works
+        // even when global monitoring is disabled.
         // When toggle is OFF, store explicit disabled override.
         conn.monitoring_config = if self.monitoring_toggle.is_active() {
-            None
+            Some(rustconn_core::monitoring::MonitoringConfig {
+                enabled: Some(true),
+                interval_secs: None,
+            })
         } else {
             Some(rustconn_core::monitoring::MonitoringConfig {
                 enabled: Some(false),

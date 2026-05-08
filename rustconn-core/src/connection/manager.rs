@@ -341,7 +341,6 @@ impl ConnectionManager {
         updated.skip_port_check = existing.skip_port_check;
         updated.is_pinned = existing.is_pinned;
         updated.pin_order = existing.pin_order;
-        updated.monitoring_config = existing.monitoring_config.clone();
 
         // group_id is always taken from the updated connection — callers must set it explicitly
         // (None means "root/ungrouped", not "unchanged")

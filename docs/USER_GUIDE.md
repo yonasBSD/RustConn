@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.13.7** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.13.8** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -181,7 +181,7 @@ SSH connections support hardware security keys (YubiKey, SoloKey, etc.) via the 
 - The key file path configured in the connection's SSH key field
 
 **Advanced Tabs:**
-- **Advanced** — Window mode (Embedded/External/Fullscreen), remember window position, hide local cursor (embedded RDP/VNC/SPICE), Wake-on-LAN configuration (MAC address, broadcast, port, wait time), monitoring override (enable/disable/global, custom polling interval)
+- **Advanced** — Window mode (Embedded/External/Fullscreen), remember window position, hide local cursor (embedded RDP/VNC/SPICE), Wake-on-LAN configuration (MAC address, broadcast, port, wait time), monitoring override (enable/disable per connection, overrides global setting)
 - **Automation** — Expect rules for auto-responding to terminal patterns, pattern tester with built-in templates (Sudo, SSH Host Key, Login, etc.), pre-connect task, post-disconnect task (with conditions: first/last connection only)
 - **Data** — Local variables (connection-scoped, override global variables), custom properties (Text/URL/Protected metadata)
 - **Logging** — Session logging (enable/disable, log path template with variables, timestamp format, max file size, retention days, granular content options: log activity, log input, log output, add timestamps)
@@ -1670,7 +1670,7 @@ MobaXterm-style monitoring bar below SSH terminals showing real-time system metr
 3. Configure polling interval (1–60 seconds, default: 3)
 4. Select which metrics to display
 
-**Per-Connection Override:** Edit connection → **Advanced** tab → set monitoring to Enabled, Disabled, or Use global setting.
+**Per-Connection Override:** Edit connection → **Advanced** tab → **Remote Monitoring** section → toggle **Enable Monitoring** ON or OFF. This overrides the global setting for this specific connection — if global monitoring is disabled but the toggle is ON, monitoring will still run for this connection (and vice versa).
 
 **Requirements:** Remote host must be Linux. No agent installation needed. Works with SSH, Telnet, and Kubernetes connections.
 

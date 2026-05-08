@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.13.7
+Version:        0.13.8
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,18 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu May 08 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.8-1
+- [Fixed] Per-connection monitoring toggle not saving state — the
+  "Enable Monitoring" switch always appeared enabled and did not persist
+  the user's choice; now both ON and OFF states are stored as explicit
+  overrides (enabled: Some(true) / Some(false)) (#125)
+- [Fixed] Flatpak: CLI tools not found by protocol detection —
+  which_binary() now searches all get_cli_path_dirs() directories and
+  passes the full resolved path to version detection
+- [Fixed] Hoop.dev CLI version not displayed — added parse_json_version()
+  to extract the version field from JSON output; fixed get_version() to
+  set extended PATH in Flatpak
+
 * Thu May 08 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.7-1
 - [Fixed] SSH: monitoring no longer triggers a second agent confirmation —
   monitoring waits up to 5s for ControlMaster socket, connects as slave

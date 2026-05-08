@@ -1,3 +1,18 @@
+rustconn (0.13.8-1) unstable; urgency=medium
+
+  * [Fixed] Per-connection monitoring toggle not saving state — the
+    "Enable Monitoring" switch always appeared enabled and did not persist
+    the user's choice; now both ON and OFF states are stored as explicit
+    overrides (enabled: Some(true) / Some(false)) (#125)
+  * [Fixed] Flatpak: CLI tools not found by protocol detection —
+    which_binary() now searches all get_cli_path_dirs() directories and
+    passes the full resolved path to version detection
+  * [Fixed] Hoop.dev CLI version not displayed — added parse_json_version()
+    to extract the version field from JSON output; fixed get_version() to
+    set extended PATH in Flatpak
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Fri, 08 May 2026 12:00:00 +0000
+
 rustconn (0.13.7-1) unstable; urgency=medium
 
   * [Fixed] SSH: monitoring no longer triggers a second agent confirmation —

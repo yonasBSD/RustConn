@@ -144,6 +144,16 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.13.8" date="2026-05-08">
+      <description>
+        <p>Version 0.13.8 — Per-connection monitoring fix and Flatpak CLI discovery:</p>
+        <ul>
+          <li>Per-connection monitoring toggle now correctly saves state — both ON and OFF are stored as explicit overrides</li>
+          <li>Flatpak: CLI tools installed via Flatpak Components are now discovered by protocol detection</li>
+          <li>Hoop.dev CLI version correctly parsed from JSON output</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.13.7" date="2026-05-08">
       <description>
         <p>Version 0.13.7 — SSH ControlMaster reliability and auto-reconnect safety:</p>

@@ -5,6 +5,13 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.8] - 2026-05-08
+
+### Fixed
+- **Per-connection monitoring toggle not saving state** — the "Enable Monitoring" switch in the connection dialog Advanced tab always appeared enabled and did not persist the user's choice; root cause: `update_connection()` in `ConfigManager` unconditionally overwrote `monitoring_config` with the old value from the existing connection (`updated.monitoring_config = existing.monitoring_config.clone()`), discarding the user's change from the dialog; additionally, the save logic stored `None` when the toggle was ON (meaning "use global default") instead of an explicit override, so per-connection enable didn't work when global monitoring was disabled; fixed both: removed the overwrite in `update_connection`, and save now stores explicit `Some(true)` / `Some(false)` so the per-connection toggle correctly overrides the global setting in both directions ([#125](https://github.com/totoshko88/RustConn/issues/125))
+- **Flatpak: CLI tools not found by protocol detection** — `which_binary()` in protocol detection only checked `/app/bin` and system PATH; CLI tools installed via Flatpak Components (e.g. hoop, boundary, tailscale) in `~/.var/app/io.github.totoshko88.RustConn/cli/` were not discovered; now searches all `get_cli_path_dirs()` directories and passes the full resolved path to version detection
+- **Hoop.dev CLI version not displayed** — `hoop version` outputs JSON (`{"version":"1.59.3",...}`) which the generic version parser did not recognize; added `parse_json_version()` to extract the version field from JSON output; also fixed `get_version()` to set extended PATH in Flatpak so the binary can be executed from its install directory
+
 ## [0.13.7] - 2026-05-08
 
 ### Improved

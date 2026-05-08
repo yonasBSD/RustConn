@@ -499,8 +499,8 @@ fn try_detect_client(name: &str, binary: &str, version_args: &[&str]) -> Option<
     // First check if the binary exists in PATH
     let path = which_binary(binary)?;
 
-    // Try to get version information
-    let version = get_version(binary, version_args);
+    // Try to get version information using the full resolved path
+    let version = get_version(path.to_str().unwrap_or(binary), version_args);
 
     Some(ClientInfo::installed(name, path, version))
 }
@@ -528,6 +528,14 @@ fn which_binary(binary: &str) -> Option<PathBuf> {
         let app_path = PathBuf::from(format!("/app/bin/{binary}"));
         if app_path.exists() && app_path.is_file() {
             return Some(app_path);
+        }
+
+        // Check Flatpak CLI install directories (e.g. ~/.var/app/<id>/cli/hoop/hoop)
+        for dir in crate::cli_download::get_cli_path_dirs() {
+            let cli_path = dir.join(binary);
+            if cli_path.exists() && cli_path.is_file() {
+                return Some(cli_path);
+            }
         }
     }
 
@@ -570,12 +578,17 @@ const VERSION_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_sec
 
 /// Gets version information from a binary with a timeout
 fn get_version(binary: &str, args: &[&str]) -> Option<String> {
-    let mut child = Command::new(binary)
-        .args(args)
+    let mut cmd = Command::new(binary);
+    cmd.args(args)
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .ok()?;
+        .stderr(std::process::Stdio::piped());
+
+    // In Flatpak, extend PATH so the binary can find sibling tools
+    if crate::flatpak::is_flatpak() {
+        cmd.env("PATH", crate::cli_download::get_extended_path());
+    }
+
+    let mut child = cmd.spawn().ok()?;
 
     let start = std::time::Instant::now();
     loop {
@@ -614,6 +627,11 @@ fn parse_version(output: &str) -> Option<String> {
         }
 
         // Check special formats first (before generic patterns)
+
+        // JSON format: {"version":"1.59.3",...} (e.g. hoop)
+        if line.starts_with('{') && line.contains("\"version\"") {
+            return parse_json_version(line);
+        }
 
         // Azure CLI format: "azure-cli                         2.82.0 *"
         if line.starts_with("azure-cli") {
@@ -685,6 +703,19 @@ fn parse_teleport_version(line: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// Parses version from JSON output format
+/// Input: `{"version":"1.59.3","git_commit":"...","build_date":"..."}`
+/// Output: "1.59.3"
+fn parse_json_version(line: &str) -> Option<String> {
+    // Simple extraction without serde — find "version":"<value>"
+    line.split("\"version\"").nth(1).and_then(|rest| {
+        let after_colon = rest.trim_start().strip_prefix(':')?;
+        let after_ws = after_colon.trim_start().strip_prefix('"')?;
+        let end = after_ws.find('"')?;
+        Some(after_ws[..end].to_string())
+    })
 }
 
 /// Parses a version string into (major, minor, patch) tuple.
