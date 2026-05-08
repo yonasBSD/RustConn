@@ -2561,7 +2561,10 @@ impl MainWindow {
                     // Skip vault lookup for Zero Trust Generic — the custom command
                     // handles its own authentication interactively in the terminal
                     if let rustconn_core::ProtocolConfig::ZeroTrust(ref zt) = c.protocol_config
-                        && matches!(zt.provider, rustconn_core::models::ZeroTrustProvider::Generic)
+                        && matches!(
+                            zt.provider,
+                            rustconn_core::models::ZeroTrustProvider::Generic
+                        )
                     {
                         return false;
                     }

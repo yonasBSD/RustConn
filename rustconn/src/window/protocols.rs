@@ -2287,9 +2287,7 @@ pub fn start_zerotrust_connection(
         // Generic command_template is already a shell command string.
         // Extract it from the full_command which is "sh -c <template>".
         // We need just the template part for flatpak-spawn.
-        let template = full_command
-            .strip_prefix("sh -c ")
-            .unwrap_or(&full_command);
+        let template = full_command.strip_prefix("sh -c ").unwrap_or(&full_command);
         // Escape single quotes for safe embedding in '...' shell string:
         // replace ' with '\'' (end quote, escaped quote, start quote)
         let escaped = template.replace('\'', "'\\''");
