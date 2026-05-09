@@ -590,13 +590,25 @@ pub fn load_variable_from_vault_with_path(
                 let key_file = settings.kdbx_key_file.clone();
                 let kdbx = std::path::Path::new(kdbx_path);
                 let key = key_file.as_ref().map(|p| std::path::Path::new(p));
-                rustconn_core::secret::KeePassStatus::get_password_from_kdbx_with_key(
-                    kdbx,
-                    settings.kdbx_password.as_ref(),
-                    key,
-                    lookup_key,
-                    None,
-                )
+
+                // Custom path → exact lookup (no RustConn/ prefix, no fallbacks)
+                // Default path → standard lookup with RustConn/ prefix and fallbacks
+                if kdbx_entry_path.is_some() {
+                    rustconn_core::secret::KeePassStatus::get_password_from_kdbx_exact(
+                        kdbx,
+                        settings.kdbx_password.as_ref(),
+                        key,
+                        lookup_key,
+                    )
+                } else {
+                    rustconn_core::secret::KeePassStatus::get_password_from_kdbx_with_key(
+                        kdbx,
+                        settings.kdbx_password.as_ref(),
+                        key,
+                        lookup_key,
+                        None,
+                    )
+                }
                 .map(|opt| opt.map(|s| s.expose_secret().to_string()))
                 .map_err(|e| format!("{e}"))
             } else {

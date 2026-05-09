@@ -405,6 +405,7 @@ impl SettingsDialog {
 
         // Restore handler
         let dialog_weak = dialog.downgrade();
+        let settings_for_restore = settings.clone();
         restore_btn.connect_clicked(move |_| {
             let Some(dlg) = dialog_weak.upgrade() else {
                 return;
@@ -424,6 +425,7 @@ impl SettingsDialog {
             file_dialog.set_filters(Some(&filters));
 
             let win_clone = win.clone();
+            let settings_for_restore = settings_for_restore.clone();
             file_dialog.open(Some(win), None::<&gtk4::gio::Cancellable>, move |result| {
                 let Ok(file) = result else { return };
                 let Some(path) = file.path() else { return };
@@ -443,6 +445,7 @@ impl SettingsDialog {
 
                 let win_inner = win_clone.clone();
                 let path_clone = path.clone();
+                let settings_for_restore_inner = settings_for_restore.clone();
                 confirm.connect_response(None, move |_, response| {
                     if response != "restore" {
                         return;
@@ -450,6 +453,14 @@ impl SettingsDialog {
                     match rustconn_core::config::ConfigManager::new() {
                         Ok(mgr) => match mgr.restore_from_archive(&path_clone) {
                             Ok(count) => {
+                                // Reload settings from disk so the in-memory state
+                                // reflects the restored config.toml (including
+                                // global_variables). Without this, closing the dialog
+                                // would overwrite the restored file with stale data.
+                                if let Ok(restored) = mgr.load_settings() {
+                                    *settings_for_restore_inner.borrow_mut() = restored;
+                                }
+
                                 let msg = crate::i18n::i18n_f(
                                     "Restored {} files. Restart to apply.",
                                     &[&count.to_string()],
