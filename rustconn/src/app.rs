@@ -10,6 +10,7 @@ use gtk4::{gio, glib};
 use libadwaita as adw;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::state::{
     SharedAppState, create_shared_state, try_with_state, with_state, with_state_mut,
@@ -18,6 +19,17 @@ use crate::tray::{TrayManager, TrayMessage};
 use crate::window::MainWindow;
 use gettextrs::gettext;
 use rustconn_core::config::ColorScheme;
+
+/// Global flag indicating the application is shutting down.
+/// When set, session exit callbacks should suppress error logging
+/// and reconnect overlays — the exits are expected because
+/// `close_all_control_sockets()` kills SSH connections during shutdown.
+static APP_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+
+/// Returns `true` if the application is in the process of shutting down.
+pub fn is_shutting_down() -> bool {
+    APP_SHUTTING_DOWN.load(Ordering::Relaxed)
+}
 
 /// Applies a color scheme to GTK/libadwaita settings
 pub fn apply_color_scheme(scheme: ColorScheme) {
@@ -194,6 +206,10 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
     // D-Bus callbacks from referencing already-finalized GObjects (SIGSEGV).
     let state_shutdown = state.clone();
     app.connect_shutdown(move |_| {
+        // Signal that the app is shutting down — session exit callbacks
+        // should suppress error logging and reconnect overlays.
+        APP_SHUTTING_DOWN.store(true, Ordering::Relaxed);
+
         // Drop tray manager first — stops D-Bus service loop and releases
         // any widget references held by tray state callbacks.
         tray_shutdown.borrow_mut().take();

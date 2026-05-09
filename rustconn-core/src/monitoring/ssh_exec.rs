@@ -13,6 +13,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures::stream::StreamExt;
 use secrecy::{ExposeSecret, SecretString};
 use tokio::process::Command;
 
@@ -187,55 +188,54 @@ pub async fn close_all_control_sockets() {
         "Closing RustConn SSH ControlMaster sockets on exit"
     );
 
-    let futures: Vec<_> = socket_files
-        .iter()
-        .map(|entry| {
-            let path = entry.path();
-            let path_str = path.to_string_lossy().to_string();
-            async move {
-                let mut cmd = Command::new("ssh");
-                cmd.arg("-O").arg("exit");
-                cmd.arg("-o").arg(format!("ControlPath={path_str}"));
-                // Use a dummy destination — ssh -O exit only needs the socket path
-                // to identify the master, but requires a destination argument.
-                // We use "none" as a placeholder; the master is identified by ControlPath.
-                cmd.arg("none");
-                cmd.stdout(std::process::Stdio::null());
-                cmd.stderr(std::process::Stdio::null());
+    futures::stream::iter(socket_files.iter().map(|entry| {
+        let path = entry.path();
+        let path_str = path.to_string_lossy().to_string();
+        async move {
+            let mut cmd = Command::new("ssh");
+            cmd.arg("-O").arg("exit");
+            cmd.arg("-o").arg(format!("ControlPath={path_str}"));
+            // Use a dummy destination — ssh -O exit only needs the socket path
+            // to identify the master, but requires a destination argument.
+            // We use "none" as a placeholder; the master is identified by ControlPath.
+            cmd.arg("none");
+            cmd.stdout(std::process::Stdio::null());
+            cmd.stderr(std::process::Stdio::null());
 
-                match tokio::time::timeout(Duration::from_secs(3), cmd.output()).await {
-                    Ok(Ok(output)) => {
-                        if output.status.success() {
-                            tracing::debug!(socket = %path_str, "ControlMaster socket closed");
-                        } else {
-                            // Socket may already be stale — remove the file directly
-                            let _ = std::fs::remove_file(&path);
-                            tracing::debug!(
-                                socket = %path_str,
-                                "ControlMaster socket not responding, removed file"
-                            );
-                        }
-                    }
-                    Ok(Err(e)) => {
-                        tracing::debug!(
-                            socket = %path_str, error = %e,
-                            "Failed to close ControlMaster socket"
-                        );
-                    }
-                    Err(_) => {
-                        // Timeout — force remove the stale socket file
+            match tokio::time::timeout(Duration::from_secs(3), cmd.output()).await {
+                Ok(Ok(output)) => {
+                    if output.status.success() {
+                        tracing::debug!(socket = %path_str, "ControlMaster socket closed");
+                    } else {
+                        // Socket may already be stale — remove the file directly
                         let _ = std::fs::remove_file(&path);
                         tracing::debug!(
                             socket = %path_str,
-                            "Timeout closing ControlMaster socket, removed file"
+                            "ControlMaster socket not responding, removed file"
                         );
                     }
                 }
+                Ok(Err(e)) => {
+                    tracing::debug!(
+                        socket = %path_str, error = %e,
+                        "Failed to close ControlMaster socket"
+                    );
+                }
+                Err(_) => {
+                    // Timeout — force remove the stale socket file
+                    let _ = std::fs::remove_file(&path);
+                    tracing::debug!(
+                        socket = %path_str,
+                        "Timeout closing ControlMaster socket, removed file"
+                    );
+                }
             }
-        })
-        .collect();
-
-    futures::future::join_all(futures).await;
+        }
+    }))
+    // Limit concurrency to avoid spawning too many ssh processes at once
+    .buffer_unordered(10)
+    .collect::<Vec<()>>()
+    .await;
 }
 
 /// RAII wrapper for the temporary `SSH_ASKPASS` script.

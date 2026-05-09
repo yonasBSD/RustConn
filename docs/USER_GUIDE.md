@@ -412,7 +412,7 @@ The SSH tab in the connection dialog contains session-level toggles that control
 | Agent Forwarding | `-A` | Forward your local SSH agent to the remote host, allowing key-based authentication to further servers without copying keys |
 | X11 Forwarding | `-X` | Forward X11 display to your local machine — run graphical X11 apps on the remote host and see them locally |
 | Compression | `-C` | Compress the SSH data stream — useful on slow or high-latency connections |
-| Connection Multiplexing | `ControlMaster=auto` | Reuse a single TCP connection for multiple SSH sessions to the same host. Subsequent connections open instantly without re-authenticating. RustConn adds `ControlPersist=10m` so the master connection stays alive for 10 minutes after the last session closes |
+| Connection Multiplexing | `ControlMaster=auto` | Reuse a single TCP connection for multiple SSH sessions to the same host. Subsequent connections open instantly without re-authenticating. RustConn adds `ControlPersist=10m` so the master connection stays alive for 10 minutes after the last session closes. When RustConn exits, all ControlMaster sockets are automatically closed to prevent stale sockets from lingering in the filesystem |
 | Waypipe | `waypipe ssh ...` | Forward Wayland GUI applications (see [Waypipe](#waypipe-wayland-forwarding) below) |
 | Verbose | `-v` | Show detailed SSH debug output in the terminal for diagnosing connection issues (auth failures, key negotiation, resets) |
 
@@ -1847,6 +1847,8 @@ Back up your entire RustConn configuration as a single ZIP archive.
 
 **Restore from Backup:** Settings → Interface → Backup & Restore → **Restore** → select ZIP → confirm → restart RustConn.
 
+> **Note:** After restoring, any changes made in the Settings dialog before closing it will be discarded. Close the dialog and restart RustConn to apply the restored configuration.
+
 **What's Included:**
 
 | Included | Not Included |
@@ -2225,6 +2227,16 @@ Instead of storing passwords directly per-connection, you can use **Global Varia
 | KDBX File | Offline/air-gapped environments | High — AES-256, local file only |
 
 Configure your preferred backend in Settings → Secrets. RustConn falls back to the system keyring if the preferred backend is unavailable.
+
+**Fallback Behavior:**
+
+When the preferred backend (e.g., KeePassXC) cannot be reached — database password not configured, database file locked, or CLI tool not installed — RustConn automatically falls back to the system keyring (libsecret) for both reading and writing secrets. This requires the "Enable fallback" option in Settings → Secrets (enabled by default).
+
+- **Reading:** If KeePass returns no result, RustConn checks libsecret before showing the "Variable Not Configured" dialog
+- **Writing:** If KeePass save fails, the secret is stored in libsecret instead
+- **Variable Not Configured dialog:** When a connection requires a variable that has no value on this device, a dialog appears letting you enter the value and choose which backend to store it in — this choice is respected regardless of the global preferred backend setting
+
+> **Tip:** If you see the "Variable Not Configured" dialog repeatedly, check that your KeePass database password is configured in Settings → Secrets. Without it, RustConn cannot read or write entries in the database.
 
 ### Credential Hygiene
 

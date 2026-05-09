@@ -2678,8 +2678,52 @@ impl MainWindow {
                             .ok()
                             .and_then(|s| s.get_connection(connection_id).map(|c| c.name.clone()))
                             .unwrap_or_default();
-                        let backend_names = ["LibSecret", "KeePassXC", "Bitwarden", "1Password"];
-                        let backend_refs: Vec<&str> = backend_names.to_vec();
+                        // Build dynamic backend list: configured preferred backend + LibSecret fallback.
+                        let (backend_names_owned, backend_types) = {
+                            let preferred = state_clone
+                                .try_borrow()
+                                .ok()
+                                .map(|s| s.settings().secrets.preferred_backend)
+                                .unwrap_or_default();
+
+                            let mut names: Vec<String> = Vec::new();
+                            let mut types: Vec<rustconn_core::config::SecretBackendType> = Vec::new();
+
+                            // Add preferred backend first (if it's not LibSecret)
+                            match preferred {
+                                rustconn_core::config::SecretBackendType::KeePassXc
+                                | rustconn_core::config::SecretBackendType::KdbxFile => {
+                                    names.push("KeePassXC".to_string());
+                                    types.push(preferred);
+                                }
+                                rustconn_core::config::SecretBackendType::Bitwarden => {
+                                    names.push("Bitwarden".to_string());
+                                    types.push(preferred);
+                                }
+                                rustconn_core::config::SecretBackendType::OnePassword => {
+                                    names.push("1Password".to_string());
+                                    types.push(preferred);
+                                }
+                                rustconn_core::config::SecretBackendType::Passbolt => {
+                                    names.push("Passbolt".to_string());
+                                    types.push(preferred);
+                                }
+                                rustconn_core::config::SecretBackendType::Pass => {
+                                    names.push("Pass".to_string());
+                                    types.push(preferred);
+                                }
+                                rustconn_core::config::SecretBackendType::LibSecret => {}
+                            }
+
+                            // Always add LibSecret as fallback option
+                            names.push("LibSecret".to_string());
+                            types.push(rustconn_core::config::SecretBackendType::LibSecret);
+
+                            (names, types)
+                        };
+
+                        let backend_refs: Vec<&str> =
+                            backend_names_owned.iter().map(|s| s.as_str()).collect();
 
                         {
                             let state_var = state_clone.clone();
@@ -2697,25 +2741,59 @@ impl MainWindow {
                                 description.as_deref(),
                                 &backend_refs,
                                 move |response| {
-                                    if let crate::dialogs::VariableSetupResponse::Save { value, .. } = response {
-                                        // Save the variable value and retry connection
-                                        if let Ok(state_ref) = state_var.try_borrow() {
-                                            let settings = state_ref.settings().secrets.clone();
-                                            let _ = crate::state::save_variable_to_vault(&settings, &variable_name_owned, &value);
+                                    if let crate::dialogs::VariableSetupResponse::Save { value, backend_index } = response {
+                                        // Map dialog backend index to SecretBackendType using the dynamic list
+                                        let selected_backend = backend_types
+                                            .get(backend_index as usize)
+                                            .copied()
+                                            .unwrap_or(rustconn_core::config::SecretBackendType::LibSecret);
+
+                                        // Save the variable value using the user-selected backend
+                                        let save_ok = if let Ok(state_ref) = state_var.try_borrow() {
+                                            let mut settings = state_ref.settings().secrets.clone();
+                                            // Override preferred_backend to match user's choice
+                                            settings.preferred_backend = selected_backend;
+                                            match crate::state::save_variable_to_vault(&settings, &variable_name_owned, &value) {
+                                                Ok(()) => true,
+                                                Err(e) => {
+                                                    tracing::error!(
+                                                        var_name = %variable_name_owned,
+                                                        error = %e,
+                                                        "Failed to save variable to vault"
+                                                    );
+                                                    if let Some(root) = notebook_var.widget().root()
+                                                        && let Some(window) = root.downcast_ref::<gtk4::Window>()
+                                                    {
+                                                        crate::toast::show_toast_on_window(
+                                                            window,
+                                                            &crate::i18n::i18n_f(
+                                                                "Failed to save variable to vault: {}",
+                                                                &[&e],
+                                                            ),
+                                                            crate::toast::ToastType::Error,
+                                                        );
+                                                    }
+                                                    false
+                                                }
+                                            }
+                                        } else {
+                                            false
+                                        };
+                                        if save_ok {
+                                            // Retry with the newly saved variable
+                                            Self::handle_resolved_credentials(
+                                                state_var.clone(),
+                                                notebook_var.clone(),
+                                                split_var.clone(),
+                                                sidebar_var.clone(),
+                                                monitoring_var.clone(),
+                                                connection_id,
+                                                protocol_type,
+                                                None,
+                                                None,
+                                                activity_var.clone(),
+                                            );
                                         }
-                                        // Retry with the newly saved variable
-                                        Self::handle_resolved_credentials(
-                                            state_var.clone(),
-                                            notebook_var.clone(),
-                                            split_var.clone(),
-                                            sidebar_var.clone(),
-                                            monitoring_var.clone(),
-                                            connection_id,
-                                            protocol_type,
-                                            None,
-                                            None,
-                                            activity_var.clone(),
-                                        );
                                     }
                                     // Cancel — do nothing, connection is not started
                                 },
@@ -3994,6 +4072,13 @@ impl MainWindow {
                         state_mut.record_connection_end(entry_id);
                     }
                 // Decrement session count - status changes only if no other sessions active
+                sidebar_clone.decrement_session_count(&connection_id_str, false);
+                return;
+            }
+
+            // If the app is shutting down, suppress failure handling — the session
+            // exits are expected because close_all_control_sockets() kills SSH connections.
+            if crate::app::is_shutting_down() {
                 sidebar_clone.decrement_session_count(&connection_id_str, false);
                 return;
             }

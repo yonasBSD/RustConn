@@ -965,12 +965,13 @@ impl KeePassStatus {
         })?;
 
         if output.status.success() {
-            let password = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let password =
+                zeroize::Zeroizing::new(String::from_utf8_lossy(&output.stdout).trim().to_string());
             if password.is_empty() {
                 Ok(None)
             } else {
                 tracing::debug!("get_password_exact: found password at '{entry_path}'");
-                Ok(Some(SecretString::from(password)))
+                Ok(Some(SecretString::from(password.as_str())))
             }
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);

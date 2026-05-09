@@ -463,8 +463,23 @@ impl SettingsDialog {
                                 // reflects the restored config.toml (including
                                 // global_variables). Without this, closing the dialog
                                 // would overwrite the restored file with stale data.
-                                if let Ok(restored) = mgr.load_settings() {
-                                    *settings_for_restore_inner.borrow_mut() = restored;
+                                match mgr.load_settings() {
+                                    Ok(restored) => {
+                                        *settings_for_restore_inner.borrow_mut() = restored;
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            error = %e,
+                                            "Restored files but failed to reload settings"
+                                        );
+                                        crate::toast::show_toast_on_window(
+                                            &win_inner,
+                                            &crate::i18n::i18n(
+                                                "Restored files but failed to reload settings. Please restart.",
+                                            ),
+                                            crate::toast::ToastType::Warning,
+                                        );
+                                    }
                                 }
                                 // Mark as restored so the close handler skips saving
                                 // (UI widgets still show pre-restore values and would
