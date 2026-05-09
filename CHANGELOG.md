@@ -5,6 +5,20 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.10] - 2026-05-09
+
+### Added
+- **Import/Export: SecureCRT session support** — import connections from SecureCRT's `Config/Sessions/` directory (individual `.ini` files); export connections back to SecureCRT INI format as a directory tree; supports SSH2, Telnet, RDP, VNC protocols with hostname, port, username, SSH key path, X11/agent forwarding, compression; folder hierarchy preserved as connection groups; available in GUI export dialog, CLI, and programmatic API ([#140](https://github.com/totoshko88/RustConn/issues/140))
+
+### Fixed
+- **Backup/Restore: global variables lost after restore** — restoring settings from a ZIP archive would show "Restored N files" but closing the settings dialog afterwards overwrote the restored `config.toml` with stale in-memory state (which had empty `global_variables`); the dialog now reloads `AppSettings` from disk immediately after a successful restore so that the in-memory state matches the restored file ([#142](https://github.com/totoshko88/RustConn/issues/142))
+- **SSH: ControlMaster sockets now actually closed on application exit** — the shutdown handler scanned `active_sessions()` to find SSH connections needing socket cleanup, but by the time GTK's `connect_shutdown` fires, all sessions are already in `Terminated` state (GTK destroys widgets first), so the list was always empty and no sockets were ever closed; replaced with a filesystem scan of the runtime directory for `rc-*` socket files, which works regardless of session state; stale sockets that don't respond to `ssh -O exit` are force-removed ([#125](https://github.com/totoshko88/RustConn/issues/125))
+- **KeePass: custom entry path for variables ignored RustConn/ prefix** — when a user specified a custom "KeePass entry" path for a secret variable, the lookup still prepended `RustConn/` and tried fallback paths, making it impossible to reference entries at arbitrary locations in the database; added `get_password_from_kdbx_exact()` that queries the entry at the exact user-specified path without any prefix or fallback logic; default (no custom path) behaviour unchanged ([#143](https://github.com/totoshko88/RustConn/issues/143))
+- **KeePass: "Variable Not Configured" dialog loop when database password not set** — the dialog appeared on every connection because: (1) `save_variable_to_vault` silently failed when KeePass couldn't unlock the database (`kdbx_password = None`), (2) the retry always re-read from KeePass which also failed, (3) the user's backend choice in the dialog dropdown was ignored; fixed by: respecting the user-selected backend from the dialog, showing an error toast when save fails instead of silently retrying, adding LibSecret fallback for both read and write when KeePass is unavailable and `enable_fallback` is enabled; the dialog now shows only the configured preferred backend + LibSecret as options ([#143](https://github.com/totoshko88/RustConn/issues/143))
+
+### Dependencies
+- `hashbrown` 0.17.0 → 0.17.1
+
 ## [0.13.9] - 2026-05-09
 
 ### Fixed

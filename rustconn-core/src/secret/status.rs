@@ -888,6 +888,109 @@ impl KeePassStatus {
         Ok(None)
     }
 
+    /// Retrieves a password from KDBX database at an exact path (no fallbacks).
+    ///
+    /// Unlike [`get_password_from_kdbx_with_key`] which tries multiple path
+    /// variants with `RustConn/` prefix, this function queries the entry at
+    /// `entry_path` **as-is**. Use for user-specified custom KeePass paths.
+    ///
+    /// # Arguments
+    /// * `kdbx_path` - Path to the KDBX database file
+    /// * `db_password` - Password to unlock the database (None if using key file)
+    /// * `key_file` - Optional path to key file for authentication
+    /// * `entry_path` - Exact path of the entry (e.g., "Internet/MyRouter" or "RustConn/RADIUS")
+    ///
+    /// # Returns
+    /// * `Ok(Some(SecretString))` if the password is found
+    /// * `Ok(None)` if the entry is not found
+    /// * `Err(SecretError)` on credential or I/O errors
+    pub fn get_password_from_kdbx_exact(
+        kdbx_path: &Path,
+        db_password: Option<&SecretString>,
+        key_file: Option<&Path>,
+        entry_path: &str,
+    ) -> SecretResult<Option<SecretString>> {
+        use std::io::Write as IoWrite;
+        use std::process::Stdio;
+
+        Self::validate_kdbx_path(kdbx_path)?;
+
+        let cli_path = Self::find_keepassxc_cli().ok_or_else(|| {
+            SecretError::KeePassXC("keepassxc-cli not found. Please install KeePassXC.".to_string())
+        })?;
+
+        let mut args = vec![
+            "show".to_string(),
+            "-q".to_string(),
+            "-s".to_string(),
+            "-a".to_string(),
+            "Password".to_string(),
+        ];
+
+        if db_password.is_none() && key_file.is_some() {
+            args.push("--no-password".to_string());
+        }
+
+        if let Some(kf) = key_file {
+            args.push("--key-file".to_string());
+            args.push(kf.display().to_string());
+        }
+
+        args.push(kdbx_path.display().to_string());
+        args.push(entry_path.to_string());
+
+        tracing::debug!("get_password_exact: trying path '{entry_path}'");
+
+        let mut child = Self::keepassxc_command(&cli_path)
+            .args(&args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| SecretError::KeePassXC(format!("Failed to run keepassxc-cli: {e}")))?;
+
+        if let Some(mut stdin) = child.stdin.take()
+            && let Some(db_pwd) = db_password
+        {
+            stdin
+                .write_all(db_pwd.expose_secret().as_bytes())
+                .map_err(|e| SecretError::KeePassXC(format!("Failed to send password: {e}")))?;
+            stdin
+                .write_all(b"\n")
+                .map_err(|e| SecretError::KeePassXC(format!("Failed to send password: {e}")))?;
+        }
+
+        let output = child.wait_with_output().map_err(|e| {
+            SecretError::KeePassXC(format!("Failed to wait for keepassxc-cli: {e}"))
+        })?;
+
+        if output.status.success() {
+            let password =
+                zeroize::Zeroizing::new(String::from_utf8_lossy(&output.stdout).trim().to_string());
+            if password.is_empty() {
+                Ok(None)
+            } else {
+                tracing::debug!("get_password_exact: found password at '{entry_path}'");
+                Ok(Some(SecretString::from(password.as_str())))
+            }
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("Invalid credentials") || stderr.contains("wrong password") {
+                Err(SecretError::KeePassXC(
+                    "Invalid database password".to_string(),
+                ))
+            } else {
+                tracing::debug!(
+                    "get_password_exact: path '{}' not found: exit={:?}, stderr='{}'",
+                    entry_path,
+                    output.status.code(),
+                    stderr.trim()
+                );
+                Ok(None)
+            }
+        }
+    }
+
     /// Renames an entry in KDBX database by moving it from old path to new path
     ///
     /// This method retrieves the entry from the old path, creates a new entry at the new path

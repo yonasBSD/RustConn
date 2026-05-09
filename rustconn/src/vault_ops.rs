@@ -521,7 +521,7 @@ pub fn save_variable_to_vault(
                 let key_file = settings.kdbx_key_file.clone();
                 let kdbx = std::path::Path::new(kdbx_path);
                 let key = key_file.as_ref().map(|p| std::path::Path::new(p));
-                rustconn_core::secret::KeePassStatus::save_password_to_kdbx(
+                let result = rustconn_core::secret::KeePassStatus::save_password_to_kdbx(
                     kdbx,
                     settings.kdbx_password.as_ref(),
                     key,
@@ -530,7 +530,23 @@ pub fn save_variable_to_vault(
                     password,
                     None,
                 )
-                .map_err(|e| format!("{e}"))
+                .map_err(|e| format!("{e}"));
+
+                // If KeePass save failed and fallback is enabled, try LibSecret
+                if result.is_err() && settings.enable_fallback {
+                    tracing::info!(var_name, "KeePass save failed, falling back to LibSecret");
+                    dispatch_vault_op(settings, &lookup_key, VaultOp::Store(&creds))?;
+                    Ok(())
+                } else {
+                    result
+                }
+            } else if settings.enable_fallback {
+                tracing::info!(
+                    var_name,
+                    "KeePass not configured, falling back to LibSecret"
+                );
+                dispatch_vault_op(settings, &lookup_key, VaultOp::Store(&creds))?;
+                Ok(())
             } else {
                 Err("KeePass enabled but no database file configured".to_string())
             }
@@ -572,9 +588,9 @@ pub fn load_variable_from_vault_with_path(
     use secrecy::ExposeSecret;
 
     let default_key = rustconn_core::variable_secret_key(var_name);
-    let lookup_key = kdbx_entry_path
-        .filter(|p| !p.trim().is_empty())
-        .unwrap_or(&default_key);
+    // Filter out empty/whitespace-only custom paths — treat them as "no custom path".
+    let effective_custom_path = kdbx_entry_path.filter(|p| !p.trim().is_empty());
+    let lookup_key = effective_custom_path.unwrap_or(&default_key);
     let backend_type = select_backend_for_load(settings);
 
     tracing::debug!(
@@ -590,15 +606,55 @@ pub fn load_variable_from_vault_with_path(
                 let key_file = settings.kdbx_key_file.clone();
                 let kdbx = std::path::Path::new(kdbx_path);
                 let key = key_file.as_ref().map(|p| std::path::Path::new(p));
-                rustconn_core::secret::KeePassStatus::get_password_from_kdbx_with_key(
-                    kdbx,
-                    settings.kdbx_password.as_ref(),
-                    key,
-                    lookup_key,
-                    None,
-                )
-                .map(|opt| opt.map(|s| s.expose_secret().to_string()))
-                .map_err(|e| format!("{e}"))
+
+                // Custom path → exact lookup (no RustConn/ prefix, no fallbacks)
+                // Default path → standard lookup with RustConn/ prefix and fallbacks
+                let kdbx_result = if effective_custom_path.is_some() {
+                    rustconn_core::secret::KeePassStatus::get_password_from_kdbx_exact(
+                        kdbx,
+                        settings.kdbx_password.as_ref(),
+                        key,
+                        lookup_key,
+                    )
+                } else {
+                    rustconn_core::secret::KeePassStatus::get_password_from_kdbx_with_key(
+                        kdbx,
+                        settings.kdbx_password.as_ref(),
+                        key,
+                        lookup_key,
+                        None,
+                    )
+                }
+                .map(|opt| {
+                    opt.map(|s| {
+                        let z = zeroize::Zeroizing::new(s.expose_secret().to_string());
+                        // Return the zeroized string content; the Zeroizing wrapper
+                        // ensures the original is wiped when `z` drops at end of scope.
+                        String::from(z.as_str())
+                    })
+                })
+                .map_err(|e| format!("{e}"));
+
+                // If KeePass returned Ok(None) or Err and fallback is enabled,
+                // try LibSecret as a fallback (the variable may have been saved
+                // there via the "Variable Not Configured" dialog).
+                match &kdbx_result {
+                    Ok(Some(_)) => kdbx_result,
+                    Ok(None) | Err(_) if settings.enable_fallback => {
+                        tracing::debug!(
+                            var_name,
+                            "KeePass lookup returned nothing, trying LibSecret fallback"
+                        );
+                        let fallback = dispatch_vault_op(settings, &default_key, VaultOp::Retrieve);
+                        match fallback {
+                            Ok(Some(creds)) if creds.expose_password().is_some() => {
+                                Ok(creds.expose_password().map(String::from))
+                            }
+                            _ => kdbx_result,
+                        }
+                    }
+                    _ => kdbx_result,
+                }
             } else {
                 Err("KeePass enabled but no database file configured".to_string())
             }

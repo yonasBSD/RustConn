@@ -1,6 +1,6 @@
 # RustConn Architecture Guide
 
-**Version 0.13.9** | Last updated: May 2026
+**Version 0.13.10** | Last updated: May 2026
 
 This document describes the internal architecture of RustConn for contributors and maintainers.
 
@@ -741,7 +741,7 @@ pub struct PortForward {
 }
 ```
 
-Rules are stored in `SshConfig::port_forwards: Vec<PortForward>` and converted to SSH arguments via `PortForward::to_ssh_arg()`. The GUI provides an inline editor in the SSH tab for adding/removing rules. Import from SSH config (`LocalForward`, `RemoteForward`, `DynamicForward`), Remmina, Asbru-CM, and MobaXterm is supported.
+Rules are stored in `SshConfig::port_forwards: Vec<PortForward>` and converted to SSH arguments via `PortForward::to_ssh_arg()`. The GUI provides an inline editor in the SSH tab for adding/removing rules. Import from SSH config (`LocalForward`, `RemoteForward`, `DynamicForward`), Remmina, Asbru-CM, MobaXterm, and SecureCRT is supported.
 
 **Waypipe Integration:** SSH connections optionally support Wayland application forwarding via `waypipe`. When enabled in the connection config (`SshConfig.waypipe`) and the `waypipe` binary is detected on PATH, the SSH command is wrapped as `waypipe ssh ...` (with automatic password injection for vault-authenticated connections). Detection is handled by `detect_waypipe()` in `rustconn-core/src/protocol/detection.rs`.
 
@@ -1049,8 +1049,9 @@ rustconn-core/src/
 │   ├── mod.rs             # Module exports
 │   ├── traits.rs          # ImportSource trait, ImportStatistics
 │   ├── csv_import.rs      # CSV importer (RFC 4180, auto column mapping)
+│   ├── securecrt.rs       # SecureCRT .ini session importer
 │   └── ...
-├── export/                # Format exporters (incl. csv_export.rs)
+├── export/                # Format exporters (incl. csv_export.rs, securecrt.rs)
 ├── search/                # Search engine, command palette
 ├── rdp_client/            # RDP client implementation
 │   ├── mod.rs             # Module exports

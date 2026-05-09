@@ -74,7 +74,7 @@ fn export_connections(
 ) -> Result<rustconn_core::export::ExportResult, CliError> {
     use rustconn_core::export::{
         AnsibleExporter, AsbruExporter, CsvExporter, ExportFormat, ExportTarget, MobaXtermExporter,
-        NativeExport, RemminaExporter, RoyalTsExporter, SshConfigExporter,
+        NativeExport, RemminaExporter, RoyalTsExporter, SecureCrtExporter, SshConfigExporter,
     };
 
     let result = match options.format {
@@ -137,6 +137,12 @@ fn export_connections(
         }
         ExportFormat::Csv => {
             let exporter = CsvExporter::new();
+            exporter
+                .export(connections, groups, options)
+                .map_err(|e| CliError::Export(e.to_string()))?
+        }
+        ExportFormat::SecureCrt => {
+            let exporter = SecureCrtExporter::new();
             exporter
                 .export(connections, groups, options)
                 .map_err(|e| CliError::Export(e.to_string()))?

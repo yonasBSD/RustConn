@@ -15,6 +15,7 @@ pub mod mobaxterm;
 pub mod native;
 pub mod remmina;
 pub mod royalts;
+pub mod securecrt;
 pub mod ssh_config;
 
 use std::path::{Path, PathBuf};
@@ -30,6 +31,7 @@ pub use mobaxterm::MobaXtermExporter;
 pub use native::{NATIVE_FILE_EXTENSION, NATIVE_FORMAT_VERSION, NativeExport, NativeImportError};
 pub use remmina::RemminaExporter;
 pub use royalts::RoyalTsExporter;
+pub use securecrt::SecureCrtExporter;
 pub use ssh_config::SshConfigExporter;
 
 use serde::{Deserialize, Serialize};
@@ -58,6 +60,8 @@ pub enum ExportFormat {
     MobaXterm,
     /// CSV format (.csv)
     Csv,
+    /// SecureCRT session INI format (directory of .ini files)
+    SecureCrt,
 }
 
 impl ExportFormat {
@@ -73,6 +77,7 @@ impl ExportFormat {
             Self::RoyalTs,
             Self::MobaXterm,
             Self::Csv,
+            Self::SecureCrt,
         ]
     }
 
@@ -88,6 +93,7 @@ impl ExportFormat {
             Self::RoyalTs => "Royal TS",
             Self::MobaXterm => "MobaXterm",
             Self::Csv => "CSV",
+            Self::SecureCrt => "SecureCRT",
         }
     }
 
@@ -103,13 +109,14 @@ impl ExportFormat {
             Self::RoyalTs => "rtsz",
             Self::MobaXterm => "mxtsessions",
             Self::Csv => "csv",
+            Self::SecureCrt => "ini",
         }
     }
 
     /// Returns true if this format exports to a directory (multiple files)
     #[must_use]
     pub const fn exports_to_directory(&self) -> bool {
-        matches!(self, Self::Remmina)
+        matches!(self, Self::Remmina | Self::SecureCrt)
     }
 }
 
@@ -372,7 +379,7 @@ mod tests {
     #[test]
     fn test_export_format_all() {
         let formats = ExportFormat::all();
-        assert_eq!(formats.len(), 8);
+        assert_eq!(formats.len(), 9);
         assert!(formats.contains(&ExportFormat::Ansible));
         assert!(formats.contains(&ExportFormat::SshConfig));
         assert!(formats.contains(&ExportFormat::Remmina));
@@ -393,6 +400,7 @@ mod tests {
         assert_eq!(ExportFormat::RoyalTs.display_name(), "Royal TS");
         assert_eq!(ExportFormat::MobaXterm.display_name(), "MobaXterm");
         assert_eq!(ExportFormat::Csv.display_name(), "CSV");
+        assert_eq!(ExportFormat::SecureCrt.display_name(), "SecureCRT");
     }
 
     #[test]
@@ -405,6 +413,7 @@ mod tests {
         assert_eq!(ExportFormat::RoyalTs.file_extension(), "rtsz");
         assert_eq!(ExportFormat::MobaXterm.file_extension(), "mxtsessions");
         assert_eq!(ExportFormat::Csv.file_extension(), "csv");
+        assert_eq!(ExportFormat::SecureCrt.file_extension(), "ini");
     }
 
     #[test]
@@ -417,6 +426,7 @@ mod tests {
         assert!(!ExportFormat::RoyalTs.exports_to_directory());
         assert!(!ExportFormat::MobaXterm.exports_to_directory());
         assert!(!ExportFormat::Csv.exports_to_directory());
+        assert!(ExportFormat::SecureCrt.exports_to_directory());
     }
 
     #[test]

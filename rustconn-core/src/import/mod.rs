@@ -52,6 +52,7 @@ mod rdm;
 mod rdp_file;
 mod remmina;
 mod royalts;
+mod securecrt;
 mod ssh_config;
 mod traits;
 mod vv;
@@ -75,6 +76,7 @@ pub use rdm::RdmImporter;
 pub use rdp_file::RdpFileImporter;
 pub use remmina::RemminaImporter;
 pub use royalts::RoyalTsImporter;
+pub use securecrt::SecureCrtImporter;
 pub use ssh_config::SshConfigImporter;
 pub use traits::{
     ImportResult, ImportSource, ImportStatistics, SkippedEntry, SkippedField, SkippedFieldReason,

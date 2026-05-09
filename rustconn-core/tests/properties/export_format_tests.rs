@@ -9,7 +9,7 @@ proptest! {
     #[test]
     fn export_format_all_returns_all(_dummy in 0..1) {
         let all = ExportFormat::all();
-        prop_assert_eq!(all.len(), 8);
+        prop_assert_eq!(all.len(), 9);
         prop_assert!(all.contains(&ExportFormat::Ansible));
         prop_assert!(all.contains(&ExportFormat::SshConfig));
         prop_assert!(all.contains(&ExportFormat::Remmina));
@@ -18,6 +18,7 @@ proptest! {
         prop_assert!(all.contains(&ExportFormat::RoyalTs));
         prop_assert!(all.contains(&ExportFormat::MobaXterm));
         prop_assert!(all.contains(&ExportFormat::Csv));
+        prop_assert!(all.contains(&ExportFormat::SecureCrt));
     }
 
     /// Property: Each ExportFormat has a non-empty display name
@@ -40,12 +41,12 @@ proptest! {
         }
     }
 
-    /// Property: Only Remmina exports to directory
+    /// Property: Only Remmina and SecureCrt export to directory
     #[test]
     fn only_remmina_exports_to_directory(_dummy in 0..1) {
         for format in ExportFormat::all() {
             let exports_to_dir = format.exports_to_directory();
-            if *format == ExportFormat::Remmina {
+            if *format == ExportFormat::Remmina || *format == ExportFormat::SecureCrt {
                 prop_assert!(exports_to_dir);
             } else {
                 prop_assert!(!exports_to_dir);

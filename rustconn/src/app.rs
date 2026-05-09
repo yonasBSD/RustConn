@@ -10,6 +10,7 @@ use gtk4::{gio, glib};
 use libadwaita as adw;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::state::{
     SharedAppState, create_shared_state, try_with_state, with_state, with_state_mut,
@@ -18,6 +19,17 @@ use crate::tray::{TrayManager, TrayMessage};
 use crate::window::MainWindow;
 use gettextrs::gettext;
 use rustconn_core::config::ColorScheme;
+
+/// Global flag indicating the application is shutting down.
+/// When set, session exit callbacks should suppress error logging
+/// and reconnect overlays — the exits are expected because
+/// `close_all_control_sockets()` kills SSH connections during shutdown.
+static APP_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+
+/// Returns `true` if the application is in the process of shutting down.
+pub fn is_shutting_down() -> bool {
+    APP_SHUTTING_DOWN.load(Ordering::Relaxed)
+}
 
 /// Applies a color scheme to GTK/libadwaita settings
 pub fn apply_color_scheme(scheme: ColorScheme) {
@@ -194,44 +206,20 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
     // D-Bus callbacks from referencing already-finalized GObjects (SIGSEGV).
     let state_shutdown = state.clone();
     app.connect_shutdown(move |_| {
+        // Signal that the app is shutting down — session exit callbacks
+        // should suppress error logging and reconnect overlays.
+        APP_SHUTTING_DOWN.store(true, Ordering::Relaxed);
+
         // Drop tray manager first — stops D-Bus service loop and releases
         // any widget references held by tray state callbacks.
         tray_shutdown.borrow_mut().take();
 
-        // Close SSH ControlMaster sockets for connections that had active sessions.
-        // This prevents stale sockets from lingering after app exit.
-        let connections: Vec<_> = state_shutdown
-            .try_borrow()
-            .ok()
-            .map(|state_ref| {
-                let ssh_connection_ids: std::collections::HashSet<_> = state_ref
-                    .active_sessions()
-                    .iter()
-                    .filter(|s| s.protocol == "ssh")
-                    .map(|s| s.connection_id)
-                    .collect();
-
-                ssh_connection_ids
-                    .into_iter()
-                    .filter_map(|id| state_ref.get_connection(id))
-                    .map(|c| (c.host.clone(), c.port, c.username.clone()))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-
-        if !connections.is_empty() {
-            let rt = tokio::runtime::Runtime::new().ok();
-            if let Some(rt) = rt {
-                rt.block_on(async {
-                    let futures: Vec<_> = connections
-                        .iter()
-                        .map(|(host, port, username)| {
-                            rustconn_core::close_control_socket(host, *port, username.as_deref())
-                        })
-                        .collect();
-                    futures::future::join_all(futures).await;
-                });
-            }
+        // Close SSH ControlMaster sockets to prevent stale sockets lingering
+        // after app exit. Uses filesystem scan instead of session state because
+        // GTK destroys widgets (and terminates sessions) before shutdown fires.
+        let rt = tokio::runtime::Runtime::new().ok();
+        if let Some(rt) = rt {
+            rt.block_on(rustconn_core::close_all_control_sockets());
         }
 
         if let Some(Err(e)) = try_with_state(&state_shutdown, |s| s.flush_persistence()) {

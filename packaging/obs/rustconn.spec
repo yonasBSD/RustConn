@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.13.9
+Version:        0.13.10
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,25 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Sat May 09 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.10-1
+- [Added] Import/Export: SecureCRT session support — import connections
+  from SecureCRT Config/Sessions/ directory; export connections back to
+  SecureCRT INI format as a directory tree; supports SSH2, Telnet, RDP,
+  VNC protocols with hostname, port, username, SSH key path, X11/agent
+  forwarding, compression; folder hierarchy preserved (#140)
+- [Fixed] Backup/Restore: global variables lost after restore — restoring
+  settings from ZIP overwrote restored config.toml with stale in-memory
+  state; dialog now reloads AppSettings from disk after restore (#142)
+- [Fixed] SSH: ControlMaster sockets now actually closed on application
+  exit — shutdown handler scanned active_sessions() but all sessions were
+  already Terminated by the time GTK fires connect_shutdown; replaced with
+  filesystem scan of runtime directory for rc-* socket files; stale sockets
+  that don't respond to ssh -O exit are force-removed (#125)
+- [Fixed] KeePass: custom entry path for variables ignored RustConn/
+  prefix — added get_password_from_kdbx_exact() that queries the entry at
+  the exact user-specified path without any prefix or fallback logic (#143)
+- [Dependencies] hashbrown 0.17.0 → 0.17.1
+
 * Sat May 09 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.9-1
 - [Fixed] Flatpak: Zero Trust Generic commands now execute on host —
   custom commands were failing with "No command specified" due to double

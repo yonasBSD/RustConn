@@ -32,7 +32,7 @@ use libadwaita as adw;
 use rustconn_core::config::AppSettings;
 use rustconn_core::models::Connection;
 use rustconn_core::ssh_agent::SshAgentManager;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::i18n::i18n;
@@ -140,6 +140,8 @@ pub struct SettingsDialog {
     cloud_sync_widgets: CloudSyncPageWidgets,
     // Current settings
     settings: Rc<RefCell<AppSettings>>,
+    // Flag: restore was performed — skip save on close to avoid overwriting
+    was_restored: Rc<Cell<bool>>,
     // Connections list for startup action dropdown
     connections: Rc<RefCell<Vec<Connection>>>,
     // Callback
@@ -405,6 +407,9 @@ impl SettingsDialog {
 
         // Restore handler
         let dialog_weak = dialog.downgrade();
+        let settings_for_restore = settings.clone();
+        let was_restored: Rc<Cell<bool>> = Rc::new(Cell::new(false));
+        let was_restored_for_restore = was_restored.clone();
         restore_btn.connect_clicked(move |_| {
             let Some(dlg) = dialog_weak.upgrade() else {
                 return;
@@ -424,6 +429,8 @@ impl SettingsDialog {
             file_dialog.set_filters(Some(&filters));
 
             let win_clone = win.clone();
+            let settings_for_restore = settings_for_restore.clone();
+            let was_restored_clone = was_restored_for_restore.clone();
             file_dialog.open(Some(win), None::<&gtk4::gio::Cancellable>, move |result| {
                 let Ok(file) = result else { return };
                 let Some(path) = file.path() else { return };
@@ -443,6 +450,8 @@ impl SettingsDialog {
 
                 let win_inner = win_clone.clone();
                 let path_clone = path.clone();
+                let settings_for_restore_inner = settings_for_restore.clone();
+                let was_restored_inner = was_restored_clone.clone();
                 confirm.connect_response(None, move |_, response| {
                     if response != "restore" {
                         return;
@@ -450,6 +459,33 @@ impl SettingsDialog {
                     match rustconn_core::config::ConfigManager::new() {
                         Ok(mgr) => match mgr.restore_from_archive(&path_clone) {
                             Ok(count) => {
+                                // Reload settings from disk so the in-memory state
+                                // reflects the restored config.toml (including
+                                // global_variables). Without this, closing the dialog
+                                // would overwrite the restored file with stale data.
+                                match mgr.load_settings() {
+                                    Ok(restored) => {
+                                        *settings_for_restore_inner.borrow_mut() = restored;
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            error = %e,
+                                            "Restored files but failed to reload settings"
+                                        );
+                                        crate::toast::show_toast_on_window(
+                                            &win_inner,
+                                            &crate::i18n::i18n(
+                                                "Restored files but failed to reload settings. Please restart.",
+                                            ),
+                                            crate::toast::ToastType::Warning,
+                                        );
+                                    }
+                                }
+                                // Mark as restored so the close handler skips saving
+                                // (UI widgets still show pre-restore values and would
+                                // overwrite the restored config.toml).
+                                was_restored_inner.set(true);
+
                                 let msg = crate::i18n::i18n_f(
                                     "Restored {} files. Restart to apply.",
                                     &[&count.to_string()],
@@ -534,6 +570,7 @@ impl SettingsDialog {
             highlight_rules,
             cloud_sync_widgets,
             settings,
+            was_restored,
             connections: Rc::new(RefCell::new(Vec::new())),
             on_save: None,
         }
@@ -990,8 +1027,19 @@ impl SettingsDialog {
         // Store callback reference
         let on_save_callback = self.on_save.clone();
 
+        // was_restored flag — skip saving if a restore was performed
+        let was_restored_clone = self.was_restored.clone();
+
         // PreferencesDialog uses connect_closed signal (not connect_close_request)
         self.dialog.connect_closed(move |_| {
+            // If settings were restored from backup, skip saving — the UI widgets
+            // still show pre-restore values and would overwrite the restored file.
+            if was_restored_clone.get() {
+                tracing::info!("Settings restored from backup — skipping save on close");
+                external_callback(None);
+                return;
+            }
+
             // Collect terminal settings
             let terminal = collect_terminal_settings(
                 &font_family_entry_clone,

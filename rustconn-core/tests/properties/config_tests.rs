@@ -813,3 +813,124 @@ proptest! {
         );
     }
 }
+
+// ========== Backup / Restore Tests ==========
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(20))]
+
+    /// **Feature: backup-restore, Property 1: Backup/Restore Round-Trip**
+    ///
+    /// For any valid AppSettings, connections, groups, and snippets,
+    /// backup_to_archive → restore_from_archive → load should produce
+    /// equivalent data. This validates that the ZIP archive preserves
+    /// all configuration files without corruption.
+    #[test]
+    fn backup_restore_round_trip(
+        settings in arb_full_settings(),
+        connections in prop::collection::vec(arb_connection(), 0..5),
+        groups in prop::collection::vec(arb_group(), 0..5),
+        snippets in prop::collection::vec(arb_snippet(), 0..5),
+    ) {
+        let source_dir = TempDir::new().expect("Failed to create source temp dir");
+        let restore_dir = TempDir::new().expect("Failed to create restore temp dir");
+        let backup_file = source_dir.path().join("backup.zip");
+
+        let source_mgr = ConfigManager::with_config_dir(source_dir.path().to_path_buf());
+        let restore_mgr = ConfigManager::with_config_dir(restore_dir.path().to_path_buf());
+
+        // Save all config files in source
+        source_mgr.save_settings(&settings).expect("Failed to save settings");
+        source_mgr.save_connections(&connections).expect("Failed to save connections");
+        source_mgr.save_groups(&groups).expect("Failed to save groups");
+        source_mgr.save_snippets(&snippets).expect("Failed to save snippets");
+
+        // Create backup archive
+        let backup_count = source_mgr.backup_to_archive(&backup_file)
+            .expect("Failed to create backup");
+        prop_assert!(backup_count > 0, "Backup should include at least one file");
+
+        // Restore to a different directory
+        let restore_count = restore_mgr.restore_from_archive(&backup_file)
+            .expect("Failed to restore backup");
+        prop_assert_eq!(backup_count, restore_count, "Restore count should match backup count");
+
+        // Load from restored directory and verify
+        let loaded_settings = restore_mgr.load_settings()
+            .expect("Failed to load restored settings");
+        let loaded_connections = restore_mgr.load_connections()
+            .expect("Failed to load restored connections");
+        let loaded_groups = restore_mgr.load_groups()
+            .expect("Failed to load restored groups");
+        let loaded_snippets = restore_mgr.load_snippets()
+            .expect("Failed to load restored snippets");
+
+        // Verify settings
+        prop_assert_eq!(
+            settings.terminal.font_family, loaded_settings.terminal.font_family,
+            "Font family should survive backup/restore"
+        );
+        prop_assert_eq!(
+            settings.terminal.font_size, loaded_settings.terminal.font_size,
+            "Font size should survive backup/restore"
+        );
+        prop_assert_eq!(
+            settings.terminal.scrollback_lines, loaded_settings.terminal.scrollback_lines,
+            "Scrollback should survive backup/restore"
+        );
+        prop_assert_eq!(
+            settings.logging.enabled, loaded_settings.logging.enabled,
+            "Logging enabled should survive backup/restore"
+        );
+        prop_assert_eq!(
+            settings.secrets.preferred_backend, loaded_settings.secrets.preferred_backend,
+            "Secret backend should survive backup/restore"
+        );
+        prop_assert_eq!(
+            settings.ui.remember_window_geometry, loaded_settings.ui.remember_window_geometry,
+            "UI settings should survive backup/restore"
+        );
+
+        // Verify global_variables survive (the core of #142 fix)
+        prop_assert_eq!(
+            settings.global_variables.len(), loaded_settings.global_variables.len(),
+            "Global variables count should survive backup/restore"
+        );
+        for (orig, loaded) in settings.global_variables.iter().zip(loaded_settings.global_variables.iter()) {
+            prop_assert_eq!(&orig.name, &loaded.name, "Variable name should survive backup/restore");
+            prop_assert_eq!(orig.is_secret, loaded.is_secret, "Variable is_secret should survive backup/restore");
+        }
+
+        // Verify connections
+        prop_assert_eq!(
+            connections.len(), loaded_connections.len(),
+            "Connection count should survive backup/restore"
+        );
+        for (orig, loaded) in connections.iter().zip(loaded_connections.iter()) {
+            prop_assert_eq!(orig.id, loaded.id, "Connection ID should survive backup/restore");
+            prop_assert_eq!(&orig.name, &loaded.name, "Connection name should survive backup/restore");
+            prop_assert_eq!(&orig.host, &loaded.host, "Connection host should survive backup/restore");
+        }
+
+        // Verify groups
+        prop_assert_eq!(
+            groups.len(), loaded_groups.len(),
+            "Group count should survive backup/restore"
+        );
+        for (orig, loaded) in groups.iter().zip(loaded_groups.iter()) {
+            prop_assert_eq!(orig.id, loaded.id, "Group ID should survive backup/restore");
+            prop_assert_eq!(&orig.name, &loaded.name, "Group name should survive backup/restore");
+        }
+
+        // Verify snippets
+        prop_assert_eq!(
+            snippets.len(), loaded_snippets.len(),
+            "Snippet count should survive backup/restore"
+        );
+        for (orig, loaded) in snippets.iter().zip(loaded_snippets.iter()) {
+            prop_assert_eq!(orig.id, loaded.id, "Snippet ID should survive backup/restore");
+            prop_assert_eq!(&orig.name, &loaded.name, "Snippet name should survive backup/restore");
+            prop_assert_eq!(&orig.command, &loaded.command, "Snippet command should survive backup/restore");
+        }
+    }
+}

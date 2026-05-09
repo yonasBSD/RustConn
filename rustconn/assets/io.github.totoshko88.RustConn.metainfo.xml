@@ -134,6 +134,17 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.13.10" date="2026-05-09">
+      <description>
+        <p>Version 0.13.10 — SecureCRT import/export, backup restore fix:</p>
+        <ul>
+          <li>Import/Export: SecureCRT session support — import from Config/Sessions/ directory, export as INI directory tree; SSH2, Telnet, RDP, VNC with full settings preserved</li>
+          <li>Backup/Restore: global variables no longer lost after restore — dialog reloads settings from disk immediately</li>
+          <li>SSH: ControlMaster sockets now actually closed on application exit via filesystem scan</li>
+          <li>KeePass: custom entry path for variables now queries exact path without RustConn/ prefix</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.13.9" date="2026-05-09">
       <description>
         <p>Version 0.13.9 — Flatpak Generic commands, split view focus fix, real disk space in RDP:</p>

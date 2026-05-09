@@ -17,7 +17,7 @@ use rustconn_core::cluster::Cluster;
 use rustconn_core::export::{
     AnsibleExporter, AsbruExporter, CsvExportField, CsvExportOptions, CsvExporter, ExportFormat,
     ExportOptions, ExportResult, ExportTarget, MobaXtermExporter, NativeExport, RemminaExporter,
-    RoyalTsExporter, SshConfigExporter,
+    RoyalTsExporter, SecureCrtExporter, SshConfigExporter,
 };
 use rustconn_core::models::{
     Connection, ConnectionGroup, ConnectionTemplate, SmartFolder, Snippet,
@@ -269,6 +269,7 @@ impl ExportDialog {
             &i18n("MobaXterm (.mxtsessions)"),
             &i18n("Remmina"),
             &i18n("Royal TS (.rtsz)"),
+            &i18n("SecureCRT (.ini)"),
             &i18n("SSH Config"),
         ]);
         let format_dropdown = DropDown::new(Some(format_list), gtk4::Expression::NONE);
@@ -636,7 +637,8 @@ impl ExportDialog {
             4 => ExportFormat::MobaXterm,
             5 => ExportFormat::Remmina,
             6 => ExportFormat::RoyalTs,
-            7 => ExportFormat::SshConfig,
+            7 => ExportFormat::SecureCrt,
+            8 => ExportFormat::SshConfig,
             _ => ExportFormat::Native,
         }
     }
@@ -717,6 +719,12 @@ impl ExportDialog {
                 } else {
                     CsvExporter::new()
                 };
+                exporter
+                    .export(connections, groups, options)
+                    .map_err(|e| e.to_string())
+            }
+            ExportFormat::SecureCrt => {
+                let exporter = SecureCrtExporter;
                 exporter
                     .export(connections, groups, options)
                     .map_err(|e| e.to_string())
@@ -885,6 +893,11 @@ impl ExportDialog {
                     ExportFormat::Csv => {
                         filter.add_pattern("*.csv");
                         filter.set_name(Some(&i18n("CSV (*.csv)")));
+                    }
+                    ExportFormat::SecureCrt => {
+                        // Should not reach here (exports to directory)
+                        filter.add_pattern("*.ini");
+                        filter.set_name(Some(&i18n("SecureCRT Sessions (*.ini)")));
                     }
                 }
 

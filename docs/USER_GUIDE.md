@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.13.9** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.13.10** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -412,7 +412,7 @@ The SSH tab in the connection dialog contains session-level toggles that control
 | Agent Forwarding | `-A` | Forward your local SSH agent to the remote host, allowing key-based authentication to further servers without copying keys |
 | X11 Forwarding | `-X` | Forward X11 display to your local machine — run graphical X11 apps on the remote host and see them locally |
 | Compression | `-C` | Compress the SSH data stream — useful on slow or high-latency connections |
-| Connection Multiplexing | `ControlMaster=auto` | Reuse a single TCP connection for multiple SSH sessions to the same host. Subsequent connections open instantly without re-authenticating. RustConn adds `ControlPersist=10m` so the master connection stays alive for 10 minutes after the last session closes |
+| Connection Multiplexing | `ControlMaster=auto` | Reuse a single TCP connection for multiple SSH sessions to the same host. Subsequent connections open instantly without re-authenticating. RustConn adds `ControlPersist=10m` so the master connection stays alive for 10 minutes after the last session closes. When RustConn exits, all ControlMaster sockets are automatically closed to prevent stale sockets from lingering in the filesystem |
 | Waypipe | `waypipe ssh ...` | Forward Wayland GUI applications (see [Waypipe](#waypipe-wayland-forwarding) below) |
 | Verbose | `-v` | Show detailed SSH debug output in the terminal for diagnosing connection issues (auth failures, key negotiation, resets) |
 
@@ -1847,6 +1847,8 @@ Back up your entire RustConn configuration as a single ZIP archive.
 
 **Restore from Backup:** Settings → Interface → Backup & Restore → **Restore** → select ZIP → confirm → restart RustConn.
 
+> **Note:** After restoring, any changes made in the Settings dialog before closing it will be discarded. Close the dialog and restart RustConn to apply the restored configuration.
+
 **What's Included:**
 
 | Included | Not Included |
@@ -1874,6 +1876,7 @@ Back up your entire RustConn configuration as a single ZIP archive.
 - Ansible inventory (INI/YAML)
 - Royal TS (.rtsz XML)
 - MobaXterm sessions (.mxtsessions)
+- SecureCRT sessions (.ini directory)
 - Remote Desktop Manager (JSON)
 - RDP files (.rdp — Microsoft Remote Desktop)
 - Virt-Viewer (.vv files — SPICE/VNC from libvirt, Proxmox VE)
@@ -1899,6 +1902,7 @@ Double-click source to start import immediately.
 | Ansible | `/etc/ansible/hosts` | INI/YAML file | SSH | Groups preserved |
 | Royal TS | — | `.rtsz` file | All | Folder hierarchy → groups |
 | MobaXterm | — | `.mxtsessions` | SSH, RDP, VNC, Telnet, Serial | INI-based sessions |
+| SecureCRT | `~/.vandyke/Config/Sessions/` | Directory or `.ini` | SSH, Telnet, RDP, VNC | Folder hierarchy → groups |
 | Remote Desktop Manager | — | JSON file | SSH, RDP, VNC | Devolutions JSON export |
 | RDP File | — | `.rdp` file | RDP | Microsoft Remote Desktop format |
 | Virt-Viewer | — | `.vv` file | SPICE, VNC | From libvirt, Proxmox VE, oVirt |
@@ -1908,7 +1912,7 @@ Double-click source to start import immediately.
 
 ### Export (Ctrl+Shift+E)
 
-**Supported formats:** SSH Config, Remmina profiles, Asbru-CM, Ansible inventory, Royal TS (.rtsz), MobaXterm (.mxtsessions), RustConn Native (.rcn).
+**Supported formats:** SSH Config, Remmina profiles, Asbru-CM, Ansible inventory, Royal TS (.rtsz), MobaXterm (.mxtsessions), SecureCRT (.ini), RustConn Native (.rcn).
 
 Options: Include passwords (where supported), Export selected only.
 
@@ -1922,6 +1926,7 @@ Options: Include passwords (where supported), Export selected only.
 | Ansible | SSH only | No | Yes (groups) | INI or YAML inventory format |
 | Royal TS | All | Encrypted | Yes | XML `.rtsz` archive |
 | MobaXterm | SSH, RDP, VNC, Telnet | Encrypted | Yes | INI-based `.mxtsessions` |
+| SecureCRT | SSH, Telnet, RDP, VNC | No | Yes | Directory of `.ini` files |
 | RustConn Native | All | Encrypted | Yes | Full-fidelity backup format |
 
 ### CSV Import/Export
@@ -1969,6 +1974,12 @@ xdg-mime default io.github.totoshko88.RustConn.desktop application/x-rdp
 
 1. Export sessions from MobaXterm → copy `.mxtsessions` file to Linux
 2. **File > Import > MobaXterm** → select file → Import
+
+#### From SecureCRT
+
+1. Locate SecureCRT sessions directory (`~/.vandyke/Config/Sessions/` on Linux, or `%APPDATA%\VanDyke\Config\Sessions\` on Windows — copy to Linux)
+2. **File > Import > SecureCRT** → select the `Sessions` directory → Import
+3. Folder hierarchy is preserved as connection groups; SSH keys, usernames, ports, X11/agent forwarding settings are imported
 
 #### From Royal TS
 
@@ -2216,6 +2227,16 @@ Instead of storing passwords directly per-connection, you can use **Global Varia
 | KDBX File | Offline/air-gapped environments | High — AES-256, local file only |
 
 Configure your preferred backend in Settings → Secrets. RustConn falls back to the system keyring if the preferred backend is unavailable.
+
+**Fallback Behavior:**
+
+When the preferred backend (e.g., KeePassXC) cannot be reached — database password not configured, database file locked, or CLI tool not installed — RustConn automatically falls back to the system keyring (libsecret) for both reading and writing secrets. This requires the "Enable fallback" option in Settings → Secrets (enabled by default).
+
+- **Reading:** If KeePass returns no result, RustConn checks libsecret before showing the "Variable Not Configured" dialog
+- **Writing:** If KeePass save fails, the secret is stored in libsecret instead
+- **Variable Not Configured dialog:** When a connection requires a variable that has no value on this device, a dialog appears letting you enter the value and choose which backend to store it in — this choice is respected regardless of the global preferred backend setting
+
+> **Tip:** If you see the "Variable Not Configured" dialog repeatedly, check that your KeePass database password is configured in Settings → Secrets. Without it, RustConn cannot read or write entries in the database.
 
 ### Credential Hygiene
 
