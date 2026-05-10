@@ -136,9 +136,12 @@
   <releases>
     <release version="0.13.11" date="2026-05-10">
       <description>
-        <p>Version 0.13.11 — RDP diagnostics improvement:</p>
+        <p>Version 0.13.11 — Task automation, RDP diagnostics, code quality:</p>
         <ul>
-          <li>RDP: better diagnostics for IronRDP fallback to FreeRDP — error detection now includes detailed comments explaining the upstream limitation; submitted fix upstream (IronRDP#1253)</li>
+          <li>RDP: better diagnostics for IronRDP fallback to FreeRDP — narrowed error detection patterns, detailed upstream limitation comments (IronRDP#1253)</li>
+          <li>Security: pre/post-connect tasks now use TaskExecutor — timeout enforcement, environment sanitization, variable substitution, conditional execution</li>
+          <li>UX: pre-connect task failure toast now shows specific error details instead of generic message</li>
+          <li>Code quality: ConnectionDialog decomposed — extracted RDP, VNC, SPICE, Zero Trust options into separate modules (−20% dialog.rs size)</li>
         </ul>
       </description>
     </release>

@@ -6,6 +6,15 @@ Sat May 10 14:00:00 UTC 2026 - totoshko88@gmail.com
   error detection now includes detailed comments explaining the upstream
   limitation (IronRDP connector 0.8.0 does not handle ServerDeactivateAll
   during CapabilitiesExchange); submitted fix upstream (IronRDP#1253)
+- [Improved] Security: pre/post-connect tasks now use TaskExecutor —
+  timeout enforcement, environment sanitization, variable substitution,
+  conditional execution via FolderConnectionTracker
+- [Improved] UX: pre-connect task failure toast now shows specific error
+  details instead of generic message
+- [Improved] Code quality: ConnectionDialog decomposed — extracted RDP,
+  VNC, SPICE, Zero Trust options into separate modules (-20% dialog.rs)
+- [Removed] Dead code: ConnectionFallback module, VirtualScrollConfig
+  from public API
 
 -------------------------------------------------------------------
 Sat May 09 14:00:00 UTC 2026 - totoshko88@gmail.com

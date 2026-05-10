@@ -17,7 +17,7 @@ use crate::i18n::i18n;
 
 /// Creates the Zero Trust options panel with provider-specific fields using libadwaita.
 #[allow(clippy::type_complexity, clippy::too_many_lines)]
-pub fn create_zerotrust_options() -> (
+pub(super) fn create_zerotrust_options() -> (
     GtkBox,
     DropDown,
     Stack,

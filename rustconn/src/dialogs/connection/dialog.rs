@@ -26,7 +26,7 @@ use rustconn_core::models::{
     HighlightRule, HoopDevConfig, OciBastionConfig, PasswordSource, PropertyType, ProtocolConfig,
     RdpClientMode, RdpConfig, RdpPerformanceMode, Resolution, ScaleOverride, SharedFolder,
     SpiceConfig, SpiceImageCompression, SshAuthMethod, SshConfig, SshKeySource, TailscaleSshConfig,
-    TeleportConfig, VncClientMode, VncConfig, VncPerformanceMode, WindowMode, ZeroTrustConfig,
+    TeleportConfig, VncClientMode, VncConfig, VncPerformanceMode, ZeroTrustConfig,
     ZeroTrustProvider, ZeroTrustProviderConfig,
 };
 use rustconn_core::session::LogConfig;
@@ -311,9 +311,6 @@ pub struct ConnectionDialog {
     post_disconnect_command_entry: Entry,
     post_disconnect_timeout_spin: SpinButton,
     post_disconnect_last_only_check: CheckButton,
-    // Window mode fields
-    window_mode_dropdown: DropDown,
-    remember_position_check: CheckButton,
     // Custom properties fields
     custom_properties_list: ListBox,
     custom_properties: Rc<RefCell<Vec<CustomProperty>>>,
@@ -725,8 +722,6 @@ impl ConnectionDialog {
         // === Advanced Tab (Display + WOL) ===
         let (
             advanced_tab,
-            window_mode_dropdown,
-            remember_position_check,
             wol_enabled_check,
             wol_mac_entry,
             wol_broadcast_entry,
@@ -956,8 +951,6 @@ impl ConnectionDialog {
             &automation_widgets.post_disconnect_command_entry,
             &automation_widgets.post_disconnect_timeout_spin,
             &automation_widgets.post_disconnect_last_only_check,
-            &window_mode_dropdown,
-            &remember_position_check,
             &custom_properties,
             &wol_enabled_check,
             &wol_mac_entry,
@@ -1153,8 +1146,6 @@ impl ConnectionDialog {
             post_disconnect_command_entry: automation_widgets.post_disconnect_command_entry,
             post_disconnect_timeout_spin: automation_widgets.post_disconnect_timeout_spin,
             post_disconnect_last_only_check: automation_widgets.post_disconnect_last_only_check,
-            window_mode_dropdown,
-            remember_position_check,
             custom_properties_list,
             custom_properties,
             add_custom_property_button,
@@ -2020,8 +2011,6 @@ impl ConnectionDialog {
         post_disconnect_command_entry: &Entry,
         post_disconnect_timeout_spin: &SpinButton,
         post_disconnect_last_only_check: &CheckButton,
-        window_mode_dropdown: &DropDown,
-        remember_position_check: &CheckButton,
         custom_properties: &Rc<RefCell<Vec<CustomProperty>>>,
         wol_enabled_check: &CheckButton,
         wol_mac_entry: &Entry,
@@ -2197,8 +2186,6 @@ impl ConnectionDialog {
         let post_disconnect_command_entry = post_disconnect_command_entry.clone();
         let post_disconnect_timeout_spin = post_disconnect_timeout_spin.clone();
         let post_disconnect_last_only_check = post_disconnect_last_only_check.clone();
-        let window_mode_dropdown = window_mode_dropdown.clone();
-        let remember_position_check = remember_position_check.clone();
         let custom_properties = custom_properties.clone();
         let wol_enabled_check = wol_enabled_check.clone();
         let wol_mac_entry = wol_mac_entry.clone();
@@ -2379,8 +2366,6 @@ impl ConnectionDialog {
                 post_disconnect_command_entry: &post_disconnect_command_entry,
                 post_disconnect_timeout_spin: &post_disconnect_timeout_spin,
                 post_disconnect_last_only_check: &post_disconnect_last_only_check,
-                window_mode_dropdown: &window_mode_dropdown,
-                remember_position_check: &remember_position_check,
                 custom_properties: &collected_custom_properties,
                 wol_enabled_check: &wol_enabled_check,
                 wol_mac_entry: &wol_mac_entry,
@@ -3727,15 +3712,6 @@ impl ConnectionDialog {
         // Set connection tasks
         self.set_pre_connect_task(conn.pre_connect_task.as_ref());
         self.set_post_disconnect_task(conn.post_disconnect_task.as_ref());
-
-        // Set window mode
-        self.window_mode_dropdown
-            .set_selected(conn.window_mode.index());
-        self.remember_position_check
-            .set_active(conn.remember_window_position);
-        // Enable remember position checkbox only for External mode
-        let is_external = matches!(conn.window_mode, WindowMode::External);
-        self.remember_position_check.set_sensitive(is_external);
 
         // Set custom properties
         self.set_custom_properties(&conn.custom_properties);
@@ -5695,8 +5671,7 @@ impl ConnectionDialog {
         self.group_dropdown.set_tooltip_text(Some(&managed_tooltip));
 
         // Local-only fields remain editable:
-        // password_source_dropdown, ssh_key_entry, ssh_key_source_dropdown,
-        // window_mode_dropdown, remember_position_check
+        // password_source_dropdown, ssh_key_entry, ssh_key_source_dropdown
         // (these are already editable by default — no changes needed)
 
         // Update window title to indicate Import group mode
@@ -5858,9 +5833,6 @@ struct ConnectionDialogData<'a> {
     post_disconnect_command_entry: &'a Entry,
     post_disconnect_timeout_spin: &'a SpinButton,
     post_disconnect_last_only_check: &'a CheckButton,
-    // Window mode fields
-    window_mode_dropdown: &'a DropDown,
-    remember_position_check: &'a CheckButton,
     // Custom properties
     custom_properties: &'a Vec<CustomProperty>,
     // WOL fields
@@ -6080,10 +6052,6 @@ impl ConnectionDialogData<'_> {
 
         // Set post-disconnect task if enabled
         conn.post_disconnect_task = self.build_post_disconnect_task();
-
-        // Set window mode
-        conn.window_mode = WindowMode::from_index(self.window_mode_dropdown.selected());
-        conn.remember_window_position = self.remember_position_check.is_active();
 
         // Set custom properties (filter out empty names)
         conn.custom_properties = self

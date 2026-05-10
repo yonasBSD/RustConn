@@ -4,6 +4,15 @@ rustconn (0.13.11-1) unstable; urgency=medium
     error detection now includes detailed comments explaining the upstream
     limitation (IronRDP connector 0.8.0 does not handle ServerDeactivateAll
     during CapabilitiesExchange); submitted fix upstream (IronRDP#1253)
+  * [Improved] Security: pre/post-connect tasks now use TaskExecutor —
+    timeout enforcement, environment sanitization, variable substitution,
+    conditional execution via FolderConnectionTracker
+  * [Improved] UX: pre-connect task failure toast now shows specific error
+    details instead of generic message
+  * [Improved] Code quality: ConnectionDialog decomposed — extracted RDP,
+    VNC, SPICE, Zero Trust options into separate modules (-20% dialog.rs)
+  * [Removed] Dead code: ConnectionFallback module removed from rustconn-core
+  * [Removed] Dead code: VirtualScrollConfig removed from public API
 
  -- Anton Isaiev <totoshko88@gmail.com>  Sat, 10 May 2026 14:00:00 +0000
 

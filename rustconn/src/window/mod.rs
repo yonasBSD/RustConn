@@ -3637,7 +3637,7 @@ impl MainWindow {
                     if task.abort_on_failure {
                         crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
                             "Pre-connect task failed: {}",
-                            &[&runtime_err.clone()],
+                            &[&runtime_err],
                         ));
                         return types::ConnectionStartResult::Failed;
                     }
@@ -4051,23 +4051,21 @@ impl MainWindow {
         let notebook_clone = notebook.clone();
         let connection_id_str = connection_id.to_string();
 
-        // Capture post-disconnect task before entering the closure
-        let post_disconnect_task = state
+        // Capture post-disconnect task and connection info before entering the closure
+        let post_disconnect_conn = state
             .try_borrow()
             .ok()
-            .and_then(|s| s.get_connection(connection_id).cloned())
-            .and_then(|c| c.post_disconnect_task);
+            .and_then(|s| s.get_connection(connection_id).cloned());
+        let post_disconnect_task = post_disconnect_conn
+            .as_ref()
+            .and_then(|c| c.post_disconnect_task.clone());
 
         let post_disconnect_variables = state
             .try_borrow()
             .ok()
             .map(|s| crate::state::resolve_global_variables(s.settings()))
             .unwrap_or_default();
-        let post_disconnect_folder_id = state
-            .try_borrow()
-            .ok()
-            .and_then(|s| s.get_connection(connection_id).cloned())
-            .and_then(|c| c.group_id);
+        let post_disconnect_folder_id = post_disconnect_conn.as_ref().and_then(|c| c.group_id);
 
         let post_disconnect_folder_tracker = state
             .try_borrow()
@@ -4088,6 +4086,27 @@ impl MainWindow {
                 for var in &post_disconnect_variables {
                     var_manager.set_global(var.clone());
                 }
+                // Add connection-scoped synthetic variables (host, port, username, name)
+                if let Some(ref conn) = post_disconnect_conn {
+                    var_manager.set_connection(
+                        connection_id,
+                        rustconn_core::Variable::new("host", &conn.host),
+                    );
+                    var_manager.set_connection(
+                        connection_id,
+                        rustconn_core::Variable::new("port", conn.port.to_string()),
+                    );
+                    if let Some(ref user) = conn.username {
+                        var_manager.set_connection(
+                            connection_id,
+                            rustconn_core::Variable::new("username", user),
+                        );
+                    }
+                    var_manager.set_connection(
+                        connection_id,
+                        rustconn_core::Variable::new("name", &conn.name),
+                    );
+                }
 
                 let executor =
                     TaskExecutor::with_tracker(Arc::new(var_manager), Arc::clone(&post_disconnect_folder_tracker));
@@ -4095,7 +4114,7 @@ impl MainWindow {
                 let result = crate::async_utils::with_runtime(|rt| {
                     rt.block_on(executor.execute_post_disconnect(
                         task,
-                        VariableScope::Global,
+                        VariableScope::Connection(connection_id),
                         post_disconnect_folder_id,
                     ))
                 });

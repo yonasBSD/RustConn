@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - **Dead code: `ConnectionFallback` module removed from rustconn-core** — the generic fallback chain (`ConnectionFallback`, `ConnectionStrategy`, `FallbackError`, `StrategyAttempt`) was never integrated into the GUI; the RDP fallback (IronRDP → wlfreerdp → xfreerdp) uses a purpose-built ad-hoc chain that is tightly coupled to GTK widget lifecycle; the generic module added complexity without benefit and can be restored from git history if needed
 - **Dead code: `VirtualScrollConfig` removed from public API** — `VirtualScrollConfig` was re-exported from `rustconn-core` but never imported by any consumer (GUI or CLI); removed from `lib.rs` and `connection/mod.rs` re-exports, reduced visibility to `pub(crate)` for internal module tests only
+- **UI: removed "Window Mode" section from Advanced tab** — the Display Mode dropdown (Embedded/External/Fullscreen) and Remember Position checkbox were shown for all protocols but only worked for RDP and VNC; for SSH, Telnet, SPICE, Serial, Kubernetes, and Mosh it was completely ignored; for RDP/VNC it duplicated the existing "Client Mode" setting in the Protocol tab; the `window_mode` field remains in the data model for backward compatibility but is no longer editable from the dialog ([#130](https://github.com/totoshko88/RustConn/issues/130))
+
+### Dependencies
+- `clap_complete` 4.6.3 → 4.6.4
+- `hybrid-array` 0.4.11 → 0.4.12
 
 ## [0.13.10] - 2026-05-09
 

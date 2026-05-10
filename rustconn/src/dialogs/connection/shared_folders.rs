@@ -3,80 +3,13 @@
 //! This module provides reusable UI components for managing shared folders
 //! that can be used by both RDP and SPICE connection dialogs.
 
-use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{Box as GtkBox, Button, FileDialog, Label, Orientation, ScrolledWindow};
-use libadwaita as adw;
+use gtk4::{Box as GtkBox, Button, FileDialog, Label, Orientation};
 use rustconn_core::models::SharedFolder;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::i18n::i18n;
-
-/// Creates the Shared Folders preferences group
-///
-/// Returns a tuple containing:
-/// - The preferences group widget
-/// - A reference-counted vector of shared folders
-/// - The list box widget for displaying folders
-#[allow(dead_code)]
-#[must_use]
-pub fn create_shared_folders_group() -> (
-    adw::PreferencesGroup,
-    Rc<RefCell<Vec<SharedFolder>>>,
-    gtk4::ListBox,
-) {
-    let folders_group = adw::PreferencesGroup::builder()
-        .title(i18n("Shared Folders"))
-        .description(i18n("Local folders accessible from remote session"))
-        .build();
-
-    let folders_list = gtk4::ListBox::builder()
-        .selection_mode(gtk4::SelectionMode::Single)
-        .css_classes(["boxed-list"])
-        .build();
-    folders_list.set_placeholder(Some(&Label::new(Some(&i18n("No shared folders")))));
-
-    let folders_scrolled = ScrolledWindow::builder()
-        .hscrollbar_policy(gtk4::PolicyType::Never)
-        .vscrollbar_policy(gtk4::PolicyType::Automatic)
-        .min_content_height(80)
-        .max_content_height(120)
-        .child(&folders_list)
-        .build();
-    folders_group.add(&folders_scrolled);
-
-    let folders_buttons = GtkBox::new(Orientation::Horizontal, 8);
-    folders_buttons.set_halign(gtk4::Align::End);
-    folders_buttons.set_margin_top(8);
-    let add_folder_btn = Button::builder()
-        .label(i18n("Add"))
-        .css_classes(["suggested-action"])
-        .build();
-    let remove_folder_btn = Button::builder()
-        .label(i18n("Remove"))
-        .sensitive(false)
-        .build();
-    folders_buttons.append(&add_folder_btn);
-    folders_buttons.append(&remove_folder_btn);
-    folders_group.add(&folders_buttons);
-
-    let shared_folders: Rc<RefCell<Vec<SharedFolder>>> = Rc::new(RefCell::new(Vec::new()));
-
-    // Connect add folder button
-    connect_add_folder_button(&add_folder_btn, &folders_list, &shared_folders);
-
-    // Connect remove folder button
-    connect_remove_folder_button(&remove_folder_btn, &folders_list, &shared_folders);
-
-    // Enable/disable remove button based on selection
-    let remove_btn_for_selection = remove_folder_btn;
-    folders_list.connect_row_selected(move |_, row| {
-        remove_btn_for_selection.set_sensitive(row.is_some());
-    });
-
-    (folders_group, shared_folders, folders_list)
-}
 
 /// Connects the add folder button to show file dialog and add folder
 pub fn connect_add_folder_button(

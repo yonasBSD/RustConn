@@ -1,7 +1,7 @@
 //! Advanced tab for the connection dialog
 //!
-//! Contains the Window Mode (embedded/external/fullscreen),
-//! Wake-on-LAN configuration, and Terminal Theme override sections.
+//! Contains Terminal Theme override, Remote Monitoring, Session Recording,
+//! Activity Monitor, Highlight Rules, and Wake-on-LAN configuration sections.
 
 use crate::i18n::i18n;
 use adw::prelude::*;
@@ -13,14 +13,13 @@ use gtk4::{
 use libadwaita as adw;
 use rustconn_core::wol::{DEFAULT_BROADCAST_ADDRESS, DEFAULT_WOL_PORT, DEFAULT_WOL_WAIT_SECONDS};
 
-/// Creates the Advanced tab combining Display, WOL, and Terminal Theme settings.
+/// Creates the Advanced tab combining Terminal Theme, Monitoring, Recording,
+/// Activity Monitor, Highlight Rules, and WOL settings.
 ///
 /// Uses libadwaita components following GNOME HIG.
 #[allow(clippy::type_complexity, clippy::similar_names)]
 pub(super) fn create_advanced_tab() -> (
     GtkBox,
-    DropDown,
-    CheckButton,
     CheckButton,
     Entry,
     Entry,
@@ -56,53 +55,6 @@ pub(super) fn create_advanced_tab() -> (
     content.set_margin_bottom(12);
     content.set_margin_start(12);
     content.set_margin_end(12);
-
-    // === Window Mode Section ===
-    let mode_group = adw::PreferencesGroup::builder()
-        .title(i18n("Window Mode"))
-        .build();
-
-    let mode_list = StringList::new(&[
-        &i18n("Embedded"),
-        &i18n("External Window"),
-        &i18n("Fullscreen"),
-    ]);
-    let mode_dropdown = DropDown::new(Some(mode_list), gtk4::Expression::NONE);
-    mode_dropdown.set_selected(0);
-    mode_dropdown.set_valign(gtk4::Align::Center);
-
-    let mode_row = adw::ActionRow::builder()
-        .title(i18n("Display Mode"))
-        .subtitle(i18n("Embedded • External • Fullscreen"))
-        .build();
-    mode_row.add_suffix(&mode_dropdown);
-    mode_group.add(&mode_row);
-
-    let remember_check = CheckButton::builder()
-        .valign(gtk4::Align::Center)
-        .sensitive(false)
-        .build();
-
-    let remember_row = adw::ActionRow::builder()
-        .title(i18n("Remember Position"))
-        .subtitle(i18n("Save window geometry (External mode only)"))
-        .activatable_widget(&remember_check)
-        .build();
-    remember_row.add_suffix(&remember_check);
-    mode_group.add(&remember_row);
-
-    let remember_check_clone = remember_check.clone();
-    let remember_row_clone = remember_row.clone();
-    mode_dropdown.connect_selected_notify(move |dropdown| {
-        let is_external = dropdown.selected() == 1;
-        remember_check_clone.set_sensitive(is_external);
-        remember_row_clone.set_sensitive(is_external);
-        if !is_external {
-            remember_check_clone.set_active(false);
-        }
-    });
-
-    content.append(&mode_group);
 
     // === Terminal Theme Section ===
     let theme_group = adw::PreferencesGroup::builder()
@@ -563,8 +515,6 @@ pub(super) fn create_advanced_tab() -> (
 
     (
         vbox,
-        mode_dropdown,
-        remember_check,
         wol_enabled_check,
         mac_entry,
         broadcast_entry,

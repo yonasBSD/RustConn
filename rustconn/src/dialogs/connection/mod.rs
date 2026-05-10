@@ -31,7 +31,7 @@ mod ssh;
 mod telnet;
 mod vnc;
 pub mod widgets;
-pub mod zerotrust;
+mod zerotrust;
 
 // Re-export types from parent module for use in submodules
 pub use super::{ConnectionCallback, ConnectionDialogResult};
