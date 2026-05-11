@@ -1,6 +1,6 @@
 # RustConn Architecture Guide
 
-**Version 0.13.11** | Last updated: May 2026
+**Version 0.13.12** | Last updated: May 2026
 
 This document describes the internal architecture of RustConn for contributors and maintainers.
 
@@ -136,31 +136,47 @@ Each domain has a dedicated manager in `rustconn-core`:
 The `retry` module (`rustconn-core/src/connection/retry.rs`) provides automatic retry with exponential backoff:
 
 ```rust
-// Configure retry behavior
+// Configure retry behavior per connection
 let config = RetryConfig::default()
     .with_max_attempts(5)
-    .with_base_delay(Duration::from_secs(1))
-    .with_max_delay(Duration::from_secs(30))
-    .with_jitter(true);
+    .with_initial_delay_ms(1000)
+    .with_max_delay_ms(30_000)
+    .with_backoff_multiplier(2.0)
+    .with_enabled(true);
 
 // Or use presets
-let aggressive = RetryConfig::aggressive();   // 10 attempts, 500ms base
-let conservative = RetryConfig::conservative(); // 3 attempts, 2s base
-let no_retry = RetryConfig::no_retry();       // Single attempt
+let aggressive = RetryConfig::aggressive();     // 5 attempts, 500ms initial, 1.5× multiplier
+let conservative = RetryConfig::conservative(); // 2 attempts, 2000ms initial, 3× multiplier
+let no_retry = RetryConfig::no_retry();         // Disabled
 
-// Track retry state
-let mut state = RetryState::new(&config);
-while state.should_retry() {
-    match attempt_connection().await {
-        Ok(conn) => return Ok(conn),
-        Err(e) if e.is_retryable() => {
-            let delay = state.next_delay();
-            tokio::time::sleep(delay).await;
-        }
-        Err(e) => return Err(e),
+// Track retry state during reconnection
+let mut state = RetryState::new(config);
+loop {
+    if let Some(delay) = state.next_delay() {
+        tokio::time::sleep(delay).await;
+    } else {
+        break; // All retries exhausted
+    }
+    if check_host_online(&host, port).await? {
+        state.record_success();
+        return Ok(true);
+    }
+    if !state.record_failure("Host offline") {
+        return Ok(false); // Exhausted
     }
 }
 ```
+
+**Per-connection configuration:** Each connection stores an optional `retry_config: Option<RetryConfig>` field (serialized with `#[serde(default)]`). When `None`, the default config (3 attempts, 1s initial, 2× multiplier) is used. The "Automatic Reconnection" section in the connection dialog Advanced tab allows users to configure retry behavior.
+
+**Auto-reconnect flow:**
+1. Session terminates unexpectedly (not SSH auth failure, not rapid crash <5s)
+2. `RetryConfig` is read from the connection (or default)
+3. `poll_until_online_with_backoff()` probes the host with exponential delays
+4. On success → triggers reconnect callback to reuse the existing tab
+5. On exhaustion → stops polling, marks session as failed
+
+**Validation:** `delay_for_attempt()` enforces a minimum of 100ms for `initial_delay_ms` and ensures `max_delay_ms >= initial_delay_ms` to prevent degenerate configurations from deserialized data.
 
 ### Session Health Monitoring
 

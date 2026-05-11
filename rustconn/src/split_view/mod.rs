@@ -52,8 +52,8 @@ pub use adapter::SplitViewAdapter;
 // Re-export the bridge for legacy-compatible API (replaces SplitTerminalView)
 pub use bridge::{
     SPLIT_COLOR_VALUES, SPLIT_PANE_COLORS, SessionColorMap, SharedSessions, SharedTerminals,
-    SplitDirection, SplitViewBridge, TerminalPane, create_colored_circle_icon,
-    get_split_color_class, get_split_indicator_class, get_tab_color_class,
+    SplitDirection, SplitViewBridge, create_colored_circle_icon, get_split_color_class,
+    get_split_indicator_class, get_tab_color_class,
 };
 
 // Re-export the tab split manager

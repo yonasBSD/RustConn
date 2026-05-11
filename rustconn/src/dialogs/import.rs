@@ -17,7 +17,8 @@ use rustconn_core::export::NativeExport;
 use rustconn_core::import::{
     AnsibleInventoryImporter, AsbruImporter, CsvImporter, CsvParseOptions, ImportResult,
     ImportSource, LibvirtDaemonImporter, LibvirtXmlImporter, MobaXtermImporter, RdmImporter,
-    RdpFileImporter, RemminaImporter, RoyalTsImporter, SshConfigImporter, VirtViewerImporter,
+    RdpFileImporter, RemminaImporter, RoyalTsImporter, SecureCrtImporter, SshConfigImporter,
+    VirtViewerImporter,
 };
 use rustconn_core::progress::LocalProgressReporter;
 use std::cell::{Cell, RefCell};
@@ -288,6 +289,12 @@ impl ImportDialog {
                 i18n("Import SPICE/VNC connection from a virt-viewer file"),
                 true,
             ),
+            (
+                "multi_file",
+                i18n("Multiple Files (batch)"),
+                i18n("Import connections from multiple files at once"),
+                true,
+            ),
         ];
 
         for (id, name, desc, available) in &sources {
@@ -463,6 +470,7 @@ impl ImportDialog {
             "rdm_file" => i18n("Remote Desktop Manager"),
             "mobaxterm_file" => i18n("MobaXterm"),
             "vv_file" => i18n("Virt-Viewer"),
+            "multi_file" => i18n("Multiple Files"),
             "libvirt" => i18n("Libvirt / GNOME Boxes"),
             "libvirt_file" => i18n("Libvirt XML"),
             "libvirt_daemon" => i18n("Libvirt Daemon"),
@@ -903,6 +911,21 @@ impl ImportDialog {
 
                 if source_id == "csv_file" {
                     Self::handle_csv_file_import(
+                        parent_window.as_ref(),
+                        &stack,
+                        &progress_bar,
+                        &progress_label,
+                        &result_label,
+                        &result_details,
+                        &result_cell,
+                        &source_name_cell,
+                        btn,
+                    );
+                    return;
+                }
+
+                if source_id == "multi_file" {
+                    Self::handle_multi_file_import(
                         parent_window.as_ref(),
                         &stack,
                         &progress_bar,
@@ -2234,5 +2257,262 @@ impl ImportDialog {
                 }
             },
         );
+    }
+
+    /// Handles multi-file batch import using `BatchImporter`.
+    ///
+    /// Opens a file chooser dialog that allows selecting multiple files
+    /// (CSV, SSH config, RDP, etc.) and imports them all in a single batch
+    /// with progress reporting.
+    #[allow(clippy::too_many_arguments)]
+    fn handle_multi_file_import(
+        parent_window: Option<&gtk4::Window>,
+        stack: &Stack,
+        progress_bar: &ProgressBar,
+        progress_label: &Label,
+        result_label: &Label,
+        result_details: &Label,
+        result_cell: &Rc<RefCell<Option<ImportResult>>>,
+        source_name_cell: &Rc<RefCell<String>>,
+        btn: &Button,
+    ) {
+        let file_dialog = gtk4::FileDialog::builder()
+            .title(i18n("Select Files to Import"))
+            .modal(true)
+            .build();
+
+        // Accept all supported formats
+        let filter = gtk4::FileFilter::new();
+        filter.add_pattern("*.csv");
+        filter.add_pattern("*.tsv");
+        filter.add_pattern("*.rdp");
+        filter.add_pattern("*.vv");
+        filter.add_pattern("*.rcn");
+        filter.add_pattern("*.json");
+        filter.add_pattern("*.rtsz");
+        filter.add_pattern("*.mxtsessions");
+        filter.add_pattern("*.xml");
+        filter.add_pattern("*.yaml");
+        filter.add_pattern("*.yml");
+        filter.add_pattern("*.ini");
+        filter.set_name(Some(&i18n("All supported formats")));
+        let filters = gtk4::gio::ListStore::new::<gtk4::FileFilter>();
+        filters.append(&filter);
+        file_dialog.set_filters(Some(&filters));
+
+        let stack_clone = stack.clone();
+        let progress_bar_clone = progress_bar.clone();
+        let progress_label_clone = progress_label.clone();
+        let result_label_clone = result_label.clone();
+        let result_details_clone = result_details.clone();
+        let result_cell_clone = result_cell.clone();
+        let source_name_cell_clone = source_name_cell.clone();
+        let btn_clone = btn.clone();
+
+        file_dialog.open_multiple(
+            parent_window,
+            gtk4::gio::Cancellable::NONE,
+            move |files_result| {
+                if let Ok(files) = files_result {
+                    let paths: Vec<std::path::PathBuf> = (0..files.n_items())
+                        .filter_map(|i| {
+                            files
+                                .item(i)
+                                .and_then(|obj| obj.downcast::<gtk4::gio::File>().ok())
+                                .and_then(|f| f.path())
+                        })
+                        .collect();
+
+                    if paths.is_empty() {
+                        stack_clone.set_visible_child_name("source");
+                        btn_clone.set_sensitive(true);
+                        return;
+                    }
+
+                    stack_clone.set_visible_child_name("progress");
+                    btn_clone.set_sensitive(false);
+
+                    let file_count = paths.len();
+                    progress_label_clone.set_text(&i18n_f(
+                        "Importing from {} files...",
+                        &[&file_count.to_string()],
+                    ));
+
+                    // Import each file based on extension, merging results
+                    let mut combined = ImportResult::default();
+                    for (idx, path) in paths.iter().enumerate() {
+                        #[allow(clippy::cast_precision_loss)]
+                        let fraction = (idx as f64) / (file_count as f64);
+                        progress_bar_clone.set_fraction(fraction);
+
+                        let filename = path
+                            .file_name()
+                            .map_or_else(|| String::from("?"), |n| n.to_string_lossy().to_string());
+                        progress_label_clone.set_text(&i18n_f(
+                            "Importing {}...",
+                            &[&filename],
+                        ));
+
+                        let file_result = Self::import_file_by_extension(path);
+                        // Merge into combined result
+                        combined.connections.extend(file_result.connections);
+                        combined.groups.extend(file_result.groups);
+                        combined.skipped.extend(file_result.skipped);
+                        combined.errors.extend(file_result.errors);
+                    }
+
+                    *source_name_cell_clone.borrow_mut() = i18n("Multiple Files");
+
+                    progress_bar_clone.set_fraction(1.0);
+
+                    let conn_count = combined.connections.len();
+                    let group_count = combined.groups.len();
+                    let error_count = combined.errors.len();
+                    let summary = if error_count > 0 {
+                        i18n_f(
+                            "Imported {} connection(s) and {} group(s) from {} files ({} errors).\nConnections will be added to 'Multiple Files Import' group.",
+                            &[
+                                &conn_count.to_string(),
+                                &group_count.to_string(),
+                                &file_count.to_string(),
+                                &error_count.to_string(),
+                            ],
+                        )
+                    } else {
+                        i18n_f(
+                            "Imported {} connection(s) and {} group(s) from {} files.\nConnections will be added to 'Multiple Files Import' group.",
+                            &[
+                                &conn_count.to_string(),
+                                &group_count.to_string(),
+                                &file_count.to_string(),
+                            ],
+                        )
+                    };
+                    result_label_clone.set_text(&summary);
+
+                    let details = Self::format_import_details(&combined);
+                    result_details_clone.set_text(&details);
+
+                    *result_cell_clone.borrow_mut() = Some(combined);
+                    stack_clone.set_visible_child_name("result");
+                    btn_clone.set_label(&i18n("Done"));
+                    btn_clone.set_sensitive(true);
+                } else {
+                    stack_clone.set_visible_child_name("source");
+                    btn_clone.set_sensitive(true);
+                }
+            },
+        );
+    }
+
+    /// Imports a single file based on its extension.
+    ///
+    /// Detects the format from the file extension and uses the appropriate importer.
+    fn import_file_by_extension(path: &std::path::Path) -> ImportResult {
+        let ext = path
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+
+        match ext.as_str() {
+            "csv" | "tsv" => {
+                let delimiter = if ext == "tsv" { b'\t' } else { b',' };
+                let options = CsvParseOptions {
+                    delimiter,
+                    ..CsvParseOptions::default()
+                };
+                let importer = CsvImporter::with_options(options);
+                Self::import_or_error(importer.import_from_path(path), "CSV")
+            }
+            "rdp" => {
+                let importer = RdpFileImporter::new();
+                Self::import_or_error(importer.import_from_path(path), "RDP")
+            }
+            "vv" => {
+                let importer = VirtViewerImporter::new();
+                Self::import_or_error(importer.import_from_path(path), "Virt-Viewer")
+            }
+            "rcn" => {
+                // Native RustConn format
+                match NativeExport::from_file(path) {
+                    Ok(native_export) => {
+                        let mut warnings = Vec::new();
+                        if !native_export.templates.is_empty() {
+                            warnings.push(format!(
+                                "{} template(s) skipped (not supported in batch import)",
+                                native_export.templates.len()
+                            ));
+                        }
+                        if !native_export.clusters.is_empty() {
+                            warnings.push(format!(
+                                "{} cluster(s) skipped (not supported in batch import)",
+                                native_export.clusters.len()
+                            ));
+                        }
+                        if !native_export.variables.is_empty() {
+                            warnings.push(format!(
+                                "{} variable(s) skipped (not supported in batch import)",
+                                native_export.variables.len()
+                            ));
+                        }
+                        ImportResult {
+                            connections: native_export.connections,
+                            groups: native_export.groups,
+                            skipped: Vec::new(),
+                            errors: Vec::new(),
+                            credentials: std::collections::HashMap::new(),
+                            snippets: native_export.snippets,
+                            smart_folders: native_export.smart_folders,
+                            warnings,
+                        }
+                    }
+                    Err(e) => {
+                        let mut r = ImportResult::default();
+                        r.add_error(rustconn_core::error::ImportError::InvalidEntry {
+                            source_name: "RustConn Native".to_string(),
+                            reason: e.to_string(),
+                        });
+                        r
+                    }
+                }
+            }
+            "json" => {
+                // Try RDM JSON format
+                let importer = RdmImporter::new();
+                Self::import_or_error(importer.import_from_path(path), "RDM JSON")
+            }
+            "rtsz" => {
+                let importer = RoyalTsImporter::new();
+                Self::import_or_error(importer.import_from_path(path), "Royal TS")
+            }
+            "mxtsessions" => {
+                let importer = MobaXtermImporter::new();
+                Self::import_or_error(importer.import_from_path(path), "MobaXterm")
+            }
+            "xml" => {
+                let importer = LibvirtXmlImporter::new();
+                Self::import_or_error(importer.import_from_path(path), "Libvirt XML")
+            }
+            "yaml" | "yml" => {
+                // Try Asbru format first, then Ansible
+                let importer = AsbruImporter::new();
+                let result = importer.import_from_path(path);
+                if result.is_ok() {
+                    Self::import_or_error(result, "Asbru-CM")
+                } else {
+                    let importer = AnsibleInventoryImporter::new();
+                    Self::import_or_error(importer.import_from_path(path), "Ansible")
+                }
+            }
+            "ini" => {
+                let importer = SecureCrtImporter::new();
+                Self::import_or_error(importer.import_from_path(path), "SecureCRT")
+            }
+            _ => {
+                // Try SSH config as fallback
+                let importer = SshConfigImporter::new();
+                Self::import_or_error(importer.import_from_path(path), "SSH Config")
+            }
+        }
     }
 }

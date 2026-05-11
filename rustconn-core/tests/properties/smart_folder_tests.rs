@@ -87,6 +87,7 @@ fn make_connection(
         session_recording_enabled: false,
         highlight_rules: Vec::new(),
         is_dynamic: false,
+        retry_config: None,
     }
 }
 

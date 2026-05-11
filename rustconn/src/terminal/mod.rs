@@ -21,8 +21,8 @@ use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Orientation, Widget, gio, glib};
 use libadwaita as adw;
 use libadwaita::prelude::*;
-use regex::Regex;
 use rustconn_core::models::AutomationConfig;
+use rustconn_core::terminal_themes::TerminalTheme;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -39,7 +39,7 @@ use vte4::{PtyFlags, Terminal};
 const PCRE2_MULTILINE: u32 = 0x0000_0400;
 
 use crate::activity_coordinator::ActivityCoordinator;
-use crate::automation::{AutomationSession, Trigger};
+use crate::automation::{AutomationSession, prepare_rules_from_config};
 use crate::broadcast::BroadcastController;
 use crate::embedded_rdp::EmbeddedRdpWidget;
 use crate::embedded_spice::EmbeddedSpiceWidget;
@@ -1077,45 +1077,10 @@ impl TerminalNotebook {
         if let Some(cfg) = automation
             && !cfg.expect_rules.is_empty()
         {
-            let mut triggers = Vec::new();
-            let now = std::time::Instant::now();
-            for rule in &cfg.expect_rules {
-                if !rule.enabled {
-                    continue;
-                }
-                if let Ok(regex) = Regex::new(&rule.pattern) {
-                    // Substitute ${VAR} references in the response text
-                    let resolved_response = var_manager
-                        .substitute_for_command(
-                            &rule.response,
-                            rustconn_core::variables::VariableScope::Global,
-                        )
-                        .unwrap_or_else(|e| {
-                            tracing::warn!(
-                                response = %rule.response,
-                                error = %e,
-                                "Variable substitution failed in expect response, using raw text"
-                            );
-                            rule.response.clone()
-                        });
+            let rules = prepare_rules_from_config(&cfg.expect_rules, &var_manager);
 
-                    triggers.push(Trigger {
-                        pattern: regex,
-                        response: resolved_response,
-                        one_shot: rule.one_shot,
-                        timeout_ms: rule.timeout_ms,
-                        created_at: now,
-                    });
-                } else {
-                    tracing::warn!(
-                        pattern = %rule.pattern,
-                        "Skipping expect rule with invalid regex"
-                    );
-                }
-            }
-
-            if !triggers.is_empty() {
-                let session = AutomationSession::new(terminal.clone(), triggers);
+            if !rules.is_empty() {
+                let session = AutomationSession::new(terminal.clone(), rules);
                 self.automation_sessions
                     .borrow_mut()
                     .insert(session_id, session);
@@ -1127,7 +1092,9 @@ impl TerminalNotebook {
 
         // Apply per-connection theme override (if present) on top of the global theme
         if let Some(override_colors) = theme_override {
-            config::apply_theme_override(&terminal, override_colors);
+            let base_theme = TerminalTheme::by_name(&settings.color_theme)
+                .unwrap_or_else(TerminalTheme::dark_theme);
+            config::apply_theme_override_with_base(&terminal, override_colors, &base_theme);
         }
 
         // VTE implements GtkScrollable natively — no ScrolledWindow needed.
@@ -2743,17 +2710,19 @@ impl TerminalNotebook {
     /// per-connection color customizations. This method restores those
     /// overrides by looking up each session's connection and re-applying
     /// its `theme_override` (if any).
-    pub fn reapply_theme_overrides<F>(&self, get_theme_override: F)
+    pub fn reapply_theme_overrides<F>(&self, theme_name: &str, get_theme_override: F)
     where
         F: Fn(Uuid) -> Option<rustconn_core::models::ConnectionThemeOverride>,
     {
+        let base_theme =
+            TerminalTheme::by_name(theme_name).unwrap_or_else(TerminalTheme::dark_theme);
         let terminals = self.terminals.borrow();
         let session_info = self.session_info.borrow();
         for (session_id, terminal) in terminals.iter() {
             if let Some(info) = session_info.get(session_id)
                 && let Some(theme_override) = get_theme_override(info.connection_id)
             {
-                config::apply_theme_override(terminal, &theme_override);
+                config::apply_theme_override_with_base(terminal, &theme_override, &base_theme);
             }
         }
     }

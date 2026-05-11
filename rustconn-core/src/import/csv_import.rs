@@ -203,7 +203,12 @@ impl CsvImporter {
             .and_then(|s| s.parse::<u16>().ok())
             .unwrap_or_else(|| protocol_type.default_port());
 
-        let mut conn = Connection::new(name, host, port, default_protocol_config(protocol_type));
+        let mut conn = Connection::new(
+            name.clone(),
+            host,
+            port,
+            default_protocol_config(protocol_type),
+        );
 
         if let Some(username) = mapping.username_col.and_then(&get) {
             conn.username = Some(username.to_string());
@@ -220,7 +225,16 @@ impl CsvImporter {
                 .collect();
         }
         if let Some(group_path) = mapping.group_col.and_then(get) {
-            conn.group_id = Some(resolve_group_path(group_path, groups, result));
+            if let Ok(group_id) = resolve_group_path(group_path, groups, result) {
+                conn.group_id = Some(group_id);
+            } else {
+                // Invalid group path — skip, connection still imported
+                result.add_skipped(SkippedEntry::new(
+                    name,
+                    format!("invalid group path: {group_path:?}"),
+                ));
+                return;
+            }
         }
 
         conn.tags.push("imported:csv".to_string());
@@ -337,11 +351,16 @@ fn default_protocol_config(pt: ProtocolType) -> ProtocolConfig {
 
 /// Resolves a group path like `"Production/Web Servers"` into a group UUID,
 /// creating intermediate `ConnectionGroup` entries as needed.
+///
+/// # Errors
+///
+/// Returns `ImportError::InvalidEntry` if the path is empty or contains only
+/// whitespace/separators (i.e. no valid segments).
 fn resolve_group_path(
     path: &str,
     groups: &mut HashMap<String, Uuid>,
     result: &mut ImportResult,
-) -> Uuid {
+) -> Result<Uuid, ImportError> {
     let segments: Vec<&str> = path
         .split('/')
         .map(str::trim)
@@ -370,5 +389,8 @@ fn resolve_group_path(
         parent_id = Some(group_id);
     }
 
-    parent_id.expect("group path should have at least one segment")
+    parent_id.ok_or_else(|| ImportError::InvalidEntry {
+        source_name: "CSV".to_string(),
+        reason: format!("group path is empty or contains no valid segments: {path:?}"),
+    })
 }

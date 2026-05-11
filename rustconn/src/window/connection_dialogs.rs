@@ -6,7 +6,7 @@
 use super::MainWindow;
 use crate::alert;
 use crate::dialogs::{ConnectionDialog, ImportDialog};
-use crate::i18n::i18n;
+use crate::i18n::{i18n, i18n_f};
 use crate::sidebar::ConnectionSidebar;
 use crate::state::SharedAppState;
 use adw::prelude::*;
@@ -807,6 +807,9 @@ pub fn show_import_dialog(window: &gtk4::Window, state: SharedAppState, sidebar:
         if let Some(import_result) = result
             && let Ok(mut state_mut) = state.try_borrow_mut()
         {
+            let connection_count = import_result.connections.len();
+            tracing::info!(count = connection_count, "Importing connections");
+
             match state_mut.import_connections_with_source(&import_result, &source_name) {
                 Ok(count) => {
                     // Merge snippets if present (native format)
@@ -825,12 +828,15 @@ pub fn show_import_dialog(window: &gtk4::Window, state: SharedAppState, sidebar:
                     glib::idle_add_local_once(move || {
                         MainWindow::reload_sidebar_preserving_state(&state_clone, &sidebar_clone);
                         let msg = if snippet_count > 0 {
-                            format!(
-                                "Imported {count} connections and \
-                                     {snippet_count} snippets to '{source}' group"
+                            i18n_f(
+                                "Imported {} connections and {} snippets to '{}' group",
+                                &[&count.to_string(), &snippet_count.to_string(), &source],
                             )
                         } else {
-                            format!("Imported {count} connections to '{source}' group")
+                            i18n_f(
+                                "Imported {} connections to '{}' group",
+                                &[&count.to_string(), &source],
+                            )
                         };
                         alert::show_success(&window, &i18n("Import Successful"), &msg);
                     });

@@ -55,6 +55,7 @@ fn create_test_connection(name: &str, host: &str) -> Connection {
         session_recording_enabled: false,
         highlight_rules: Vec::new(),
         is_dynamic: false,
+        retry_config: None,
     }
 }
 

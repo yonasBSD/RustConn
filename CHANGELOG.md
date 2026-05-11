@@ -5,6 +5,33 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.12] - 2026-05-11
+
+### Added
+- **Auto-reconnect: per-connection RetryConfig with exponential backoff** — new "Automatic Reconnection" section in the connection dialog Advanced tab; configurable retry behavior: enable/disable, max attempts (1–10), initial delay (100–30000ms), max delay (1000–120000ms); exponential backoff with 2× multiplier; `RetryConfig` serialized with `#[serde(default)]` for backward compatibility
+- **Import: multi-file batch import** — new "Multiple Files (batch)" source in the Import dialog; select multiple files at once (CSV, RDP, VV, RCN, JSON, RTSZ, MobaXterm, XML, YAML); sequential import with per-file progress; `BatchImporter` for large sets (>10) with configurable batch sizes and cancellation
+- **ExpectEngine: new methods for GUI integration** — `match_line()` with auto-trimming and priority; `remove_by_id(Uuid)`; `remove_expired()` and `remove_expired_individual()` for per-rule timeouts
+
+### Improved
+- **Import: success messages now use i18n_f()** for proper localization
+- **AutomationSession uses ExpectEngine from core** — delegates to `ExpectEngine` for priority-sorted matching, duplicate ID detection, pattern validation, and timeout handling; `Trigger` struct removed
+- **SplitView legacy UUID layer partially removed** — external consumers use `get_pane_session()` instead of `panes_ref_clone()`; `TerminalPane` reduced to `pub(crate)`; `panes_ref()`, `panes_ref_clone()` removed from public API
+- **`performance/mod.rs` decomposed** — 2210-line monolith split into 10 submodules; public API unchanged
+- **`cli_download.rs` decomposed** — 3391-line monolith split into 10 submodules; public API unchanged
+- **MainWindow credential resolution extracted** — 9 methods (~920 lines) moved to `window/credentials.rs`
+- **MainWindow session lifecycle extracted** — 5 methods (~760 lines) moved to `window/session_lifecycle.rs`; `window/mod.rs` reduced by 31%
+
+### Fixed
+- **SSH: identity key `-i` duplicated in command** — `build_command_args()` and `spawn_ssh()` both added `-i`; now deduplicated in both connect and reconnect paths
+- **CSV import: panic on empty group path** — `resolve_group_path()` now returns `ImportError::InvalidEntry` instead of `expect()`
+- **VNC/RDP/SPICE embedded: hangs when remote port unreachable through SSH tunnel** — `probe_tunnel_remote()` now verifies end-to-end connectivity after tunnel readiness; fails immediately with clear error instead of hanging
+- **Terminal: per-connection white color displayed as grey** — `apply_theme_override_with_base()` now rebuilds full 16-color palette via `set_colors()`, replacing palette entries 7+15 and 0+8 ([#145](https://github.com/totoshko88/RustConn/issues/145))
+
+### Dependencies
+- `clap_complete` 4.6.4 → 4.6.5
+- `kqueue-sys` 1.1.0 → 1.1.1
+- `nix` 0.31.2 → 0.31.3
+
 ## [0.13.11] - 2026-05-10
 
 ### Improved

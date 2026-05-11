@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.13.11
+Version:        0.13.12
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,12 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Mon May 11 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.12-0
+- Auto-reconnect: per-connection RetryConfig with exponential backoff
+- Import: multi-file batch import
+- SSH: fix identity key -i duplicated in command
+- Terminal: fix per-connection white color displayed as grey
+
 * Sat May 10 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.11-1
 - [Improved] RDP: better diagnostics for IronRDP fallback to FreeRDP —
   error detection now includes detailed comments explaining the upstream

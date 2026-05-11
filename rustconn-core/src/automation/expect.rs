@@ -8,6 +8,7 @@
 //! - Timeout handling for patterns
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -386,6 +387,72 @@ impl ExpectEngine {
         self.match_and_substitute(output, variable_manager.as_ref(), scope)
     }
 
+    /// Matches a single line against all enabled rules, returning the highest priority match
+    ///
+    /// Unlike `match_output`, this method also tries matching against the trimmed version
+    /// of the line, which is useful for terminal output that may have leading/trailing whitespace.
+    #[must_use]
+    pub fn match_line(&self, line: &str) -> Option<&CompiledRule> {
+        let trimmed = line.trim();
+        self.rules
+            .iter()
+            .filter(|r| r.rule.enabled)
+            .find(|r| r.matches(line) || r.matches(trimmed))
+    }
+
+    /// Removes a rule by ID without returning an error if not found
+    ///
+    /// Returns `true` if the rule was removed, `false` if not found.
+    pub fn remove_by_id(&mut self, id: Uuid) -> bool {
+        if let Some(pos) = self.rules.iter().position(|r| r.rule.id == id) {
+            self.rules.remove(pos);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Removes all rules that have exceeded their timeout relative to `created_at`
+    ///
+    /// Returns the number of rules removed.
+    pub fn remove_expired(&mut self, now: Instant, created_at: Instant) -> usize {
+        let before = self.rules.len();
+        self.rules.retain(|r| {
+            if let Some(timeout_ms) = r.rule.timeout_ms {
+                let elapsed = now.duration_since(created_at);
+                elapsed <= std::time::Duration::from_millis(u64::from(timeout_ms))
+            } else {
+                true // No timeout = never expires
+            }
+        });
+        before - self.rules.len()
+    }
+
+    /// Removes all rules that have exceeded their timeout using per-rule `created_at` timestamps
+    ///
+    /// Each rule's timeout is checked against its individual creation time from the provided map.
+    /// Rules without an entry in the map are kept.
+    ///
+    /// Returns the number of rules removed.
+    pub fn remove_expired_individual(
+        &mut self,
+        now: Instant,
+        created_at_map: &std::collections::HashMap<Uuid, Instant>,
+    ) -> usize {
+        let before = self.rules.len();
+        self.rules.retain(|r| {
+            if let Some(timeout_ms) = r.rule.timeout_ms
+                && let Some(&created) = created_at_map.get(&r.rule.id)
+            {
+                let elapsed = now.duration_since(created);
+                elapsed <= std::time::Duration::from_millis(u64::from(timeout_ms))
+            } else {
+                true
+            }
+        });
+        before - self.rules.len()
+    }
+
     /// Clears all rules from the engine
     pub fn clear(&mut self) {
         self.rules.clear();
@@ -592,5 +659,109 @@ mod tests {
         let deserialized: ExpectRule = serde_json::from_str(&json).unwrap();
 
         assert_eq!(rule, deserialized);
+    }
+
+    #[test]
+    fn test_match_line_with_whitespace() {
+        let mut engine = ExpectEngine::new();
+        engine
+            .add_rule(ExpectRule::new("password:", "secret"))
+            .unwrap();
+
+        // Should match even with leading/trailing whitespace
+        let result = engine.match_line("   password:   ");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().rule.response, "secret");
+
+        // Should match exact line too
+        let result = engine.match_line("password:");
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_match_line_priority() {
+        let mut engine = ExpectEngine::new();
+        engine
+            .add_rule(ExpectRule::new("prompt", "low").with_priority(1))
+            .unwrap();
+        engine
+            .add_rule(ExpectRule::new("prompt", "high").with_priority(10))
+            .unwrap();
+
+        let result = engine.match_line("prompt");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().rule.response, "high");
+    }
+
+    #[test]
+    fn test_remove_by_id() {
+        let mut engine = ExpectEngine::new();
+        let rule = ExpectRule::new("test", "response");
+        let id = rule.id;
+
+        engine.add_rule(rule).unwrap();
+        assert_eq!(engine.len(), 1);
+
+        assert!(engine.remove_by_id(id));
+        assert_eq!(engine.len(), 0);
+
+        // Removing again returns false
+        assert!(!engine.remove_by_id(id));
+    }
+
+    #[test]
+    fn test_remove_expired() {
+        let mut engine = ExpectEngine::new();
+        engine
+            .add_rule(ExpectRule::new("fast", "r1").with_timeout(100))
+            .unwrap();
+        engine
+            .add_rule(ExpectRule::new("slow", "r2").with_timeout(10_000))
+            .unwrap();
+        engine
+            .add_rule(ExpectRule::new("forever", "r3")) // no timeout
+            .unwrap();
+
+        let created = Instant::now();
+        // Simulate 200ms elapsed
+        let now = created + std::time::Duration::from_millis(200);
+
+        let removed = engine.remove_expired(now, created);
+        assert_eq!(removed, 1); // "fast" expired
+        assert_eq!(engine.len(), 2); // "slow" and "forever" remain
+    }
+
+    #[test]
+    fn test_remove_expired_individual() {
+        use std::collections::HashMap;
+
+        let mut engine = ExpectEngine::new();
+        let rule1 = ExpectRule::new("old", "r1").with_timeout(100);
+        let rule2 = ExpectRule::new("new", "r2").with_timeout(100);
+        let id1 = rule1.id;
+        let id2 = rule2.id;
+
+        engine.add_rule(rule1).unwrap();
+        engine.add_rule(rule2).unwrap();
+
+        let base = Instant::now();
+        let mut created_map = HashMap::new();
+        // rule1 was created 200ms ago
+        created_map.insert(
+            id1,
+            base.checked_sub(std::time::Duration::from_millis(200))
+                .unwrap(),
+        );
+        // rule2 was created 50ms ago
+        created_map.insert(
+            id2,
+            base.checked_sub(std::time::Duration::from_millis(50))
+                .unwrap(),
+        );
+
+        let removed = engine.remove_expired_individual(base, &created_map);
+        assert_eq!(removed, 1); // rule1 expired
+        assert_eq!(engine.len(), 1);
+        assert!(engine.get_rule(id2).is_some());
     }
 }

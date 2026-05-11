@@ -173,14 +173,14 @@ impl SplitDirection {
 
 /// A pane in the split terminal view
 ///
-/// This struct is kept for backward compatibility with existing code that
-/// uses the `panes_ref()` API for click handlers and context menus.
+/// Internal pane state for tracking session placement in split panels.
+///
+/// This struct is an internal implementation detail used by the drop target
+/// callbacks. External code should use `get_pane_session()` and `get_pane_color()`.
 #[derive(Debug)]
-pub struct TerminalPane {
+struct TerminalPane {
     /// Unique identifier for this pane
     id: Uuid,
-    /// Container widget for this pane's content
-    container: GtkBox,
     /// Currently displayed session in this pane (if any)
     current_session: Option<Uuid>,
     /// Color index for this pane (used for tab coloring)
@@ -188,63 +188,21 @@ pub struct TerminalPane {
 }
 
 impl TerminalPane {
-    /// Creates a new terminal pane with drag-and-drop support
-    #[must_use]
-    pub fn new() -> Self {
-        let id = Uuid::new_v4();
-        let container = GtkBox::new(Orientation::Vertical, 0);
-        container.set_hexpand(true);
-        container.set_vexpand(true);
-
-        Self {
-            id,
-            container,
-            current_session: None,
-            color_index: None,
-        }
-    }
-
     /// Creates a new terminal pane with a specific ID
     #[must_use]
-    pub fn new_with_id(id: Uuid) -> Self {
-        let container = GtkBox::new(Orientation::Vertical, 0);
-        container.set_hexpand(true);
-        container.set_vexpand(true);
-
+    fn new_with_id(id: Uuid) -> Self {
         Self {
             id,
-            container,
             current_session: None,
             color_index: None,
-        }
-    }
-
-    /// Creates a new terminal pane with a specific color index
-    #[must_use]
-    pub fn with_color(color_index: usize) -> Self {
-        let id = Uuid::new_v4();
-        let container = GtkBox::new(Orientation::Vertical, 0);
-        container.set_hexpand(true);
-        container.set_vexpand(true);
-
-        Self {
-            id,
-            container,
-            current_session: None,
-            color_index: Some(color_index),
         }
     }
 
     /// Creates a new terminal pane with a specific ID and color index
     #[must_use]
     pub fn with_id_and_color(id: Uuid, color_index: usize) -> Self {
-        let container = GtkBox::new(Orientation::Vertical, 0);
-        container.set_hexpand(true);
-        container.set_vexpand(true);
-
         Self {
             id,
-            container,
             current_session: None,
             color_index: Some(color_index),
         }
@@ -256,14 +214,9 @@ impl TerminalPane {
         self.id
     }
 
-    /// Returns the pane's container widget
-    #[must_use]
-    pub const fn container(&self) -> &GtkBox {
-        &self.container
-    }
-
     /// Returns the currently displayed session ID
     #[must_use]
+    #[allow(dead_code)]
     pub const fn current_session(&self) -> Option<Uuid> {
         self.current_session
     }
@@ -282,165 +235,6 @@ impl TerminalPane {
     /// Sets the color index for this pane
     pub fn set_color_index(&mut self, index: usize) {
         self.color_index = Some(index);
-    }
-
-    /// Clears the pane's content
-    pub fn clear(&self) {
-        while let Some(child) = self.container.first_child() {
-            self.container.remove(&child);
-        }
-    }
-
-    /// Sets the content widget for this pane
-    pub fn set_content(&self, widget: &impl IsA<gtk4::Widget>) {
-        self.clear();
-        widget.set_hexpand(true);
-        widget.set_vexpand(true);
-        widget.set_halign(gtk4::Align::Fill);
-        widget.set_valign(gtk4::Align::Fill);
-        self.container.append(widget);
-    }
-
-    /// Sets up click handler for focus management using capture phase
-    pub fn setup_click_handler<F>(&self, on_click: F)
-    where
-        F: Fn(Uuid) + 'static,
-    {
-        let click = gtk4::GestureClick::new();
-        click.set_button(1); // Left click
-        click.set_propagation_phase(gtk4::PropagationPhase::Capture);
-        let pane_id = self.id;
-        click.connect_pressed(move |gesture, _, _, _| {
-            tracing::debug!("Pane click handler: clicked on pane {}", pane_id);
-            on_click(pane_id);
-            // Deny the gesture so VTE receives the raw button-press event
-            // for mouse tracking (mc, vim, htop).
-            gesture.set_state(gtk4::EventSequenceState::Denied);
-        });
-        self.container.add_controller(click);
-    }
-
-    /// Sets up context menu (right-click) for the pane
-    pub fn setup_context_menu<F>(&self, menu_builder: F)
-    where
-        F: Fn(Uuid) -> gtk4::gio::Menu + 'static,
-    {
-        let click = gtk4::GestureClick::new();
-        click.set_button(3); // Right click
-        click.set_propagation_phase(gtk4::PropagationPhase::Bubble);
-        let pane_id = self.id;
-        let container = self.container.clone();
-
-        click.connect_pressed(move |gesture, _, x, y| {
-            let menu = menu_builder(pane_id);
-            let popover = gtk4::PopoverMenu::from_model(Some(&menu));
-            popover.set_parent(&container);
-            popover.set_pointing_to(Some(&gtk4::gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
-            popover.set_has_arrow(false);
-
-            if let Some(root) = container.root()
-                && let Some(window) = root.downcast_ref::<gtk4::ApplicationWindow>()
-            {
-                let action_group = gtk4::gio::SimpleActionGroup::new();
-                let window_weak = window.downgrade();
-
-                let simple_actions = [
-                    "copy",
-                    "paste",
-                    "close-tab",
-                    "close-pane",
-                    "split-horizontal",
-                    "split-vertical",
-                ];
-
-                for name in simple_actions {
-                    let win = window_weak.clone();
-                    let action_name = name.to_string();
-                    let action = gtk4::gio::SimpleAction::new(name, None);
-                    action.connect_activate(move |_, _| {
-                        if let Some(w) = win.upgrade()
-                            && let Some(a) = w.lookup_action(&action_name)
-                        {
-                            a.activate(None);
-                        }
-                    });
-                    action_group.add_action(&action);
-                }
-
-                let string_actions = ["close-tab-by-id", "unsplit-session"];
-
-                for name in string_actions {
-                    let win = window_weak.clone();
-                    let action_name = name.to_string();
-                    let action =
-                        gtk4::gio::SimpleAction::new(name, Some(gtk4::glib::VariantTy::STRING));
-                    action.connect_activate(move |_, param| {
-                        if let Some(w) = win.upgrade()
-                            && let Some(a) = w.lookup_action(&action_name)
-                        {
-                            a.activate(param);
-                        }
-                    });
-                    action_group.add_action(&action);
-                }
-
-                popover.insert_action_group("win", Some(&action_group));
-            }
-
-            popover.popup();
-            gesture.set_state(gtk4::EventSequenceState::Claimed);
-
-            let container_weak = container.downgrade();
-            popover.connect_closed(move |pop| {
-                if container_weak.upgrade().is_some() {
-                    pop.unparent();
-                }
-            });
-        });
-        self.container.add_controller(click);
-    }
-
-    /// Sets up drag-and-drop for this pane with visual feedback
-    pub fn setup_drop_target<F>(&self, on_drop: F)
-    where
-        F: Fn(Uuid, Uuid) + 'static,
-    {
-        let drop_target =
-            gtk4::DropTarget::new(gtk4::glib::Type::STRING, gtk4::gdk::DragAction::MOVE);
-
-        let pane_id = self.id;
-        let container = self.container.clone();
-        let container_for_enter = self.container.clone();
-        let container_for_leave = self.container.clone();
-
-        drop_target.connect_enter(move |_target, _x, _y| {
-            container_for_enter.add_css_class("drop-target-highlight");
-            gtk4::gdk::DragAction::MOVE
-        });
-
-        drop_target.connect_leave(move |_target| {
-            container_for_leave.remove_css_class("drop-target-highlight");
-        });
-
-        drop_target.connect_drop(move |_target, value, _x, _y| {
-            container.remove_css_class("drop-target-highlight");
-
-            if let Ok(session_str) = value.get::<String>()
-                && let Ok(session_id) = Uuid::parse_str(&session_str)
-            {
-                on_drop(pane_id, session_id);
-                return true;
-            }
-            false
-        });
-
-        self.container.add_controller(drop_target);
-    }
-}
-
-impl Default for TerminalPane {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -734,33 +528,24 @@ impl SplitViewBridge {
     /// This uses the pane's `current_session` field which is updated when
     /// sessions are moved to panels via `move_session_to_panel_with_terminal`
     /// or `show_session`.
+    /// Returns the session currently displayed in a pane
+    ///
+    /// This queries the adapter's panel model directly via the UUID→PanelId mapping.
     #[must_use]
     pub fn get_pane_session(&self, pane_uuid: Uuid) -> Option<Uuid> {
-        self.panes
+        let panel_id = *self.uuid_panel_map.borrow().get(&pane_uuid)?;
+        self.adapter
             .borrow()
-            .iter()
-            .find(|p| p.id() == pane_uuid)
-            .and_then(|p| p.current_session())
+            .get_panel_session(panel_id)
+            .map(|sid| sid.as_uuid())
     }
 
     /// Gets the color index for a specific pane by its UUID
+    ///
+    /// All panes in a split container share the same container color.
     #[must_use]
-    pub fn get_pane_color(&self, pane_uuid: Uuid) -> Option<usize> {
-        self.panes
-            .borrow()
-            .iter()
-            .find(|p| p.id() == pane_uuid)
-            .and_then(|p| p.color_index())
-    }
-
-    /// Gets the color index of the pane displaying a session
-    #[must_use]
-    pub fn get_pane_color_for_session(&self, session_id: Uuid) -> Option<usize> {
-        self.panes
-            .borrow()
-            .iter()
-            .find(|p| p.current_session() == Some(session_id))
-            .and_then(|p| p.color_index())
+    pub fn get_pane_color(&self, _pane_uuid: Uuid) -> Option<usize> {
+        *self.container_color.borrow()
     }
 
     /// Returns true if a session is displayed in any pane
@@ -871,19 +656,9 @@ impl SplitViewBridge {
             .place_in_panel(panel_id, session)
             .map_err(|e| e.to_string())?;
 
-        // Update the pane's current_session tracking and get pane color
-        let pane_color = {
-            let mut panes = self.panes.borrow_mut();
-            if let Some(pane) = panes.iter_mut().find(|p| p.id() == focused_uuid) {
-                pane.set_current_session(Some(session_id));
-                pane.color_index()
-            } else {
-                None
-            }
-        };
-
-        // Set session color to match pane color for consistent tab coloring
-        if let Some(color_index) = pane_color {
+        // Session is now tracked by the adapter via place_in_panel above.
+        // Set session color to match container color for consistent tab coloring.
+        if let Some(color_index) = *self.container_color.borrow() {
             self.set_session_color(session_id, color_index);
         }
 
@@ -1308,7 +1083,7 @@ impl SplitViewBridge {
         let widget_for_leave = widget.clone();
         let widget_for_drop = widget.clone();
         let adapter_rc = Rc::clone(&self.adapter);
-        let panes_rc = Rc::clone(&self.panes);
+        let container_color_rc = Rc::clone(&self.container_color);
         let sessions_rc = Rc::clone(&self.sessions);
         let terminals_rc = Rc::clone(&self.terminals);
         let focused_pane_uuid = Rc::new(RefCell::new(pane_uuid));
@@ -1405,25 +1180,9 @@ impl SplitViewBridge {
                 terminal.set_visible(true);
             }
 
-            // Update pane's current_session
-            {
-                let mut panes = panes_rc.borrow_mut();
-                if let Some(pane) = panes
-                    .iter_mut()
-                    .find(|p| p.id() == *focused_pane_uuid.borrow())
-                {
-                    pane.set_current_session(Some(session_uuid));
-                }
-            }
-
-            // Get the pane's color index and call the on_drop callback
-            let color_index = {
-                let panes = panes_rc.borrow();
-                panes
-                    .iter()
-                    .find(|p| p.id() == *focused_pane_uuid.borrow())
-                    .and_then(|p| p.color_index())
-            };
+            // Get the container color and call the on_drop callback
+            // (adapter already knows about the session via place_in_panel above)
+            let color_index = *container_color_rc.borrow();
 
             if let Some(color) = color_index {
                 tracing::debug!(
@@ -1577,18 +1336,6 @@ impl SplitViewBridge {
         *self.adapter.borrow_mut() = new_adapter;
 
         displayed_sessions
-    }
-
-    /// Returns a reference to panes for external setup
-    #[must_use]
-    pub fn panes_ref(&self) -> std::cell::Ref<'_, Vec<TerminalPane>> {
-        self.panes.borrow()
-    }
-
-    /// Returns a clone of panes Rc for callbacks
-    #[must_use]
-    pub fn panes_ref_clone(&self) -> Rc<RefCell<Vec<TerminalPane>>> {
-        Rc::clone(&self.panes)
     }
 
     /// Returns the shared focused pane reference for callbacks
@@ -2004,13 +1751,19 @@ impl SplitViewBridge {
                     return;
                 };
 
+                // Get the panel widget to use as popover parent (more reliable than root)
+                let panel_widget = adapter.borrow().get_panel_widget(panel_id);
+                let popover_parent = panel_widget
+                    .as_ref()
+                    .map_or_else(|| root.clone().upcast::<gtk4::Widget>(), |w| w.clone().upcast::<gtk4::Widget>());
+
                 tracing::debug!(
-                    "select_tab_callback: panel_id={}, panel_uuid={}, root_mapped={}, root_size={}x{}",
+                    "select_tab_callback: panel_id={}, panel_uuid={}, parent_mapped={}, parent_size={}x{}",
                     panel_id,
                     panel_uuid,
-                    root.is_mapped(),
-                    root.width(),
-                    root.height(),
+                    popover_parent.is_mapped(),
+                    popover_parent.width(),
+                    popover_parent.height(),
                 );
 
                 // Get sessions already displayed in this split view using the adapter
@@ -2038,7 +1791,7 @@ impl SplitViewBridge {
                     tracing::debug!("No sessions available to select (all already in split view)");
                     // Show a toast or message that all sessions are already displayed
                     let popover = gtk4::Popover::new();
-                    popover.set_parent(&root);
+                    popover.set_parent(&popover_parent);
                     popover.set_autohide(true);
 
                     let content = GtkBox::new(Orientation::Vertical, 6);
@@ -2055,8 +1808,8 @@ impl SplitViewBridge {
 
                     popover.set_child(Some(&content));
 
-                    let width = root.width();
-                    let height = root.height();
+                    let width = popover_parent.width();
+                    let height = popover_parent.height();
                     popover.set_pointing_to(Some(&gtk4::gdk::Rectangle::new(
                         width / 2,
                         height / 2,
@@ -2066,9 +1819,9 @@ impl SplitViewBridge {
 
                     popover.popup();
 
-                    let root_weak = root.downgrade();
+                    let parent_weak = popover_parent.downgrade();
                     popover.connect_closed(move |pop| {
-                        if root_weak.upgrade().is_some() {
+                        if parent_weak.upgrade().is_some() {
                             pop.unparent();
                         }
                     });
@@ -2077,7 +1830,7 @@ impl SplitViewBridge {
 
                 // Create a popover with session list
                 let popover = gtk4::Popover::new();
-                popover.set_parent(&root);
+                popover.set_parent(&popover_parent);
                 popover.set_autohide(true);
 
                 let content = GtkBox::new(Orientation::Vertical, 6);
@@ -2128,9 +1881,9 @@ impl SplitViewBridge {
                 content.append(&list_box);
                 popover.set_child(Some(&content));
 
-                // Position popover in center of root widget
-                let width = root.width();
-                let height = root.height();
+                // Position popover in center of panel widget
+                let width = popover_parent.width();
+                let height = popover_parent.height();
                 popover.set_pointing_to(Some(&gtk4::gdk::Rectangle::new(
                     width / 2,
                     height / 2,
@@ -2141,9 +1894,9 @@ impl SplitViewBridge {
                 popover.popup();
 
                 // Clean up popover when closed
-                let root_weak = root.downgrade();
+                let parent_weak = popover_parent.downgrade();
                 popover.connect_closed(move |pop| {
-                    if root_weak.upgrade().is_some() {
+                    if parent_weak.upgrade().is_some() {
                         pop.unparent();
                     }
                 });

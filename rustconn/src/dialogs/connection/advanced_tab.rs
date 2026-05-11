@@ -38,6 +38,10 @@ pub(super) fn create_advanced_tab() -> (
     adw::ComboRow,
     adw::SpinRow,
     adw::SpinRow,
+    adw::SwitchRow,
+    adw::SpinRow,
+    adw::SpinRow,
+    adw::SpinRow,
 ) {
     let scrolled = ScrolledWindow::builder()
         .hscrollbar_policy(gtk4::PolicyType::Never)
@@ -358,6 +362,71 @@ pub(super) fn create_advanced_tab() -> (
 
     content.append(&activity_monitor_group);
 
+    // === Automatic Reconnection Section ===
+    let retry_group = adw::PreferencesGroup::builder()
+        .title(i18n("Automatic Reconnection"))
+        .description(i18n("Retry connection with exponential backoff on failure"))
+        .build();
+
+    let retry_enabled_toggle = adw::SwitchRow::builder()
+        .title(i18n("Enable auto-reconnect"))
+        .subtitle(i18n("Automatically retry when connection drops"))
+        .active(true)
+        .build();
+    retry_group.add(&retry_enabled_toggle);
+
+    let retry_max_attempts_adj = gtk4::Adjustment::new(3.0, 1.0, 10.0, 1.0, 1.0, 0.0);
+    let retry_max_attempts_spin = adw::SpinRow::builder()
+        .title(i18n("Maximum attempts"))
+        .subtitle(i18n("Number of reconnection attempts before giving up"))
+        .adjustment(&retry_max_attempts_adj)
+        .build();
+    retry_group.add(&retry_max_attempts_spin);
+
+    let retry_initial_delay_adj = gtk4::Adjustment::new(1000.0, 100.0, 30000.0, 100.0, 1000.0, 0.0);
+    let retry_initial_delay_spin = adw::SpinRow::builder()
+        .title(i18n("Initial delay (ms)"))
+        .subtitle(i18n("Delay before first reconnection attempt"))
+        .adjustment(&retry_initial_delay_adj)
+        .build();
+    retry_group.add(&retry_initial_delay_spin);
+
+    let retry_max_delay_adj =
+        gtk4::Adjustment::new(30000.0, 1000.0, 120_000.0, 1000.0, 5000.0, 0.0);
+    let retry_max_delay_spin = adw::SpinRow::builder()
+        .title(i18n("Maximum delay (ms)"))
+        .subtitle(i18n("Upper limit for backoff delay between attempts"))
+        .adjustment(&retry_max_delay_adj)
+        .build();
+    retry_group.add(&retry_max_delay_spin);
+
+    // Wire sensitivity: show/hide spin rows based on enabled toggle
+    {
+        let max_attempts = retry_max_attempts_spin.clone();
+        let initial_delay = retry_initial_delay_spin.clone();
+        let max_delay = retry_max_delay_spin.clone();
+        retry_enabled_toggle.connect_active_notify(move |toggle| {
+            let active = toggle.is_active();
+            max_attempts.set_sensitive(active);
+            initial_delay.set_sensitive(active);
+            max_delay.set_sensitive(active);
+        });
+    }
+
+    // Ensure max_delay >= initial_delay: when initial_delay changes,
+    // raise max_delay if it's lower
+    {
+        let max_delay_clone = retry_max_delay_spin.clone();
+        retry_initial_delay_spin.connect_changed(move |spin| {
+            let initial = spin.value();
+            if max_delay_clone.value() < initial {
+                max_delay_clone.set_value(initial);
+            }
+        });
+    }
+
+    content.append(&retry_group);
+
     // === Highlight Rules Section ===
     let highlight_group = adw::PreferencesGroup::builder()
         .title(i18n("Highlight Rules"))
@@ -533,6 +602,10 @@ pub(super) fn create_advanced_tab() -> (
         activity_mode_combo,
         quiet_period_spin,
         silence_timeout_spin,
+        retry_enabled_toggle,
+        retry_max_attempts_spin,
+        retry_initial_delay_spin,
+        retry_max_delay_spin,
     )
 }
 

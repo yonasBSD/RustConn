@@ -311,6 +311,16 @@ fn start_rdp_session_internal(
                         return;
                     }
 
+                    // Verify remote RDP port is reachable through the tunnel
+                    if let Err(e) = rustconn_core::ssh_tunnel::probe_tunnel_remote(
+                        &mut tunnel,
+                        std::time::Duration::from_secs(5),
+                    ) {
+                        tracing::error!(%e, "Remote RDP port unreachable through SSH tunnel");
+                        sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                        return;
+                    }
+
                     // Record connection start in history
                     let history_entry_id = if let Ok(mut state_mut) = state.try_borrow_mut() {
                         Some(state_mut.record_connection_start(&conn_for_history, Some(&username)))
@@ -1157,6 +1167,16 @@ fn start_vnc_session_internal(
                         std::time::Duration::from_millis(250),
                     ) {
                         tracing::error!(%e, "SSH tunnel not ready for VNC");
+                        sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                        return;
+                    }
+
+                    // Verify remote VNC port is reachable through the tunnel
+                    if let Err(e) = rustconn_core::ssh_tunnel::probe_tunnel_remote(
+                        &mut tunnel,
+                        std::time::Duration::from_secs(5),
+                    ) {
+                        tracing::error!(%e, "Remote VNC port unreachable through SSH tunnel");
                         sidebar.update_connection_status(&connection_id.to_string(), "failed");
                         return;
                     }

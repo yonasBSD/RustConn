@@ -304,6 +304,19 @@ fn start_ssh_connection_internal(
             // agent forwarding, X11, compression, custom options, port forwards
             let mut args = ssh_config.build_command_args();
 
+            // Remove -i <path> from args because the identity file is already
+            // resolved separately via resolve_ssh_key_path() and passed as
+            // `identity_file` to spawn_ssh(). Keeping both causes the key to
+            // appear twice in the final command line.
+            if key.is_some()
+                && let Some(pos) = args.iter().position(|a| a == "-i")
+            {
+                args.remove(pos); // remove "-i"
+                if pos < args.len() {
+                    args.remove(pos); // remove the path value
+                }
+            }
+
             // Resolve jump host chain from connection references (needs state access)
             let mut jump_hosts = Vec::new();
 
@@ -1173,6 +1186,16 @@ fn start_spice_connection_internal(
                         return None;
                     }
 
+                    // Verify remote SPICE port is reachable through the tunnel
+                    if let Err(e) = rustconn_core::ssh_tunnel::probe_tunnel_remote(
+                        &mut tunnel,
+                        std::time::Duration::from_secs(5),
+                    ) {
+                        tracing::error!(%e, "Remote SPICE port unreachable through SSH tunnel");
+                        sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                        return None;
+                    }
+
                     ("127.0.0.1".to_string(), local_port, Some(tunnel))
                 }
                 Err(e) => {
@@ -1386,6 +1409,19 @@ pub fn reconnect_ssh_in_place(
                 .map(|p| p.to_string_lossy().to_string());
 
             let mut args = ssh_config.build_command_args();
+
+            // Remove -i <path> from args because the identity file is already
+            // resolved separately via resolve_ssh_key_path() and passed as
+            // `identity_file` to spawn_ssh(). Keeping both causes the key to
+            // appear twice in the final command line.
+            if key.is_some()
+                && let Some(pos) = args.iter().position(|a| a == "-i")
+            {
+                args.remove(pos); // remove "-i"
+                if pos < args.len() {
+                    args.remove(pos); // remove the path value
+                }
+            }
 
             let mut jump_hosts = Vec::new();
             // Handle string-based proxy jump (legacy/manual or inherited from group)

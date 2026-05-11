@@ -214,6 +214,81 @@ where
     }
 }
 
+/// Polls a host until it comes online using exponential backoff from a `RetryConfig`.
+///
+/// Each probe attempt uses the delay calculated by `RetryConfig::delay_for_attempt`.
+/// Returns `true` if the host came online within the configured attempts,
+/// `false` if all attempts were exhausted.
+///
+/// # Arguments
+///
+/// * `host` - Target hostname or IP
+/// * `port` - Target port to probe
+/// * `retry_config` - Retry configuration with backoff parameters
+/// * `cancel` - Cancellation token (set to `true` to stop polling)
+/// * `on_attempt` - Callback invoked after each probe with `(attempt, is_online)`
+///
+/// # Errors
+///
+/// Returns an error if DNS resolution fails, polling is cancelled, or I/O fails.
+pub async fn poll_until_online_with_backoff<F>(
+    host: &str,
+    port: u16,
+    retry_config: &crate::connection::RetryConfig,
+    cancel: &std::sync::atomic::AtomicBool,
+    on_attempt: F,
+) -> HostCheckResult<bool>
+where
+    F: Fn(u32, bool),
+{
+    use crate::connection::RetryState;
+
+    let mut state = RetryState::new(retry_config.clone());
+
+    // Initial check before any retries
+    if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err(HostCheckError::Cancelled);
+    }
+
+    let is_online = check_host_online(host, port, 3).await?;
+    on_attempt(0, is_online);
+    if is_online {
+        return Ok(true);
+    }
+
+    // Retry loop with exponential backoff
+    loop {
+        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err(HostCheckError::Cancelled);
+        }
+
+        let Some(delay) = state.next_delay() else {
+            // No more retries available
+            return Ok(false);
+        };
+
+        tokio::time::sleep(delay).await;
+
+        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err(HostCheckError::Cancelled);
+        }
+
+        let is_online = check_host_online(host, port, 3).await?;
+        let attempt = state.attempt_number();
+        on_attempt(attempt, is_online);
+
+        if is_online {
+            state.record_success();
+            return Ok(true);
+        }
+
+        if !state.record_failure("Host offline") {
+            // All retries exhausted
+            return Ok(false);
+        }
+    }
+}
+
 /// Action to take when a host comes online
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OnlineAction {

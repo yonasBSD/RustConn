@@ -134,6 +134,18 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.13.12" date="2026-05-11">
+      <description>
+        <p>Version 0.13.12 — Auto-reconnect, batch import, SSH fix:</p>
+        <ul>
+          <li>Per-connection auto-reconnect with configurable exponential backoff</li>
+          <li>Multi-file batch import for CSV, RDP, VV, RCN, JSON, RTSZ, MobaXterm, XML, YAML</li>
+          <li>Fixed SSH identity key -i flag duplicated in command</li>
+          <li>Fixed embedded VNC/RDP/SPICE hanging when remote port unreachable through tunnel</li>
+          <li>Fixed per-connection terminal white color displayed as grey</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.13.11" date="2026-05-10">
       <description>
         <p>Version 0.13.11 — Task automation, RDP diagnostics, code quality:</p>

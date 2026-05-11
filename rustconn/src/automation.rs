@@ -2,36 +2,26 @@
 //!
 //! This module provides "Expect"-like functionality for terminal sessions,
 //! allowing automatic responses to specific text patterns in the output.
+//! Pattern matching logic is delegated to `ExpectEngine` from `rustconn-core`.
+
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use gtk4::glib;
 use gtk4::glib::ControlFlow;
-use regex::Regex;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::time::{Duration, Instant};
+use rustconn_core::automation::{ExpectEngine, ExpectRule};
+use uuid::Uuid;
 use vte4::prelude::*;
 use vte4::{Format, Terminal};
 
-/// A trigger rule that matches output and sends input
-#[derive(Debug, Clone)]
-pub struct Trigger {
-    /// Regex pattern to match in terminal output
-    pub pattern: Regex,
-    /// Text to send when pattern matches
-    pub response: String,
-    /// Whether this trigger should only fire once
-    pub one_shot: bool,
-    /// Optional timeout in milliseconds (None = no timeout)
-    pub timeout_ms: Option<u32>,
-    /// When this trigger was created
-    pub created_at: Instant,
-}
-
-/// Shared state for automation triggers
+/// Shared state for automation engine
 struct AutomationState {
-    triggers: Vec<Trigger>,
-    /// Track which patterns have been matched (for one-shot)
-    matched_patterns: Vec<String>,
+    /// The expect engine that handles pattern matching and priority sorting
+    engine: ExpectEngine,
+    /// Per-rule creation timestamps for timeout tracking
+    created_at: HashMap<Uuid, Instant>,
     /// Last content to detect changes
     last_content: String,
     /// Counter for polling cycles
@@ -50,35 +40,51 @@ pub struct AutomationSession {
 }
 
 impl AutomationSession {
-    /// Returns the number of remaining triggers
+    /// Returns the number of remaining rules
     #[must_use]
     pub fn remaining_triggers(&self) -> usize {
-        self.state.borrow().triggers.len()
+        self.state.borrow().engine.len()
     }
 
-    /// Returns whether all triggers have been processed
+    /// Returns whether all rules have been processed
     #[must_use]
     pub fn is_complete(&self) -> bool {
-        self.state.borrow().triggers.is_empty()
+        self.state.borrow().engine.is_empty()
     }
 
-    /// Creates a new automation session with the given triggers
-    pub fn new(terminal: Terminal, triggers: Vec<Trigger>) -> Self {
-        tracing::info!(
-            "AutomationSession: Created with {} triggers",
-            triggers.len()
-        );
-        for trigger in &triggers {
+    /// Creates a new automation session from pre-resolved expect rules
+    ///
+    /// Rules should already have variable substitution applied to their responses.
+    pub fn new(terminal: Terminal, rules: Vec<ExpectRule>) -> Self {
+        tracing::info!("AutomationSession: Created with {} rules", rules.len());
+        for rule in &rules {
             tracing::info!(
-                "AutomationSession: Trigger pattern='{}', response='{}'",
-                trigger.pattern,
-                trigger.response.escape_debug()
+                "AutomationSession: Rule id={}, pattern='{}', response='{}', priority={}, one_shot={}",
+                rule.id,
+                rule.pattern,
+                rule.response.escape_debug(),
+                rule.priority,
+                rule.one_shot,
             );
         }
 
+        let now = Instant::now();
+        let mut created_at = HashMap::new();
+        for rule in &rules {
+            created_at.insert(rule.id, now);
+        }
+
+        let engine = match ExpectEngine::from_rules(rules) {
+            Ok(engine) => engine,
+            Err(e) => {
+                tracing::error!("AutomationSession: Failed to build engine: {e}");
+                ExpectEngine::new()
+            }
+        };
+
         let state = Rc::new(RefCell::new(AutomationState {
-            triggers,
-            matched_patterns: Vec::new(),
+            engine,
+            created_at,
             last_content: String::new(),
             poll_count: 0,
         }));
@@ -94,12 +100,12 @@ impl AutomationSession {
 
             Self::check_terminal_content(&terminal, &state_clone);
 
-            // Continue polling while we have triggers
-            let has_triggers = !state_clone.borrow().triggers.is_empty();
-            if has_triggers {
+            // Continue polling while we have rules
+            let has_rules = !state_clone.borrow().engine.is_empty();
+            if has_rules {
                 ControlFlow::Continue
             } else {
-                tracing::debug!("AutomationSession: No more triggers, stopping polling");
+                tracing::debug!("AutomationSession: No more rules, stopping polling");
                 ControlFlow::Break
             }
         });
@@ -144,50 +150,42 @@ impl AutomationSession {
     fn check_terminal_content(terminal: &Terminal, state: &Rc<RefCell<AutomationState>>) {
         let mut state_ref = state.borrow_mut();
 
-        // Skip if no triggers left
-        if state_ref.triggers.is_empty() {
+        // Skip if no rules left
+        if state_ref.engine.is_empty() {
             return;
         }
 
         state_ref.poll_count += 1;
 
-        // Remove expired triggers (those past their timeout)
-        let now = Instant::now();
-        let expired_count = state_ref.triggers.len();
-        state_ref.triggers.retain(|trigger| {
-            if let Some(timeout_ms) = trigger.timeout_ms {
-                let elapsed = now.duration_since(trigger.created_at);
-                if elapsed > Duration::from_millis(u64::from(timeout_ms)) {
-                    tracing::debug!(
-                        "AutomationSession: Trigger '{}' expired after {}ms",
-                        trigger.pattern,
-                        elapsed.as_millis()
-                    );
-                    return false;
-                }
+        // Remove expired rules (check every 50 polls ≈ 5 seconds to avoid
+        // cloning created_at HashMap on every 100ms tick)
+        if state_ref.poll_count.is_multiple_of(50) {
+            let now = Instant::now();
+            let created_at_snapshot = state_ref.created_at.clone();
+            let expired_count = state_ref
+                .engine
+                .remove_expired_individual(now, &created_at_snapshot);
+            if expired_count > 0 {
+                // Clean up created_at entries for removed rules
+                let active_ids: std::collections::HashSet<Uuid> =
+                    state_ref.engine.rules().iter().map(|r| r.id).collect();
+                state_ref.created_at.retain(|id, _| active_ids.contains(id));
+                tracing::info!(
+                    "AutomationSession: Removed {} expired rules, {} remaining",
+                    expired_count,
+                    state_ref.engine.len()
+                );
             }
-            true
-        });
-        let removed = expired_count - state_ref.triggers.len();
-        if removed > 0 {
-            tracing::info!(
-                "AutomationSession: Removed {} expired triggers, {} remaining",
-                removed,
-                state_ref.triggers.len()
-            );
         }
 
-        if state_ref.triggers.is_empty() {
+        if state_ref.engine.is_empty() {
             return;
         }
 
-        // Get terminal dimensions and cursor position
-        // VTE's cursor_position() returns (column, row)
-        let (cursor_col, cursor_row) = terminal.cursor_position();
+        // Get terminal dimensions
         let row_count = terminal.row_count();
 
         // Read content using text_range_format for the entire visible area
-        // Use negative start row to include scrollback, and row_count for end
         let content = if let (Some(text), _) = terminal.text_range_format(
             Format::Text,
             0,             // start row
@@ -203,8 +201,9 @@ impl AutomationSession {
         // Check if content changed
         let content_changed = content != state_ref.last_content;
 
-        // Log periodically or when content changes significantly
+        // Log periodically
         if state_ref.poll_count.is_multiple_of(500) {
+            let (cursor_col, cursor_row) = terminal.cursor_position();
             tracing::debug!(
                 "AutomationSession: Poll #{}, cursor at ({}, {}), content len {}",
                 state_ref.poll_count,
@@ -221,64 +220,45 @@ impl AutomationSession {
 
         state_ref.last_content = content.clone();
 
-        let mut to_remove = Vec::new();
-        let mut responses_to_send = Vec::new();
-        let mut patterns_to_mark = Vec::new();
+        // Collect matches: (rule_id, response, one_shot)
+        let mut matches: Vec<(Uuid, String, bool)> = Vec::new();
 
-        // Check each line
         for line in content.lines() {
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
+            if line.trim().is_empty() {
                 continue;
             }
 
-            for (idx, trigger) in state_ref.triggers.iter().enumerate() {
-                let pattern_str = trigger.pattern.to_string();
+            // Use engine's match_line which handles trimming and priority
+            if let Some(compiled) = state_ref.engine.match_line(line) {
+                let rule = &compiled.rule;
 
-                // Skip if already matched
-                if state_ref.matched_patterns.contains(&pattern_str) {
+                // Skip if we already matched this rule in this cycle
+                if matches.iter().any(|(id, _, _)| *id == rule.id) {
                     continue;
                 }
 
-                // Skip if already scheduled for removal
-                if to_remove.contains(&idx) {
-                    continue;
-                }
+                tracing::info!(
+                    "AutomationSession: MATCHED rule '{}' (id={}) on line '{}'",
+                    rule.pattern,
+                    rule.id,
+                    line.trim()
+                );
 
-                // Try matching against both full line and trimmed
-                let matches = trigger.pattern.is_match(line) || trigger.pattern.is_match(trimmed);
+                let response = Self::process_escapes(&rule.response);
+                tracing::info!(
+                    "AutomationSession: Sending response: '{}'",
+                    response.escape_debug()
+                );
 
-                if matches {
-                    tracing::info!(
-                        "AutomationSession: MATCHED pattern '{}' on line '{}'",
-                        trigger.pattern,
-                        trimmed
-                    );
-
-                    let response = Self::process_escapes(&trigger.response);
-                    tracing::info!(
-                        "AutomationSession: Sending response: '{}'",
-                        response.escape_debug()
-                    );
-                    responses_to_send.push(response);
-
-                    if trigger.one_shot {
-                        patterns_to_mark.push(pattern_str);
-                        to_remove.push(idx);
-                    }
-                }
+                matches.push((rule.id, response, rule.one_shot));
             }
         }
 
-        // Mark patterns as matched
-        for pattern in patterns_to_mark {
-            state_ref.matched_patterns.push(pattern);
-        }
-
-        // Remove matched one-shot triggers (in reverse order)
-        for idx in to_remove.into_iter().rev() {
-            if idx < state_ref.triggers.len() {
-                state_ref.triggers.remove(idx);
+        // Remove one-shot rules that matched
+        for &(id, _, one_shot) in &matches {
+            if one_shot {
+                state_ref.engine.remove_by_id(id);
+                state_ref.created_at.remove(&id);
             }
         }
 
@@ -286,8 +266,61 @@ impl AutomationSession {
         drop(state_ref);
 
         // Send responses
-        for response in responses_to_send {
+        for (_, response, _) in matches {
             terminal.feed_child(response.as_bytes());
         }
     }
+}
+
+/// Helper to convert `ExpectRule` list with variable substitution into ready-to-use rules
+///
+/// This performs variable substitution on response strings and filters out
+/// disabled rules and rules with invalid patterns.
+pub fn prepare_rules_from_config(
+    rules: &[ExpectRule],
+    var_manager: &rustconn_core::variables::VariableManager,
+) -> Vec<ExpectRule> {
+    let mut prepared = Vec::new();
+
+    for rule in rules {
+        if !rule.enabled {
+            continue;
+        }
+
+        // Validate pattern
+        if rule.validate_pattern().is_err() {
+            tracing::warn!(
+                pattern = %rule.pattern,
+                "Skipping expect rule with invalid regex"
+            );
+            continue;
+        }
+
+        // Substitute ${VAR} references in the response text
+        let resolved_response = var_manager
+            .substitute_for_command(
+                &rule.response,
+                rustconn_core::variables::VariableScope::Global,
+            )
+            .unwrap_or_else(|e| {
+                tracing::warn!(
+                    response = %rule.response,
+                    error = %e,
+                    "Variable substitution failed in expect response, using raw text"
+                );
+                rule.response.clone()
+            });
+
+        prepared.push(ExpectRule {
+            id: rule.id,
+            pattern: rule.pattern.clone(),
+            response: resolved_response,
+            priority: rule.priority,
+            timeout_ms: rule.timeout_ms,
+            enabled: true,
+            one_shot: rule.one_shot,
+        });
+    }
+
+    prepared
 }

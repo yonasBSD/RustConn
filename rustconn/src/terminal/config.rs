@@ -351,20 +351,55 @@ fn hex_to_rgba(hex: &str) -> Option<gdk::RGBA> {
 
 /// Applies per-connection theme override colors to a VTE terminal.
 ///
-/// For each color field present in the override, converts the hex string to
-/// RGBA and applies it via the corresponding VTE setter. Fields that are
-/// `None` are left unchanged (the global theme colors remain).
-pub fn apply_theme_override(terminal: &Terminal, theme_override: &ConnectionThemeOverride) {
-    if let Some(ref bg) = theme_override.background
-        && let Some(rgba) = hex_to_rgba(bg)
-    {
-        terminal.set_color_background(&rgba);
+/// Applies per-connection theme override colors to a VTE terminal.
+///
+/// Rebuilds the full palette via `set_colors()` so that both the explicit
+/// foreground/background AND the ANSI palette entries (7=white, 15=bright
+/// white for foreground; 0=black, 8=bright black for background) are
+/// consistent with the override. Without this, shells that emit ANSI color
+/// codes (e.g. palette index 7 for "white") would still show the global
+/// theme's grey instead of the user's chosen white (#145).
+///
+/// The `base_theme` provides the palette skeleton — only entries affected
+/// by the override are replaced.
+pub fn apply_theme_override_with_base(
+    terminal: &Terminal,
+    theme_override: &ConnectionThemeOverride,
+    base_theme: &TerminalTheme,
+) {
+    let fg_rgba = theme_override
+        .foreground
+        .as_deref()
+        .and_then(hex_to_rgba)
+        .unwrap_or_else(|| color_to_rgba(&base_theme.foreground));
+
+    let bg_rgba = theme_override
+        .background
+        .as_deref()
+        .and_then(hex_to_rgba)
+        .unwrap_or_else(|| color_to_rgba(&base_theme.background));
+
+    // Build palette from base theme, overriding relevant ANSI entries
+    let mut palette_rgba: Vec<gdk::RGBA> = base_theme.palette.iter().map(color_to_rgba).collect();
+
+    // If foreground is overridden, also update palette white (7) and
+    // bright white (15) so ANSI-colored output matches the custom color.
+    if theme_override.foreground.is_some() {
+        palette_rgba[7] = fg_rgba;
+        palette_rgba[15] = fg_rgba;
     }
-    if let Some(ref fg) = theme_override.foreground
-        && let Some(rgba) = hex_to_rgba(fg)
-    {
-        terminal.set_color_foreground(&rgba);
+
+    // If background is overridden, also update palette black (0) and
+    // bright black (8) for consistency.
+    if theme_override.background.is_some() {
+        palette_rgba[0] = bg_rgba;
+        palette_rgba[8] = bg_rgba;
     }
+
+    let palette_refs: Vec<&gdk::RGBA> = palette_rgba.iter().collect();
+    terminal.set_colors(Some(&fg_rgba), Some(&bg_rgba), &palette_refs);
+
+    // Cursor override (independent of palette)
     if let Some(ref cursor) = theme_override.cursor
         && let Some(rgba) = hex_to_rgba(cursor)
     {

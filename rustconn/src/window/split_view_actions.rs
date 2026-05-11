@@ -171,19 +171,13 @@ impl MainWindow {
                 // Setup click handlers for ALL panes (both original and new)
                 // This ensures focus rectangle moves correctly when clicking any pane
                 let sv_for_focus = sv_for_click.clone();
-                let panes_clone = sv_for_click.panes_ref_clone();
+                let sv_for_session = sv_for_click.clone();
                 let sv_for_terminal = sv_for_click.clone();
                 sv_for_click.setup_all_panel_click_handlers(move |clicked_pane_uuid| {
                     // Update the bridge's focused pane state (handles all focus styling)
                     sv_for_focus.set_focused_pane(Some(clicked_pane_uuid));
-                    // Get session_id from the clicked pane
-                    let session_to_focus = {
-                        let panes_ref = panes_clone.borrow();
-                        panes_ref
-                            .iter()
-                            .find(|p| p.id() == clicked_pane_uuid)
-                            .and_then(|p| p.current_session())
-                    };
+                    // Get session_id from the clicked pane via adapter
+                    let session_to_focus = sv_for_session.get_pane_session(clicked_pane_uuid);
                     // Grab focus on the terminal in the clicked pane.
                     // Do NOT call switch_to_tab() here — the split widget lives on the
                     // split-owner's TabPage. Switching to another session's tab would
@@ -453,19 +447,13 @@ impl MainWindow {
                 // Setup click handlers for ALL panes (both original and new)
                 // This ensures focus rectangle moves correctly when clicking any pane
                 let sv_for_focus = sv_for_click.clone();
-                let panes_clone = sv_for_click.panes_ref_clone();
+                let sv_for_session = sv_for_click.clone();
                 let sv_for_terminal = sv_for_click.clone();
                 sv_for_click.setup_all_panel_click_handlers(move |clicked_pane_uuid| {
                     // Update the bridge's focused pane state (handles all focus styling)
                     sv_for_focus.set_focused_pane(Some(clicked_pane_uuid));
-                    // Get session_id from the clicked pane
-                    let session_to_focus = {
-                        let panes_ref = panes_clone.borrow();
-                        panes_ref
-                            .iter()
-                            .find(|p| p.id() == clicked_pane_uuid)
-                            .and_then(|p| p.current_session())
-                    };
+                    // Get session_id from the clicked pane via adapter
+                    let session_to_focus = sv_for_session.get_pane_session(clicked_pane_uuid);
                     // Grab focus on the terminal in the clicked pane.
                     // Do NOT call switch_to_tab() here — the split widget lives on the
                     // split-owner's TabPage. Switching to another session's tab would

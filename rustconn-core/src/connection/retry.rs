@@ -3,6 +3,7 @@
 //! This module provides retry configuration and utilities for handling
 //! transient connection failures with automatic retry and exponential backoff.
 
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 /// Default maximum number of retry attempts
@@ -22,7 +23,7 @@ pub const DEFAULT_BACKOFF_MULTIPLIER: f64 = 2.0;
 /// Implements exponential backoff with configurable parameters.
 /// The delay between retries is calculated as:
 /// `min(initial_delay * multiplier^attempt, max_delay)`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RetryConfig {
     /// Maximum number of retry attempts (0 = no retries)
     pub max_attempts: u32,
@@ -47,6 +48,10 @@ impl Default for RetryConfig {
         }
     }
 }
+
+// Manual Eq implementation: f64 fields use finite values only in practice.
+// This is required because Connection derives Eq.
+impl Eq for RetryConfig {}
 
 impl RetryConfig {
     /// Creates a new retry configuration with default values
@@ -133,8 +138,10 @@ impl RetryConfig {
             return None;
         }
 
-        let delay_ms = self.initial_delay_ms as f64 * self.backoff_multiplier.powi(attempt as i32);
-        let capped_delay_ms = (delay_ms as u64).min(self.max_delay_ms);
+        // Ensure initial_delay_ms is at least 100ms to prevent zero/tiny delays
+        let initial = self.initial_delay_ms.max(100);
+        let delay_ms = initial as f64 * self.backoff_multiplier.powi(attempt as i32);
+        let capped_delay_ms = (delay_ms as u64).min(self.max_delay_ms.max(initial));
 
         Some(Duration::from_millis(capped_delay_ms))
     }
