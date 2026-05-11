@@ -494,6 +494,17 @@ impl MainWindow {
                 && let Ok(state_ref) = state_clone.try_borrow()
                 && let Some(conn) = state_ref.get_connection(connection_id)
             {
+                // Use per-connection retry config or default
+                let retry_config = conn.retry_config.clone()
+                    .unwrap_or_default();
+
+                // If retry is explicitly disabled, skip auto-reconnect
+                if !retry_config.enabled {
+                    drop(state_ref);
+                    sidebar_clone.decrement_session_count(&connection_id_str, is_failure);
+                    return;
+                }
+
                 let host = conn.host.clone();
                 let port = conn.port;
                 drop(state_ref);
@@ -504,17 +515,13 @@ impl MainWindow {
                 // Register cancel token so closing the tab cancels polling
                 notebook_clone.register_poll_cancel(session_id, cancel.clone());
 
-                let config =
-                    rustconn_core::host_check::HostCheckConfig::new(&host, port)
-                        .with_timeout_secs(3)
-                        .with_poll_interval_secs(5)
-                        .with_max_poll_duration_secs(300);
-
                 tracing::info!(
                     %connection_id,
                     %host,
                     %port,
-                    "Starting auto-reconnect polling"
+                    max_attempts = retry_config.max_attempts,
+                    initial_delay_ms = retry_config.initial_delay_ms,
+                    "Starting auto-reconnect with exponential backoff"
                 );
 
                 // Clone notebook's on_reconnect callback for use in the polling result
@@ -524,12 +531,20 @@ impl MainWindow {
                 crate::utils::spawn_blocking_with_callback(
                     move || {
                         let rt = tokio::runtime::Runtime::new()
-                            .expect("Failed to create tokio runtime");
+                            .map_err(rustconn_core::host_check::HostCheckError::Io)?;
                         rt.block_on(
-                            rustconn_core::host_check::poll_until_online(
-                                &config,
+                            rustconn_core::host_check::poll_until_online_with_backoff(
+                                &host,
+                                port,
+                                &retry_config,
                                 &cancel,
-                                |_online, _elapsed| {},
+                                |attempt, is_online| {
+                                    tracing::debug!(
+                                        attempt,
+                                        is_online,
+                                        "Auto-reconnect probe"
+                                    );
+                                },
                             ),
                         )
                     },

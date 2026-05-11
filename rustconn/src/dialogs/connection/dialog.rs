@@ -341,6 +341,11 @@ pub struct ConnectionDialog {
     activity_mode_combo: adw::ComboRow,
     activity_quiet_period_spin: adw::SpinRow,
     activity_silence_timeout_spin: adw::SpinRow,
+    // Retry config fields
+    retry_enabled_toggle: adw::SwitchRow,
+    retry_max_attempts_spin: adw::SpinRow,
+    retry_initial_delay_spin: adw::SpinRow,
+    retry_max_delay_spin: adw::SpinRow,
     // State
     editing_id: Rc<RefCell<Option<Uuid>>>,
     // Callback
@@ -740,6 +745,10 @@ impl ConnectionDialog {
             activity_mode_combo,
             activity_quiet_period_spin,
             activity_silence_timeout_spin,
+            retry_enabled_toggle,
+            retry_max_attempts_spin,
+            retry_initial_delay_spin,
+            retry_max_delay_spin,
         ) = super::advanced_tab::create_advanced_tab();
         view_stack
             .add_titled(&advanced_tab, Some("advanced"), &i18n("Advanced"))
@@ -968,6 +977,10 @@ impl ConnectionDialog {
             &activity_mode_combo,
             &activity_quiet_period_spin,
             &activity_silence_timeout_spin,
+            &retry_enabled_toggle,
+            &retry_max_attempts_spin,
+            &retry_initial_delay_spin,
+            &retry_max_delay_spin,
         );
 
         let result = Self {
@@ -1167,6 +1180,10 @@ impl ConnectionDialog {
             activity_mode_combo,
             activity_quiet_period_spin,
             activity_silence_timeout_spin,
+            retry_enabled_toggle,
+            retry_max_attempts_spin,
+            retry_initial_delay_spin,
+            retry_max_delay_spin,
             editing_id,
             on_save,
             connections_data,
@@ -2028,6 +2045,10 @@ impl ConnectionDialog {
         activity_mode_combo: &adw::ComboRow,
         activity_quiet_period_spin: &adw::SpinRow,
         activity_silence_timeout_spin: &adw::SpinRow,
+        retry_enabled_toggle: &adw::SwitchRow,
+        retry_max_attempts_spin: &adw::SpinRow,
+        retry_initial_delay_spin: &adw::SpinRow,
+        retry_max_delay_spin: &adw::SpinRow,
     ) {
         let window = window.clone();
         let on_save = on_save.clone();
@@ -2204,6 +2225,10 @@ impl ConnectionDialog {
         let activity_mode_combo = activity_mode_combo.clone();
         let activity_quiet_period_spin = activity_quiet_period_spin.clone();
         let activity_silence_timeout_spin = activity_silence_timeout_spin.clone();
+        let retry_enabled_toggle = retry_enabled_toggle.clone();
+        let retry_max_attempts_spin = retry_max_attempts_spin.clone();
+        let retry_initial_delay_spin = retry_initial_delay_spin.clone();
+        let retry_max_delay_spin = retry_max_delay_spin.clone();
 
         save_btn.connect_clicked(move |_| {
             let local_variables = Self::collect_local_variables(&variables_rows);
@@ -2385,6 +2410,10 @@ impl ConnectionDialog {
                 activity_mode_combo: &activity_mode_combo,
                 activity_quiet_period_spin: &activity_quiet_period_spin,
                 activity_silence_timeout_spin: &activity_silence_timeout_spin,
+                retry_enabled_toggle: &retry_enabled_toggle,
+                retry_max_attempts_spin: &retry_max_attempts_spin,
+                retry_initial_delay_spin: &retry_initial_delay_spin,
+                retry_max_delay_spin: &retry_max_delay_spin,
             };
 
             if let Err(err) = data.validate() {
@@ -3775,6 +3804,24 @@ impl ConnectionDialog {
             self.activity_mode_combo.set_selected(0);
             self.activity_quiet_period_spin.set_value(10.0);
             self.activity_silence_timeout_spin.set_value(30.0);
+        }
+
+        // Set retry config
+        if let Some(ref config) = conn.retry_config {
+            self.retry_enabled_toggle.set_active(config.enabled);
+            self.retry_max_attempts_spin
+                .set_value(f64::from(config.max_attempts));
+            #[allow(clippy::cast_precision_loss)]
+            self.retry_initial_delay_spin
+                .set_value(config.initial_delay_ms as f64);
+            #[allow(clippy::cast_precision_loss)]
+            self.retry_max_delay_spin
+                .set_value(config.max_delay_ms as f64);
+        } else {
+            self.retry_enabled_toggle.set_active(true);
+            self.retry_max_attempts_spin.set_value(3.0);
+            self.retry_initial_delay_spin.set_value(1000.0);
+            self.retry_max_delay_spin.set_value(30_000.0);
         }
     }
 
@@ -5861,6 +5908,11 @@ struct ConnectionDialogData<'a> {
     activity_mode_combo: &'a adw::ComboRow,
     activity_quiet_period_spin: &'a adw::SpinRow,
     activity_silence_timeout_spin: &'a adw::SpinRow,
+    // Retry config fields
+    retry_enabled_toggle: &'a adw::SwitchRow,
+    retry_max_attempts_spin: &'a adw::SpinRow,
+    retry_initial_delay_spin: &'a adw::SpinRow,
+    retry_max_delay_spin: &'a adw::SpinRow,
 }
 
 impl ConnectionDialogData<'_> {
@@ -6134,6 +6186,30 @@ impl ConnectionDialogData<'_> {
                     mode,
                     quiet_period_secs: if quiet == 10 { None } else { Some(quiet) },
                     silence_timeout_secs: if silence == 30 { None } else { Some(silence) },
+                })
+            };
+        }
+
+        // Set retry config
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        {
+            let enabled = self.retry_enabled_toggle.is_active();
+            let max_attempts = self.retry_max_attempts_spin.value() as u32;
+            let initial_delay_ms = self.retry_initial_delay_spin.value() as u64;
+            let max_delay_ms = self.retry_max_delay_spin.value() as u64;
+
+            // Store None if all defaults to keep config clean
+            let is_default =
+                enabled && max_attempts == 3 && initial_delay_ms == 1000 && max_delay_ms == 30_000;
+            conn.retry_config = if is_default {
+                None
+            } else {
+                Some(rustconn_core::RetryConfig {
+                    max_attempts,
+                    initial_delay_ms,
+                    max_delay_ms,
+                    backoff_multiplier: rustconn_core::connection::DEFAULT_BACKOFF_MULTIPLIER,
+                    enabled,
                 })
             };
         }

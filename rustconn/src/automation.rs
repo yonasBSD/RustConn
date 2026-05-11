@@ -157,18 +157,25 @@ impl AutomationSession {
 
         state_ref.poll_count += 1;
 
-        // Remove expired rules
-        let now = Instant::now();
-        let created_at_snapshot = state_ref.created_at.clone();
-        let expired_count = state_ref
-            .engine
-            .remove_expired_individual(now, &created_at_snapshot);
-        if expired_count > 0 {
-            tracing::info!(
-                "AutomationSession: Removed {} expired rules, {} remaining",
-                expired_count,
-                state_ref.engine.len()
-            );
+        // Remove expired rules (check every 50 polls ≈ 5 seconds to avoid
+        // cloning created_at HashMap on every 100ms tick)
+        if state_ref.poll_count.is_multiple_of(50) {
+            let now = Instant::now();
+            let created_at_snapshot = state_ref.created_at.clone();
+            let expired_count = state_ref
+                .engine
+                .remove_expired_individual(now, &created_at_snapshot);
+            if expired_count > 0 {
+                // Clean up created_at entries for removed rules
+                let active_ids: std::collections::HashSet<Uuid> =
+                    state_ref.engine.rules().iter().map(|r| r.id).collect();
+                state_ref.created_at.retain(|id, _| active_ids.contains(id));
+                tracing::info!(
+                    "AutomationSession: Removed {} expired rules, {} remaining",
+                    expired_count,
+                    state_ref.engine.len()
+                );
+            }
         }
 
         if state_ref.engine.is_empty() {

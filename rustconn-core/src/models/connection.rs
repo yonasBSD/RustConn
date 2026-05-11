@@ -331,6 +331,12 @@ pub struct Connection {
     /// Dynamic connections are read-only and regenerated on refresh.
     #[serde(default)]
     pub is_dynamic: bool,
+    /// Retry configuration for automatic reconnection on failure.
+    ///
+    /// When `None`, auto-reconnect uses the default polling behavior.
+    /// When `Some`, the configured retry policy (max attempts, backoff) is used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_config: Option<crate::connection::RetryConfig>,
 }
 
 impl Connection {
@@ -376,6 +382,7 @@ impl Connection {
             session_recording_enabled: false,
             highlight_rules: Vec::new(),
             is_dynamic: false,
+            retry_config: None,
         }
     }
 

@@ -29,3 +29,12 @@ You are editing a file in `rustconn/src/window/`.
 
 - Tab Overview → `AdwTabOverview`, terminals always inside `TabPage`
 - Split view → layout lives inside TabPage, not in a global container
+
+## Auto-Reconnect
+
+- Uses `poll_until_online_with_backoff()` from `rustconn-core/src/host_check.rs`
+- Exponential backoff via `RetryConfig` / `RetryState` (per-connection or default)
+- Runs in background thread via `spawn_blocking_with_callback`
+- Cancel token registered per session — closing tab cancels polling
+- Never use `.expect()` for `Runtime::new()` — use `.map_err(HostCheckError::Io)?`
+- Skip reconnect if: SSH auth failure, rapid crash (<5s), or retry disabled

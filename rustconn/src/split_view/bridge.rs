@@ -216,6 +216,7 @@ impl TerminalPane {
 
     /// Returns the currently displayed session ID
     #[must_use]
+    #[allow(dead_code)]
     pub const fn current_session(&self) -> Option<Uuid> {
         self.current_session
     }
@@ -545,16 +546,6 @@ impl SplitViewBridge {
     #[must_use]
     pub fn get_pane_color(&self, _pane_uuid: Uuid) -> Option<usize> {
         *self.container_color.borrow()
-    }
-
-    /// Gets the color index of the pane displaying a session
-    #[must_use]
-    pub fn get_pane_color_for_session(&self, session_id: Uuid) -> Option<usize> {
-        self.panes
-            .borrow()
-            .iter()
-            .find(|p| p.current_session() == Some(session_id))
-            .and_then(|p| p.color_index())
     }
 
     /// Returns true if a session is displayed in any pane
@@ -1760,13 +1751,19 @@ impl SplitViewBridge {
                     return;
                 };
 
+                // Get the panel widget to use as popover parent (more reliable than root)
+                let panel_widget = adapter.borrow().get_panel_widget(panel_id);
+                let popover_parent = panel_widget
+                    .as_ref()
+                    .map_or_else(|| root.clone().upcast::<gtk4::Widget>(), |w| w.clone().upcast::<gtk4::Widget>());
+
                 tracing::debug!(
-                    "select_tab_callback: panel_id={}, panel_uuid={}, root_mapped={}, root_size={}x{}",
+                    "select_tab_callback: panel_id={}, panel_uuid={}, parent_mapped={}, parent_size={}x{}",
                     panel_id,
                     panel_uuid,
-                    root.is_mapped(),
-                    root.width(),
-                    root.height(),
+                    popover_parent.is_mapped(),
+                    popover_parent.width(),
+                    popover_parent.height(),
                 );
 
                 // Get sessions already displayed in this split view using the adapter
@@ -1794,7 +1791,7 @@ impl SplitViewBridge {
                     tracing::debug!("No sessions available to select (all already in split view)");
                     // Show a toast or message that all sessions are already displayed
                     let popover = gtk4::Popover::new();
-                    popover.set_parent(&root);
+                    popover.set_parent(&popover_parent);
                     popover.set_autohide(true);
 
                     let content = GtkBox::new(Orientation::Vertical, 6);
@@ -1811,8 +1808,8 @@ impl SplitViewBridge {
 
                     popover.set_child(Some(&content));
 
-                    let width = root.width();
-                    let height = root.height();
+                    let width = popover_parent.width();
+                    let height = popover_parent.height();
                     popover.set_pointing_to(Some(&gtk4::gdk::Rectangle::new(
                         width / 2,
                         height / 2,
@@ -1822,9 +1819,9 @@ impl SplitViewBridge {
 
                     popover.popup();
 
-                    let root_weak = root.downgrade();
+                    let parent_weak = popover_parent.downgrade();
                     popover.connect_closed(move |pop| {
-                        if root_weak.upgrade().is_some() {
+                        if parent_weak.upgrade().is_some() {
                             pop.unparent();
                         }
                     });
@@ -1833,7 +1830,7 @@ impl SplitViewBridge {
 
                 // Create a popover with session list
                 let popover = gtk4::Popover::new();
-                popover.set_parent(&root);
+                popover.set_parent(&popover_parent);
                 popover.set_autohide(true);
 
                 let content = GtkBox::new(Orientation::Vertical, 6);
@@ -1884,9 +1881,9 @@ impl SplitViewBridge {
                 content.append(&list_box);
                 popover.set_child(Some(&content));
 
-                // Position popover in center of root widget
-                let width = root.width();
-                let height = root.height();
+                // Position popover in center of panel widget
+                let width = popover_parent.width();
+                let height = popover_parent.height();
                 popover.set_pointing_to(Some(&gtk4::gdk::Rectangle::new(
                     width / 2,
                     height / 2,
@@ -1897,9 +1894,9 @@ impl SplitViewBridge {
                 popover.popup();
 
                 // Clean up popover when closed
-                let root_weak = root.downgrade();
+                let parent_weak = popover_parent.downgrade();
                 popover.connect_closed(move |pop| {
-                    if root_weak.upgrade().is_some() {
+                    if parent_weak.upgrade().is_some() {
                         pop.unparent();
                     }
                 });

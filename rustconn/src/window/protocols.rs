@@ -1173,6 +1173,16 @@ fn start_spice_connection_internal(
                         return None;
                     }
 
+                    // Verify remote SPICE port is reachable through the tunnel
+                    if let Err(e) = rustconn_core::ssh_tunnel::probe_tunnel_remote(
+                        &mut tunnel,
+                        std::time::Duration::from_secs(5),
+                    ) {
+                        tracing::error!(%e, "Remote SPICE port unreachable through SSH tunnel");
+                        sidebar.update_connection_status(&connection_id.to_string(), "failed");
+                        return None;
+                    }
+
                     ("127.0.0.1".to_string(), local_port, Some(tunnel))
                 }
                 Err(e) => {
