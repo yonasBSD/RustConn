@@ -805,6 +805,11 @@ pub struct SshConfig {
     /// When set, overrides both the global setting and auto-detected socket.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ssh_agent_socket: Option<String>,
+    /// Custom `ProxyCommand` for connections that require a proxy (e.g., Tor `.onion` hosts).
+    /// When set, SSH uses this command instead of a direct TCP connection.
+    /// Example: `ncat --proxy 127.0.0.1:9050 --proxy-type socks5 %h %p`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy_command: Option<String>,
     /// SSH keep-alive interval in seconds (`ServerAliveInterval`).
     /// Sends a keep-alive packet every N seconds to prevent idle disconnects.
     /// `None` means no keep-alive (SSH default behavior).
@@ -897,10 +902,18 @@ impl SshConfig {
             args.push("IdentitiesOnly=yes".to_string());
         }
 
-        // Add proxy jump if specified
-        if let Some(ref proxy) = self.proxy_jump {
+        // Add proxy jump if specified (skip when ProxyCommand is set — it takes precedence)
+        if self.proxy_command.is_none()
+            && let Some(ref proxy) = self.proxy_jump
+        {
             args.push("-J".to_string());
             args.push(proxy.clone());
+        }
+
+        // Add ProxyCommand if specified (e.g., for Tor .onion hosts)
+        if let Some(ref proxy_cmd) = self.proxy_command {
+            args.push("-o".to_string());
+            args.push(format!("ProxyCommand={proxy_cmd}"));
         }
 
         // Add control master options if enabled

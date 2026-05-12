@@ -272,6 +272,9 @@ fn start_rdp_session_internal(
             .and_then(|p| rustconn_core::resolve_key_path(&p))
             .map(|p| p.to_string_lossy().to_string());
 
+            // Resolve recursive jump host chain (e.g. jump_conn itself needs a jump host)
+            let extra_args = super::protocols::resolve_jump_chain_for_tunnel(&state_ref, jump_conn);
+
             let params = rustconn_core::ssh_tunnel::SshTunnelParams {
                 jump_host: jump_dest,
                 jump_port,
@@ -285,7 +288,7 @@ fn start_rdp_session_internal(
                         !c.password.expose_secret().is_empty()
                     })
                     .map(|c| c.password.clone()),
-                extra_args: Vec::new(),
+                extra_args,
             };
 
             // Clone connection for history before dropping state borrow
@@ -1134,6 +1137,9 @@ fn start_vnc_session_internal(
             .and_then(|p| rustconn_core::resolve_key_path(&p))
             .map(|p| p.to_string_lossy().to_string());
 
+            // Resolve recursive jump host chain (e.g. jump_conn itself needs a jump host)
+            let extra_args = super::protocols::resolve_jump_chain_for_tunnel(&state_ref, jump_conn);
+
             let params = rustconn_core::ssh_tunnel::SshTunnelParams {
                 jump_host: jump_dest,
                 jump_port,
@@ -1147,7 +1153,7 @@ fn start_vnc_session_internal(
                         !c.password.expose_secret().is_empty()
                     })
                     .map(|c| c.password.clone()),
-                extra_args: Vec::new(),
+                extra_args,
             };
 
             drop(state_ref);

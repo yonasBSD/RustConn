@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.13.12
+Version:        0.13.13
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,17 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Mon May 12 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.13-0
+- [Added] SSH ProxyCommand support — custom proxy for .onion hosts and SOCKS proxies
+- [Fixed] SSH Startup Command not executing in GUI terminal
+- [Fixed] SSH ProxyCommand port format — jump hosts with non-standard ports
+- [Fixed] RDP/VNC/SPICE tunnel through nested jump hosts
+- [Improved] StringInterner: HashSet instead of HashMap — 50% less memory overhead per entry
+- [Improved] ConfigManager: ensure_config_dir() caching — skip filesystem check after first success
+- [Improved] ConnectionManager: collect_descendant_groups() O(n) instead of O(n²)
+- [Improved] ConnectionManager: sort_all() refactoring — extracted sort_ids_by_name() helper
+- [Improved] WolDialog: migrated to adw::Dialog — better focus management, auto Escape
+
 * Mon May 11 2026 Anton Isaiev <totoshko88@gmail.com> - 0.13.12-0
 - Auto-reconnect: per-connection RetryConfig with exponential backoff
 - Import: multi-file batch import

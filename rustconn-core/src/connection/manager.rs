@@ -695,16 +695,26 @@ impl ConnectionManager {
 
     /// Collects a group and all its descendant groups
     fn collect_descendant_groups(&self, group_id: Uuid) -> Vec<Uuid> {
-        let mut seen = std::collections::HashSet::new();
-        seen.insert(group_id);
+        // Build parent → children index for O(n) traversal instead of O(n²)
+        let mut children_index: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+        for (id, group) in &self.groups {
+            if let Some(parent) = group.parent_id {
+                children_index.entry(parent).or_default().push(*id);
+            }
+        }
+
         let mut result = vec![group_id];
+        let mut visited = std::collections::HashSet::new();
+        visited.insert(group_id);
         let mut to_process = vec![group_id];
 
         while let Some(current_id) = to_process.pop() {
-            for (id, group) in &self.groups {
-                if group.parent_id == Some(current_id) && seen.insert(*id) {
-                    result.push(*id);
-                    to_process.push(*id);
+            if let Some(children) = children_index.get(&current_id) {
+                for &child_id in children {
+                    if visited.insert(child_id) {
+                        result.push(child_id);
+                        to_process.push(child_id);
+                    }
                 }
             }
         }
@@ -1263,21 +1273,7 @@ impl ConnectionManager {
             .map(|g| g.id)
             .collect();
 
-        root_groups.sort_by(|a, b| {
-            let name_a = self
-                .groups
-                .get(a)
-                .map(|g| g.name.to_lowercase())
-                .unwrap_or_default();
-            let name_b = self
-                .groups
-                .get(b)
-                .map(|g| g.name.to_lowercase())
-                .unwrap_or_default();
-            name_a.cmp(&name_b)
-        });
-
-        // Update sort_order for root groups
+        Self::sort_ids_by_name(&mut root_groups, &self.groups, |g| &g.name);
         for (idx, group_id) in root_groups.iter().enumerate() {
             if let Some(group) = self.groups.get_mut(group_id) {
                 #[allow(clippy::cast_possible_wrap)]
@@ -1298,20 +1294,7 @@ impl ConnectionManager {
                 .map(|g| g.id)
                 .collect();
 
-            child_groups.sort_by(|a, b| {
-                let name_a = self
-                    .groups
-                    .get(a)
-                    .map(|g| g.name.to_lowercase())
-                    .unwrap_or_default();
-                let name_b = self
-                    .groups
-                    .get(b)
-                    .map(|g| g.name.to_lowercase())
-                    .unwrap_or_default();
-                name_a.cmp(&name_b)
-            });
-
+            Self::sort_ids_by_name(&mut child_groups, &self.groups, |g| &g.name);
             for (idx, child_id) in child_groups.iter().enumerate() {
                 if let Some(group) = self.groups.get_mut(child_id) {
                     #[allow(clippy::cast_possible_wrap)]
@@ -1329,20 +1312,7 @@ impl ConnectionManager {
                 .map(|c| c.id)
                 .collect();
 
-            group_connections.sort_by(|a, b| {
-                let name_a = self
-                    .connections
-                    .get(a)
-                    .map(|c| c.name.to_lowercase())
-                    .unwrap_or_default();
-                let name_b = self
-                    .connections
-                    .get(b)
-                    .map(|c| c.name.to_lowercase())
-                    .unwrap_or_default();
-                name_a.cmp(&name_b)
-            });
-
+            Self::sort_ids_by_name(&mut group_connections, &self.connections, |c| &c.name);
             for (idx, conn_id) in group_connections.iter().enumerate() {
                 if let Some(conn) = self.connections.get_mut(conn_id) {
                     #[allow(clippy::cast_possible_wrap)]
@@ -1362,20 +1332,7 @@ impl ConnectionManager {
             .map(|c| c.id)
             .collect();
 
-        ungrouped.sort_by(|a, b| {
-            let name_a = self
-                .connections
-                .get(a)
-                .map(|c| c.name.to_lowercase())
-                .unwrap_or_default();
-            let name_b = self
-                .connections
-                .get(b)
-                .map(|c| c.name.to_lowercase())
-                .unwrap_or_default();
-            name_a.cmp(&name_b)
-        });
-
+        Self::sort_ids_by_name(&mut ungrouped, &self.connections, |c| &c.name);
         for (idx, conn_id) in ungrouped.iter().enumerate() {
             if let Some(conn) = self.connections.get_mut(conn_id) {
                 #[allow(clippy::cast_possible_wrap)]
@@ -1390,6 +1347,18 @@ impl ConnectionManager {
         self.persist_groups()?;
         self.persist_connections()?;
         Ok(())
+    }
+
+    /// Sorts a list of IDs by the lowercase name of the corresponding item in the map.
+    ///
+    /// Uses `sort_by_cached_key` to avoid repeated `to_lowercase()` allocations
+    /// during comparisons (O(n) allocations instead of O(n log n)).
+    fn sort_ids_by_name<T>(ids: &mut [Uuid], map: &HashMap<Uuid, T>, get_name: fn(&T) -> &str) {
+        ids.sort_by_cached_key(|id| {
+            map.get(id)
+                .map(|v| get_name(v).to_lowercase())
+                .unwrap_or_default()
+        });
     }
 
     /// Updates the `last_connected` timestamp for a connection

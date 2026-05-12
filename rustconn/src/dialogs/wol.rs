@@ -16,27 +16,25 @@ use std::rc::Rc;
 
 /// Standalone Wake On LAN dialog
 pub struct WolDialog {
-    window: adw::Window,
+    dialog: adw::Dialog,
     connection_dropdown: adw::ComboRow,
     connections: Rc<RefCell<Vec<Connection>>>,
+}
+
+impl Default for WolDialog {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl WolDialog {
     /// Creates a new WoL dialog
     #[must_use]
-    pub fn new(parent: Option<&gtk4::Window>) -> Self {
-        let window = adw::Window::builder()
+    pub fn new() -> Self {
+        let dialog = adw::Dialog::builder()
             .title(i18n("Wake On LAN"))
-            .modal(true)
-            .default_width(500)
-            .default_height(-1)
+            .content_width(500)
             .build();
-
-        if let Some(p) = parent {
-            window.set_transient_for(Some(p));
-        }
-
-        window.set_size_request(320, -1);
 
         // Header bar with Send icon button and standard window buttons (GNOME HIG)
         let header = adw::HeaderBar::new();
@@ -104,7 +102,7 @@ impl WolDialog {
         let toolbar_view = adw::ToolbarView::new();
         toolbar_view.add_top_bar(&header);
         toolbar_view.set_content(Some(&clamp));
-        window.set_content(Some(&toolbar_view));
+        dialog.set_child(Some(&toolbar_view));
 
         let connections: Rc<RefCell<Vec<Connection>>> = Rc::new(RefCell::new(Vec::new()));
 
@@ -193,7 +191,7 @@ impl WolDialog {
         });
 
         Self {
-            window,
+            dialog,
             connection_dropdown,
             connections,
         }
@@ -220,7 +218,7 @@ impl WolDialog {
     }
 
     /// Presents the dialog
-    pub fn present(&self) {
-        self.window.present();
+    pub fn present(&self, parent: &impl IsA<gtk4::Widget>) {
+        self.dialog.present(Some(parent));
     }
 }

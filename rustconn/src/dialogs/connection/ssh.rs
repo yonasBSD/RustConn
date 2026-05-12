@@ -39,6 +39,7 @@ pub struct SshOptionsWidgets {
     pub agent_key_dropdown: DropDown,
     pub jump_host_dropdown: DropDown,
     pub proxy_entry: Entry,
+    pub proxy_command_entry: Entry,
     pub identities_only: CheckButton,
     pub control_master: CheckButton,
     pub agent_forwarding: CheckButton,
@@ -85,6 +86,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         connection_group,
         jump_host_dropdown,
         proxy_entry,
+        proxy_command_entry,
         identities_only,
         control_master,
         keep_alive_interval,
@@ -154,6 +156,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         agent_key_dropdown,
         jump_host_dropdown,
         proxy_entry,
+        proxy_command_entry,
         identities_only,
         control_master,
         agent_forwarding,
@@ -429,9 +432,11 @@ fn connect_auth_method_visibility(
 }
 
 /// Creates the Connection preferences group
+#[allow(clippy::type_complexity)]
 fn create_connection_group() -> (
     adw::PreferencesGroup,
     DropDown,
+    Entry,
     Entry,
     CheckButton,
     CheckButton,
@@ -467,6 +472,13 @@ fn create_connection_group() -> (
         .build();
     connection_group.add(&proxy_row);
 
+    // ProxyCommand entry (e.g., for Tor .onion hosts)
+    let (proxy_command_row, proxy_command_entry) = EntryRowBuilder::new(i18n("ProxyCommand"))
+        .subtitle(i18n("Custom proxy command (e.g., for .onion hosts)"))
+        .placeholder("ncat --proxy 127.0.0.1:9050 --proxy-type socks5 %h %p")
+        .build();
+    connection_group.add(&proxy_command_row);
+
     // IdentitiesOnly switch
     let (identities_row, identities_only) = CheckboxRowBuilder::new("Use Only Specified Key")
         .subtitle("Prevents trying other keys (IdentitiesOnly)")
@@ -499,6 +511,7 @@ fn create_connection_group() -> (
         connection_group,
         jump_host_dropdown,
         proxy_entry,
+        proxy_command_entry,
         identities_only,
         control_master,
         keep_alive_interval,

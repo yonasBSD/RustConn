@@ -5,6 +5,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tokio::io::AsyncWriteExt;
 
@@ -85,6 +86,8 @@ pub struct TrashFile {
 pub struct ConfigManager {
     /// Base directory for configuration files
     config_dir: PathBuf,
+    /// Whether `ensure_config_dir()` has already succeeded (avoids repeated syscalls)
+    dir_ensured: std::sync::Arc<AtomicBool>,
 }
 
 impl ConfigManager {
@@ -99,15 +102,21 @@ impl ConfigManager {
         let config_dir = dirs::config_dir()
             .ok_or_else(|| ConfigError::NotFound(PathBuf::from("~/.config")))?
             .join("rustconn");
-        Ok(Self { config_dir })
+        Ok(Self {
+            config_dir,
+            dir_ensured: std::sync::Arc::new(AtomicBool::new(false)),
+        })
     }
 
     /// Creates a new `ConfigManager` with a custom configuration directory
     ///
     /// This is useful for testing or non-standard configurations.
     #[must_use]
-    pub const fn with_config_dir(config_dir: PathBuf) -> Self {
-        Self { config_dir }
+    pub fn with_config_dir(config_dir: PathBuf) -> Self {
+        Self {
+            config_dir,
+            dir_ensured: std::sync::Arc::new(AtomicBool::new(false)),
+        }
     }
 
     /// Returns the configuration directory path
@@ -124,6 +133,11 @@ impl ConfigManager {
     ///
     /// Returns an error if the directory cannot be created.
     pub fn ensure_config_dir(&self) -> ConfigResult<()> {
+        // Fast path: directory already ensured in this process lifetime
+        if self.dir_ensured.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
         if !self.config_dir.exists() {
             fs::create_dir_all(&self.config_dir).map_err(|e| {
                 ConfigError::Write(format!(
@@ -149,6 +163,7 @@ impl ConfigManager {
             )?;
         }
 
+        self.dir_ensured.store(true, Ordering::Relaxed);
         Ok(())
     }
 

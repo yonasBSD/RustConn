@@ -33,6 +33,7 @@ fn arb_ssh_config_with_key() -> impl Strategy<Value = SshConfig> {
         agent_key_fingerprint: None,
         identities_only: false,
         proxy_jump: None,
+        proxy_command: None,
         use_control_master,
         agent_forwarding: false,
         x11_forwarding: false,

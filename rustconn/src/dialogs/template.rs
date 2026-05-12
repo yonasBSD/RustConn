@@ -2380,6 +2380,7 @@ impl TemplateDialog {
             } else {
                 Some(proxy_jump.into())
             },
+            proxy_command: None,
             identities_only: identities_only.is_active(),
             use_control_master: control_master.is_active(),
             agent_forwarding: agent_forwarding.is_active(),

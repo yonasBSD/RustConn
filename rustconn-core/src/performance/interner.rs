@@ -1,6 +1,6 @@
 //! String interner for deduplicating repeated strings.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 
@@ -10,9 +10,12 @@ use super::{read_rwlock, write_rwlock};
 ///
 /// Reduces memory usage when the same strings appear multiple times
 /// (e.g., protocol names, common hostnames, usernames).
+///
+/// Uses `HashSet<Arc<str>>` instead of `HashMap` since key and value
+/// are identical — halves per-entry memory overhead.
 pub struct StringInterner {
-    /// Interned strings storage — keyed by the actual string for collision-free dedup
-    strings: RwLock<HashMap<Arc<str>, Arc<str>>>,
+    /// Interned strings storage — `HashSet` suffices since we look up by value
+    strings: RwLock<HashSet<Arc<str>>>,
     /// Statistics
     stats: InternerStats,
 }
@@ -35,7 +38,7 @@ impl StringInterner {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            strings: RwLock::new(HashMap::new()),
+            strings: RwLock::new(HashSet::new()),
             stats: InternerStats::default(),
         }
     }
@@ -74,7 +77,7 @@ impl StringInterner {
         }
 
         // Insert new string
-        strings.insert(Arc::clone(&key), Arc::clone(&key));
+        strings.insert(Arc::clone(&key));
         self.stats.unique_count.fetch_add(1, Ordering::Relaxed);
         key
     }
@@ -96,9 +99,7 @@ impl StringInterner {
     /// Returns true if no strings are interned
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        read_rwlock(&self.strings, "interner_strings")
-            .map(|s| s.is_empty())
-            .unwrap_or(true)
+        self.len() == 0
     }
 
     /// Clears all interned strings

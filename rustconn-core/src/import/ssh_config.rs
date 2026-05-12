@@ -226,6 +226,7 @@ impl SshConfigImporter {
             identities_only,
             jump_host_id: None,
             proxy_jump: options.get("proxyjump").cloned(),
+            proxy_command: options.get("proxycommand").cloned(),
             use_control_master: options
                 .get("controlmaster")
                 .is_some_and(|v| v.to_lowercase() == "auto" || v.to_lowercase() == "yes"),

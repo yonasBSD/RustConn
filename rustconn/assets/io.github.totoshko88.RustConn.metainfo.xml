@@ -134,6 +134,21 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.13.13" date="2026-05-12">
+      <description>
+        <p>Version 0.13.13 — SSH ProxyCommand, bug fixes, performance:</p>
+        <ul>
+          <li>SSH ProxyCommand support for routing through custom proxies (e.g. Tor .onion hosts)</li>
+          <li>Fixed SSH Startup Command not executing in GUI terminal</li>
+          <li>Fixed SSH jump host port format inside ProxyCommand</li>
+          <li>Fixed RDP/VNC/SPICE tunnel through nested jump hosts</li>
+          <li>StringInterner: HashSet instead of HashMap — 50% less memory per entry</li>
+          <li>ConfigManager: cached ensure_config_dir() — skip filesystem check after first success</li>
+          <li>ConnectionManager: O(n) collect_descendant_groups() instead of O(n²)</li>
+          <li>WolDialog: migrated to adw::Dialog — better focus, auto Escape</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.13.12" date="2026-05-11">
       <description>
         <p>Version 0.13.12 — Auto-reconnect, batch import, SSH fix:</p>

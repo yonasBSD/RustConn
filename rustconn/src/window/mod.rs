@@ -1697,9 +1697,9 @@ impl MainWindow {
                     state_ref.list_connections().into_iter().cloned().collect();
                 drop(state_ref);
 
-                let dialog = crate::dialogs::WolDialog::new(Some(win.upcast_ref()));
+                let dialog = crate::dialogs::WolDialog::new();
                 dialog.set_connections(&connections);
-                dialog.present();
+                dialog.present(&win);
             }
         });
         window.add_action(&wol_dialog_action);

@@ -111,6 +111,14 @@ impl Protocol for SshProtocol {
         };
         cmd.push(destination);
 
+        // Append startup command after destination — SSH executes it on the
+        // remote host immediately after login.
+        // NOTE: In CLI mode this replaces the interactive shell (intended for scripting).
+        // The GUI version (terminal/mod.rs) wraps with `; exec $SHELL -l` to stay interactive.
+        if let Some(ref startup_cmd) = ssh_config.startup_command {
+            cmd.push(startup_cmd.clone());
+        }
+
         Some(cmd)
     }
 }
@@ -193,5 +201,53 @@ mod tests {
         };
         let connection = create_ssh_connection(config);
         assert!(protocol.validate_connection(&connection).is_err());
+    }
+
+    #[test]
+    fn test_build_command_with_startup_command() {
+        let protocol = SshProtocol::new();
+        let config = SshConfig {
+            startup_command: Some("htop".to_string()),
+            ..Default::default()
+        };
+        let connection = create_ssh_connection(config);
+        let cmd = protocol.build_command(&connection).unwrap();
+        // startup_command should be the last argument (after user@host)
+        assert_eq!(cmd.last().unwrap(), "htop");
+        // destination should be second-to-last
+        assert_eq!(cmd[cmd.len() - 2], "example.com");
+    }
+
+    #[test]
+    fn test_build_command_with_proxy_command() {
+        let protocol = SshProtocol::new();
+        let config = SshConfig {
+            proxy_command: Some(
+                "ncat --proxy 127.0.0.1:9050 --proxy-type socks5 %h %p".to_string(),
+            ),
+            ..Default::default()
+        };
+        let connection = create_ssh_connection(config);
+        let cmd = protocol.build_command(&connection).unwrap();
+        assert!(cmd.contains(&"-o".to_string()));
+        assert!(cmd.contains(
+            &"ProxyCommand=ncat --proxy 127.0.0.1:9050 --proxy-type socks5 %h %p".to_string()
+        ));
+    }
+
+    #[test]
+    fn test_build_command_proxy_command_overrides_proxy_jump() {
+        let protocol = SshProtocol::new();
+        let config = SshConfig {
+            proxy_jump: Some("bastion.example.com".to_string()),
+            proxy_command: Some("ncat --proxy 127.0.0.1:9050 %h %p".to_string()),
+            ..Default::default()
+        };
+        let connection = create_ssh_connection(config);
+        let cmd = protocol.build_command(&connection).unwrap();
+        // ProxyCommand should be present
+        assert!(cmd.contains(&"ProxyCommand=ncat --proxy 127.0.0.1:9050 %h %p".to_string()));
+        // -J should NOT be present (ProxyCommand takes precedence)
+        assert!(!cmd.contains(&"-J".to_string()));
     }
 }

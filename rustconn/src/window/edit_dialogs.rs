@@ -2238,6 +2238,7 @@ fn start_quick_ssh(
         &[],
         false,
         None,
+        None,
     );
 }
 

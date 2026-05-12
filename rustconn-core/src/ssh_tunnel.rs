@@ -492,6 +492,59 @@ pub fn probe_tunnel_remote(
     }
 }
 
+/// Parses a jump host string in `[user@]host[:port]` format and appends
+/// the correct SSH arguments for use inside a `ProxyCommand`.
+///
+/// Inside `ProxyCommand`, the port must be specified via `-p port` and the
+/// destination is `user@host` (without the `:port` suffix). The standard
+/// `-J` format `user@host:port` is invalid inside `ProxyCommand`.
+///
+/// Handles IPv6 addresses in brackets: `[::1]:2222`.
+pub fn append_proxy_command_destination(proxy_parts: &mut Vec<String>, jump_host: &str) {
+    let (user_part, host_port) = if let Some(at_pos) = jump_host.rfind('@') {
+        (Some(&jump_host[..at_pos]), &jump_host[at_pos + 1..])
+    } else {
+        (None, jump_host)
+    };
+
+    let (host, port) = if host_port.starts_with('[') {
+        // IPv6: [addr]:port
+        if let Some(bracket_end) = host_port.find(']') {
+            let after_bracket = &host_port[bracket_end + 1..];
+            if let Some(colon_port) = after_bracket.strip_prefix(':') {
+                (&host_port[..=bracket_end], Some(colon_port))
+            } else {
+                (host_port, None)
+            }
+        } else {
+            (host_port, None)
+        }
+    } else if let Some(colon_pos) = host_port.rfind(':') {
+        let maybe_port = &host_port[colon_pos + 1..];
+        if maybe_port.chars().all(|c| c.is_ascii_digit()) && !maybe_port.is_empty() {
+            (&host_port[..colon_pos], Some(maybe_port))
+        } else {
+            (host_port, None)
+        }
+    } else {
+        (host_port, None)
+    };
+
+    if let Some(p) = port
+        && p != "22"
+    {
+        proxy_parts.push("-p".to_string());
+        proxy_parts.push(p.to_string());
+    }
+
+    let destination = if let Some(user) = user_part {
+        format!("{user}@{host}")
+    } else {
+        host.to_string()
+    };
+    proxy_parts.push(destination);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -514,5 +567,54 @@ mod tests {
         if p1 == p2 {
             eprintln!("Warning: two consecutive find_free_port() returned the same port {p1}");
         }
+    }
+
+    #[test]
+    fn test_proxy_destination_simple_host() {
+        let mut parts = Vec::new();
+        append_proxy_command_destination(&mut parts, "bastion.example.com");
+        assert_eq!(parts, vec!["bastion.example.com"]);
+    }
+
+    #[test]
+    fn test_proxy_destination_user_at_host() {
+        let mut parts = Vec::new();
+        append_proxy_command_destination(&mut parts, "admin@bastion.example.com");
+        assert_eq!(parts, vec!["admin@bastion.example.com"]);
+    }
+
+    #[test]
+    fn test_proxy_destination_host_with_port() {
+        let mut parts = Vec::new();
+        append_proxy_command_destination(&mut parts, "bastion.example.com:2222");
+        assert_eq!(parts, vec!["-p", "2222", "bastion.example.com"]);
+    }
+
+    #[test]
+    fn test_proxy_destination_user_host_port() {
+        let mut parts = Vec::new();
+        append_proxy_command_destination(&mut parts, "admin@bastion.example.com:2222");
+        assert_eq!(parts, vec!["-p", "2222", "admin@bastion.example.com"]);
+    }
+
+    #[test]
+    fn test_proxy_destination_port_22_omitted() {
+        let mut parts = Vec::new();
+        append_proxy_command_destination(&mut parts, "admin@bastion.example.com:22");
+        assert_eq!(parts, vec!["admin@bastion.example.com"]);
+    }
+
+    #[test]
+    fn test_proxy_destination_ipv6_with_port() {
+        let mut parts = Vec::new();
+        append_proxy_command_destination(&mut parts, "user@[::1]:2222");
+        assert_eq!(parts, vec!["-p", "2222", "user@[::1]"]);
+    }
+
+    #[test]
+    fn test_proxy_destination_ipv6_no_port() {
+        let mut parts = Vec::new();
+        append_proxy_command_destination(&mut parts, "[fe80::1]");
+        assert_eq!(parts, vec!["[fe80::1]"]);
     }
 }

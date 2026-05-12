@@ -146,6 +146,7 @@ pub struct ConnectionDialog {
     pending_agent_selection: Rc<RefCell<Option<(String, String)>>>,
     ssh_jump_host_dropdown: DropDown,
     ssh_proxy_entry: Entry,
+    ssh_proxy_command_entry: Entry,
     ssh_identities_only: CheckButton,
     ssh_control_master: CheckButton,
     ssh_agent_forwarding: CheckButton,
@@ -497,6 +498,7 @@ impl ConnectionDialog {
         let ssh_agent_key_dropdown = ssh_widgets.agent_key_dropdown;
         let ssh_jump_host_dropdown = ssh_widgets.jump_host_dropdown;
         let ssh_proxy_entry = ssh_widgets.proxy_entry;
+        let ssh_proxy_command_entry = ssh_widgets.proxy_command_entry;
         let ssh_identities_only = ssh_widgets.identities_only;
         let ssh_control_master = ssh_widgets.control_master;
         let ssh_agent_forwarding = ssh_widgets.agent_forwarding;
@@ -835,6 +837,7 @@ impl ConnectionDialog {
             &ssh_agent_keys,
             &ssh_jump_host_dropdown,
             &ssh_proxy_entry,
+            &ssh_proxy_command_entry,
             &ssh_identities_only,
             &ssh_control_master,
             &ssh_agent_forwarding,
@@ -1022,6 +1025,7 @@ impl ConnectionDialog {
             pending_agent_selection,
             ssh_jump_host_dropdown,
             ssh_proxy_entry,
+            ssh_proxy_command_entry,
             ssh_identities_only,
             ssh_control_master,
             ssh_agent_forwarding,
@@ -1903,6 +1907,7 @@ impl ConnectionDialog {
         ssh_agent_keys: &Rc<RefCell<Vec<rustconn_core::ssh_agent::AgentKey>>>,
         ssh_jump_host_dropdown: &DropDown,
         ssh_proxy_entry: &Entry,
+        ssh_proxy_command_entry: &Entry,
         ssh_identities_only: &CheckButton,
         ssh_control_master: &CheckButton,
         ssh_agent_forwarding: &CheckButton,
@@ -2074,6 +2079,7 @@ impl ConnectionDialog {
         let ssh_agent_keys = ssh_agent_keys.clone();
         let ssh_jump_host_dropdown = ssh_jump_host_dropdown.clone();
         let ssh_proxy_entry = ssh_proxy_entry.clone();
+        let ssh_proxy_command_entry = ssh_proxy_command_entry.clone();
         let ssh_identities_only = ssh_identities_only.clone();
         let ssh_control_master = ssh_control_master.clone();
         let ssh_agent_forwarding = ssh_agent_forwarding.clone();
@@ -2258,6 +2264,7 @@ impl ConnectionDialog {
                 ssh_agent_keys: &ssh_agent_keys,
                 ssh_jump_host_dropdown: &ssh_jump_host_dropdown,
                 ssh_proxy_entry: &ssh_proxy_entry,
+                ssh_proxy_command_entry: &ssh_proxy_command_entry,
                 ssh_identities_only: &ssh_identities_only,
                 ssh_control_master: &ssh_control_master,
                 ssh_agent_forwarding: &ssh_agent_forwarding,
@@ -4377,6 +4384,8 @@ impl ConnectionDialog {
 
         self.ssh_proxy_entry
             .set_text(ssh.proxy_jump.as_deref().unwrap_or(""));
+        self.ssh_proxy_command_entry
+            .set_text(ssh.proxy_command.as_deref().unwrap_or(""));
         self.ssh_identities_only.set_active(ssh.identities_only);
         self.ssh_control_master.set_active(ssh.use_control_master);
         self.ssh_agent_forwarding.set_active(ssh.agent_forwarding);
@@ -5749,6 +5758,7 @@ struct ConnectionDialogData<'a> {
     ssh_agent_key_dropdown: &'a DropDown,
     ssh_agent_keys: &'a Rc<RefCell<Vec<rustconn_core::ssh_agent::AgentKey>>>,
     ssh_proxy_entry: &'a Entry,
+    ssh_proxy_command_entry: &'a Entry,
     ssh_identities_only: &'a CheckButton,
     ssh_control_master: &'a CheckButton,
     ssh_agent_forwarding: &'a CheckButton,
@@ -6758,6 +6768,14 @@ impl ConnectionDialogData<'_> {
             Some(proxy_jump.trim().to_string())
         };
 
+        // ProxyCommand text entry
+        let proxy_command = self.ssh_proxy_command_entry.text();
+        let proxy_command_opt = if proxy_command.trim().is_empty() {
+            None
+        } else {
+            Some(proxy_command.trim().to_string())
+        };
+
         let custom_options = Self::parse_custom_options(&self.ssh_options_entry.text());
 
         let ssh_agent_socket = {
@@ -6795,6 +6813,7 @@ impl ConnectionDialogData<'_> {
             agent_key_fingerprint,
             identities_only: self.ssh_identities_only.is_active(),
             proxy_jump: proxy_jump_opt,
+            proxy_command: proxy_command_opt,
             jump_host_id, // Add this field
             use_control_master: self.ssh_control_master.is_active(),
             agent_forwarding: self.ssh_agent_forwarding.is_active(),

@@ -1767,6 +1767,7 @@ impl TerminalNotebook {
         extra_args: &[&str],
         use_waypipe: bool,
         ssh_agent_socket: Option<&str>,
+        startup_command: Option<&str>,
     ) -> bool {
         let mut argv = if use_waypipe {
             vec!["waypipe", "ssh"]
@@ -1831,6 +1832,22 @@ impl TerminalNotebook {
             host.to_string()
         };
         argv.push(&destination);
+
+        // Append startup command after destination — runs the command and then
+        // drops into an interactive login shell so the session stays open.
+        // Uses `-t` to force PTY allocation (required for interactive shell after command).
+        let startup_wrapped;
+        if let Some(cmd) = startup_command {
+            // Insert -t before destination to force PTY allocation
+            // (skip if already present in extra_args to avoid duplicates)
+            if !extra_args.contains(&"-t") {
+                let dest_idx = argv.len() - 1;
+                argv.insert(dest_idx, "-t");
+            }
+            // Wrap: run the command, then exec the user's login shell
+            startup_wrapped = format!("{cmd}; exec $SHELL -l");
+            argv.push(&startup_wrapped);
+        }
 
         self.spawn_command(session_id, &argv, None, None, ssh_agent_socket)
     }

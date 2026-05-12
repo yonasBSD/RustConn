@@ -88,6 +88,146 @@ fn contains_ssh_failure(text: &str) -> bool {
         .any(|p| lower.contains(&p.to_lowercase()))
 }
 
+/// Delegates to [`rustconn_core::ssh_tunnel::append_proxy_command_destination`].
+fn append_proxy_command_destination(proxy_parts: &mut Vec<String>, jump_host: &str) {
+    rustconn_core::ssh_tunnel::append_proxy_command_destination(proxy_parts, jump_host);
+}
+
+/// Resolves the recursive jump host chain for a given connection and returns
+/// extra SSH args (`-J` or `-o ProxyCommand`) needed to reach it.
+///
+/// This is used by SSH tunnel creation (RDP, VNC, SPICE) where the jump host
+/// itself may require another jump host to be reachable.
+///
+/// Returns a `Vec<String>` of extra args to pass to the SSH tunnel command.
+pub fn resolve_jump_chain_for_tunnel(
+    state_ref: &crate::state::AppState,
+    jump_conn: &rustconn_core::Connection,
+) -> Vec<String> {
+    let groups: Vec<rustconn_core::ConnectionGroup> =
+        state_ref.list_groups().into_iter().cloned().collect();
+
+    // Check if the jump host itself has a jump host (recursive chain)
+    let ssh_config = match &jump_conn.protocol_config {
+        rustconn_core::ProtocolConfig::Ssh(cfg) => cfg,
+        _ => return Vec::new(),
+    };
+
+    // Collect the chain of jump hosts above the immediate jump host
+    let mut chain: Vec<String> = Vec::new();
+
+    // First check for string-based proxy_jump on the jump host
+    if let Some(proxy) =
+        rustconn_core::connection::ssh_inheritance::resolve_ssh_proxy_jump(jump_conn, &groups)
+    {
+        chain.push(proxy);
+    }
+
+    // Then resolve reference-based jump hosts recursively
+    // Also resolve the identity file for the first hop (needed for ProxyCommand)
+    let mut first_hop_identity: Option<String> = None;
+    if let Some(parent_jump_id) = ssh_config.jump_host_id {
+        let mut current_id = Some(parent_jump_id);
+        let mut visited = std::collections::HashSet::new();
+        visited.insert(jump_conn.id); // Avoid self-reference
+        let mut is_first = true;
+
+        for _ in 0..10 {
+            if let Some(jid) = current_id {
+                if visited.contains(&jid) {
+                    break;
+                }
+                visited.insert(jid);
+
+                if let Some(parent_conn) = state_ref.get_connection(jid) {
+                    // Resolve identity file for the first hop
+                    if is_first {
+                        first_hop_identity =
+                            rustconn_core::connection::ssh_inheritance::resolve_ssh_key_path(
+                                parent_conn,
+                                &groups,
+                            )
+                            .and_then(|p| rustconn_core::resolve_key_path(&p))
+                            .map(|p| p.to_string_lossy().to_string());
+                        is_first = false;
+                    }
+
+                    // Format: [user@]host[:port] for -J
+                    let mut host_str = parent_conn.host.clone();
+                    if let Some(user) = &parent_conn.username {
+                        host_str = format!("{user}@{host_str}");
+                    }
+                    if parent_conn.port != 22 {
+                        host_str = format!("{host_str}:{}", parent_conn.port);
+                    }
+                    chain.push(host_str);
+
+                    // Continue up the chain
+                    if let rustconn_core::ProtocolConfig::Ssh(parent_cfg) =
+                        &parent_conn.protocol_config
+                    {
+                        if let Some(p) = &parent_cfg.proxy_jump {
+                            chain.insert(chain.len() - 1, p.clone());
+                        }
+                        current_id = parent_cfg.jump_host_id;
+                    } else {
+                        current_id = None;
+                    }
+                } else {
+                    current_id = None;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    if chain.is_empty() {
+        return Vec::new();
+    }
+
+    // In Flatpak, use ProxyCommand so the nested SSH inherits known_hosts
+    if let Some(kh_path) = rustconn_core::get_flatpak_known_hosts_path() {
+        // Build ProxyCommand for the first hop in the chain
+        let mut proxy_parts = vec!["ssh".to_string(), "-W".to_string(), "%h:%p".to_string()];
+        proxy_parts.push("-o".to_string());
+        proxy_parts.push(format!("UserKnownHostsFile={}", kh_path.display()));
+
+        // Pass identity file for the first hop if available
+        if let Some(ref key) = first_hop_identity {
+            proxy_parts.push("-i".to_string());
+            proxy_parts.push(key.clone());
+            proxy_parts.push("-o".to_string());
+            proxy_parts.push("IdentitiesOnly=yes".to_string());
+        }
+
+        // If multiple hops, pass remaining via -J inside ProxyCommand
+        if chain.len() > 1 {
+            let inner_chain = chain[1..].join(",");
+            proxy_parts.push("-J".to_string());
+            proxy_parts.push(inner_chain);
+        }
+
+        // Add the first hop destination with proper -p port parsing
+        append_proxy_command_destination(&mut proxy_parts, &chain[0]);
+
+        let proxy_cmd = proxy_parts.join(" ");
+        tracing::debug!(
+            proxy_command = %proxy_cmd,
+            "Tunnel: using ProxyCommand for jump host chain in Flatpak"
+        );
+        vec!["-o".to_string(), format!("ProxyCommand={proxy_cmd}")]
+    } else {
+        // Non-Flatpak: use standard -J
+        let j_chain = chain.join(",");
+        tracing::debug!(
+            jump_chain = %j_chain,
+            "Tunnel: using -J for jump host chain"
+        );
+        vec!["-J".to_string(), j_chain]
+    }
+}
+
 /// Starts an SSH connection
 ///
 /// Creates a terminal tab and spawns the SSH process with the given configuration.
@@ -112,10 +252,10 @@ pub fn start_ssh_connection(
     let has_jump_host = matches!(
         &conn.protocol_config,
         rustconn_core::ProtocolConfig::Ssh(ssh)
-            if ssh.jump_host_id.is_some()
+            if ssh.jump_host_id.is_some() || ssh.proxy_command.is_some()
     ) || ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups).is_some();
-    // Skip port check when a jump host is configured — the destination
-    // is only reachable through the jump host, so a direct TCP probe
+    // Skip port check when a jump host or ProxyCommand is configured — the destination
+    // is only reachable through the proxy, so a direct TCP probe
     // will always time out.
     let should_check =
         settings.connection.pre_connect_port_check && !conn.skip_port_check && !has_jump_host;
@@ -273,11 +413,11 @@ fn start_ssh_connection_internal(
         .map(|s| s.list_groups().into_iter().cloned().collect())
         .unwrap_or_default();
 
-    // Detect jump host for status detection and monitoring
+    // Detect jump host / proxy for status detection and monitoring
     let has_jump_host = matches!(
         &conn.protocol_config,
         rustconn_core::ProtocolConfig::Ssh(ssh)
-            if ssh.jump_host_id.is_some()
+            if ssh.jump_host_id.is_some() || ssh.proxy_command.is_some()
     ) || ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups).is_some();
 
     // Apply variable substitution to host and username (e.g., ${VAR_NAME} -> actual value)
@@ -449,8 +589,8 @@ fn start_ssh_connection_internal(
                         proxy_parts.push(inner_chain);
                     }
 
-                    // Add the first hop destination
-                    proxy_parts.push(jump_hosts[0].clone());
+                    // Add the first hop destination (parse user@host:port into -p port user@host)
+                    append_proxy_command_destination(&mut proxy_parts, &jump_hosts[0]);
 
                     let proxy_cmd = proxy_parts.join(" ");
                     tracing::debug!(
@@ -555,6 +695,10 @@ fn start_ssh_connection_internal(
     {
         let extra_refs: Vec<&str> = extra_args.iter().map(std::string::String::as_str).collect();
         let agent_socket = ssh_inheritance::resolve_ssh_agent_socket(conn, &groups);
+        let startup_cmd = match &conn.protocol_config {
+            rustconn_core::ProtocolConfig::Ssh(cfg) => cfg.startup_command.as_deref(),
+            _ => None,
+        };
         notebook.spawn_ssh(
             session_id,
             &host,
@@ -564,6 +708,7 @@ fn start_ssh_connection_internal(
             &extra_refs,
             use_waypipe,
             agent_socket.as_deref(),
+            startup_cmd,
         );
     }
 
@@ -1149,6 +1294,9 @@ fn start_spice_connection_internal(
                 .and_then(|p| rustconn_core::resolve_key_path(&p))
                 .map(|p| p.to_string_lossy().to_string());
 
+            // Resolve recursive jump host chain (e.g. jump_conn itself needs a jump host)
+            let extra_args = resolve_jump_chain_for_tunnel(&state_ref, jump_conn);
+
             let params = rustconn_core::ssh_tunnel::SshTunnelParams {
                 jump_host: jump_dest,
                 jump_port,
@@ -1162,7 +1310,7 @@ fn start_spice_connection_internal(
                         !c.password.expose_secret().is_empty()
                     })
                     .map(|c| c.password.clone()),
-                extra_args: Vec::new(),
+                extra_args,
             };
 
             drop(state_ref);
@@ -1397,7 +1545,7 @@ pub fn reconnect_ssh_in_place(
     let has_jump_host = matches!(
         &conn.protocol_config,
         rustconn_core::ProtocolConfig::Ssh(ssh)
-            if ssh.jump_host_id.is_some()
+            if ssh.jump_host_id.is_some() || ssh.proxy_command.is_some()
     ) || ssh_inheritance::resolve_ssh_proxy_jump(&conn, &groups).is_some();
 
     // Build SSH args (same logic as start_ssh_connection_internal)
@@ -1516,7 +1664,7 @@ pub fn reconnect_ssh_in_place(
                         proxy_parts.push("-J".to_string());
                         proxy_parts.push(inner_chain);
                     }
-                    proxy_parts.push(jump_hosts[0].clone());
+                    append_proxy_command_destination(&mut proxy_parts, &jump_hosts[0]);
                     let proxy_cmd = proxy_parts.join(" ");
                     args.push("-o".to_string());
                     args.push(format!("ProxyCommand={proxy_cmd}"));
@@ -1585,6 +1733,10 @@ pub fn reconnect_ssh_in_place(
     {
         let extra_refs: Vec<&str> = extra_args.iter().map(std::string::String::as_str).collect();
         let agent_socket = ssh_inheritance::resolve_ssh_agent_socket(&conn, &groups);
+        let startup_cmd = match &conn.protocol_config {
+            rustconn_core::ProtocolConfig::Ssh(cfg) => cfg.startup_command.as_deref(),
+            _ => None,
+        };
         notebook.spawn_ssh(
             session_id,
             &host,
@@ -1594,6 +1746,7 @@ pub fn reconnect_ssh_in_place(
             &extra_refs,
             use_waypipe,
             agent_socket.as_deref(),
+            startup_cmd,
         );
     }
 

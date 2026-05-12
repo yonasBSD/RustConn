@@ -306,6 +306,7 @@ impl MobaXtermImporter {
             identities_only: false,
             jump_host_id: None,
             proxy_jump: None,
+            proxy_command: None,
             use_control_master: false,
             agent_forwarding,
             x11_forwarding,

@@ -5,6 +5,23 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.13] - 2026-05-12
+
+### Added
+- **SSH ProxyCommand support** — new "ProxyCommand" field in the SSH connection dialog allows routing connections through a custom proxy (e.g., `ncat --proxy 127.0.0.1:9050 --proxy-type socks5 %h %p` for Tor `.onion` hidden services); skips pre-connect port check when set, since the destination is only reachable through the proxy (fixes [#146](https://github.com/totoshko88/RustConn/issues/146))
+
+### Fixed
+- **SSH Startup Command not executing** — the startup command configured in the SSH connection dialog was never appended to the SSH invocation in the GUI terminal; now correctly passed after `user@host` so the remote shell executes it immediately after login (fixes [#147](https://github.com/totoshko88/RustConn/issues/147))
+- **SSH ProxyCommand port format** — jump hosts with non-standard ports now correctly use `-p port user@host` instead of invalid `user@host:port` inside `ProxyCommand` (fixes [#144](https://github.com/totoshko88/RustConn/issues/144))
+- **RDP/VNC/SPICE tunnel through nested jump hosts** — SSH tunnel now resolves the full recursive jump host chain; previously only the immediate jump host was used, causing tunnel failure when the jump host itself required another jump host to be reachable
+
+### Improved
+- **StringInterner: `HashSet` instead of `HashMap`** — reduced memory overhead by 50% per entry (key and value were identical `Arc<str>`)
+- **ConfigManager: cache `ensure_config_dir()` result** — skips filesystem check after first successful call, eliminates 1 syscall per debounced save
+- **ConnectionManager: `collect_descendant_groups()` O(n) instead of O(n²)** — builds parent→children index instead of scanning all groups on each iteration
+- **ConnectionManager: `sort_all()` refactor** — extracted `sort_ids_by_name()` helper, removed 4× duplicated sort-by-lowercase pattern (~60 lines)
+- **WolDialog: migrated to `adw::Dialog`** — better focus management, auto close-on-Escape, bottom-sheet behavior on narrow windows (GNOME HIG)
+
 ## [0.13.12] - 2026-05-11
 
 ### Added

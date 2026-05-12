@@ -1,3 +1,17 @@
+rustconn (0.13.13-1) unstable; urgency=medium
+
+  * [Added] SSH ProxyCommand support — custom proxy for .onion hosts and SOCKS proxies
+  * [Fixed] SSH Startup Command not executing in GUI terminal
+  * [Fixed] SSH ProxyCommand port format — jump hosts with non-standard ports
+  * [Fixed] RDP/VNC/SPICE tunnel through nested jump hosts
+  * [Improved] StringInterner: HashSet instead of HashMap — 50% less memory overhead per entry
+  * [Improved] ConfigManager: ensure_config_dir() caching — skip filesystem check after first success
+  * [Improved] ConnectionManager: collect_descendant_groups() O(n) instead of O(n²)
+  * [Improved] ConnectionManager: sort_all() refactoring — extracted sort_ids_by_name() helper
+  * [Improved] WolDialog: migrated to adw::Dialog — better focus management, auto Escape
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Mon, 12 May 2026 21:00:00 +0300
+
 rustconn (0.13.12-1) unstable; urgency=medium
 
   * Auto-reconnect: per-connection RetryConfig with exponential backoff

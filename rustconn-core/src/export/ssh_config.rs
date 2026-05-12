@@ -101,10 +101,18 @@ impl SshConfigExporter {
                 let _ = writeln!(output, "    IdentityFile {escaped_path}");
             }
 
-            // ProxyJump
-            if let Some(ref proxy_jump) = ssh_config.proxy_jump {
+            // ProxyJump (skip when ProxyCommand is set — it takes precedence)
+            if ssh_config.proxy_command.is_none()
+                && let Some(ref proxy_jump) = ssh_config.proxy_jump
+            {
                 let escaped_proxy = escape_value(proxy_jump);
                 let _ = writeln!(output, "    ProxyJump {escaped_proxy}");
+            }
+
+            // ProxyCommand
+            if let Some(ref proxy_cmd) = ssh_config.proxy_command {
+                let escaped_cmd = escape_value(proxy_cmd);
+                let _ = writeln!(output, "    ProxyCommand {escaped_cmd}");
             }
 
             // ControlMaster

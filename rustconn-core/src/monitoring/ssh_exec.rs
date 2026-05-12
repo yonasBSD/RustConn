@@ -317,7 +317,8 @@ fn build_jump_host_args(cmd: &mut Command, jump_host: &str, identity_file: Optio
             proxy_parts.push("-o".to_string());
             proxy_parts.push("IdentitiesOnly=yes".to_string());
         }
-        proxy_parts.push(jump_host.to_string());
+        // Parse user@host:port — for ProxyCommand, port must use -p flag
+        crate::ssh_tunnel::append_proxy_command_destination(&mut proxy_parts, jump_host);
         let proxy_cmd = proxy_parts.join(" ");
         tracing::debug!(
             protocol = "ssh",

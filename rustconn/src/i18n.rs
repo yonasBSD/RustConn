@@ -188,7 +188,7 @@ fn locale_dir() -> String {
     // 5. User-local install (install-desktop.sh)
     if let Ok(home) = std::env::var("HOME") {
         let local_locale = format!("{home}/.local/share/locale");
-        if std::path::Path::new(&local_locale).exists() {
+        if build_locale_has_translations(&local_locale) {
             return local_locale;
         }
     }
@@ -196,7 +196,7 @@ fn locale_dir() -> String {
     // 6. XDG_DATA_HOME fallback
     if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
         let xdg_locale = format!("{xdg_data}/locale");
-        if std::path::Path::new(&xdg_locale).exists() {
+        if build_locale_has_translations(&xdg_locale) {
             return xdg_locale;
         }
     }
