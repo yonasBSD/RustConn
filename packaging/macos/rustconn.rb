@@ -2,37 +2,32 @@ class Rustconn < Formula
   desc "Manage remote connections easily - SSH, RDP, VNC, SPICE, Telnet, Serial"
   homepage "https://github.com/totoshko88/RustConn"
   url "https://github.com/totoshko88/RustConn/archive/refs/tags/v0.13.16.tar.gz"
-  # sha256 "UPDATE_WITH_ACTUAL_SHA256"
+  sha256 "274269d7c7326bb9e25443058f5c62358e57d07466209cb35d2cbf6883244b77"
   license "GPL-3.0-or-later"
   head "https://github.com/totoshko88/RustConn.git", branch: "main"
 
-  depends_on "rust" => :build
-  depends_on "pkg-config" => :build
   depends_on "gettext" => :build
   depends_on "librsvg" => :build
+  depends_on "pkg-config" => :build
+  depends_on "rust" => :build
 
-  # Runtime dependencies — installed automatically by Homebrew
-  depends_on "gtk4"
-  depends_on "libadwaita"
-  depends_on "vte3"
   depends_on "adwaita-icon-theme"
-  depends_on "openssl@3"
   depends_on "dbus"
   depends_on "glib"
+  depends_on "gtk4"
+  depends_on "libadwaita"
   depends_on :macos
+  depends_on "openssl@3"
+  depends_on "vte3"
 
   def install
     # Build GUI with macOS-specific features (no wayland, no D-Bus tray)
-    system "cargo", "build", "--release",
-           "-p", "rustconn",
+    system "cargo", "install", *std_cargo_args(path: "rustconn"),
            "--no-default-features",
            "--features", "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded"
 
-    bin.install "target/release/rustconn"
-
     # Build CLI
-    system "cargo", "build", "--release", "-p", "rustconn-cli"
-    bin.install "target/release/rustconn-cli"
+    system "cargo", "install", *std_cargo_args(path: "rustconn-cli")
 
     # Install locales
     Dir["po/*.po"].each do |po|
@@ -157,7 +152,7 @@ class Rustconn < Formula
   end
 
   test do
-    assert_match "rustconn", shell_output("#{bin}/rustconn --help 2>&1", 0)
-    assert_match "rustconn-cli", shell_output("#{bin}/rustconn-cli --help 2>&1", 0)
+    assert_match "rustconn", shell_output("#{bin}/rustconn --help 2>&1")
+    assert_match "rustconn-cli", shell_output("#{bin}/rustconn-cli --help 2>&1")
   end
 end
