@@ -862,6 +862,34 @@ impl Connection {
         }
     }
 
+    /// Returns `true` if this connection bypasses a direct TCP probe.
+    ///
+    /// Connections routed through a jump host, RDP Gateway, SSH ProxyCommand,
+    /// or SPICE proxy are not directly reachable, so a pre-connect port check
+    /// would always time out.
+    #[must_use]
+    pub fn bypasses_direct_probe(&self) -> bool {
+        match &self.protocol_config {
+            ProtocolConfig::Ssh(c) | ProtocolConfig::Sftp(c) => {
+                c.jump_host_id.is_some() || c.proxy_command.is_some()
+            }
+            ProtocolConfig::Rdp(c) => c.jump_host_id.is_some() || c.gateway.is_some(),
+            ProtocolConfig::Vnc(c) => c.jump_host_id.is_some(),
+            ProtocolConfig::Spice(c) => c.jump_host_id.is_some() || c.proxy.is_some(),
+            ProtocolConfig::ZeroTrust(_) | ProtocolConfig::Web(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Returns `true` if a pre-connect TCP port check should be performed.
+    ///
+    /// Checks the global setting, per-connection override, and whether the
+    /// connection bypasses direct probing (jump host, gateway, proxy, etc.).
+    #[must_use]
+    pub fn should_pre_connect_check(&self, settings: &crate::config::ConnectionSettings) -> bool {
+        settings.pre_connect_port_check && !self.skip_port_check && !self.bypasses_direct_probe()
+    }
+
     /// Toggles the pinned state of this connection
     pub fn toggle_pin(&mut self) {
         self.is_pinned = !self.is_pinned;

@@ -2277,6 +2277,65 @@ impl TerminalNotebook {
         }
     }
 
+    /// Updates the auto-reconnect status label with attempt progress (N/M)
+    pub fn update_reconnect_banner_attempt(
+        &self,
+        session_id: Uuid,
+        attempt: u32,
+        max_attempts: u32,
+    ) {
+        let Some(page) = self.sessions.borrow().get(&session_id).cloned() else {
+            return;
+        };
+        let outer = page.child().downcast::<GtkBox>().ok();
+        let Some(outer) = outer else {
+            return;
+        };
+        let Some(inner_widget) = outer.first_child() else {
+            return;
+        };
+        let Some(container) = inner_widget.downcast::<GtkBox>().ok() else {
+            return;
+        };
+
+        // Find the reconnect-banner widget
+        let mut child = container.first_child();
+        while let Some(widget) = child {
+            if widget.widget_name() == "reconnect-banner" {
+                if let Ok(banner) = widget.downcast::<GtkBox>() {
+                    // Find or create the status label
+                    let mut banner_child = banner.first_child();
+                    while let Some(bc) = banner_child {
+                        if bc.widget_name() == "reconnect-status" {
+                            if let Ok(label) = bc.downcast::<gtk4::Label>() {
+                                label.set_label(&i18n_f(
+                                    "Auto-reconnecting (attempt {}/{})",
+                                    &[&attempt.to_string(), &max_attempts.to_string()],
+                                ));
+                            }
+                            return;
+                        }
+                        banner_child = bc.next_sibling();
+                    }
+                    // Status label not found — create it
+                    let status_label = gtk4::Label::new(Some(&i18n_f(
+                        "Auto-reconnecting (attempt {}/{})",
+                        &[&attempt.to_string(), &max_attempts.to_string()],
+                    )));
+                    status_label.add_css_class("dim-label");
+                    status_label.set_widget_name("reconnect-status");
+                    if let Some(button) = banner.last_child() {
+                        banner.insert_child_after(&status_label, button.prev_sibling().as_ref());
+                    } else {
+                        banner.append(&status_label);
+                    }
+                }
+                break;
+            }
+            child = widget.next_sibling();
+        }
+    }
+
     /// Sets the callback invoked when a reconnect button is clicked
     ///
     /// The callback receives `(session_id, connection_id)`.

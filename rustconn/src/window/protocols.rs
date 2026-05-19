@@ -243,29 +243,22 @@ pub fn start_ssh_connection(
 ) -> Option<Uuid> {
     // Check if port check is needed
     let settings = state.borrow().settings().clone();
-    // Collect groups for SSH inheritance resolution
+    // Collect groups for SSH inheritance resolution (proxy_jump can be inherited from group)
     let groups: Vec<rustconn_core::ConnectionGroup> = state
         .try_borrow()
         .ok()
         .map(|s| s.list_groups().into_iter().cloned().collect())
         .unwrap_or_default();
-    let has_jump_host = matches!(
-        &conn.protocol_config,
-        rustconn_core::ProtocolConfig::Ssh(ssh)
-            if ssh.jump_host_id.is_some() || ssh.proxy_command.is_some()
-    ) || ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups).is_some();
-    // Skip port check when a jump host or ProxyCommand is configured — the destination
-    // is only reachable through the proxy, so a direct TCP probe
-    // will always time out.
-    let should_check =
-        settings.connection.pre_connect_port_check && !conn.skip_port_check && !has_jump_host;
+    let has_inherited_proxy = ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups).is_some();
+    // Use centralized probe-bypass logic + inherited proxy jump from groups
+    let should_check = conn.should_pre_connect_check(&settings.connection) && !has_inherited_proxy;
 
-    if has_jump_host && settings.connection.pre_connect_port_check && !conn.skip_port_check {
+    if !should_check && settings.connection.pre_connect_port_check && !conn.skip_port_check {
         tracing::debug!(
             protocol = "ssh",
             host = %conn.host,
             port = conn.port,
-            "Skipping port check — connection uses a jump host"
+            "Skipping port check — connection uses a jump host or proxy"
         );
     }
 
@@ -987,13 +980,8 @@ pub fn start_vnc_connection(
     conn: &rustconn_core::Connection,
 ) -> Option<Uuid> {
     // Check if port check is needed — skip when jump host is configured
-    let has_jump_host = matches!(
-        &conn.protocol_config,
-        rustconn_core::ProtocolConfig::Vnc(vnc) if vnc.jump_host_id.is_some()
-    );
     let settings = state.borrow().settings().clone();
-    let should_check =
-        settings.connection.pre_connect_port_check && !conn.skip_port_check && !has_jump_host;
+    let should_check = conn.should_pre_connect_check(&settings.connection);
 
     if should_check {
         let host = conn.host.clone();
@@ -1192,14 +1180,9 @@ pub fn start_spice_connection(
     connection_id: Uuid,
     conn: &rustconn_core::Connection,
 ) -> Option<Uuid> {
-    // Check if port check is needed — skip when jump host is configured
-    let has_jump_host = matches!(
-        &conn.protocol_config,
-        rustconn_core::ProtocolConfig::Spice(spice) if spice.jump_host_id.is_some()
-    );
+    // Check if port check is needed — centralized probe-bypass logic
     let settings = state.borrow().settings().clone();
-    let should_check =
-        settings.connection.pre_connect_port_check && !conn.skip_port_check && !has_jump_host;
+    let should_check = conn.should_pre_connect_check(&settings.connection);
 
     if should_check {
         let host = conn.host.clone();
@@ -2093,7 +2076,7 @@ pub fn start_telnet_connection(
 ) -> Option<Uuid> {
     // Check if port check is needed
     let settings = state.borrow().settings().clone();
-    let should_check = settings.connection.pre_connect_port_check && !conn.skip_port_check;
+    let should_check = conn.should_pre_connect_check(&settings.connection);
 
     if should_check {
         let host = conn.host.clone();
@@ -2870,7 +2853,7 @@ pub fn start_mosh_connection(
 ) -> Option<Uuid> {
     // Port check uses the SSH port (mosh handshake goes over SSH)
     let settings = state.borrow().settings().clone();
-    let should_check = settings.connection.pre_connect_port_check && !conn.skip_port_check;
+    let should_check = conn.should_pre_connect_check(&settings.connection);
 
     if should_check {
         let ssh_port = if let rustconn_core::ProtocolConfig::Mosh(ref cfg) = conn.protocol_config {

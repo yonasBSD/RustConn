@@ -1071,7 +1071,7 @@ impl MainWindow {
                 return;
             };
             let settings = state_ref.settings();
-            let should = settings.connection.pre_connect_port_check && !conn.skip_port_check;
+            let should = conn.should_pre_connect_check(&settings.connection);
             (
                 should,
                 conn.host.clone(),

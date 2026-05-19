@@ -1,6 +1,6 @@
 # RustConn CLI Reference
 
-**Version 0.13.6** | Full command-line interface for RustConn connection management
+**Version 0.14.2** | Full command-line interface for RustConn connection management
 
 The `rustconn-cli` binary provides full connection management from the terminal. It shares the same configuration files as the GUI (`~/.config/rustconn/`), so changes made in either tool are immediately visible to the other.
 

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-19 17:59+0300\n"
+"POT-Creation-Date: 2026-05-19 18:54+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Uzbek\n"
@@ -7688,6 +7688,37 @@ msgstr "Parol ombori topilmadi"
 msgid "Password Vault Disabled"
 msgstr "Parol ombori o'chirilgan"
 
+#: rustconn/src/sidebar/search.rs:20
+#, fuzzy
+msgid "Search Syntax"
+msgstr "Qidirish sintaksisi yordami"
+
+#: rustconn/src/sidebar/search.rs:27
+#, fuzzy
+msgid "{}: Search by name"
+msgstr "Qidirish sintaksisi yordami"
+
+#: rustconn/src/sidebar/search.rs:28
+msgid "@{}: Search by username"
+msgstr ""
+
+#: rustconn/src/sidebar/search.rs:29
+msgid "#{}: Search by tag"
+msgstr ""
+
+#: rustconn/src/sidebar/search.rs:30
+msgid "{}: Search by IP"
+msgstr ""
+
+#: rustconn/src/sidebar/search.rs:31
+#, fuzzy
+msgid "protocol:{}: Filter by protocol"
+msgstr "Protokol bo'yicha filtrlash:"
+
+#: rustconn/src/sidebar/search.rs:32
+msgid "group:{}: Search in group"
+msgstr ""
+
 #: rustconn/src/sidebar_ui.rs:101
 msgid "Connect All"
 msgstr "Hammasini ulash"
@@ -8126,23 +8157,28 @@ msgstr "«{}» oʻrnatilmagan"
 msgid "Auto-reconnecting…"
 msgstr "Avtomatik qayta ulanish…"
 
-#: rustconn/src/terminal/mod.rs:2758
+#: rustconn/src/terminal/mod.rs:2312 rustconn/src/terminal/mod.rs:2322
+#, fuzzy
+msgid "Auto-reconnecting (attempt {}/{})"
+msgstr "Avtomatik qayta ulanish…"
+
+#: rustconn/src/terminal/mod.rs:2817
 msgid "Displayed in Split View"
 msgstr "Bo'lingan ko'rinishda ko'rsatilgan"
 
-#: rustconn/src/terminal/mod.rs:2759
+#: rustconn/src/terminal/mod.rs:2818
 msgid "This session is shown in another tab's split layout"
 msgstr "Bu seans boshqa varaqning bo'lingan tartibida ko'rsatilgan"
 
-#: rustconn/src/terminal/mod.rs:2764
+#: rustconn/src/terminal/mod.rs:2823
 msgid "Go to Split View"
 msgstr "Bo'lingan ko'rinishga o'tish"
 
-#: rustconn/src/terminal/mod.rs:3546
+#: rustconn/src/terminal/mod.rs:3605
 msgid "Playback: {}"
 msgstr "Ijro: {}"
 
-#: rustconn/src/terminal/mod.rs:3576
+#: rustconn/src/terminal/mod.rs:3635
 msgid "●REC"
 msgstr "●YOZ"
 
@@ -8374,8 +8410,8 @@ msgstr "O'zgaruvchini omborga saqlash amalga oshmadi: {}"
 msgid "Vault entry not found for '{}'. You will be prompted for a password."
 msgstr "'{}' uchun ombor yozuvi topilmadi. Sizdan parol soʻraladi."
 
-#: rustconn/src/window/credentials.rs:605
-#: rustconn/src/window/credentials.rs:790
+#: rustconn/src/window/credentials.rs:591
+#: rustconn/src/window/credentials.rs:770
 #: rustconn/src/window/edit_actions.rs:1111
 msgid "Connection failed. Host unreachable."
 msgstr "Ulanish muvaffaqiyatsiz. Xost mavjud emas."
@@ -9035,19 +9071,19 @@ msgstr "{} ta element ko'chirildi."
 msgid "Failed to move {} item(s):"
 msgstr "{} ta elementni ko'chirib bo'lmadi:"
 
-#: rustconn/src/window/protocols.rs:2537
+#: rustconn/src/window/protocols.rs:2520
 msgid "Install picocom for Serial connections"
 msgstr "Serial ulanishlar uchun picocom o'rnating"
 
-#: rustconn/src/window/protocols.rs:2701
+#: rustconn/src/window/protocols.rs:2684
 msgid "Install kubectl for Kubernetes connections"
 msgstr "Kubernetes ulanishlari uchun kubectl o'rnating"
 
-#: rustconn/src/window/protocols.rs:2719
+#: rustconn/src/window/protocols.rs:2702
 msgid "Configure pod and container for Kubernetes"
 msgstr "Kubernetes uchun pod va konteynerni sozlang"
 
-#: rustconn/src/window/protocols.rs:2961
+#: rustconn/src/window/protocols.rs:2944
 msgid "Install mosh for MOSH connections"
 msgstr "MOSH ulanishlari uchun mosh o’rnating"
 

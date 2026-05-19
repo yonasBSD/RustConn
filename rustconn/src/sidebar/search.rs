@@ -17,24 +17,28 @@ pub fn create_search_help_popover() -> Popover {
     box_container.set_margin_bottom(12);
 
     let title = Label::builder()
-        .label("<b>Search Syntax</b>")
-        .use_markup(true)
+        .label(&crate::i18n::i18n("Search Syntax"))
         .halign(gtk4::Align::Start)
         .build();
     title.add_css_class("heading");
     box_container.append(&title);
 
-    let help_text = "\
-• name: Search by name
-• @username: Search by username
-• #tag: Search by tag
-• 1.2.3.4: Search by IP
-• protocol:ssh: Filter by protocol
-• group:name: Search in group";
+    let help_lines = [
+        crate::i18n::i18n_f("{}: Search by name", &["name"]),
+        crate::i18n::i18n_f("@{}: Search by username", &["username"]),
+        crate::i18n::i18n_f("#{}: Search by tag", &["tag"]),
+        crate::i18n::i18n_f("{}: Search by IP", &["1.2.3.4"]),
+        crate::i18n::i18n_f("protocol:{}: Filter by protocol", &["ssh"]),
+        crate::i18n::i18n_f("group:{}: Search in group", &["name"]),
+    ];
 
-    let label = Label::new(Some(help_text));
-    label.set_halign(gtk4::Align::Start);
-    box_container.append(&label);
+    for line in &help_lines {
+        let row = Label::builder()
+            .label(&format!("• {line}"))
+            .halign(gtk4::Align::Start)
+            .build();
+        box_container.append(&row);
+    }
 
     popover.set_child(Some(&box_container));
     popover

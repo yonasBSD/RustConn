@@ -527,6 +527,29 @@ impl MainWindow {
                 // Update the reconnect banner to show auto-reconnect status
                 notebook_clone.update_reconnect_banner_status(session_id, true);
 
+                // Channel for attempt progress updates (background → main thread)
+                let (attempt_tx, attempt_rx) = std::sync::mpsc::channel::<u32>();
+                let notebook_attempt = notebook_clone.clone();
+                let max_attempts_for_ui = retry_config.max_attempts;
+                gtk4::glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+                    match attempt_rx.try_recv() {
+                        Ok(attempt) => {
+                            notebook_attempt.update_reconnect_banner_attempt(
+                                session_id,
+                                attempt,
+                                max_attempts_for_ui,
+                            );
+                            gtk4::glib::ControlFlow::Continue
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk4::glib::ControlFlow::Continue
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                            gtk4::glib::ControlFlow::Break
+                        }
+                    }
+                });
+
                 // Clone notebook's on_reconnect callback for use in the polling result
                 let on_reconnect = notebook_clone.reconnect_callback();
                 let notebook_cleanup = notebook_clone.clone();
@@ -547,6 +570,7 @@ impl MainWindow {
                                         is_online,
                                         "Auto-reconnect probe"
                                     );
+                                    let _ = attempt_tx.send(attempt);
                                 },
                             ),
                         )

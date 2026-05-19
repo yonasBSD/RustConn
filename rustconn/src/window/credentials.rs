@@ -535,23 +535,9 @@ impl MainWindow {
             let conn = state_ref.get_connection(connection_id);
             if let Some(conn) = conn {
                 // Skip port check when the destination is only reachable
-                // through an indirect path:
-                //   - SSH jump host (tunnel)
-                //   - RDP Gateway (FreeRDP routes via /g:gateway:443)
-                // A direct TCP probe of the target host would time out in
-                // both cases (issue #153).
-                let bypasses_direct_check = matches!(
-                    &conn.protocol_config,
-                    rustconn_core::ProtocolConfig::Rdp(rdp)
-                        if rdp.jump_host_id.is_some() || rdp.gateway.is_some()
-                );
-                let should = settings.connection.pre_connect_port_check
-                    && !conn.skip_port_check
-                    && !bypasses_direct_check;
-                if bypasses_direct_check
-                    && settings.connection.pre_connect_port_check
-                    && !conn.skip_port_check
-                {
+                // Centralized probe-bypass logic handles jump host, RDP Gateway, etc.
+                let should = conn.should_pre_connect_check(&settings.connection);
+                if !should && settings.connection.pre_connect_port_check && !conn.skip_port_check {
                     tracing::debug!(
                         protocol = "rdp",
                         host = %conn.host,
@@ -734,13 +720,7 @@ impl MainWindow {
             let settings = state_ref.settings();
             let conn = state_ref.get_connection(connection_id);
             if let Some(conn) = conn {
-                let has_jump_host = matches!(
-                    &conn.protocol_config,
-                    rustconn_core::ProtocolConfig::Vnc(vnc) if vnc.jump_host_id.is_some()
-                );
-                let should = settings.connection.pre_connect_port_check
-                    && !conn.skip_port_check
-                    && !has_jump_host;
+                let should = conn.should_pre_connect_check(&settings.connection);
                 (
                     should,
                     conn.host.clone(),

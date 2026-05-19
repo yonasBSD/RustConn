@@ -8,6 +8,7 @@ mod cli_tests;
 mod clipboard_tests;
 mod cluster_tests;
 mod config_tests;
+mod connection_probe_tests;
 mod connection_tests;
 mod csv_tests;
 mod custom_property_tests;

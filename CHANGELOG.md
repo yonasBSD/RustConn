@@ -9,19 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.14.2] - 2026-05-19
 
+### Added
+
+- **Centralized pre-connect probe bypass** — `Connection::bypasses_direct_probe()` and `Connection::should_pre_connect_check()` in `rustconn-core`; single source of truth for jump host, RDP Gateway, SSH ProxyCommand, and SPICE proxy detection; replaces 5+ scattered inline checks; SPICE proxy now correctly skips port check (previously missed)
+- **Auto-reconnect: attempt N/M in banner** — "Auto-reconnecting (attempt 2/5)" with live updates via background→UI channel
+
 ### Fixed
 
-- **CLI: `add --protocol web` failed with "Port must be greater than 0"** — the Web protocol branch in `cmd_add` hardcoded port to 0 instead of using the resolved port value (default 443 or user-specified `--port`); now correctly passes the port parameter
-- **CLI: SecureCRT export/import unavailable** — `rustconn-cli export -f secure-crt` and `rustconn-cli import -f secure-crt` were missing from the CLI format enums despite the core implementation existing since 0.13.10; added `secure-crt` (alias `securecrt`) to both `ExportFormatArg` and `ImportFormatArg`
-- **CSV import: silent data corruption on invalid port values** — port values that overflow `u16` (e.g. 999999) or equal 0 were silently replaced with the protocol default port; now the row is skipped with a descriptive warning ("Invalid port '999999' (must be 1-65535), row 7"), consistent with the SecureCRT/libvirt port overflow fix from 0.13.14
-- **Credential memory safety: backend master passwords returned as plain String** — `get_bw_password_from_keyring()`, `get_op_token_from_keyring()`, `get_pb_passphrase_from_keyring()`, and `get_kdbx_password_from_keyring()` now return `SecretString` directly instead of exposing the secret into a plain `String` intermediate; eliminates unnecessary plaintext copies in heap memory
-- **Header bar tooltip: "New Group (Ctrl+Shift+N)" showed wrong shortcut** — the actual accelerator is `Ctrl+Shift+G` (configured in keybindings since 0.14.0); tooltip corrected
+- **CLI: `add --protocol web` port always 0** — Web branch now uses resolved port (default 443 or `--port`)
+- **CLI: SecureCRT export/import missing** — added `secure-crt` format to both `ExportFormatArg` and `ImportFormatArg`
+- **CSV import: silent port overflow** — values > 65535 or 0 now skip the row with a warning instead of silently using default
+- **Credential memory: backend passwords as plain String** — `get_bw_password_from_keyring()` and 3 similar functions now return `SecretString` directly
+- **Tooltip: "New Group (Ctrl+Shift+N)"** — corrected to actual shortcut Ctrl+Shift+G
 
 ### Improved
 
-- **i18n: Connection dialog validation messages localized** — 10 validation error strings ("Connection name is required", "Host is required", "Port must be greater than 0", etc.) are now wrapped in `i18n()` for translation into 16 supported languages
-- **i18n: "Ctrl+Alt+Del" button label localized** — the embedded RDP, VNC, SPICE, and generic viewer toolbar buttons now use `i18n("Ctrl+Alt+Del")` instead of a hardcoded English string
-- **i18n: AlertDialog fallback "OK" button localized** — the rare toast-overlay-missing fallback and startup error dialogs now use `i18n("OK")` instead of hardcoded English
+- **i18n: 15 new translatable strings** — connection dialog validation (10), "Ctrl+Alt+Del" button, AlertDialog "OK", search syntax help popover (6 lines), auto-reconnect attempt progress
+- **Documentation: CLI_REFERENCE.md** — version header updated to 0.14.2
+
+### Dependencies
+- `asn1-rs` 0.7.1 → 0.7.2
+- `num-conv` 0.2.1 → 0.2.2
+- `tar` 0.4.45 → 0.4.46
+- `tower-http` 0.6.10 → 0.6.11
 
 ## [0.14.1] - 2026-05-18
 
