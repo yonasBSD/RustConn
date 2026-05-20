@@ -1,7 +1,6 @@
 //! Monitoring settings tab using libadwaita components
 
 use adw::prelude::*;
-use gtk4::CheckButton;
 use gtk4::StringList;
 use gtk4::prelude::*;
 use libadwaita as adw;
@@ -20,17 +19,17 @@ pub struct MonitoringPageWidgets {
     /// Polling interval spin row
     pub interval_row: adw::SpinRow,
     /// Show CPU usage
-    pub show_cpu: CheckButton,
+    pub show_cpu: adw::SwitchRow,
     /// Show memory usage
-    pub show_memory: CheckButton,
+    pub show_memory: adw::SwitchRow,
     /// Show disk usage
-    pub show_disk: CheckButton,
+    pub show_disk: adw::SwitchRow,
     /// Show network throughput
-    pub show_network: CheckButton,
+    pub show_network: adw::SwitchRow,
     /// Show load average
-    pub show_load: CheckButton,
+    pub show_load: adw::SwitchRow,
     /// Show system info (distro, kernel, uptime)
-    pub show_system_info: CheckButton,
+    pub show_system_info: adw::SwitchRow,
     /// Activity monitor default mode combo
     pub activity_mode_combo: adw::ComboRow,
     /// Activity monitor default quiet period spin
@@ -78,78 +77,48 @@ impl MonitoringPageWidgets {
             .description(i18n("Select which metrics to display"))
             .build();
 
-        let show_cpu = CheckButton::builder()
-            .active(true)
-            .valign(gtk4::Align::Center)
-            .sensitive(false)
-            .build();
-        let cpu_row = adw::ActionRow::builder()
+        let show_cpu = adw::SwitchRow::builder()
             .title(i18n("CPU usage"))
-            .activatable_widget(&show_cpu)
-            .build();
-        cpu_row.add_prefix(&show_cpu);
-        metrics_group.add(&cpu_row);
-
-        let show_memory = CheckButton::builder()
             .active(true)
-            .valign(gtk4::Align::Center)
             .sensitive(false)
             .build();
-        let memory_row = adw::ActionRow::builder()
+        metrics_group.add(&show_cpu);
+
+        let show_memory = adw::SwitchRow::builder()
             .title(i18n("Memory usage"))
-            .activatable_widget(&show_memory)
-            .build();
-        memory_row.add_prefix(&show_memory);
-        metrics_group.add(&memory_row);
-
-        let show_disk = CheckButton::builder()
             .active(true)
-            .valign(gtk4::Align::Center)
             .sensitive(false)
             .build();
-        let disk_row = adw::ActionRow::builder()
+        metrics_group.add(&show_memory);
+
+        let show_disk = adw::SwitchRow::builder()
             .title(i18n("Disk usage"))
-            .activatable_widget(&show_disk)
-            .build();
-        disk_row.add_prefix(&show_disk);
-        metrics_group.add(&disk_row);
-
-        let show_network = CheckButton::builder()
             .active(true)
-            .valign(gtk4::Align::Center)
             .sensitive(false)
             .build();
-        let network_row = adw::ActionRow::builder()
+        metrics_group.add(&show_disk);
+
+        let show_network = adw::SwitchRow::builder()
             .title(i18n("Network throughput"))
-            .activatable_widget(&show_network)
-            .build();
-        network_row.add_prefix(&show_network);
-        metrics_group.add(&network_row);
-
-        let show_load = CheckButton::builder()
             .active(true)
-            .valign(gtk4::Align::Center)
             .sensitive(false)
             .build();
-        let load_row = adw::ActionRow::builder()
+        metrics_group.add(&show_network);
+
+        let show_load = adw::SwitchRow::builder()
             .title(i18n("Load average"))
-            .activatable_widget(&show_load)
-            .build();
-        load_row.add_prefix(&show_load);
-        metrics_group.add(&load_row);
-
-        let show_system_info = CheckButton::builder()
             .active(true)
-            .valign(gtk4::Align::Center)
             .sensitive(false)
             .build();
-        let system_info_row = adw::ActionRow::builder()
+        metrics_group.add(&show_load);
+
+        let show_system_info = adw::SwitchRow::builder()
             .title(i18n("System info"))
             .subtitle(i18n("Distribution, kernel version, uptime"))
-            .activatable_widget(&show_system_info)
+            .active(true)
+            .sensitive(false)
             .build();
-        system_info_row.add_prefix(&show_system_info);
-        metrics_group.add(&system_info_row);
+        metrics_group.add(&show_system_info);
 
         page.add(&metrics_group);
 

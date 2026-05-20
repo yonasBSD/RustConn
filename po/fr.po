@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-19 18:54+0300\n"
+"POT-Creation-Date: 2026-05-20 02:08+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: French\n"
@@ -30,8 +30,8 @@ msgstr "OK"
 #: rustconn/src/dialogs/recording.rs:576
 #: rustconn/src/dialogs/settings/mod.rs:453
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:494
-#: rustconn/src/dialogs/settings/terminal_tab.rs:636
-#: rustconn/src/dialogs/settings/terminal_tab.rs:683
+#: rustconn/src/dialogs/settings/terminal_tab.rs:603
+#: rustconn/src/dialogs/settings/terminal_tab.rs:650
 #: rustconn/src/dialogs/statistics.rs:90 rustconn/src/dialogs/template.rs:3210
 #: rustconn/src/dialogs/tunnel.rs:489 rustconn/src/dialogs/variable_setup.rs:85
 #: rustconn/src/dialogs/widgets.rs:455
@@ -55,7 +55,7 @@ msgstr "Ne pas enregistrer"
 #: rustconn/src/alert.rs:94 rustconn/src/dialogs/connection/dialog.rs:3651
 #: rustconn/src/dialogs/connection/dialog.rs:3653
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:180
-#: rustconn/src/dialogs/settings/terminal_tab.rs:684
+#: rustconn/src/dialogs/settings/terminal_tab.rs:651
 #: rustconn/src/dialogs/smart_folder.rs:81
 #: rustconn/src/dialogs/smart_folder.rs:82 rustconn/src/dialogs/snippet.rs:352
 #: rustconn/src/dialogs/template.rs:2740 rustconn/src/dialogs/variables.rs:123
@@ -147,7 +147,7 @@ msgstr "Nouveau cluster"
 #: rustconn/src/dialogs/cluster.rs:71 rustconn/src/dialogs/cluster.rs:72
 #: rustconn/src/dialogs/connection/dialog.rs:1747
 #: rustconn/src/dialogs/connection/dialog.rs:1748
-#: rustconn/src/dialogs/settings/terminal_tab.rs:637
+#: rustconn/src/dialogs/settings/terminal_tab.rs:604
 #: rustconn/src/dialogs/smart_folder.rs:86
 #: rustconn/src/dialogs/smart_folder.rs:87 rustconn/src/dialogs/snippet.rs:79
 #: rustconn/src/dialogs/snippet.rs:80 rustconn/src/dialogs/template.rs:142
@@ -320,12 +320,12 @@ msgstr ""
 "couleurs rapides pour l'identification de l'environnement"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:102
-#: rustconn/src/dialogs/settings/terminal_tab.rs:707
+#: rustconn/src/dialogs/settings/terminal_tab.rs:674
 msgid "Background"
 msgstr "Arrière-plan"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:110
-#: rustconn/src/dialogs/settings/terminal_tab.rs:708
+#: rustconn/src/dialogs/settings/terminal_tab.rs:675
 msgid "Foreground"
 msgstr "Premier plan"
 
@@ -379,7 +379,7 @@ msgid "Save terminal output to file"
 msgstr "Enregistrer la sortie du terminal dans un fichier"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:308
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:177
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:146
 msgid "Activity Monitor"
 msgstr "Moniteur d'activité"
 
@@ -389,20 +389,20 @@ msgstr "Détecter l'activité ou le silence de la sortie du terminal"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:312
 #: rustconn/src/dialogs/connection/spice.rs:158
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:183
-#: rustconn/src/dialogs/settings/terminal_tab.rs:257
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:152
+#: rustconn/src/dialogs/settings/terminal_tab.rs:256
 #: rustconn/src/dialogs/template.rs:1277
 msgid "Off"
 msgstr "Désactivé"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:312
-#: rustconn/src/dialogs/settings/logging_tab.rs:114
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:183
+#: rustconn/src/dialogs/settings/logging_tab.rs:109
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:152
 msgid "Activity"
 msgstr "Activité"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:312
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:183
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:152
 msgid "Silence"
 msgstr "Silence"
 
@@ -419,7 +419,7 @@ msgid "Quiet Period"
 msgstr "Période de calme"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:324
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:195
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:164
 msgid "Seconds of silence before activity notification"
 msgstr "Secondes de silence avant notification d'activité"
 
@@ -428,7 +428,7 @@ msgid "Silence Timeout"
 msgstr "Délai d'expiration du silence"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:333
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:203
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:172
 msgid "Seconds of no output before silence notification"
 msgstr "Secondes sans sortie avant notification de silence"
 
@@ -565,7 +565,7 @@ msgstr "Temps d'attente pour le démarrage"
 #: rustconn/src/dialogs/connection/advanced_tab.rs:706
 #: rustconn/src/dialogs/connection/general_tab.rs:78
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:99
-#: rustconn/src/dialogs/export.rs:388 rustconn/src/dialogs/settings/mod.rs:1267
+#: rustconn/src/dialogs/export.rs:388 rustconn/src/dialogs/settings/mod.rs:1251
 #: rustconn/src/dialogs/smart_folder.rs:120
 #: rustconn/src/dialogs/template.rs:509
 #: rustconn/src/window/connection_dialogs.rs:384
@@ -575,36 +575,36 @@ msgid "Name"
 msgstr "Nom"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:708
-#: rustconn/src/dialogs/settings/mod.rs:1269
+#: rustconn/src/dialogs/settings/mod.rs:1253
 msgid "Rule name"
 msgstr "Nom de la règle"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:715
-#: rustconn/src/dialogs/settings/mod.rs:1277
+#: rustconn/src/dialogs/settings/mod.rs:1261
 msgid "Pattern (regex)"
 msgstr "Motif (regex)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:717
-#: rustconn/src/dialogs/settings/mod.rs:1279
+#: rustconn/src/dialogs/settings/mod.rs:1263
 msgid "Regex pattern to match"
 msgstr "Motif regex à rechercher"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:725
-#: rustconn/src/dialogs/settings/mod.rs:1288
+#: rustconn/src/dialogs/settings/mod.rs:1272
 msgid "Enable rule"
 msgstr "Activer la règle"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:732
 #: rustconn/src/dialogs/connection/dialog.rs:2763
 #: rustconn/src/dialogs/connection/dialog.rs:2765
-#: rustconn/src/dialogs/settings/mod.rs:1296
+#: rustconn/src/dialogs/settings/mod.rs:1280
 #: rustconn/src/window/edit_dialogs.rs:2779
 #: rustconn/src/window/edit_dialogs.rs:2781
 msgid "Delete rule"
 msgstr "Supprimer la règle"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:736
-#: rustconn/src/dialogs/settings/mod.rs:1301
+#: rustconn/src/dialogs/settings/mod.rs:1285
 msgid "Delete highlight rule"
 msgstr "Supprimer la règle de surbrillance"
 
@@ -702,7 +702,7 @@ msgstr "ex. /chemin/vers/script.sh ou vpn-connect ${host}"
 #: rustconn/src/dialogs/connection/automation_tab.rs:267
 #: rustconn/src/dialogs/connection/general_tab.rs:331
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:215
-#: rustconn/src/dialogs/settings/terminal_tab.rs:427
+#: rustconn/src/dialogs/settings/terminal_tab.rs:394
 #: rustconn/src/dialogs/snippet.rs:200 rustconn/src/dialogs/template.rs:1941
 msgid "Command"
 msgstr "Commande"
@@ -1146,7 +1146,7 @@ msgid "Timeout in milliseconds (0 = no timeout)"
 msgstr "Délai en millisecondes (0 = pas de délai)"
 
 #: rustconn/src/dialogs/connection/dialog.rs:2923
-#: rustconn/src/dialogs/settings/ui_tab.rs:219
+#: rustconn/src/dialogs/settings/ui_tab.rs:203
 #: rustconn/src/window/edit_dialogs.rs:2941
 msgid "Enabled"
 msgstr "Activé"
@@ -1494,7 +1494,7 @@ msgstr "SSH, ports connus"
 #: rustconn/src/dialogs/connection/vnc.rs:257
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:86
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:384
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1100
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1078
 #: rustconn/src/dialogs/template.rs:624
 msgid "Authentication"
 msgstr "Authentification"
@@ -1546,7 +1546,7 @@ msgstr "Authentification Windows"
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:90
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:110
 #: rustconn/src/dialogs/document.rs:126
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1123
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1101
 #: rustconn/src/dialogs/template.rs:629
 #: rustconn/src/window/connection_dialogs.rs:473
 #: rustconn/src/window/edit_dialogs.rs:659
@@ -1722,7 +1722,7 @@ msgid "Creates a temporary pod with kubectl run"
 msgstr "Crée un pod temporaire avec kubectl run"
 
 #: rustconn/src/dialogs/connection/logging_tab.rs:63
-#: rustconn/src/dialogs/settings/logging_tab.rs:151
+#: rustconn/src/dialogs/settings/logging_tab.rs:136
 msgid "Session Logging"
 msgstr "Journalisation des sessions"
 
@@ -2591,8 +2591,8 @@ msgid "Path to SSH key"
 msgstr "Chemin vers la clé SSH"
 
 #: rustconn/src/dialogs/connection/ssh.rs:243
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1201
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1204
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1142
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1145
 msgid "Browse for key file"
 msgstr "Parcourir pour le fichier de clé"
 
@@ -2603,7 +2603,7 @@ msgstr "Parcourir pour le fichier de clé SSH"
 #: rustconn/src/dialogs/connection/ssh.rs:251
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:91
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:127
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1214
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1155
 #: rustconn/src/dialogs/template.rs:675
 msgid "Key File"
 msgstr "Fichier de clé"
@@ -4142,7 +4142,7 @@ msgid "RDP File"
 msgstr "Fichier RDP"
 
 #: rustconn/src/dialogs/import.rs:479
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1699
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1636
 msgid "Unknown"
 msgstr "Inconnu"
 
@@ -4875,7 +4875,7 @@ msgid "Reset All to Defaults"
 msgstr "Tout réinitialiser par défaut"
 
 #: rustconn/src/dialogs/settings/logging_tab.rs:31
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:53
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:52
 #: rustconn/src/dialogs/tunnel.rs:635
 msgid "General"
 msgstr "Général"
@@ -4921,35 +4921,35 @@ msgstr "Ouvrir le répertoire des journaux"
 msgid "Select what to include in logs"
 msgstr "Sélectionner le contenu à inclure dans les journaux"
 
-#: rustconn/src/dialogs/settings/logging_tab.rs:115
+#: rustconn/src/dialogs/settings/logging_tab.rs:110
 msgid "Connection events and change counts"
 msgstr "Événements de connexion et compteurs de modifications"
 
-#: rustconn/src/dialogs/settings/logging_tab.rs:127
+#: rustconn/src/dialogs/settings/logging_tab.rs:118
 msgid "User Input"
 msgstr "Saisie utilisateur"
 
-#: rustconn/src/dialogs/settings/logging_tab.rs:128
+#: rustconn/src/dialogs/settings/logging_tab.rs:119
 msgid "Commands and keystrokes"
 msgstr "Commandes et frappes clavier"
 
-#: rustconn/src/dialogs/settings/logging_tab.rs:140
+#: rustconn/src/dialogs/settings/logging_tab.rs:126
 msgid "Terminal Output"
 msgstr "Sortie du terminal"
 
-#: rustconn/src/dialogs/settings/logging_tab.rs:141
+#: rustconn/src/dialogs/settings/logging_tab.rs:127
 msgid "Full session transcript"
 msgstr "Transcription complète de la session"
 
-#: rustconn/src/dialogs/settings/logging_tab.rs:152
+#: rustconn/src/dialogs/settings/logging_tab.rs:137
 msgid "Format options for session logs"
 msgstr "Options de format pour les journaux de session"
 
-#: rustconn/src/dialogs/settings/logging_tab.rs:157
+#: rustconn/src/dialogs/settings/logging_tab.rs:141
 msgid "Timestamps"
 msgstr "Horodatages"
 
-#: rustconn/src/dialogs/settings/logging_tab.rs:158
+#: rustconn/src/dialogs/settings/logging_tab.rs:142
 msgid "Prepend [HH:MM:SS] to each line in session logs"
 msgstr "Ajouter [HH:MM:SS] au début de chaque ligne des journaux de session"
 
@@ -5028,19 +5028,19 @@ msgstr "Erreur de restauration"
 msgid "Failed to start"
 msgstr "Échec du démarrage"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:47
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:46
 msgid "Monitoring"
 msgstr "Surveillance"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:54
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:53
 msgid "Remote host metrics collection"
 msgstr "Collecte de métriques de l'hôte distant"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:58
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:57
 msgid "Enable monitoring"
 msgstr "Activer la surveillance"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:60
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:59
 msgid ""
 "Global switch for all connections (per-connection: Advanced tab in "
 "connection settings)"
@@ -5048,70 +5048,70 @@ msgstr ""
 "Interrupteur global pour toutes les connexions (par connexion : onglet "
 "Avancé dans les paramètres de connexion)"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:66
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:65
 msgid "Polling interval"
 msgstr "Intervalle d'interrogation"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:67
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:66
 msgid "Seconds between metric updates"
 msgstr "Secondes entre les mises à jour des métriques"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:77
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:76
 msgid "Visible Metrics"
 msgstr "Métriques visibles"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:78
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:77
 msgid "Select which metrics to display"
 msgstr "Sélectionner les métriques à afficher"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:87
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:81
 msgid "CPU usage"
 msgstr "Utilisation CPU"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:99
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:88
 msgid "Memory usage"
 msgstr "Utilisation mémoire"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:111
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:95
 msgid "Disk usage"
 msgstr "Utilisation disque"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:123
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:102
 msgid "Network throughput"
 msgstr "Débit réseau"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:135
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:109
 msgid "Load average"
 msgstr "Charge moyenne"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:147
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:116
 msgid "System info"
 msgstr "Informations système"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:148
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:117
 msgid "Distribution, kernel version, uptime"
 msgstr "Distribution, version du noyau, durée de fonctionnement"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:179
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:148
 msgid "Default settings for terminal activity and silence detection"
 msgstr ""
 "Paramètres par défaut pour la détection d'activité et de silence du "
 "terminalParamètres par défaut pour la détection d'activité et de silence du "
 "terminal"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:185
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:154
 msgid "Default Mode"
 msgstr "Mode par défaut"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:186
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:155
 msgid "Monitoring mode applied to new connections"
 msgstr "Mode de surveillance appliqué aux nouvelles connexions"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:194
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:163
 msgid "Default Quiet Period"
 msgstr "Période de calme par défaut"
 
-#: rustconn/src/dialogs/settings/monitoring_tab.rs:202
+#: rustconn/src/dialogs/settings/monitoring_tab.rs:171
 msgid "Default Silence Timeout"
 msgstr "Délai de silence par défaut"
 
@@ -5127,105 +5127,100 @@ msgstr "Non initialisé (exécuter 'pass init &lt;gpg-id&gt;')"
 msgid "Cannot determine store directory"
 msgstr "Impossible de déterminer le répertoire du stockage"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:330
-msgid "Secrets"
-msgstr "Secrets"
+#: rustconn/src/dialogs/settings/secrets_tab.rs:364
+#, fuzzy
+msgid "Don't save"
+msgstr "Ne pas enregistrer"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:336
-msgid "Secret Backend"
-msgstr "Backend de secrets"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:337
-msgid "Choose how passwords are stored"
-msgstr "Choisir le mode de stockage des mots de passe"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:355
-msgid "Backend"
-msgstr "Backend"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:356
-msgid "Primary password storage method"
-msgstr "Méthode principale de stockage des mots de passe"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:367
-msgid "Version"
-msgstr "Version"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:376
-msgid "Enable fallback"
-msgstr "Activer le repli"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:377
-msgid "Use libsecret if primary backend unavailable"
-msgstr "Utiliser libsecret si le backend principal est indisponible"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:405
-#: rustconn/src/dialogs/settings/secrets_tab.rs:451
-#: rustconn/src/dialogs/settings/secrets_tab.rs:727
-#: rustconn/src/dialogs/settings/secrets_tab.rs:887
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1013
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1323
-msgid "Detecting..."
-msgstr "Détection..."
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:410
-msgid "Bitwarden"
-msgstr "Bitwarden"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:411
-msgid "Configure Bitwarden CLI integration"
-msgstr "Configurer l'intégration CLI Bitwarden"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:416
-msgid "Master password"
-msgstr "Mot de passe principal"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:422
-msgid "Master Password"
-msgstr "Mot de passe principal"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:423
-msgid "Required to unlock vault"
-msgstr "Requis pour déverrouiller le coffre"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:432
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1131
-msgid "Save password"
-msgstr "Enregistrer le mot de passe"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:433
-#: rustconn/src/dialogs/settings/secrets_tab.rs:709
-#: rustconn/src/dialogs/settings/secrets_tab.rs:870
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1132
-msgid "Encrypted storage (machine-specific)"
+#: rustconn/src/dialogs/settings/secrets_tab.rs:365
+#, fuzzy
+msgid "Encrypted file (machine-specific)"
 msgstr "Stockage chiffré (spécifique à la machine)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:443
-#: rustconn/src/dialogs/settings/secrets_tab.rs:719
-#: rustconn/src/dialogs/settings/secrets_tab.rs:879
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1141
-msgid "Save to system keyring"
-msgstr "Enregistrer dans le trousseau système"
-
-#: rustconn/src/dialogs/settings/secrets_tab.rs:444
-#: rustconn/src/dialogs/settings/secrets_tab.rs:720
-#: rustconn/src/dialogs/settings/secrets_tab.rs:880
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1142
-msgid "Store in GNOME Keyring / KDE Wallet (recommended)"
+#: rustconn/src/dialogs/settings/secrets_tab.rs:366
+#, fuzzy
+msgid "System keyring (recommended)"
 msgstr "Stocker dans GNOME Keyring / KDE Wallet (recommandé)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:474
-#: rustconn/src/dialogs/settings/secrets_tab.rs:750
-#: rustconn/src/dialogs/settings/secrets_tab.rs:910
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1172
+#: rustconn/src/dialogs/settings/secrets_tab.rs:370
+msgid "How to persist the credential between sessions"
+msgstr ""
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:389
 msgid "Install libsecret-tools for keyring"
 msgstr "Installer libsecret-tools pour le trousseau"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:488
+#: rustconn/src/dialogs/settings/secrets_tab.rs:422
+msgid "Secrets"
+msgstr "Secrets"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:428
+msgid "Secret Backend"
+msgstr "Backend de secrets"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:429
+msgid "Choose how passwords are stored"
+msgstr "Choisir le mode de stockage des mots de passe"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:447
+msgid "Backend"
+msgstr "Backend"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:448
+msgid "Primary password storage method"
+msgstr "Méthode principale de stockage des mots de passe"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:459
+msgid "Version"
+msgstr "Version"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:468
+msgid "Enable fallback"
+msgstr "Activer le repli"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:469
+msgid "Use libsecret if primary backend unavailable"
+msgstr "Utiliser libsecret si le backend principal est indisponible"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:497
+#: rustconn/src/dialogs/settings/secrets_tab.rs:523
+#: rustconn/src/dialogs/settings/secrets_tab.rs:761
+#: rustconn/src/dialogs/settings/secrets_tab.rs:884
+#: rustconn/src/dialogs/settings/secrets_tab.rs:991
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1265
+msgid "Detecting..."
+msgstr "Détection..."
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:502
+msgid "Bitwarden"
+msgstr "Bitwarden"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:503
+msgid "Configure Bitwarden CLI integration"
+msgstr "Configurer l'intégration CLI Bitwarden"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:508
+msgid "Master password"
+msgstr "Mot de passe principal"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:514
+msgid "Master Password"
+msgstr "Mot de passe principal"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:515
+msgid "Required to unlock vault"
+msgstr "Requis pour déverrouiller le coffre"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:533
+#, fuzzy
+msgid "Save master password"
+msgstr "Mot de passe principal"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:542
 msgid "Use API key authentication"
 msgstr "Utiliser l'authentification par clé API"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:490
+#: rustconn/src/dialogs/settings/secrets_tab.rs:544
 msgid "For automation or 2FA methods not supported by CLI (FIDO2, Duo)"
 msgstr ""
 "Pour l'automatisation ou les méthodes 2FA non prises en charge par CLI "
@@ -5233,110 +5228,110 @@ msgstr ""
 "par CLI (FIDO2, Duo)Pour l'automatisation ou les méthodes 2FA non prises en "
 "charge par le CLI (FIDO2, Duo)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:499
+#: rustconn/src/dialogs/settings/secrets_tab.rs:553
 msgid "client_id"
 msgstr "client_id"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:504
+#: rustconn/src/dialogs/settings/secrets_tab.rs:558
 msgid "Client ID"
 msgstr "Identifiant client"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:506
+#: rustconn/src/dialogs/settings/secrets_tab.rs:560
 msgid "From Bitwarden web vault → Settings → Security → Keys"
 msgstr "Depuis le coffre web Bitwarden → Paramètres → Sécurité → Clés"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:515
+#: rustconn/src/dialogs/settings/secrets_tab.rs:569
 msgid "client_secret"
 msgstr "client_secret"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:521
+#: rustconn/src/dialogs/settings/secrets_tab.rs:575
 msgid "Client Secret"
 msgstr "Secret client"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:522
+#: rustconn/src/dialogs/settings/secrets_tab.rs:576
 msgid "Keep this secret safe"
 msgstr "Conservez ce secret en lieu sûr"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:542
+#: rustconn/src/dialogs/settings/secrets_tab.rs:596
 msgid "Unlock"
 msgstr "Déverrouiller"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:545
+#: rustconn/src/dialogs/settings/secrets_tab.rs:599
 msgid "Unlock Bitwarden vault"
 msgstr "Déverrouiller le coffre Bitwarden"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:557
+#: rustconn/src/dialogs/settings/secrets_tab.rs:611
 msgid "Vault Status"
 msgstr "État du coffre"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:558
+#: rustconn/src/dialogs/settings/secrets_tab.rs:612
 msgid "Login with 'bw login' in terminal first"
 msgstr "Se connecter d'abord avec 'bw login' dans le terminal"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:579
-#: rustconn/src/dialogs/settings/secrets_tab.rs:583
+#: rustconn/src/dialogs/settings/secrets_tab.rs:634
+#: rustconn/src/dialogs/settings/secrets_tab.rs:638
 msgid "Enter password"
 msgstr "Entrer le mot de passe"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:590
+#: rustconn/src/dialogs/settings/secrets_tab.rs:645
 msgid "Unlocking..."
 msgstr "Déverrouillage..."
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:651
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1693
+#: rustconn/src/dialogs/settings/secrets_tab.rs:706
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1630
 msgid "Unlocked"
 msgstr "Déverrouillé"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:666
+#: rustconn/src/dialogs/settings/secrets_tab.rs:721
 msgid "Invalid password"
 msgstr "Mot de passe invalide"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:668
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1695
+#: rustconn/src/dialogs/settings/secrets_tab.rs:723
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1632
 msgid "Not logged in"
 msgstr "Non connecté"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:670
+#: rustconn/src/dialogs/settings/secrets_tab.rs:725
 msgid "Unlock failed"
 msgstr "Échec du déverrouillage"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:683
+#: rustconn/src/dialogs/settings/secrets_tab.rs:738
 msgid "1Password"
 msgstr "1Password"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:684
+#: rustconn/src/dialogs/settings/secrets_tab.rs:739
 msgid "Configure 1Password CLI integration"
 msgstr "Configurer l'intégration CLI 1Password"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:689
+#: rustconn/src/dialogs/settings/secrets_tab.rs:744
 msgid "Service account token"
 msgstr "Jeton de compte de service"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:695
+#: rustconn/src/dialogs/settings/secrets_tab.rs:750
 msgid "Service Account Token"
 msgstr "Jeton de compte de service"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:697
+#: rustconn/src/dialogs/settings/secrets_tab.rs:752
 msgid "For headless/automated access (OP_SERVICE_ACCOUNT_TOKEN)"
 msgstr "Pour l'accès automatisé (OP_SERVICE_ACCOUNT_TOKEN)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:708
+#: rustconn/src/dialogs/settings/secrets_tab.rs:771
 msgid "Save token"
 msgstr "Enregistrer le jeton"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:762
+#: rustconn/src/dialogs/settings/secrets_tab.rs:778
 msgid "Sign In"
 msgstr "Se connecter"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:765
+#: rustconn/src/dialogs/settings/secrets_tab.rs:781
 msgid "Sign in to 1Password (opens terminal)"
 msgstr "Se connecter à 1Password (ouvre le terminal)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:777
+#: rustconn/src/dialogs/settings/secrets_tab.rs:793
 msgid "Account Status"
 msgstr "État du compte"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:779
+#: rustconn/src/dialogs/settings/secrets_tab.rs:795
 msgid "Sign in with 'op signin' in terminal or use biometric unlock"
 msgstr ""
 "Connectez-vous avec 'op signin' dans le terminal ou utilisez le "
@@ -5344,278 +5339,282 @@ msgstr ""
 "ou utilisez le déverrouillage biométriqueSe connecter avec 'op signin' dans "
 "le terminal ou utiliser le déverrouillage biométrique"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:791
+#: rustconn/src/dialogs/settings/secrets_tab.rs:807
 msgid "Opening terminal..."
 msgstr "Ouverture du terminal..."
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:816
+#: rustconn/src/dialogs/settings/secrets_tab.rs:832
 msgid "Check terminal"
 msgstr "Vérifier le terminal"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:822
+#: rustconn/src/dialogs/settings/secrets_tab.rs:838
 msgid "No terminal found"
 msgstr "Aucun terminal trouvé"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:833
+#: rustconn/src/dialogs/settings/secrets_tab.rs:849
 msgid "Passbolt"
 msgstr "Passbolt"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:834
+#: rustconn/src/dialogs/settings/secrets_tab.rs:850
 msgid "Configure Passbolt CLI integration"
 msgstr "Configurer l'intégration CLI Passbolt"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:844
+#: rustconn/src/dialogs/settings/secrets_tab.rs:860
 msgid "Server URL"
 msgstr "URL du serveur"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:845
+#: rustconn/src/dialogs/settings/secrets_tab.rs:861
 msgid "Passbolt web vault address"
 msgstr "Adresse du coffre web Passbolt"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:853
+#: rustconn/src/dialogs/settings/secrets_tab.rs:869
 msgid "GPG private key passphrase"
 msgstr "Phrase de passe de la clé privée GPG"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:859
+#: rustconn/src/dialogs/settings/secrets_tab.rs:875
 msgid "GPG Passphrase"
 msgstr "Phrase secrète GPG"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:860
+#: rustconn/src/dialogs/settings/secrets_tab.rs:876
 msgid "Required to decrypt credentials from Passbolt"
 msgstr "Requis pour déchiffrer les identifiants de Passbolt"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:869
+#: rustconn/src/dialogs/settings/secrets_tab.rs:893
 msgid "Save passphrase"
 msgstr "Enregistrer la phrase secrète"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:922
+#: rustconn/src/dialogs/settings/secrets_tab.rs:900
 msgid "Open Vault"
 msgstr "Ouvrir le coffre"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:925
+#: rustconn/src/dialogs/settings/secrets_tab.rs:903
 msgid "Open Passbolt web vault in browser"
 msgstr "Ouvrir le coffre web Passbolt dans le navigateur"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:937
+#: rustconn/src/dialogs/settings/secrets_tab.rs:915
 msgid "Server Status"
 msgstr "État du serveur"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:938
+#: rustconn/src/dialogs/settings/secrets_tab.rs:916
 msgid "Configure with 'passbolt configure' in terminal"
 msgstr "Configurer avec 'passbolt configure' dans le terminal"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:961
+#: rustconn/src/dialogs/settings/secrets_tab.rs:939
 msgid "Failed to open browser"
 msgstr "Impossible d'ouvrir le navigateur"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:966
+#: rustconn/src/dialogs/settings/secrets_tab.rs:944
 msgid "Enter server URL or run 'passbolt configure'"
 msgstr "Entrer l'URL du serveur ou exécuter 'passbolt configure'"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:977
+#: rustconn/src/dialogs/settings/secrets_tab.rs:955
 msgid "Pass"
 msgstr "Pass"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:978
+#: rustconn/src/dialogs/settings/secrets_tab.rs:956
 msgid "Configure Pass (passwordstore.org) integration"
 msgstr "Configurer l'intégration Pass (passwordstore.org)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:983
+#: rustconn/src/dialogs/settings/secrets_tab.rs:961
 msgid "~/.password-store"
 msgstr "~/.password-store"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:991
-#: rustconn/src/dialogs/settings/secrets_tab.rs:994
+#: rustconn/src/dialogs/settings/secrets_tab.rs:969
+#: rustconn/src/dialogs/settings/secrets_tab.rs:972
 msgid "Choose password store directory"
 msgstr "Choisir le répertoire du magasin de mots de passe"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1005
+#: rustconn/src/dialogs/settings/secrets_tab.rs:983
 msgid "Store Directory"
 msgstr "Répertoire du magasin"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1006
+#: rustconn/src/dialogs/settings/secrets_tab.rs:984
 msgid "Location of password-store (leave empty for default)"
 msgstr "Emplacement du magasin (laisser vide pour défaut)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1020
+#: rustconn/src/dialogs/settings/secrets_tab.rs:998
 msgid "Initialization Status"
 msgstr "État d'initialisation"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1021
+#: rustconn/src/dialogs/settings/secrets_tab.rs:999
 msgid "Run 'pass init &lt;gpg-id&gt;' to initialize"
 msgstr "Exécuter 'pass init &lt;gpg-id&gt;' pour initialiser"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1032
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1010
 msgid "Select Password Store Directory"
 msgstr "Sélectionner le répertoire du magasin de mots de passe"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1056
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1034
 msgid "KeePass Database"
 msgstr "Base de données KeePass"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1058
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1036
 msgid ""
 "Configure KDBX file integration (works with KeePassXC, GNOME Secrets, etc.)"
 msgstr ""
 "Configurer l'intégration KDBX (fonctionne avec KeePassXC, GNOME Secrets, "
 "etc.)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1063
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1041
 msgid "KDBX Integration"
 msgstr "Intégration KDBX"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1064
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1042
 msgid "Enable direct database access"
 msgstr "Activer l'accès direct à la base de données"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1070
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1048
 msgid "Select .kdbx file"
 msgstr "Sélectionner le fichier .kdbx"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1077
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1055
 msgid "Browse for database file"
 msgstr "Parcourir pour le fichier de base de données"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1080
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1058
 msgid "Browse for KeePass database file"
 msgstr "Parcourir le fichier de base de données KeePass"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1091
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1069
 msgid "Database File"
 msgstr "Fichier de base de données"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1101
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1079
 msgid "Database unlock methods"
 msgstr "Méthodes de déverrouillage de la base de données"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1110
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1088
 msgid "Use password"
 msgstr "Utiliser un mot de passe"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1118
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1096
 msgid "Database password"
 msgstr "Mot de passe de la base de données"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1149
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1108
 msgid "Not connected"
 msgstr "Non connecté"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1186
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1118
+msgid "Save password"
+msgstr "Enregistrer le mot de passe"
+
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1127
 msgid "Use key file"
 msgstr "Utiliser un fichier de clé"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1194
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1135
 msgid "Select .keyx or .key file"
 msgstr "Sélectionner le fichier .keyx ou .key"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1222
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1163
 msgid "KDBX Status"
 msgstr "État KDBX"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1227
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1168
 msgid "Check"
 msgstr "Vérifier"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1229
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1170
 msgid "Test database connection"
 msgstr "Tester la connexion à la base de données"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1241
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1182
 msgid "Connection Status"
 msgstr "État de la connexion"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1320
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1558
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1567
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1575
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1262
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1500
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1509
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1517
 msgid "Not installed"
 msgstr "Non installé"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1358
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1300
 msgid "Select KeePass Database"
 msgstr "Sélectionner la base de données KeePass"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1364
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1306
 msgid "KeePass Database (*.kdbx)"
 msgstr "Base de données KeePass (*.kdbx)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1392
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1334
 msgid "Select Key File"
 msgstr "Sélectionner le fichier de clé"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1399
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1341
 msgid "Key Files (*.keyx, *.key)"
 msgstr "Fichiers de clé (*.keyx, *.key)"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1403
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1345
 msgid "All Files"
 msgstr "Tous les fichiers"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1439
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1381
 msgid "No database selected"
 msgstr "Aucune base de données sélectionnée"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1479
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1421
 #: rustconn/src/embedded_rdp/ui.rs:161 rustconn/src/embedded_spice.rs:472
 #: rustconn/src/embedded_trait.rs:318 rustconn/src/session/vnc.rs:202
 #: rustconn/src/sidebar/view.rs:493
 msgid "Connected"
 msgstr "Connecté"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1694
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1631
 msgid "Locked"
 msgstr "Verrouillé"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1696
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1633
 msgid "Status: {}"
 msgstr "État : {}"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1701
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1731
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1753
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1638
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1668
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1690
 msgid "Error checking status"
 msgstr "Erreur lors de la vérification"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1717
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1654
 msgid "Signed in: {}"
 msgstr "Connecté : {}"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1719
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1656
 msgid "Signed in"
 msgstr "Connecté"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1724
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1728
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1661
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1665
 msgid "Not signed in"
 msgstr "Non connecté"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1726
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1663
 msgid "Session expired"
 msgstr "Session expirée"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1742
-#: rustconn/src/dialogs/settings/secrets_tab.rs:2089
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1679
+#: rustconn/src/dialogs/settings/secrets_tab.rs:2002
 msgid "Configured"
 msgstr "Configuré"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1746
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1750
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1683
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1687
 msgid "Not configured"
 msgstr "Non configuré"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:1748
+#: rustconn/src/dialogs/settings/secrets_tab.rs:1685
 msgid "Authentication failed"
 msgstr "Échec de l'authentification"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:2091
+#: rustconn/src/dialogs/settings/secrets_tab.rs:2004
 msgid "Database path required"
 msgstr "Chemin de base de données requis"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:2094
+#: rustconn/src/dialogs/settings/secrets_tab.rs:2007
 msgid "Disabled"
 msgstr "Désactivé"
 
-#: rustconn/src/dialogs/settings/secrets_tab.rs:2213
+#: rustconn/src/dialogs/settings/secrets_tab.rs:2126
 msgid "Token loaded from keyring"
 msgstr "Jeton chargé depuis le trousseau"
 
@@ -5765,273 +5764,273 @@ msgstr "Retirer de l'agent"
 msgid "Remove key from SSH agent"
 msgstr "Supprimer la clé de l'agent SSH"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:37
+#: rustconn/src/dialogs/settings/terminal_tab.rs:36
 #: rustconn/src/dialogs/shortcuts.rs:560
 msgid "Terminal"
 msgstr "Terminal"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:42
+#: rustconn/src/dialogs/settings/terminal_tab.rs:41
 msgid "Font"
 msgstr "Police"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:50
+#: rustconn/src/dialogs/settings/terminal_tab.rs:49
 msgid "Family"
 msgstr "Famille"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:63
+#: rustconn/src/dialogs/settings/terminal_tab.rs:62
 msgid "Size"
 msgstr "Taille"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:72
-#: rustconn/src/dialogs/settings/terminal_tab.rs:712
+#: rustconn/src/dialogs/settings/terminal_tab.rs:71
+#: rustconn/src/dialogs/settings/terminal_tab.rs:679
 msgid "Colors"
 msgstr "Couleurs"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:82
+#: rustconn/src/dialogs/settings/terminal_tab.rs:81
 #: rustconn/src/dialogs/settings/ui_tab.rs:87
 msgid "Theme"
 msgstr "Thème"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:96
-#: rustconn/src/dialogs/settings/terminal_tab.rs:99
+#: rustconn/src/dialogs/settings/terminal_tab.rs:95
+#: rustconn/src/dialogs/settings/terminal_tab.rs:98
 msgid "New custom theme"
 msgstr "Nouveau thème personnalisé"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:103
-#: rustconn/src/dialogs/settings/terminal_tab.rs:108
+#: rustconn/src/dialogs/settings/terminal_tab.rs:102
+#: rustconn/src/dialogs/settings/terminal_tab.rs:107
 msgid "Edit custom theme"
 msgstr "Modifier le thème personnalisé"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:113
-#: rustconn/src/dialogs/settings/terminal_tab.rs:118
+#: rustconn/src/dialogs/settings/terminal_tab.rs:112
+#: rustconn/src/dialogs/settings/terminal_tab.rs:117
 msgid "Delete custom theme"
 msgstr "Supprimer le thème personnalisé"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:126
+#: rustconn/src/dialogs/settings/terminal_tab.rs:125
 msgid "Custom themes"
 msgstr "Thèmes personnalisés"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:206
-#: rustconn/src/dialogs/settings/terminal_tab.rs:709
+#: rustconn/src/dialogs/settings/terminal_tab.rs:205
+#: rustconn/src/dialogs/settings/terminal_tab.rs:676
 msgid "Cursor"
 msgstr "Curseur"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:219
+#: rustconn/src/dialogs/settings/terminal_tab.rs:218
 msgid "Block"
 msgstr "Bloc"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:224
+#: rustconn/src/dialogs/settings/terminal_tab.rs:223
 msgid "IBeam"
 msgstr "Barre en I"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:229
+#: rustconn/src/dialogs/settings/terminal_tab.rs:228
 msgid "Underline"
 msgstr "Souligné"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:238
+#: rustconn/src/dialogs/settings/terminal_tab.rs:237
 msgid "Shape"
 msgstr "Forme"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:252
+#: rustconn/src/dialogs/settings/terminal_tab.rs:251
 msgid "On"
 msgstr "Activé"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:262
+#: rustconn/src/dialogs/settings/terminal_tab.rs:261
 #: rustconn/src/dialogs/settings/ui_tab.rs:49
 msgid "System"
 msgstr "Système"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:271
+#: rustconn/src/dialogs/settings/terminal_tab.rs:270
 msgid "Blink"
 msgstr "Clignotant"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:279
+#: rustconn/src/dialogs/settings/terminal_tab.rs:278
 msgid "Scrolling"
 msgstr "Défilement"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:291
+#: rustconn/src/dialogs/settings/terminal_tab.rs:290
 msgid "History"
 msgstr "Historique"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:292
+#: rustconn/src/dialogs/settings/terminal_tab.rs:291
 msgid "Number of lines to keep in scrollback"
 msgstr "Nombre de lignes à conserver dans l'historique de défilement"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:301
+#: rustconn/src/dialogs/settings/terminal_tab.rs:299
 msgid "On output"
 msgstr "À la sortie"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:302
+#: rustconn/src/dialogs/settings/terminal_tab.rs:300
 msgid "Scroll to bottom when new output appears"
 msgstr "Défiler vers le bas lors d'une nouvelle sortie"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:314
+#: rustconn/src/dialogs/settings/terminal_tab.rs:306
 msgid "On keystroke"
 msgstr "À la frappe"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:315
+#: rustconn/src/dialogs/settings/terminal_tab.rs:307
 msgid "Scroll to bottom when typing"
 msgstr "Défiler vers le bas lors de la saisie"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:327
+#: rustconn/src/dialogs/settings/terminal_tab.rs:314
 msgid "Scrollbar"
 msgstr "Barre de défilement"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:328
+#: rustconn/src/dialogs/settings/terminal_tab.rs:315
 msgid "Show a scrollbar next to the terminal"
 msgstr "Afficher une barre de défilement à côté du terminal"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:338
+#: rustconn/src/dialogs/settings/terminal_tab.rs:324
 msgid "Behavior"
 msgstr "Comportement"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:347
+#: rustconn/src/dialogs/settings/terminal_tab.rs:329
 msgid "Hyperlinks"
 msgstr "Hyperliens"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:348
+#: rustconn/src/dialogs/settings/terminal_tab.rs:330
 msgid "Allow clickable URLs in terminal"
 msgstr "Autoriser les URL cliquables dans le terminal"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:360
+#: rustconn/src/dialogs/settings/terminal_tab.rs:337
 msgid "Hide pointer"
 msgstr "Masquer le pointeur"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:361
+#: rustconn/src/dialogs/settings/terminal_tab.rs:338
 msgid "Hide mouse cursor when typing"
 msgstr "Masquer le curseur de la souris lors de la saisie"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:370
+#: rustconn/src/dialogs/settings/terminal_tab.rs:345
 msgid "Bell"
 msgstr "Cloche"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:371
+#: rustconn/src/dialogs/settings/terminal_tab.rs:346
 msgid "Play sound on terminal bell"
 msgstr "Jouer un son lors de la cloche du terminal"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:380
+#: rustconn/src/dialogs/settings/terminal_tab.rs:352
 msgid "SFTP via mc"
 msgstr "SFTP via mc"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:381
-#: rustconn/src/dialogs/settings/terminal_tab.rs:392
+#: rustconn/src/dialogs/settings/terminal_tab.rs:353
+#: rustconn/src/dialogs/settings/terminal_tab.rs:362
 msgid "Open SFTP in Midnight Commander (local shell tab)"
 msgstr "Ouvrir SFTP dans Midnight Commander (onglet shell local)"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:395
+#: rustconn/src/dialogs/settings/terminal_tab.rs:365
 msgid "⚠ External file managers cannot access SSH agent in Flatpak sandbox"
 msgstr ""
 "⚠ Les gestionnaires de fichiers externes ne peuvent pas accéder à l'agent "
 "SSH dans le bac à sable Flatpak"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:406
+#: rustconn/src/dialogs/settings/terminal_tab.rs:375
 msgid "Copy on select"
 msgstr "Copier à la sélection"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:407
+#: rustconn/src/dialogs/settings/terminal_tab.rs:376
 msgid "Automatically copy selected text to clipboard"
 msgstr "Copier automatiquement le texte sélectionné dans le presse-papiers"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:417
-#: rustconn/src/dialogs/settings/ui_tab.rs:165
-#: rustconn/src/dialogs/settings/ui_tab.rs:364 rustconn/src/tray.rs:222
+#: rustconn/src/dialogs/settings/terminal_tab.rs:384
+#: rustconn/src/dialogs/settings/ui_tab.rs:156
+#: rustconn/src/dialogs/settings/ui_tab.rs:343 rustconn/src/tray.rs:222
 #: rustconn/src/tray.rs:575 rustconn/src/window/ui.rs:158
 msgid "Local Shell"
 msgstr "Shell local"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:418
+#: rustconn/src/dialogs/settings/terminal_tab.rs:385
 msgid "Custom command for the local shell tab"
 msgstr "Commande personnalisée pour l'onglet shell local"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:422
+#: rustconn/src/dialogs/settings/terminal_tab.rs:389
 msgid "Default system shell"
 msgstr "Shell système par défaut"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:428
+#: rustconn/src/dialogs/settings/terminal_tab.rs:395
 msgid "e.g. fish, bash --norc, neofetch &amp;&amp; bash"
 msgstr "p. ex. fish, bash --norc, neofetch &amp;&amp; bash"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:630
+#: rustconn/src/dialogs/settings/terminal_tab.rs:597
 msgid "New Custom Theme"
 msgstr "Nouveau thème personnalisé"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:631
+#: rustconn/src/dialogs/settings/terminal_tab.rs:598
 msgid "Enter a name for the new theme"
 msgstr "Entrez un nom pour le nouveau thème"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:641
+#: rustconn/src/dialogs/settings/terminal_tab.rs:608
 msgid "Theme name"
 msgstr "Nom du thème"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:678
+#: rustconn/src/dialogs/settings/terminal_tab.rs:645
 msgid "{} — Theme Editor"
 msgstr "{} — Éditeur de thèmes"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:720
+#: rustconn/src/dialogs/settings/terminal_tab.rs:687
 msgid "Palette"
 msgstr "Palette"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:724
+#: rustconn/src/dialogs/settings/terminal_tab.rs:691
 msgid "Black"
 msgstr "Noir"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:725
+#: rustconn/src/dialogs/settings/terminal_tab.rs:692
 msgid "Red"
 msgstr "Rouge"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:726
+#: rustconn/src/dialogs/settings/terminal_tab.rs:693
 msgid "Green"
 msgstr "Vert"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:727
+#: rustconn/src/dialogs/settings/terminal_tab.rs:694
 msgid "Yellow"
 msgstr "Jaune"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:728
+#: rustconn/src/dialogs/settings/terminal_tab.rs:695
 msgid "Blue"
 msgstr "Bleu"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:729
+#: rustconn/src/dialogs/settings/terminal_tab.rs:696
 msgid "Magenta"
 msgstr "Magenta"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:730
+#: rustconn/src/dialogs/settings/terminal_tab.rs:697
 msgid "Cyan"
 msgstr "Cyan"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:731
+#: rustconn/src/dialogs/settings/terminal_tab.rs:698
 msgid "White"
 msgstr "Blanc"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:732
+#: rustconn/src/dialogs/settings/terminal_tab.rs:699
 msgid "Bright Black"
 msgstr "Noir vif"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:733
+#: rustconn/src/dialogs/settings/terminal_tab.rs:700
 msgid "Bright Red"
 msgstr "Rouge vif"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:734
+#: rustconn/src/dialogs/settings/terminal_tab.rs:701
 msgid "Bright Green"
 msgstr "Vert vif"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:735
+#: rustconn/src/dialogs/settings/terminal_tab.rs:702
 msgid "Bright Yellow"
 msgstr "Jaune vif"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:736
+#: rustconn/src/dialogs/settings/terminal_tab.rs:703
 msgid "Bright Blue"
 msgstr "Bleu vif"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:737
+#: rustconn/src/dialogs/settings/terminal_tab.rs:704
 msgid "Bright Magenta"
 msgstr "Magenta vif"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:738
+#: rustconn/src/dialogs/settings/terminal_tab.rs:705
 msgid "Bright Cyan"
 msgstr "Cyan vif"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:739
+#: rustconn/src/dialogs/settings/terminal_tab.rs:706
 msgid "Bright White"
 msgstr "Blanc vif"
 
@@ -6055,11 +6054,11 @@ msgstr "Langue"
 msgid "Restart required to apply"
 msgstr "Redémarrage nécessaire pour appliquer"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:110
+#: rustconn/src/dialogs/settings/ui_tab.rs:109
 msgid "Color tabs by protocol"
 msgstr "Colorer les onglets par protocole"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:112
+#: rustconn/src/dialogs/settings/ui_tab.rs:111
 msgid "Show colored indicator on tabs based on protocol type"
 msgstr ""
 "Afficher un indicateur coloré sur les onglets selon le type de "
@@ -6067,60 +6066,60 @@ msgstr ""
 "protocoleAfficher un indicateur coloré sur les onglets selon le type de "
 "protocole"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:122
+#: rustconn/src/dialogs/settings/ui_tab.rs:118
 msgid "Show protocol filters"
 msgstr "Afficher les filtres de protocole"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:123
+#: rustconn/src/dialogs/settings/ui_tab.rs:119
 msgid "Display protocol filter bar in sidebar"
 msgstr "Afficher la barre de filtres de protocole dans la barre latérale"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:131
+#: rustconn/src/dialogs/settings/ui_tab.rs:125
 msgid "Sidebar width"
 msgstr "Largeur de la barre latérale"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:132
+#: rustconn/src/dialogs/settings/ui_tab.rs:126
 msgid "Width of the connection sidebar in pixels"
 msgstr "Largeur de la barre latérale des connexions en pixels"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:141
+#: rustconn/src/dialogs/settings/ui_tab.rs:135
 msgid "Window"
 msgstr "Fenêtre"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:146
+#: rustconn/src/dialogs/settings/ui_tab.rs:139
 msgid "Remember size"
 msgstr "Mémoriser la taille"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:147
+#: rustconn/src/dialogs/settings/ui_tab.rs:140
 msgid "Restore window geometry on startup"
 msgstr "Restaurer la géométrie de la fenêtre au démarrage"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:157
+#: rustconn/src/dialogs/settings/ui_tab.rs:148
 msgid "Startup"
 msgstr "Démarrage"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:158
+#: rustconn/src/dialogs/settings/ui_tab.rs:149
 msgid "Action to perform when the application starts"
 msgstr "Action à effectuer au démarrage de l'application"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:164
-#: rustconn/src/dialogs/settings/ui_tab.rs:364
+#: rustconn/src/dialogs/settings/ui_tab.rs:155
+#: rustconn/src/dialogs/settings/ui_tab.rs:343
 msgid "Do nothing"
 msgstr "Ne rien faire"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:171
+#: rustconn/src/dialogs/settings/ui_tab.rs:162
 msgid "On startup"
 msgstr "Au démarrage"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:172
+#: rustconn/src/dialogs/settings/ui_tab.rs:163
 msgid "Open session automatically"
 msgstr "Ouvrir la session automatiquement"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:181
+#: rustconn/src/dialogs/settings/ui_tab.rs:172
 msgid "System Tray"
 msgstr "Zone de notification"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:182
+#: rustconn/src/dialogs/settings/ui_tab.rs:173
 msgid "Requires desktop environment with tray support"
 msgstr ""
 "Nécessite un environnement de bureau avec support de la zone de "
@@ -6128,47 +6127,47 @@ msgstr ""
 "notificationNécessite un environnement de bureau avec prise en charge de la "
 "zone de notification"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:187
+#: rustconn/src/dialogs/settings/ui_tab.rs:177
 msgid "Show icon"
 msgstr "Afficher l'icône"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:188
+#: rustconn/src/dialogs/settings/ui_tab.rs:178
 msgid "Display icon in system tray"
 msgstr "Afficher l'icône dans la zone de notification"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:196
+#: rustconn/src/dialogs/settings/ui_tab.rs:183
 msgid "Minimize to tray"
 msgstr "Réduire dans la zone de notification"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:197
+#: rustconn/src/dialogs/settings/ui_tab.rs:184
 msgid "Hide window instead of closing"
 msgstr "Masquer la fenêtre au lieu de la fermer"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:213
+#: rustconn/src/dialogs/settings/ui_tab.rs:198
 msgid "Session Restore"
 msgstr "Restauration de session"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:214
+#: rustconn/src/dialogs/settings/ui_tab.rs:199
 msgid "Restore previous connections on startup"
 msgstr "Restaurer les connexions précédentes au démarrage"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:220
+#: rustconn/src/dialogs/settings/ui_tab.rs:204
 msgid "Reconnect to previous sessions on startup"
 msgstr "Se reconnecter aux sessions précédentes au démarrage"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:228
+#: rustconn/src/dialogs/settings/ui_tab.rs:209
 msgid "Ask first"
 msgstr "Demander d'abord"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:229
+#: rustconn/src/dialogs/settings/ui_tab.rs:210
 msgid "Prompt before restoring sessions"
 msgstr "Demander avant de restaurer les sessions"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:236
+#: rustconn/src/dialogs/settings/ui_tab.rs:215
 msgid "Max age"
 msgstr "Âge max."
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:237
+#: rustconn/src/dialogs/settings/ui_tab.rs:216
 msgid "Hours before sessions expire"
 msgstr "Heures avant l'expiration des sessions"
 
@@ -9427,6 +9426,9 @@ msgid ""
 msgstr ""
 "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connexion;terminal;distant;"
 "kubernetes;k8s;série;sftp;"
+
+#~ msgid "Save to system keyring"
+#~ msgstr "Enregistrer dans le trousseau système"
 
 #~ msgid "Secure Shell"
 #~ msgstr "Shell sécurisé"

@@ -9,7 +9,7 @@ use gtk4::{
 };
 use libadwaita as adw;
 use rustconn_core::config::{SecretBackendType, SecretSettings};
-use rustconn_core::secret::set_session_key;
+use rustconn_core::secret::{CredentialStorage, set_session_key};
 use secrecy::SecretString;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -266,7 +266,8 @@ pub struct SecretsPageWidgets {
     pub kdbx_path_entry: Entry,
     pub kdbx_password_entry: PasswordEntry,
     pub kdbx_enabled_row: adw::SwitchRow,
-    pub kdbx_save_password_check: CheckButton,
+    /// 3-state credential storage selector for KeePassXC database password.
+    pub kdbx_storage_combo: adw::ComboRow,
     pub kdbx_status_label: Label,
     pub kdbx_browse_button: Button,
     pub kdbx_check_button: Button,
@@ -280,15 +281,14 @@ pub struct SecretsPageWidgets {
     pub auth_group: adw::PreferencesGroup,
     pub status_group: adw::PreferencesGroup,
     pub password_row: adw::ActionRow,
-    pub save_password_row: adw::ActionRow,
     pub key_file_row: adw::ActionRow,
     // Bitwarden widgets
     pub bitwarden_group: adw::PreferencesGroup,
     pub bitwarden_status_label: Label,
     pub bitwarden_unlock_button: Button,
     pub bitwarden_password_entry: PasswordEntry,
-    pub bitwarden_save_password_check: CheckButton,
-    pub bitwarden_save_to_keyring_check: CheckButton,
+    /// 3-state credential storage selector for Bitwarden master password.
+    pub bitwarden_storage_combo: adw::ComboRow,
     pub bitwarden_use_api_key_check: Switch,
     pub bitwarden_client_id_entry: Entry,
     pub bitwarden_client_secret_entry: PasswordEntry,
@@ -304,14 +304,12 @@ pub struct SecretsPageWidgets {
     pub passbolt_server_url_entry: Entry,
     pub passbolt_open_vault_button: Button,
     pub passbolt_passphrase_entry: PasswordEntry,
-    pub passbolt_save_password_check: CheckButton,
-    pub passbolt_save_to_keyring_check: CheckButton,
-    // Unified credential save widgets for KeePassXC
-    pub kdbx_save_to_keyring_check: CheckButton,
+    /// 3-state credential storage selector for Passbolt GPG passphrase.
+    pub passbolt_storage_combo: adw::ComboRow,
     // 1Password credential widgets
     pub onepassword_token_entry: PasswordEntry,
-    pub onepassword_save_password_check: CheckButton,
-    pub onepassword_save_to_keyring_check: CheckButton,
+    /// 3-state credential storage selector for 1Password service account token.
+    pub onepassword_storage_combo: adw::ComboRow,
     /// Cached result of `which secret-tool` (populated by background detection)
     pub secret_tool_available: Rc<RefCell<Option<bool>>>,
     /// Detected 1Password CLI command path (updated async)
@@ -321,6 +319,100 @@ pub struct SecretsPageWidgets {
     pub pass_store_dir_entry: Entry,
     pub pass_store_dir_browse_button: Button,
     pub pass_status_label: Label,
+}
+
+/// Index in the storage `StringList` for [`CredentialStorage::None`].
+const STORAGE_NONE_INDEX: u32 = 0;
+/// Index in the storage `StringList` for [`CredentialStorage::EncryptedFile`].
+const STORAGE_ENCRYPTED_INDEX: u32 = 1;
+/// Index in the storage `StringList` for [`CredentialStorage::SystemKeyring`].
+const STORAGE_KEYRING_INDEX: u32 = 2;
+
+/// Maps a [`CredentialStorage`] to its `StringList` index.
+const fn storage_to_index(storage: CredentialStorage) -> u32 {
+    match storage {
+        CredentialStorage::None => STORAGE_NONE_INDEX,
+        CredentialStorage::EncryptedFile => STORAGE_ENCRYPTED_INDEX,
+        CredentialStorage::SystemKeyring => STORAGE_KEYRING_INDEX,
+    }
+}
+
+/// Maps a `StringList` index back to a [`CredentialStorage`]. Unknown indices
+/// fall back to [`CredentialStorage::None`].
+const fn index_to_storage(idx: u32) -> CredentialStorage {
+    match idx {
+        STORAGE_ENCRYPTED_INDEX => CredentialStorage::EncryptedFile,
+        STORAGE_KEYRING_INDEX => CredentialStorage::SystemKeyring,
+        _ => CredentialStorage::None,
+    }
+}
+
+/// Builds an `AdwComboRow` with the canonical 3-state credential storage
+/// choice: "Don't save" / "Encrypted file (machine-specific)" /
+/// "System keyring (recommended)".
+///
+/// The combo enforces availability of `secret-tool` for the keyring option:
+/// if the user picks "System keyring" while `secret_tool_available` is false,
+/// the selection is reverted to the previous one and `status_label` shows a
+/// warning.
+fn make_storage_combo(
+    title: &str,
+    secret_tool_available: Rc<RefCell<Option<bool>>>,
+    status_label: Label,
+) -> adw::ComboRow {
+    let model = StringList::new(&[
+        i18n("Don't save").as_str(),
+        i18n("Encrypted file (machine-specific)").as_str(),
+        i18n("System keyring (recommended)").as_str(),
+    ]);
+    let combo = adw::ComboRow::builder()
+        .title(title)
+        .subtitle(i18n("How to persist the credential between sessions"))
+        .model(&model)
+        .selected(STORAGE_NONE_INDEX)
+        .build();
+
+    // Track previous selection so we can revert if the user picks keyring
+    // while secret-tool is unavailable.
+    let previous: Rc<RefCell<u32>> = Rc::new(RefCell::new(STORAGE_NONE_INDEX));
+    {
+        let combo_clone = combo.clone();
+        let previous_clone = previous.clone();
+        combo.connect_selected_notify(move |c| {
+            let new_sel = c.selected();
+            if new_sel == STORAGE_KEYRING_INDEX
+                && !*secret_tool_available.borrow().as_ref().unwrap_or(&false)
+            {
+                let revert_to = *previous_clone.borrow();
+                update_status_label(
+                    &status_label,
+                    &i18n("Install libsecret-tools for keyring"),
+                    "warning",
+                );
+                tracing::warn!("secret-tool not found, cannot use system keyring");
+                // Revert without re-triggering this handler infinitely:
+                // selected_notify will still fire but the guard above is a
+                // no-op for non-keyring indices.
+                combo_clone.set_selected(revert_to);
+                return;
+            }
+            *previous_clone.borrow_mut() = new_sel;
+        });
+    }
+
+    combo
+}
+
+/// Reads the current [`CredentialStorage`] choice from a storage combo.
+fn storage_combo_value(combo: &adw::ComboRow) -> CredentialStorage {
+    index_to_storage(combo.selected())
+}
+
+/// Sets a storage combo to the given [`CredentialStorage`] without triggering
+/// validation of `secret-tool` availability — load-time positions should
+/// always succeed because they came from a previously-saved config.
+fn set_storage_combo_value(combo: &adw::ComboRow, storage: CredentialStorage) {
+    combo.set_selected(storage_to_index(storage));
 }
 
 /// Creates the secrets settings page using AdwPreferencesPage
@@ -427,26 +519,6 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     bitwarden_group.add(&bw_password_row);
 
     // Save password checkbox for Bitwarden (encrypted in settings file)
-    let bitwarden_save_password_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let bw_save_password_row = adw::ActionRow::builder()
-        .title(i18n("Save password"))
-        .subtitle(i18n("Encrypted storage (machine-specific)"))
-        .activatable_widget(&bitwarden_save_password_check)
-        .build();
-    bw_save_password_row.add_prefix(&bitwarden_save_password_check);
-    bitwarden_group.add(&bw_save_password_row);
-
-    // Save to system keyring checkbox (libsecret)
-    let bitwarden_save_to_keyring_check =
-        CheckButton::builder().valign(gtk4::Align::Center).build();
-    let bw_save_to_keyring_row = adw::ActionRow::builder()
-        .title(i18n("Save to system keyring"))
-        .subtitle(i18n("Store in GNOME Keyring / KDE Wallet (recommended)"))
-        .activatable_widget(&bitwarden_save_to_keyring_check)
-        .build();
-    bw_save_to_keyring_row.add_prefix(&bitwarden_save_to_keyring_check);
-    bitwarden_group.add(&bw_save_to_keyring_row);
-
     let bitwarden_status_label = Label::builder()
         .label(&i18n("Detecting..."))
         .halign(gtk4::Align::End)
@@ -454,33 +526,15 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         .css_classes(["dim-label"])
         .build();
 
-    // Mutual exclusion: save password <-> save to keyring (Bitwarden)
-    {
-        let keyring_check = bitwarden_save_to_keyring_check.clone();
-        bitwarden_save_password_check.connect_toggled(move |check| {
-            if check.is_active() {
-                keyring_check.set_active(false);
-            }
-        });
-        let save_check = bitwarden_save_password_check.clone();
-        let status_label = bitwarden_status_label.clone();
-        let st_avail = secret_tool_available.clone();
-        bitwarden_save_to_keyring_check.connect_toggled(move |check| {
-            if check.is_active() {
-                if !*st_avail.borrow().as_ref().unwrap_or(&false) {
-                    check.set_active(false);
-                    update_status_label(
-                        &status_label,
-                        &i18n("Install libsecret-tools for keyring"),
-                        "warning",
-                    );
-                    tracing::warn!("secret-tool not found, cannot use system keyring");
-                    return;
-                }
-                save_check.set_active(false);
-            }
-        });
-    }
+    // 3-state credential storage selector (replaces the previous pair of
+    // "Save password" + "Save to system keyring" CheckButtons + mutual
+    // exclusion logic). See `make_storage_combo` for behaviour.
+    let bitwarden_storage_combo = make_storage_combo(
+        &i18n("Save master password"),
+        secret_tool_available.clone(),
+        bitwarden_status_label.clone(),
+    );
+    bitwarden_group.add(&bitwarden_storage_combo);
 
     // API Key authentication switch
     let bitwarden_use_api_key_check = Switch::builder().valign(gtk4::Align::Center).build();
@@ -565,10 +619,11 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         let status_label = bitwarden_status_label.clone();
         let password_entry = bitwarden_password_entry.clone();
         let bw_cmd = bitwarden_cmd.clone();
-        let save_to_keyring_check = bitwarden_save_to_keyring_check.clone();
+        let storage_combo = bitwarden_storage_combo.clone();
         bitwarden_unlock_button.connect_clicked(move |button| {
             let password_text = password_entry.text();
-            let save_to_keyring = save_to_keyring_check.is_active();
+            let save_to_keyring =
+                storage_combo_value(&storage_combo) == CredentialStorage::SystemKeyring;
 
             // If password field is empty, try loading from keyring
             let password = if password_text.is_empty() && save_to_keyring {
@@ -702,27 +757,6 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     onepassword_group.add(&op_token_row);
 
     // Save password checkbox (encrypted in settings file)
-    let onepassword_save_password_check =
-        CheckButton::builder().valign(gtk4::Align::Center).build();
-    let op_save_password_row = adw::ActionRow::builder()
-        .title(i18n("Save token"))
-        .subtitle(i18n("Encrypted storage (machine-specific)"))
-        .activatable_widget(&onepassword_save_password_check)
-        .build();
-    op_save_password_row.add_prefix(&onepassword_save_password_check);
-    onepassword_group.add(&op_save_password_row);
-
-    // Save to system keyring checkbox
-    let onepassword_save_to_keyring_check =
-        CheckButton::builder().valign(gtk4::Align::Center).build();
-    let op_save_to_keyring_row = adw::ActionRow::builder()
-        .title(i18n("Save to system keyring"))
-        .subtitle(i18n("Store in GNOME Keyring / KDE Wallet (recommended)"))
-        .activatable_widget(&onepassword_save_to_keyring_check)
-        .build();
-    op_save_to_keyring_row.add_prefix(&onepassword_save_to_keyring_check);
-    onepassword_group.add(&op_save_to_keyring_row);
-
     let onepassword_status_label = Label::builder()
         .label(&i18n("Detecting..."))
         .halign(gtk4::Align::End)
@@ -730,33 +764,15 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         .css_classes(["dim-label"])
         .build();
 
-    // Mutual exclusion: save token <-> save to keyring (1Password)
-    {
-        let keyring_check = onepassword_save_to_keyring_check.clone();
-        onepassword_save_password_check.connect_toggled(move |check| {
-            if check.is_active() {
-                keyring_check.set_active(false);
-            }
-        });
-        let save_check = onepassword_save_password_check.clone();
-        let status_label = onepassword_status_label.clone();
-        let st_avail = secret_tool_available.clone();
-        onepassword_save_to_keyring_check.connect_toggled(move |check| {
-            if check.is_active() {
-                if !*st_avail.borrow().as_ref().unwrap_or(&false) {
-                    check.set_active(false);
-                    update_status_label(
-                        &status_label,
-                        &i18n("Install libsecret-tools for keyring"),
-                        "warning",
-                    );
-                    tracing::warn!("secret-tool not found, cannot use system keyring");
-                    return;
-                }
-                save_check.set_active(false);
-            }
-        });
-    }
+    // 3-state credential storage selector for the 1Password service account
+    // token (replaces the previous "Save token" + "Save to system keyring"
+    // CheckButton pair plus mutual-exclusion logic).
+    let onepassword_storage_combo = make_storage_combo(
+        &i18n("Save token"),
+        secret_tool_available.clone(),
+        onepassword_status_label.clone(),
+    );
+    onepassword_group.add(&onepassword_storage_combo);
 
     let onepassword_signin_button = Button::builder()
         .label(i18n("Sign In"))
@@ -864,25 +880,6 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     passbolt_group.add(&pb_passphrase_row);
 
     // Save passphrase checkbox (encrypted in settings file)
-    let passbolt_save_password_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let pb_save_password_row = adw::ActionRow::builder()
-        .title(i18n("Save passphrase"))
-        .subtitle(i18n("Encrypted storage (machine-specific)"))
-        .activatable_widget(&passbolt_save_password_check)
-        .build();
-    pb_save_password_row.add_prefix(&passbolt_save_password_check);
-    passbolt_group.add(&pb_save_password_row);
-
-    // Save to system keyring checkbox
-    let passbolt_save_to_keyring_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let pb_save_to_keyring_row = adw::ActionRow::builder()
-        .title(i18n("Save to system keyring"))
-        .subtitle(i18n("Store in GNOME Keyring / KDE Wallet (recommended)"))
-        .activatable_widget(&passbolt_save_to_keyring_check)
-        .build();
-    pb_save_to_keyring_row.add_prefix(&passbolt_save_to_keyring_check);
-    passbolt_group.add(&pb_save_to_keyring_row);
-
     let passbolt_status_label = Label::builder()
         .label(&i18n("Detecting..."))
         .halign(gtk4::Align::End)
@@ -890,33 +887,14 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         .css_classes(["dim-label"])
         .build();
 
-    // Mutual exclusion: save passphrase <-> save to keyring (Passbolt)
-    {
-        let keyring_check = passbolt_save_to_keyring_check.clone();
-        passbolt_save_password_check.connect_toggled(move |check| {
-            if check.is_active() {
-                keyring_check.set_active(false);
-            }
-        });
-        let save_check = passbolt_save_password_check.clone();
-        let status_label = passbolt_status_label.clone();
-        let st_avail = secret_tool_available.clone();
-        passbolt_save_to_keyring_check.connect_toggled(move |check| {
-            if check.is_active() {
-                if !*st_avail.borrow().as_ref().unwrap_or(&false) {
-                    check.set_active(false);
-                    update_status_label(
-                        &status_label,
-                        &i18n("Install libsecret-tools for keyring"),
-                        "warning",
-                    );
-                    tracing::warn!("secret-tool not found, cannot use system keyring");
-                    return;
-                }
-                save_check.set_active(false);
-            }
-        });
-    }
+    // 3-state credential storage selector for the Passbolt GPG passphrase
+    // (replaces the previous pair of CheckButtons + mutual-exclusion logic).
+    let passbolt_storage_combo = make_storage_combo(
+        &i18n("Save passphrase"),
+        secret_tool_available.clone(),
+        passbolt_status_label.clone(),
+    );
+    passbolt_group.add(&passbolt_storage_combo);
 
     let passbolt_open_vault_button = Button::builder()
         .label(i18n("Open Vault"))
@@ -1126,25 +1104,6 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     auth_group.add(&password_row);
 
     // Save password checkbox
-    let kdbx_save_password_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let save_password_row = adw::ActionRow::builder()
-        .title(i18n("Save password"))
-        .subtitle(i18n("Encrypted storage (machine-specific)"))
-        .activatable_widget(&kdbx_save_password_check)
-        .build();
-    save_password_row.add_prefix(&kdbx_save_password_check);
-    auth_group.add(&save_password_row);
-
-    // Save to system keyring checkbox (mutually exclusive with save password)
-    let kdbx_save_to_keyring_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let kdbx_save_to_keyring_row = adw::ActionRow::builder()
-        .title(i18n("Save to system keyring"))
-        .subtitle(i18n("Store in GNOME Keyring / KDE Wallet (recommended)"))
-        .activatable_widget(&kdbx_save_to_keyring_check)
-        .build();
-    kdbx_save_to_keyring_row.add_prefix(&kdbx_save_to_keyring_check);
-    auth_group.add(&kdbx_save_to_keyring_row);
-
     let kdbx_status_label = Label::builder()
         .label(i18n("Not connected"))
         .halign(gtk4::Align::End)
@@ -1152,33 +1111,15 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         .css_classes(["dim-label"])
         .build();
 
-    // Mutual exclusion: save password <-> save to keyring (KeePassXC)
-    {
-        let keyring_check = kdbx_save_to_keyring_check.clone();
-        kdbx_save_password_check.connect_toggled(move |check| {
-            if check.is_active() {
-                keyring_check.set_active(false);
-            }
-        });
-        let save_check = kdbx_save_password_check.clone();
-        let status_label = kdbx_status_label.clone();
-        let st_avail = secret_tool_available.clone();
-        kdbx_save_to_keyring_check.connect_toggled(move |check| {
-            if check.is_active() {
-                if !*st_avail.borrow().as_ref().unwrap_or(&false) {
-                    check.set_active(false);
-                    update_status_label(
-                        &status_label,
-                        &i18n("Install libsecret-tools for keyring"),
-                        "warning",
-                    );
-                    tracing::warn!("secret-tool not found, cannot use system keyring");
-                    return;
-                }
-                save_check.set_active(false);
-            }
-        });
-    }
+    // 3-state credential storage selector for the KeePassXC database
+    // password (replaces the previous pair of CheckButtons + mutual-exclusion
+    // logic).
+    let kdbx_storage_combo = make_storage_combo(
+        &i18n("Save password"),
+        secret_tool_available.clone(),
+        kdbx_status_label.clone(),
+    );
+    auth_group.add(&kdbx_storage_combo);
 
     // Use key file switch
     let kdbx_use_key_file_check = Switch::builder().valign(gtk4::Align::Center).build();
@@ -1245,12 +1186,13 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
 
     page.add(&status_group);
 
-    // Setup visibility connections for password fields
+    // Setup visibility connections for password fields. The storage combo
+    // tracks the password row, hidden when password auth is disabled.
     let password_row_clone = password_row.clone();
-    let save_password_row_clone = save_password_row.clone();
+    let kdbx_storage_combo_clone = kdbx_storage_combo.clone();
     kdbx_use_password_check.connect_state_set(move |_, state| {
         password_row_clone.set_visible(state);
-        save_password_row_clone.set_visible(state);
+        kdbx_storage_combo_clone.set_visible(state);
         glib::Propagation::Proceed
     });
 
@@ -1340,7 +1282,7 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     // Initial visibility based on default states (KeePassXC selected by default)
     key_file_row.set_visible(false);
     password_row.set_visible(true);
-    save_password_row.set_visible(true);
+    kdbx_storage_combo.set_visible(true);
     auth_group.set_visible(false);
     status_group.set_visible(false);
     bitwarden_group.set_visible(false);
@@ -1610,7 +1552,7 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         kdbx_path_entry,
         kdbx_password_entry,
         kdbx_enabled_row,
-        kdbx_save_password_check,
+        kdbx_storage_combo,
         kdbx_status_label,
         kdbx_browse_button,
         kdbx_check_button,
@@ -1623,14 +1565,12 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         auth_group,
         status_group,
         password_row,
-        save_password_row,
         key_file_row,
         bitwarden_group,
         bitwarden_status_label,
         bitwarden_unlock_button,
         bitwarden_password_entry,
-        bitwarden_save_password_check,
-        bitwarden_save_to_keyring_check,
+        bitwarden_storage_combo,
         bitwarden_use_api_key_check,
         bitwarden_client_id_entry,
         bitwarden_client_secret_entry,
@@ -1643,12 +1583,9 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         passbolt_server_url_entry,
         passbolt_open_vault_button,
         passbolt_passphrase_entry,
-        passbolt_save_password_check,
-        passbolt_save_to_keyring_check,
-        kdbx_save_to_keyring_check,
+        passbolt_storage_combo,
         onepassword_token_entry,
-        onepassword_save_password_check,
-        onepassword_save_to_keyring_check,
+        onepassword_storage_combo,
         secret_tool_available,
         onepassword_cmd,
         pass_group,
@@ -1984,19 +1921,15 @@ pub fn load_secret_settings(widgets: &SecretsPageWidgets, settings: &SecretSetti
     widgets
         .kdbx_use_key_file_check
         .set_active(settings.kdbx_use_key_file);
-    widgets
-        .kdbx_save_password_check
-        .set_active(settings.kdbx_password_encrypted.is_some());
+    set_storage_combo_value(&widgets.kdbx_storage_combo, settings.kdbx_storage());
 
-    // Load Bitwarden save password state
-    widgets
-        .bitwarden_save_password_check
-        .set_active(settings.bitwarden_password_encrypted.is_some());
+    // Load Bitwarden storage choice
+    set_storage_combo_value(
+        &widgets.bitwarden_storage_combo,
+        settings.bitwarden_storage(),
+    );
 
-    // Load Bitwarden keyring and API key settings
-    widgets
-        .bitwarden_save_to_keyring_check
-        .set_active(settings.bitwarden_save_to_keyring);
+    // Load Bitwarden API key setting
     widgets
         .bitwarden_use_api_key_check
         .set_active(settings.bitwarden_use_api_key);
@@ -2020,15 +1953,6 @@ pub fn load_secret_settings(widgets: &SecretsPageWidgets, settings: &SecretSetti
         widgets.passbolt_server_url_entry.set_text(url);
     }
 
-    // Load KeePassXC save to keyring state
-    widgets
-        .kdbx_save_to_keyring_check
-        .set_active(settings.kdbx_save_to_keyring);
-    // If save_to_keyring is active, uncheck save_password (mutual exclusion)
-    if settings.kdbx_save_to_keyring {
-        widgets.kdbx_save_password_check.set_active(false);
-    }
-
     // Load 1Password service account token if available
     if let Some(ref token) = settings.onepassword_service_account_token {
         use secrecy::ExposeSecret;
@@ -2036,27 +1960,13 @@ pub fn load_secret_settings(widgets: &SecretsPageWidgets, settings: &SecretSetti
             .onepassword_token_entry
             .set_text(token.expose_secret());
     }
-    widgets.onepassword_save_password_check.set_active(
-        settings
-            .onepassword_service_account_token_encrypted
-            .is_some(),
+    set_storage_combo_value(
+        &widgets.onepassword_storage_combo,
+        settings.onepassword_storage(),
     );
-    widgets
-        .onepassword_save_to_keyring_check
-        .set_active(settings.onepassword_save_to_keyring);
 
-    // Load Passbolt passphrase save state
-    widgets
-        .passbolt_save_password_check
-        .set_active(settings.passbolt_passphrase_encrypted.is_some());
-    widgets
-        .passbolt_save_to_keyring_check
-        .set_active(settings.passbolt_save_to_keyring);
-
-    // If Passbolt save_to_keyring is active, uncheck save_password (mutual exclusion)
-    if settings.passbolt_save_to_keyring {
-        widgets.passbolt_save_password_check.set_active(false);
-    }
+    // Load Passbolt storage choice
+    set_storage_combo_value(&widgets.passbolt_storage_combo, settings.passbolt_storage());
 
     // Load Pass store directory
     if let Some(ref path) = settings.pass_store_dir {
@@ -2080,7 +1990,7 @@ pub fn load_secret_settings(widgets: &SecretsPageWidgets, settings: &SecretSetti
     widgets.pass_group.set_visible(backend_index == 5);
     widgets.password_row.set_visible(settings.kdbx_use_password);
     widgets
-        .save_password_row
+        .kdbx_storage_combo
         .set_visible(settings.kdbx_use_password);
     widgets.key_file_row.set_visible(settings.kdbx_use_key_file);
 
@@ -2305,30 +2215,40 @@ pub fn collect_secret_settings(
         }
     };
 
-    let (kdbx_password, kdbx_password_encrypted) = if widgets.kdbx_save_password_check.is_active() {
-        let password_text = widgets.kdbx_password_entry.text();
-        if password_text.is_empty() {
-            (None, None)
-        } else {
-            let password = secrecy::SecretString::new(password_text.to_string().into());
-            let encrypted = settings
-                .borrow()
-                .secrets
-                .kdbx_password_encrypted
-                .clone()
-                .or_else(|| Some("encrypted_password_placeholder".to_string()));
-            (Some(password), encrypted)
+    let (kdbx_password, kdbx_password_encrypted) = {
+        let storage = storage_combo_value(&widgets.kdbx_storage_combo);
+        match storage {
+            CredentialStorage::EncryptedFile => {
+                let password_text = widgets.kdbx_password_entry.text();
+                if password_text.is_empty() {
+                    (
+                        None,
+                        settings.borrow().secrets.kdbx_password_encrypted.clone(),
+                    )
+                } else {
+                    let password = secrecy::SecretString::new(password_text.to_string().into());
+                    let encrypted = settings
+                        .borrow()
+                        .secrets
+                        .kdbx_password_encrypted
+                        .clone()
+                        .or_else(|| Some("encrypted_password_placeholder".to_string()));
+                    (Some(password), encrypted)
+                }
+            }
+            // For System keyring or None: never write encrypted blob.
+            CredentialStorage::SystemKeyring | CredentialStorage::None => (None, None),
         }
-    } else {
-        (None, None)
     };
 
     // Collect Bitwarden password if save is enabled
-    let (bitwarden_password, bitwarden_password_encrypted) =
-        if widgets.bitwarden_save_password_check.is_active() {
+    let bitwarden_storage = storage_combo_value(&widgets.bitwarden_storage_combo);
+    let (bitwarden_password, bitwarden_password_encrypted) = match bitwarden_storage {
+        CredentialStorage::EncryptedFile => {
             let password_text = widgets.bitwarden_password_entry.text();
             if password_text.is_empty() {
-                // Keep existing encrypted password if field is empty but save is checked
+                // Keep existing encrypted password if field is empty but
+                // encrypted-file storage is selected.
                 (
                     None,
                     settings
@@ -2339,7 +2259,6 @@ pub fn collect_secret_settings(
                 )
             } else {
                 let password = secrecy::SecretString::new(password_text.to_string().into());
-                // Mark for encryption (will be encrypted when settings are saved)
                 let encrypted = settings
                     .borrow()
                     .secrets
@@ -2348,13 +2267,13 @@ pub fn collect_secret_settings(
                     .or_else(|| Some("encrypted_password_placeholder".to_string()));
                 (Some(password), encrypted)
             }
-        } else {
-            (None, None)
-        };
+        }
+        CredentialStorage::SystemKeyring | CredentialStorage::None => (None, None),
+    };
 
     // Collect Bitwarden API key settings
     let bitwarden_use_api_key = widgets.bitwarden_use_api_key_check.is_active();
-    let bitwarden_save_to_keyring = widgets.bitwarden_save_to_keyring_check.is_active();
+    let bitwarden_save_to_keyring = bitwarden_storage == CredentialStorage::SystemKeyring;
 
     let (bitwarden_client_id, bitwarden_client_id_encrypted) = if bitwarden_use_api_key {
         let client_id_text = widgets.bitwarden_client_id_entry.text();
@@ -2409,35 +2328,38 @@ pub fn collect_secret_settings(
     };
 
     // Collect 1Password service account token
+    let onepassword_storage = storage_combo_value(&widgets.onepassword_storage_combo);
     let (onepassword_service_account_token, onepassword_service_account_token_encrypted) =
-        if widgets.onepassword_save_password_check.is_active() {
-            let token_text = widgets.onepassword_token_entry.text();
-            if token_text.is_empty() {
-                (
-                    None,
-                    settings
+        match onepassword_storage {
+            CredentialStorage::EncryptedFile => {
+                let token_text = widgets.onepassword_token_entry.text();
+                if token_text.is_empty() {
+                    (
+                        None,
+                        settings
+                            .borrow()
+                            .secrets
+                            .onepassword_service_account_token_encrypted
+                            .clone(),
+                    )
+                } else {
+                    let token = secrecy::SecretString::new(token_text.to_string().into());
+                    let encrypted = settings
                         .borrow()
                         .secrets
                         .onepassword_service_account_token_encrypted
-                        .clone(),
-                )
-            } else {
-                let token = secrecy::SecretString::new(token_text.to_string().into());
-                let encrypted = settings
-                    .borrow()
-                    .secrets
-                    .onepassword_service_account_token_encrypted
-                    .clone()
-                    .or_else(|| Some("encrypted_token_placeholder".to_string()));
-                (Some(token), encrypted)
+                        .clone()
+                        .or_else(|| Some("encrypted_token_placeholder".to_string()));
+                    (Some(token), encrypted)
+                }
             }
-        } else {
-            (None, None)
+            CredentialStorage::SystemKeyring | CredentialStorage::None => (None, None),
         };
 
     // Collect Passbolt passphrase
-    let (passbolt_passphrase, passbolt_passphrase_encrypted) =
-        if widgets.passbolt_save_password_check.is_active() {
+    let passbolt_storage = storage_combo_value(&widgets.passbolt_storage_combo);
+    let (passbolt_passphrase, passbolt_passphrase_encrypted) = match passbolt_storage {
+        CredentialStorage::EncryptedFile => {
             let passphrase_text = widgets.passbolt_passphrase_entry.text();
             if passphrase_text.is_empty() {
                 (
@@ -2458,30 +2380,31 @@ pub fn collect_secret_settings(
                     .or_else(|| Some("encrypted_passphrase_placeholder".to_string()));
                 (Some(passphrase), encrypted)
             }
-        } else {
-            (None, None)
-        };
+        }
+        CredentialStorage::SystemKeyring | CredentialStorage::None => (None, None),
+    };
 
-    // Save credentials to keyring when save_to_keyring is active
-    if bitwarden_save_to_keyring {
+    // Save credentials to keyring when SystemKeyring storage is selected
+    let kdbx_storage = storage_combo_value(&widgets.kdbx_storage_combo);
+    if bitwarden_storage == CredentialStorage::SystemKeyring {
         let pw = widgets.bitwarden_password_entry.text();
         if !pw.is_empty() {
             save_bw_password_to_keyring(&pw);
         }
     }
-    if widgets.onepassword_save_to_keyring_check.is_active() {
+    if onepassword_storage == CredentialStorage::SystemKeyring {
         let token = widgets.onepassword_token_entry.text();
         if !token.is_empty() {
             save_op_token_to_keyring(&token);
         }
     }
-    if widgets.passbolt_save_to_keyring_check.is_active() {
+    if passbolt_storage == CredentialStorage::SystemKeyring {
         let pp = widgets.passbolt_passphrase_entry.text();
         if !pp.is_empty() {
             save_pb_passphrase_to_keyring(&pp);
         }
     }
-    if widgets.kdbx_save_to_keyring_check.is_active() {
+    if kdbx_storage == CredentialStorage::SystemKeyring {
         let pw = widgets.kdbx_password_entry.text();
         if !pw.is_empty() {
             save_kdbx_password_to_keyring(&pw);
@@ -2506,13 +2429,13 @@ pub fn collect_secret_settings(
         bitwarden_client_secret,
         bitwarden_client_secret_encrypted,
         bitwarden_save_to_keyring,
-        kdbx_save_to_keyring: widgets.kdbx_save_to_keyring_check.is_active(),
+        kdbx_save_to_keyring: kdbx_storage == CredentialStorage::SystemKeyring,
         onepassword_service_account_token,
         onepassword_service_account_token_encrypted,
-        onepassword_save_to_keyring: widgets.onepassword_save_to_keyring_check.is_active(),
+        onepassword_save_to_keyring: onepassword_storage == CredentialStorage::SystemKeyring,
         passbolt_passphrase,
         passbolt_passphrase_encrypted,
-        passbolt_save_to_keyring: widgets.passbolt_save_to_keyring_check.is_active(),
+        passbolt_save_to_keyring: passbolt_storage == CredentialStorage::SystemKeyring,
         passbolt_server_url: {
             let url_text = widgets.passbolt_server_url_entry.text();
             if url_text.is_empty() {

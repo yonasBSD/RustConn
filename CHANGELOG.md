@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-05-19
+
+### Improved
+
+- **Settings: credential storage as a 3-state ComboRow** — replaced the per-backend pair of "Save password" + "Save to system keyring" CheckButtons (with hand-rolled mutual-exclusion logic) with a single `AdwComboRow` offering three canonical choices: "Don't save" / "Encrypted file (machine-specific)" / "System keyring (recommended)". Applies to all four secret backends: KeePassXC database password, Bitwarden master password, 1Password service-account token, and Passbolt GPG passphrase. Settings storage layout is unchanged — the previous `*_password_encrypted` and `*_save_to_keyring` fields are retained as the persistence sink, with a `CredentialStorage` enum and `*_storage()` / `set_*_storage()` helpers in `rustconn-core` providing the canonical API. Old configs round-trip through the new selector without a migration step (UX-7b)
+- **Settings UI: GNOME HIG compliance** — converted 25 toggle controls from `CheckButton`-in-`AdwActionRow` pattern to `AdwSwitchRow` across Interface, Terminal, Logging, and Monitoring pages; switches are the canonical libadwaita widget for boolean preferences and provide better touch targets, larger hit areas, and consistent rendering across themes; no behavioural changes (UX-7)
+  - Interface tab: 7 toggles (Color tabs by protocol, Show protocol filters, Remember size, Show tray icon, Minimize to tray, Session restore Enabled, Ask first)
+  - Terminal tab: 8 toggles (Scroll on output / keystroke, Scrollbar, Hyperlinks, Hide pointer, Bell, SFTP via mc, Copy on select)
+  - Logging tab: 4 toggles (Activity, User Input, Terminal Output, Timestamps)
+  - Monitoring tab: 6 toggles (CPU / Memory / Disk / Network / Load / System info usage)
+- **Settings dialog field types unified** — internal `SettingsDialog` struct fields renamed/retyped from `gtk4::CheckButton` to `adw::SwitchRow` for the migrated controls
+
 ## [0.14.2] - 2026-05-19
 
 ### Added

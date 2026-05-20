@@ -2,7 +2,7 @@
 
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{Box as GtkBox, CheckButton, DropDown, StringList, ToggleButton};
+use gtk4::{Box as GtkBox, DropDown, StringList, ToggleButton};
 use libadwaita as adw;
 use rustconn_core::config::{ColorScheme, SessionRestoreSettings, StartupAction, UiSettings};
 use rustconn_core::models::Connection;
@@ -15,15 +15,15 @@ pub fn create_ui_page() -> (
     adw::PreferencesPage,
     GtkBox,
     DropDown,
-    CheckButton,
-    CheckButton,
-    CheckButton,
-    CheckButton,
-    CheckButton,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
     adw::SpinRow,
     DropDown,
-    CheckButton,
-    CheckButton,
+    adw::SwitchRow,
+    adw::SwitchRow,
     adw::SpinRow,
 ) {
     let page = adw::PreferencesPage::builder()
@@ -105,26 +105,20 @@ pub fn create_ui_page() -> (
     appearance_group.add(&language_row);
 
     // Color tabs by protocol toggle
-    let color_tabs_by_protocol = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let color_tabs_row = adw::ActionRow::builder()
+    let color_tabs_by_protocol = adw::SwitchRow::builder()
         .title(i18n("Color tabs by protocol"))
         .subtitle(i18n(
             "Show colored indicator on tabs based on protocol type",
         ))
-        .activatable_widget(&color_tabs_by_protocol)
         .build();
-    color_tabs_row.add_prefix(&color_tabs_by_protocol);
-    appearance_group.add(&color_tabs_row);
+    appearance_group.add(&color_tabs_by_protocol);
 
     // Show protocol filters toggle
-    let show_protocol_filters = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let show_filters_row = adw::ActionRow::builder()
+    let show_protocol_filters = adw::SwitchRow::builder()
         .title(i18n("Show protocol filters"))
         .subtitle(i18n("Display protocol filter bar in sidebar"))
-        .activatable_widget(&show_protocol_filters)
         .build();
-    show_filters_row.add_prefix(&show_protocol_filters);
-    appearance_group.add(&show_filters_row);
+    appearance_group.add(&show_protocol_filters);
 
     // Sidebar width SpinRow
     let sidebar_width_row = adw::SpinRow::builder()
@@ -141,14 +135,11 @@ pub fn create_ui_page() -> (
         .title(i18n("Window"))
         .build();
 
-    let remember_geometry = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let remember_geometry_row = adw::ActionRow::builder()
+    let remember_geometry = adw::SwitchRow::builder()
         .title(i18n("Remember size"))
         .subtitle(i18n("Restore window geometry on startup"))
-        .activatable_widget(&remember_geometry)
         .build();
-    remember_geometry_row.add_prefix(&remember_geometry);
-    window_group.add(&remember_geometry_row);
+    window_group.add(&remember_geometry);
 
     page.add(&window_group);
 
@@ -182,28 +173,22 @@ pub fn create_ui_page() -> (
         .description(i18n("Requires desktop environment with tray support"))
         .build();
 
-    let enable_tray_icon = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let enable_tray_row = adw::ActionRow::builder()
+    let enable_tray_icon = adw::SwitchRow::builder()
         .title(i18n("Show icon"))
         .subtitle(i18n("Display icon in system tray"))
-        .activatable_widget(&enable_tray_icon)
         .build();
-    enable_tray_row.add_prefix(&enable_tray_icon);
-    tray_group.add(&enable_tray_row);
+    tray_group.add(&enable_tray_icon);
 
-    let minimize_to_tray = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let minimize_to_tray_row = adw::ActionRow::builder()
+    let minimize_to_tray = adw::SwitchRow::builder()
         .title(i18n("Minimize to tray"))
         .subtitle(i18n("Hide window instead of closing"))
-        .activatable_widget(&minimize_to_tray)
         .build();
-    minimize_to_tray_row.add_prefix(&minimize_to_tray);
-    tray_group.add(&minimize_to_tray_row);
+    tray_group.add(&minimize_to_tray);
 
     // Make minimize_to_tray sensitive based on enable_tray_icon
     let minimize_to_tray_clone = minimize_to_tray.clone();
-    enable_tray_icon.connect_toggled(move |check| {
-        minimize_to_tray_clone.set_sensitive(check.is_active());
+    enable_tray_icon.connect_active_notify(move |row| {
+        minimize_to_tray_clone.set_sensitive(row.is_active());
     });
 
     page.add(&tray_group);
@@ -214,23 +199,17 @@ pub fn create_ui_page() -> (
         .description(i18n("Restore previous connections on startup"))
         .build();
 
-    let session_restore_enabled = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let session_restore_row = adw::ActionRow::builder()
+    let session_restore_enabled = adw::SwitchRow::builder()
         .title(i18n("Enabled"))
         .subtitle(i18n("Reconnect to previous sessions on startup"))
-        .activatable_widget(&session_restore_enabled)
         .build();
-    session_restore_row.add_prefix(&session_restore_enabled);
-    session_group.add(&session_restore_row);
+    session_group.add(&session_restore_enabled);
 
-    let prompt_on_restore = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let prompt_on_restore_row = adw::ActionRow::builder()
+    let prompt_on_restore = adw::SwitchRow::builder()
         .title(i18n("Ask first"))
         .subtitle(i18n("Prompt before restoring sessions"))
-        .activatable_widget(&prompt_on_restore)
         .build();
-    prompt_on_restore_row.add_prefix(&prompt_on_restore);
-    session_group.add(&prompt_on_restore_row);
+    session_group.add(&prompt_on_restore);
 
     let max_age_row = adw::SpinRow::builder()
         .title(i18n("Max age"))
@@ -242,8 +221,8 @@ pub fn create_ui_page() -> (
     // Make session options sensitive based on session_restore_enabled
     let prompt_on_restore_clone = prompt_on_restore.clone();
     let max_age_row_clone = max_age_row.clone();
-    session_restore_enabled.connect_toggled(move |check| {
-        let active = check.is_active();
+    session_restore_enabled.connect_active_notify(move |row| {
+        let active = row.is_active();
         prompt_on_restore_clone.set_sensitive(active);
         max_age_row_clone.set_sensitive(active);
     });
@@ -298,15 +277,15 @@ fn build_startup_entries(connections: &[&Connection]) -> Vec<StartupConnectionEn
 pub fn load_ui_settings(
     color_scheme_box: &GtkBox,
     language_dropdown: &DropDown,
-    remember_geometry: &CheckButton,
-    enable_tray_icon: &CheckButton,
-    minimize_to_tray: &CheckButton,
-    session_restore_enabled: &CheckButton,
-    prompt_on_restore: &CheckButton,
+    remember_geometry: &adw::SwitchRow,
+    enable_tray_icon: &adw::SwitchRow,
+    minimize_to_tray: &adw::SwitchRow,
+    session_restore_enabled: &adw::SwitchRow,
+    prompt_on_restore: &adw::SwitchRow,
     max_age_row: &adw::SpinRow,
     startup_action_dropdown: &DropDown,
-    color_tabs_by_protocol: &CheckButton,
-    show_protocol_filters: &CheckButton,
+    color_tabs_by_protocol: &adw::SwitchRow,
+    show_protocol_filters: &adw::SwitchRow,
     sidebar_width_row: &adw::SpinRow,
     settings: &UiSettings,
     connections: &[&Connection],
@@ -386,15 +365,15 @@ pub fn load_ui_settings(
 pub fn collect_ui_settings(
     color_scheme_box: &GtkBox,
     language_dropdown: &DropDown,
-    remember_geometry: &CheckButton,
-    enable_tray_icon: &CheckButton,
-    minimize_to_tray: &CheckButton,
-    session_restore_enabled: &CheckButton,
-    prompt_on_restore: &CheckButton,
+    remember_geometry: &adw::SwitchRow,
+    enable_tray_icon: &adw::SwitchRow,
+    minimize_to_tray: &adw::SwitchRow,
+    session_restore_enabled: &adw::SwitchRow,
+    prompt_on_restore: &adw::SwitchRow,
     max_age_row: &adw::SpinRow,
     startup_action_dropdown: &DropDown,
-    color_tabs_by_protocol: &CheckButton,
-    show_protocol_filters: &CheckButton,
+    color_tabs_by_protocol: &adw::SwitchRow,
+    show_protocol_filters: &adw::SwitchRow,
     sidebar_width_row: &adw::SpinRow,
     connections: &[&Connection],
 ) -> UiSettings {

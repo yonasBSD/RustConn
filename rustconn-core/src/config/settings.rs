@@ -7,6 +7,7 @@ use crate::models::HighlightRule;
 use crate::models::HistorySettings;
 use crate::models::SmartFolder;
 use crate::monitoring::MonitoringSettings;
+use crate::secret::CredentialStorage;
 use crate::sync::SyncSettings;
 use crate::variables::Variable;
 use secrecy::SecretString;
@@ -676,6 +677,125 @@ const SETTINGS_HEADER_LEN: usize = 4 + 1 + SETTINGS_SALT_LEN + SETTINGS_NONCE_LE
 /// Legacy XOR-encrypted data is transparently decrypted and re-encrypted
 /// in the new format on the next save.
 impl SecretSettings {
+    /// Reads the canonical credential storage choice for the KDBX backend
+    /// from the legacy `kdbx_password_encrypted` + `kdbx_save_to_keyring`
+    /// pair.
+    #[must_use]
+    pub fn kdbx_storage(&self) -> CredentialStorage {
+        CredentialStorage::from_legacy(
+            self.kdbx_password_encrypted.is_some(),
+            self.kdbx_save_to_keyring,
+        )
+    }
+
+    /// Writes the canonical credential storage choice for the KDBX backend
+    /// back to the legacy `kdbx_password_encrypted` + `kdbx_save_to_keyring`
+    /// fields. The encrypted blob is preserved when switching to
+    /// [`CredentialStorage::EncryptedFile`] so a later
+    /// [`Self::encrypt_password`] call can populate it; switching to any
+    /// other state clears both.
+    pub fn set_kdbx_storage(&mut self, storage: CredentialStorage) {
+        match storage {
+            CredentialStorage::None => {
+                self.kdbx_save_to_keyring = false;
+                self.kdbx_password_encrypted = None;
+            }
+            CredentialStorage::EncryptedFile => {
+                self.kdbx_save_to_keyring = false;
+                // Leave kdbx_password_encrypted untouched: encrypt_password()
+                // will populate it from kdbx_password before save.
+            }
+            CredentialStorage::SystemKeyring => {
+                self.kdbx_save_to_keyring = true;
+                self.kdbx_password_encrypted = None;
+            }
+        }
+    }
+
+    /// Reads the canonical credential storage choice for the Bitwarden
+    /// backend.
+    #[must_use]
+    pub fn bitwarden_storage(&self) -> CredentialStorage {
+        CredentialStorage::from_legacy(
+            self.bitwarden_password_encrypted.is_some(),
+            self.bitwarden_save_to_keyring,
+        )
+    }
+
+    /// Writes the canonical credential storage choice for the Bitwarden
+    /// backend.
+    pub fn set_bitwarden_storage(&mut self, storage: CredentialStorage) {
+        match storage {
+            CredentialStorage::None => {
+                self.bitwarden_save_to_keyring = false;
+                self.bitwarden_password_encrypted = None;
+            }
+            CredentialStorage::EncryptedFile => {
+                self.bitwarden_save_to_keyring = false;
+            }
+            CredentialStorage::SystemKeyring => {
+                self.bitwarden_save_to_keyring = true;
+                self.bitwarden_password_encrypted = None;
+            }
+        }
+    }
+
+    /// Reads the canonical credential storage choice for the 1Password
+    /// backend.
+    #[must_use]
+    pub fn onepassword_storage(&self) -> CredentialStorage {
+        CredentialStorage::from_legacy(
+            self.onepassword_service_account_token_encrypted.is_some(),
+            self.onepassword_save_to_keyring,
+        )
+    }
+
+    /// Writes the canonical credential storage choice for the 1Password
+    /// backend.
+    pub fn set_onepassword_storage(&mut self, storage: CredentialStorage) {
+        match storage {
+            CredentialStorage::None => {
+                self.onepassword_save_to_keyring = false;
+                self.onepassword_service_account_token_encrypted = None;
+            }
+            CredentialStorage::EncryptedFile => {
+                self.onepassword_save_to_keyring = false;
+            }
+            CredentialStorage::SystemKeyring => {
+                self.onepassword_save_to_keyring = true;
+                self.onepassword_service_account_token_encrypted = None;
+            }
+        }
+    }
+
+    /// Reads the canonical credential storage choice for the Passbolt
+    /// backend.
+    #[must_use]
+    pub fn passbolt_storage(&self) -> CredentialStorage {
+        CredentialStorage::from_legacy(
+            self.passbolt_passphrase_encrypted.is_some(),
+            self.passbolt_save_to_keyring,
+        )
+    }
+
+    /// Writes the canonical credential storage choice for the Passbolt
+    /// backend.
+    pub fn set_passbolt_storage(&mut self, storage: CredentialStorage) {
+        match storage {
+            CredentialStorage::None => {
+                self.passbolt_save_to_keyring = false;
+                self.passbolt_passphrase_encrypted = None;
+            }
+            CredentialStorage::EncryptedFile => {
+                self.passbolt_save_to_keyring = false;
+            }
+            CredentialStorage::SystemKeyring => {
+                self.passbolt_save_to_keyring = true;
+                self.passbolt_passphrase_encrypted = None;
+            }
+        }
+    }
+
     /// Encrypts the KDBX password for storage using AES-256-GCM
     pub fn encrypt_password(&mut self) {
         if let Some(ref password) = self.kdbx_password {

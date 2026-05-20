@@ -2,7 +2,7 @@
 
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{Button, CheckButton, Entry, SpinButton};
+use gtk4::{Button, Entry, SpinButton};
 use libadwaita as adw;
 use rustconn_core::config::LoggingSettings;
 use std::path::PathBuf;
@@ -16,10 +16,10 @@ pub fn create_logging_page() -> (
     adw::SwitchRow,
     Entry,
     SpinButton,
-    CheckButton,
-    CheckButton,
-    CheckButton,
-    CheckButton, // log_timestamps
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow, // log_timestamps
 ) {
     let page = adw::PreferencesPage::builder()
         .title(i18n("Logging"))
@@ -105,43 +105,28 @@ pub fn create_logging_page() -> (
         .build();
 
     // Activity logging
-    let log_activity_check = CheckButton::builder()
-        .active(true)
-        .valign(gtk4::Align::Center)
-        .sensitive(false)
-        .build();
-    let log_activity_row = adw::ActionRow::builder()
+    let log_activity_row = adw::SwitchRow::builder()
         .title(i18n("Activity"))
         .subtitle(i18n("Connection events and change counts"))
-        .activatable_widget(&log_activity_check)
+        .active(true)
+        .sensitive(false)
         .build();
-    log_activity_row.add_prefix(&log_activity_check);
     content_group.add(&log_activity_row);
 
     // Input logging
-    let log_input_check = CheckButton::builder()
-        .valign(gtk4::Align::Center)
-        .sensitive(false)
-        .build();
-    let log_input_row = adw::ActionRow::builder()
+    let log_input_row = adw::SwitchRow::builder()
         .title(i18n("User Input"))
         .subtitle(i18n("Commands and keystrokes"))
-        .activatable_widget(&log_input_check)
+        .sensitive(false)
         .build();
-    log_input_row.add_prefix(&log_input_check);
     content_group.add(&log_input_row);
 
     // Output logging
-    let log_output_check = CheckButton::builder()
-        .valign(gtk4::Align::Center)
-        .sensitive(false)
-        .build();
-    let log_output_row = adw::ActionRow::builder()
+    let log_output_row = adw::SwitchRow::builder()
         .title(i18n("Terminal Output"))
         .subtitle(i18n("Full session transcript"))
-        .activatable_widget(&log_output_check)
+        .sensitive(false)
         .build();
-    log_output_row.add_prefix(&log_output_check);
     content_group.add(&log_output_row);
 
     page.add(&content_group);
@@ -152,13 +137,10 @@ pub fn create_logging_page() -> (
         .description(i18n("Format options for session logs"))
         .build();
 
-    let log_timestamps_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let log_timestamps_row = adw::ActionRow::builder()
+    let log_timestamps_row = adw::SwitchRow::builder()
         .title(i18n("Timestamps"))
         .subtitle(i18n("Prepend [HH:MM:SS] to each line in session logs"))
-        .activatable_widget(&log_timestamps_check)
         .build();
-    log_timestamps_row.add_prefix(&log_timestamps_check);
     session_group.add(&log_timestamps_row);
 
     page.add(&session_group);
@@ -167,9 +149,9 @@ pub fn create_logging_page() -> (
     let log_dir_entry_clone = log_dir_entry.clone();
     let retention_clone = retention_spin.clone();
     let open_logs_btn_clone = open_logs_btn.clone();
-    let log_activity_clone = log_activity_check.clone();
-    let log_input_clone = log_input_check.clone();
-    let log_output_clone = log_output_check.clone();
+    let log_activity_clone = log_activity_row.clone();
+    let log_input_clone = log_input_row.clone();
+    let log_output_clone = log_output_row.clone();
     logging_enabled_row.connect_active_notify(move |row| {
         let state = row.is_active();
         log_dir_entry_clone.set_sensitive(state);
@@ -185,10 +167,10 @@ pub fn create_logging_page() -> (
         logging_enabled_row,
         log_dir_entry,
         retention_spin,
-        log_activity_check,
-        log_input_check,
-        log_output_check,
-        log_timestamps_check,
+        log_activity_row,
+        log_input_row,
+        log_output_row,
+        log_timestamps_row,
     )
 }
 
@@ -198,28 +180,28 @@ pub fn load_logging_settings(
     logging_enabled_row: &adw::SwitchRow,
     log_dir_entry: &Entry,
     retention_spin: &SpinButton,
-    log_activity_check: &CheckButton,
-    log_input_check: &CheckButton,
-    log_output_check: &CheckButton,
-    log_timestamps_check: &CheckButton,
+    log_activity_row: &adw::SwitchRow,
+    log_input_row: &adw::SwitchRow,
+    log_output_row: &adw::SwitchRow,
+    log_timestamps_row: &adw::SwitchRow,
     settings: &LoggingSettings,
     log_timestamps: bool,
 ) {
     logging_enabled_row.set_active(settings.enabled);
     log_dir_entry.set_text(&settings.log_directory.display().to_string());
     retention_spin.set_value(f64::from(settings.retention_days));
-    log_activity_check.set_active(settings.log_activity);
-    log_input_check.set_active(settings.log_input);
-    log_output_check.set_active(settings.log_output);
-    log_timestamps_check.set_active(log_timestamps);
+    log_activity_row.set_active(settings.log_activity);
+    log_input_row.set_active(settings.log_input);
+    log_output_row.set_active(settings.log_output);
+    log_timestamps_row.set_active(log_timestamps);
 
     // Update sensitivity based on enabled state
     let enabled = settings.enabled;
     log_dir_entry.set_sensitive(enabled);
     retention_spin.set_sensitive(enabled);
-    log_activity_check.set_sensitive(enabled);
-    log_input_check.set_sensitive(enabled);
-    log_output_check.set_sensitive(enabled);
+    log_activity_row.set_sensitive(enabled);
+    log_input_row.set_sensitive(enabled);
+    log_output_row.set_sensitive(enabled);
 }
 
 /// Collects logging settings from UI controls
@@ -228,17 +210,17 @@ pub fn collect_logging_settings(
     logging_enabled_row: &adw::SwitchRow,
     log_dir_entry: &Entry,
     retention_spin: &SpinButton,
-    log_activity_check: &CheckButton,
-    log_input_check: &CheckButton,
-    log_output_check: &CheckButton,
+    log_activity_row: &adw::SwitchRow,
+    log_input_row: &adw::SwitchRow,
+    log_output_row: &adw::SwitchRow,
 ) -> LoggingSettings {
     LoggingSettings {
         enabled: logging_enabled_row.is_active(),
         log_directory: std::path::PathBuf::from(log_dir_entry.text().as_str()),
         retention_days: retention_spin.value() as u32,
-        log_activity: log_activity_check.is_active(),
-        log_input: log_input_check.is_active(),
-        log_output: log_output_check.is_active(),
+        log_activity: log_activity_row.is_active(),
+        log_input: log_input_row.is_active(),
+        log_output: log_output_row.is_active(),
     }
 }
 

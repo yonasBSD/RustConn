@@ -77,3 +77,46 @@ pub use status::{KeePassStatus, parse_keepassxc_version};
 pub use verification::{
     CredentialStatus, CredentialVerificationManager, DialogPreFillData, VerifiedCredentials,
 };
+
+/// Three-state credential storage choice for backend master credentials.
+///
+/// Used by Settings → Secrets to consolidate the previous "Save password" and
+/// "Save to system keyring" check pair into a single canonical selector.
+///
+/// Persistence in [`crate::config::SecretSettings`] uses two underlying fields
+/// for backward compatibility:
+/// - `*_password_encrypted: Option<String>` — set when [`Self::EncryptedFile`]
+/// - `*_save_to_keyring: bool`             — set when [`Self::SystemKeyring`]
+///
+/// The two fields are mutually exclusive; combinations are reduced through
+/// [`Self::from_legacy`] so old configs continue to work unchanged.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
+pub enum CredentialStorage {
+    /// The credential is not persisted between sessions. The user enters it
+    /// each time the application launches.
+    #[default]
+    None,
+    /// The credential is encrypted with a machine-specific key (AES-256-GCM)
+    /// and stored in `config.toml`. Convenient but tied to one machine.
+    EncryptedFile,
+    /// The credential is stored in the system keyring (GNOME Keyring / KDE
+    /// Wallet) via libsecret. Recommended; works across machines that share a
+    /// keyring backend.
+    SystemKeyring,
+}
+
+impl CredentialStorage {
+    /// Reduces a legacy `(encrypted_present, save_to_keyring)` pair to a single
+    /// canonical [`CredentialStorage`]. Conflicting inputs (both true) prefer
+    /// the keyring choice — historically the more recent and recommended one.
+    #[must_use]
+    pub const fn from_legacy(encrypted_present: bool, save_to_keyring: bool) -> Self {
+        if save_to_keyring {
+            Self::SystemKeyring
+        } else if encrypted_present {
+            Self::EncryptedFile
+        } else {
+            Self::None
+        }
+    }
+}

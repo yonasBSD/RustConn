@@ -3,8 +3,7 @@
 use adw::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{
-    Box as GtkBox, CheckButton, DropDown, Entry, Orientation, SpinButton, StringList, ToggleButton,
-    gdk,
+    Box as GtkBox, DropDown, Entry, Orientation, SpinButton, StringList, ToggleButton, gdk,
 };
 use libadwaita as adw;
 use rustconn_core::config::TerminalSettings;
@@ -23,15 +22,15 @@ pub fn create_terminal_page() -> (
     DropDown,
     GtkBox, // cursor shape buttons container
     GtkBox, // cursor blink buttons container
-    CheckButton,
-    CheckButton,
-    CheckButton,
-    CheckButton,
-    CheckButton,
-    CheckButton, // sftp_use_mc
-    CheckButton, // copy_on_select
-    CheckButton, // show_scrollbar
-    Entry,       // local_shell_command
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow, // sftp_use_mc
+    adw::SwitchRow, // copy_on_select
+    adw::SwitchRow, // show_scrollbar
+    Entry,          // local_shell_command
 ) {
     let page = adw::PreferencesPage::builder()
         .title(i18n("Terminal"))
@@ -296,39 +295,26 @@ pub fn create_terminal_page() -> (
     scrolling_group.add(&scrollback_row);
 
     // Scroll on output
-    let scroll_on_output_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let scroll_on_output_row = adw::ActionRow::builder()
+    let scroll_on_output_row = adw::SwitchRow::builder()
         .title(i18n("On output"))
         .subtitle(i18n("Scroll to bottom when new output appears"))
-        .activatable_widget(&scroll_on_output_check)
         .build();
-    scroll_on_output_row.add_prefix(&scroll_on_output_check);
     scrolling_group.add(&scroll_on_output_row);
 
     // Scroll on keystroke
-    let scroll_on_keystroke_check = CheckButton::builder()
-        .active(true)
-        .valign(gtk4::Align::Center)
-        .build();
-    let scroll_on_keystroke_row = adw::ActionRow::builder()
+    let scroll_on_keystroke_row = adw::SwitchRow::builder()
         .title(i18n("On keystroke"))
         .subtitle(i18n("Scroll to bottom when typing"))
-        .activatable_widget(&scroll_on_keystroke_check)
+        .active(true)
         .build();
-    scroll_on_keystroke_row.add_prefix(&scroll_on_keystroke_check);
     scrolling_group.add(&scroll_on_keystroke_row);
 
     // Show scrollbar
-    let show_scrollbar_check = CheckButton::builder()
-        .active(true)
-        .valign(gtk4::Align::Center)
-        .build();
-    let show_scrollbar_row = adw::ActionRow::builder()
+    let show_scrollbar_row = adw::SwitchRow::builder()
         .title(i18n("Scrollbar"))
         .subtitle(i18n("Show a scrollbar next to the terminal"))
-        .activatable_widget(&show_scrollbar_check)
+        .active(true)
         .build();
-    show_scrollbar_row.add_prefix(&show_scrollbar_check);
     scrolling_group.add(&show_scrollbar_row);
 
     page.add(&scrolling_group);
@@ -339,56 +325,40 @@ pub fn create_terminal_page() -> (
         .build();
 
     // Allow hyperlinks
-    let allow_hyperlinks_check = CheckButton::builder()
-        .active(true)
-        .valign(gtk4::Align::Center)
-        .build();
-    let allow_hyperlinks_row = adw::ActionRow::builder()
+    let allow_hyperlinks_row = adw::SwitchRow::builder()
         .title(i18n("Hyperlinks"))
         .subtitle(i18n("Allow clickable URLs in terminal"))
-        .activatable_widget(&allow_hyperlinks_check)
+        .active(true)
         .build();
-    allow_hyperlinks_row.add_prefix(&allow_hyperlinks_check);
     behavior_group.add(&allow_hyperlinks_row);
 
     // Hide mouse when typing
-    let mouse_autohide_check = CheckButton::builder()
-        .active(true)
-        .valign(gtk4::Align::Center)
-        .build();
-    let mouse_autohide_row = adw::ActionRow::builder()
+    let mouse_autohide_row = adw::SwitchRow::builder()
         .title(i18n("Hide pointer"))
         .subtitle(i18n("Hide mouse cursor when typing"))
-        .activatable_widget(&mouse_autohide_check)
+        .active(true)
         .build();
-    mouse_autohide_row.add_prefix(&mouse_autohide_check);
     behavior_group.add(&mouse_autohide_row);
 
     // Audible bell
-    let audible_bell_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let audible_bell_row = adw::ActionRow::builder()
+    let audible_bell_row = adw::SwitchRow::builder()
         .title(i18n("Bell"))
         .subtitle(i18n("Play sound on terminal bell"))
-        .activatable_widget(&audible_bell_check)
         .build();
-    audible_bell_row.add_prefix(&audible_bell_check);
     behavior_group.add(&audible_bell_row);
 
     // SFTP via Midnight Commander
-    let sftp_use_mc_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let sftp_use_mc_row = adw::ActionRow::builder()
+    let sftp_use_mc_row = adw::SwitchRow::builder()
         .title(i18n("SFTP via mc"))
         .subtitle(i18n("Open SFTP in Midnight Commander (local shell tab)"))
-        .activatable_widget(&sftp_use_mc_check)
         .build();
-    sftp_use_mc_row.add_prefix(&sftp_use_mc_check);
 
     // In Flatpak, warn when user disables mc — external file managers
     // cannot access the sandbox SSH agent.
     if rustconn_core::flatpak::is_flatpak() {
         let row_clone = sftp_use_mc_row.clone();
-        sftp_use_mc_check.connect_toggled(move |check| {
-            if check.is_active() {
+        sftp_use_mc_row.connect_active_notify(move |row| {
+            if row.is_active() {
                 row_clone.set_subtitle(&i18n("Open SFTP in Midnight Commander (local shell tab)"));
             } else {
                 row_clone.set_subtitle(&i18n(
@@ -401,13 +371,10 @@ pub fn create_terminal_page() -> (
     behavior_group.add(&sftp_use_mc_row);
 
     // Copy on select (X11-style)
-    let copy_on_select_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-    let copy_on_select_row = adw::ActionRow::builder()
+    let copy_on_select_row = adw::SwitchRow::builder()
         .title(i18n("Copy on select"))
         .subtitle(i18n("Automatically copy selected text to clipboard"))
-        .activatable_widget(&copy_on_select_check)
         .build();
-    copy_on_select_row.add_prefix(&copy_on_select_check);
     behavior_group.add(&copy_on_select_row);
 
     page.add(&behavior_group);
@@ -441,14 +408,14 @@ pub fn create_terminal_page() -> (
         color_theme_dropdown,
         shape_buttons_box,
         blink_buttons_box,
-        scroll_on_output_check,
-        scroll_on_keystroke_check,
-        allow_hyperlinks_check,
-        mouse_autohide_check,
-        audible_bell_check,
-        sftp_use_mc_check,
-        copy_on_select_check,
-        show_scrollbar_check,
+        scroll_on_output_row,
+        scroll_on_keystroke_row,
+        allow_hyperlinks_row,
+        mouse_autohide_row,
+        audible_bell_row,
+        sftp_use_mc_row,
+        copy_on_select_row,
+        show_scrollbar_row,
         local_shell_command_entry,
     )
 }
@@ -462,14 +429,14 @@ pub fn load_terminal_settings(
     color_theme_dropdown: &DropDown,
     cursor_shape_buttons: &GtkBox,
     cursor_blink_buttons: &GtkBox,
-    scroll_on_output_check: &CheckButton,
-    scroll_on_keystroke_check: &CheckButton,
-    allow_hyperlinks_check: &CheckButton,
-    mouse_autohide_check: &CheckButton,
-    audible_bell_check: &CheckButton,
-    sftp_use_mc_check: &CheckButton,
-    copy_on_select_check: &CheckButton,
-    show_scrollbar_check: &CheckButton,
+    scroll_on_output_row: &adw::SwitchRow,
+    scroll_on_keystroke_row: &adw::SwitchRow,
+    allow_hyperlinks_row: &adw::SwitchRow,
+    mouse_autohide_row: &adw::SwitchRow,
+    audible_bell_row: &adw::SwitchRow,
+    sftp_use_mc_row: &adw::SwitchRow,
+    copy_on_select_row: &adw::SwitchRow,
+    show_scrollbar_row: &adw::SwitchRow,
     local_shell_command_entry: &Entry,
     settings: &TerminalSettings,
 ) {
@@ -508,14 +475,14 @@ pub fn load_terminal_settings(
         btn.set_active(true);
     }
 
-    scroll_on_output_check.set_active(settings.scroll_on_output);
-    scroll_on_keystroke_check.set_active(settings.scroll_on_keystroke);
-    allow_hyperlinks_check.set_active(settings.allow_hyperlinks);
-    mouse_autohide_check.set_active(settings.mouse_autohide);
-    audible_bell_check.set_active(settings.audible_bell);
-    sftp_use_mc_check.set_active(settings.sftp_use_mc);
-    copy_on_select_check.set_active(settings.copy_on_select);
-    show_scrollbar_check.set_active(settings.show_scrollbar);
+    scroll_on_output_row.set_active(settings.scroll_on_output);
+    scroll_on_keystroke_row.set_active(settings.scroll_on_keystroke);
+    allow_hyperlinks_row.set_active(settings.allow_hyperlinks);
+    mouse_autohide_row.set_active(settings.mouse_autohide);
+    audible_bell_row.set_active(settings.audible_bell);
+    sftp_use_mc_row.set_active(settings.sftp_use_mc);
+    copy_on_select_row.set_active(settings.copy_on_select);
+    show_scrollbar_row.set_active(settings.show_scrollbar);
     local_shell_command_entry.set_text(&settings.local_shell_command);
 }
 
@@ -558,14 +525,14 @@ pub fn collect_terminal_settings(
     color_theme_dropdown: &DropDown,
     cursor_shape_buttons: &GtkBox,
     cursor_blink_buttons: &GtkBox,
-    scroll_on_output_check: &CheckButton,
-    scroll_on_keystroke_check: &CheckButton,
-    allow_hyperlinks_check: &CheckButton,
-    mouse_autohide_check: &CheckButton,
-    audible_bell_check: &CheckButton,
-    sftp_use_mc_check: &CheckButton,
-    copy_on_select_check: &CheckButton,
-    show_scrollbar_check: &CheckButton,
+    scroll_on_output_row: &adw::SwitchRow,
+    scroll_on_keystroke_row: &adw::SwitchRow,
+    allow_hyperlinks_row: &adw::SwitchRow,
+    mouse_autohide_row: &adw::SwitchRow,
+    audible_bell_row: &adw::SwitchRow,
+    sftp_use_mc_row: &adw::SwitchRow,
+    copy_on_select_row: &adw::SwitchRow,
+    show_scrollbar_row: &adw::SwitchRow,
     local_shell_command_entry: &Entry,
     log_timestamps: bool,
 ) -> TerminalSettings {
@@ -595,15 +562,15 @@ pub fn collect_terminal_settings(
         color_theme,
         cursor_shape,
         cursor_blink: cursor_blink_mode,
-        scroll_on_output: scroll_on_output_check.is_active(),
-        scroll_on_keystroke: scroll_on_keystroke_check.is_active(),
-        allow_hyperlinks: allow_hyperlinks_check.is_active(),
-        mouse_autohide: mouse_autohide_check.is_active(),
-        audible_bell: audible_bell_check.is_active(),
+        scroll_on_output: scroll_on_output_row.is_active(),
+        scroll_on_keystroke: scroll_on_keystroke_row.is_active(),
+        allow_hyperlinks: allow_hyperlinks_row.is_active(),
+        mouse_autohide: mouse_autohide_row.is_active(),
+        audible_bell: audible_bell_row.is_active(),
         log_timestamps,
-        sftp_use_mc: sftp_use_mc_check.is_active(),
-        copy_on_select: copy_on_select_check.is_active(),
-        show_scrollbar: show_scrollbar_check.is_active(),
+        sftp_use_mc: sftp_use_mc_row.is_active(),
+        copy_on_select: copy_on_select_row.is_active(),
+        show_scrollbar: show_scrollbar_row.is_active(),
         local_shell_command: local_shell_command_entry.text().trim().to_string(),
     }
 }

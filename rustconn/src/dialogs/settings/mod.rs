@@ -80,41 +80,41 @@ pub struct SettingsDialog {
     color_theme_dropdown: DropDown,
     cursor_shape_buttons: GtkBox,
     cursor_blink_buttons: GtkBox,
-    scroll_on_output_check: CheckButton,
-    scroll_on_keystroke_check: CheckButton,
-    allow_hyperlinks_check: CheckButton,
-    mouse_autohide_check: CheckButton,
-    audible_bell_check: CheckButton,
-    sftp_use_mc_check: CheckButton,
-    copy_on_select_check: CheckButton,
-    show_scrollbar_check: CheckButton,
+    scroll_on_output_check: adw::SwitchRow,
+    scroll_on_keystroke_check: adw::SwitchRow,
+    allow_hyperlinks_check: adw::SwitchRow,
+    mouse_autohide_check: adw::SwitchRow,
+    audible_bell_check: adw::SwitchRow,
+    sftp_use_mc_check: adw::SwitchRow,
+    copy_on_select_check: adw::SwitchRow,
+    show_scrollbar_check: adw::SwitchRow,
     local_shell_command_entry: Entry,
     // Logging settings
     logging_enabled_row: adw::SwitchRow,
     log_dir_entry: Entry,
     retention_spin: SpinButton,
-    log_activity_check: CheckButton,
-    log_input_check: CheckButton,
-    log_output_check: CheckButton,
-    log_timestamps_check: CheckButton,
+    log_activity_check: adw::SwitchRow,
+    log_input_check: adw::SwitchRow,
+    log_output_check: adw::SwitchRow,
+    log_timestamps_check: adw::SwitchRow,
     // Secret settings - now using SecretsPageWidgets struct
     secrets_widgets: SecretsPageWidgets,
     // UI settings
     color_scheme_box: GtkBox,
     language_dropdown: DropDown,
-    remember_geometry: CheckButton,
-    enable_tray_icon: CheckButton,
-    minimize_to_tray: CheckButton,
+    remember_geometry: adw::SwitchRow,
+    enable_tray_icon: adw::SwitchRow,
+    minimize_to_tray: adw::SwitchRow,
     // Session restore settings
-    session_restore_enabled: CheckButton,
-    prompt_on_restore: CheckButton,
+    session_restore_enabled: adw::SwitchRow,
+    prompt_on_restore: adw::SwitchRow,
     max_age_row: adw::SpinRow,
     // Startup action
     startup_action_dropdown: DropDown,
     // Tab coloring
-    color_tabs_by_protocol: CheckButton,
+    color_tabs_by_protocol: adw::SwitchRow,
     // Protocol filter visibility
-    show_protocol_filters: CheckButton,
+    show_protocol_filters: adw::SwitchRow,
     // Sidebar width setting
     sidebar_width_row: adw::SpinRow,
     // SSH Agent settings
@@ -970,39 +970,28 @@ impl SettingsDialog {
         let kdbx_path_entry_clone = self.secrets_widgets.kdbx_path_entry.clone();
         let kdbx_enabled_row_clone = self.secrets_widgets.kdbx_enabled_row.clone();
         let kdbx_password_entry_clone = self.secrets_widgets.kdbx_password_entry.clone();
-        let kdbx_save_password_check_clone = self.secrets_widgets.kdbx_save_password_check.clone();
+        let kdbx_storage_combo_clone = self.secrets_widgets.kdbx_storage_combo.clone();
         let kdbx_key_file_entry_clone = self.secrets_widgets.kdbx_key_file_entry.clone();
         let kdbx_use_key_file_check_clone = self.secrets_widgets.kdbx_use_key_file_check.clone();
         let kdbx_use_password_check_clone = self.secrets_widgets.kdbx_use_password_check.clone();
         let bitwarden_password_entry_clone = self.secrets_widgets.bitwarden_password_entry.clone();
-        let bitwarden_save_password_check_clone =
-            self.secrets_widgets.bitwarden_save_password_check.clone();
-        let bitwarden_save_to_keyring_check_clone =
-            self.secrets_widgets.bitwarden_save_to_keyring_check.clone();
+        let bitwarden_storage_combo_clone = self.secrets_widgets.bitwarden_storage_combo.clone();
         let bitwarden_use_api_key_check_clone =
             self.secrets_widgets.bitwarden_use_api_key_check.clone();
         let bitwarden_client_id_entry_clone =
             self.secrets_widgets.bitwarden_client_id_entry.clone();
         let bitwarden_client_secret_entry_clone =
             self.secrets_widgets.bitwarden_client_secret_entry.clone();
-        // Passbolt, 1Password, Pass, KeePassXC keyring — раніше використовувались dummy-віджети
+        // Passbolt, 1Password, Pass — collect-only widgets cloned for the
+        // close-time settings collection.
         let passbolt_passphrase_entry_clone =
             self.secrets_widgets.passbolt_passphrase_entry.clone();
-        let passbolt_save_password_check_clone =
-            self.secrets_widgets.passbolt_save_password_check.clone();
-        let passbolt_save_to_keyring_check_clone =
-            self.secrets_widgets.passbolt_save_to_keyring_check.clone();
+        let passbolt_storage_combo_clone = self.secrets_widgets.passbolt_storage_combo.clone();
         let passbolt_server_url_entry_clone =
             self.secrets_widgets.passbolt_server_url_entry.clone();
-        let kdbx_save_to_keyring_check_clone =
-            self.secrets_widgets.kdbx_save_to_keyring_check.clone();
         let onepassword_token_entry_clone = self.secrets_widgets.onepassword_token_entry.clone();
-        let onepassword_save_password_check_clone =
-            self.secrets_widgets.onepassword_save_password_check.clone();
-        let onepassword_save_to_keyring_check_clone = self
-            .secrets_widgets
-            .onepassword_save_to_keyring_check
-            .clone();
+        let onepassword_storage_combo_clone =
+            self.secrets_widgets.onepassword_storage_combo.clone();
         let pass_store_dir_entry_clone = self.secrets_widgets.pass_store_dir_entry.clone();
 
         // UI controls
@@ -1089,7 +1078,7 @@ impl SettingsDialog {
                 kdbx_path_entry: kdbx_path_entry_clone.clone(),
                 kdbx_password_entry: kdbx_password_entry_clone.clone(),
                 kdbx_enabled_row: kdbx_enabled_row_clone.clone(),
-                kdbx_save_password_check: kdbx_save_password_check_clone.clone(),
+                kdbx_storage_combo: kdbx_storage_combo_clone.clone(),
                 kdbx_status_label: Label::new(None), // dummy, not used in collect
                 kdbx_browse_button: Button::new(),   // dummy, not used in collect
                 kdbx_check_button: Button::new(),    // dummy, not used in collect
@@ -1102,14 +1091,12 @@ impl SettingsDialog {
                 auth_group: adw::PreferencesGroup::new(), // dummy
                 status_group: adw::PreferencesGroup::new(), // dummy
                 password_row: adw::ActionRow::new(),      // dummy
-                save_password_row: adw::ActionRow::new(), // dummy
                 key_file_row: adw::ActionRow::new(),      // dummy
                 bitwarden_group: adw::PreferencesGroup::new(), // dummy
                 bitwarden_status_label: Label::new(None), // dummy
                 bitwarden_unlock_button: Button::new(),   // dummy
                 bitwarden_password_entry: bitwarden_password_entry_clone.clone(),
-                bitwarden_save_password_check: bitwarden_save_password_check_clone.clone(),
-                bitwarden_save_to_keyring_check: bitwarden_save_to_keyring_check_clone.clone(),
+                bitwarden_storage_combo: bitwarden_storage_combo_clone.clone(),
                 bitwarden_use_api_key_check: bitwarden_use_api_key_check_clone.clone(),
                 bitwarden_client_id_entry: bitwarden_client_id_entry_clone.clone(),
                 bitwarden_client_secret_entry: bitwarden_client_secret_entry_clone.clone(),
@@ -1123,12 +1110,9 @@ impl SettingsDialog {
                 passbolt_server_url_entry: passbolt_server_url_entry_clone.clone(),
                 passbolt_open_vault_button: Button::new(), // dummy, не використовується при збиранні
                 passbolt_passphrase_entry: passbolt_passphrase_entry_clone.clone(),
-                passbolt_save_password_check: passbolt_save_password_check_clone.clone(),
-                passbolt_save_to_keyring_check: passbolt_save_to_keyring_check_clone.clone(),
-                kdbx_save_to_keyring_check: kdbx_save_to_keyring_check_clone.clone(),
+                passbolt_storage_combo: passbolt_storage_combo_clone.clone(),
                 onepassword_token_entry: onepassword_token_entry_clone.clone(),
-                onepassword_save_password_check: onepassword_save_password_check_clone.clone(),
-                onepassword_save_to_keyring_check: onepassword_save_to_keyring_check_clone.clone(),
+                onepassword_storage_combo: onepassword_storage_combo_clone.clone(),
                 secret_tool_available: Rc::new(RefCell::new(None)), // dummy, не використовується при збиранні
                 pass_group: adw::PreferencesGroup::new(), // dummy, не використовується при збиранні
                 pass_store_dir_entry: pass_store_dir_entry_clone.clone(),
