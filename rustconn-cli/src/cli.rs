@@ -1114,9 +1114,16 @@ pub enum SecretCommands {
         #[arg(short, long)]
         user: Option<String>,
 
-        /// Password (if not provided, will prompt interactively)
-        #[arg(short, long)]
+        /// Password via argument (DEPRECATED: visible in /proc/cmdline;
+        /// prefer --password-stdin or interactive prompt)
+        #[arg(short, long, conflicts_with = "password_stdin")]
         password: Option<String>,
+
+        /// Read password from stdin (one line, no trailing newline required).
+        /// Safer than --password because the value never appears in process
+        /// listings. Example: echo "s3cret" | rustconn-cli secret set myhost --password-stdin
+        #[arg(long, conflicts_with = "password")]
+        password_stdin: bool,
 
         /// Secret backend to use
         /// (keyring, keepass, bitwarden, 1password, passbolt)

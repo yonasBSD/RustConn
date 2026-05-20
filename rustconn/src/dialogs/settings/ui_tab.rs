@@ -167,23 +167,26 @@ pub fn create_ui_page() -> (
 
     page.add(&startup_group);
 
-    // === System Tray Group ===
-    let tray_group = adw::PreferencesGroup::builder()
+    // === System Tray Group (collapsible) ===
+    let tray_group = adw::PreferencesGroup::builder().build();
+
+    let tray_expander = adw::ExpanderRow::builder()
         .title(i18n("System Tray"))
-        .description(i18n("Requires desktop environment with tray support"))
+        .subtitle(i18n("Requires desktop environment with tray support"))
+        .show_enable_switch(false)
         .build();
 
     let enable_tray_icon = adw::SwitchRow::builder()
         .title(i18n("Show icon"))
         .subtitle(i18n("Display icon in system tray"))
         .build();
-    tray_group.add(&enable_tray_icon);
+    tray_expander.add_row(&enable_tray_icon);
 
     let minimize_to_tray = adw::SwitchRow::builder()
         .title(i18n("Minimize to tray"))
         .subtitle(i18n("Hide window instead of closing"))
         .build();
-    tray_group.add(&minimize_to_tray);
+    tray_expander.add_row(&minimize_to_tray);
 
     // Make minimize_to_tray sensitive based on enable_tray_icon
     let minimize_to_tray_clone = minimize_to_tray.clone();
@@ -191,32 +194,36 @@ pub fn create_ui_page() -> (
         minimize_to_tray_clone.set_sensitive(row.is_active());
     });
 
+    tray_group.add(&tray_expander);
     page.add(&tray_group);
 
-    // === Session Restore Group ===
-    let session_group = adw::PreferencesGroup::builder()
+    // === Session Restore Group (collapsible) ===
+    let session_group = adw::PreferencesGroup::builder().build();
+
+    let session_expander = adw::ExpanderRow::builder()
         .title(i18n("Session Restore"))
-        .description(i18n("Restore previous connections on startup"))
+        .subtitle(i18n("Restore previous connections on startup"))
+        .show_enable_switch(false)
         .build();
 
     let session_restore_enabled = adw::SwitchRow::builder()
         .title(i18n("Enabled"))
         .subtitle(i18n("Reconnect to previous sessions on startup"))
         .build();
-    session_group.add(&session_restore_enabled);
+    session_expander.add_row(&session_restore_enabled);
 
     let prompt_on_restore = adw::SwitchRow::builder()
         .title(i18n("Ask first"))
         .subtitle(i18n("Prompt before restoring sessions"))
         .build();
-    session_group.add(&prompt_on_restore);
+    session_expander.add_row(&prompt_on_restore);
 
     let max_age_row = adw::SpinRow::builder()
         .title(i18n("Max age"))
         .subtitle(i18n("Hours before sessions expire"))
         .adjustment(&gtk4::Adjustment::new(24.0, 1.0, 168.0, 1.0, 24.0, 0.0))
         .build();
-    session_group.add(&max_age_row);
+    session_expander.add_row(&max_age_row);
 
     // Make session options sensitive based on session_restore_enabled
     let prompt_on_restore_clone = prompt_on_restore.clone();
@@ -227,6 +234,7 @@ pub fn create_ui_page() -> (
         max_age_row_clone.set_sensitive(active);
     });
 
+    session_group.add(&session_expander);
     page.add(&session_group);
 
     (

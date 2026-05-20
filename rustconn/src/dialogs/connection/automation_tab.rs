@@ -145,9 +145,12 @@ pub(super) fn create_automation_combined_tab() -> AutomationTabWidgets {
     rules_group.add(&rules_button_box);
     content.append(&rules_group);
 
-    // Pattern tester
-    let tester_group = adw::PreferencesGroup::builder()
+    // Pattern tester (collapsible)
+    let tester_group = adw::PreferencesGroup::builder().build();
+    let tester_expander = adw::ExpanderRow::builder()
         .title(i18n("Pattern Tester"))
+        .subtitle(i18n("Test text against expect rule patterns"))
+        .show_enable_switch(false)
         .build();
 
     let test_entry = Entry::builder()
@@ -158,7 +161,7 @@ pub(super) fn create_automation_combined_tab() -> AutomationTabWidgets {
 
     let test_row = adw::ActionRow::builder().title(i18n("Test Input")).build();
     test_row.add_suffix(&test_entry);
-    tester_group.add(&test_row);
+    tester_expander.add_row(&test_row);
 
     let result_label = Label::builder()
         .label(&i18n("Enter text to test"))
@@ -169,8 +172,9 @@ pub(super) fn create_automation_combined_tab() -> AutomationTabWidgets {
 
     let result_row = adw::ActionRow::builder().title(i18n("Result")).build();
     result_row.add_suffix(&result_label);
-    tester_group.add(&result_row);
+    tester_expander.add_row(&result_row);
 
+    tester_group.add(&tester_expander);
     content.append(&tester_group);
 
     // === Pre-Connect Task Section ===
@@ -220,7 +224,7 @@ pub(super) fn create_automation_combined_tab() -> AutomationTabWidgets {
     }
 }
 
-/// Creates a task section (pre-connect or post-disconnect).
+/// Creates a task section (pre-connect or post-disconnect) wrapped in an `ExpanderRow`.
 ///
 /// Uses libadwaita components following GNOME HIG.
 pub(super) fn create_task_section(
@@ -234,15 +238,17 @@ pub(super) fn create_task_section(
     CheckButton,
     CheckButton,
 ) {
-    let description = if is_pre_connect {
-        i18n("Run command before connecting. Supports ${variable} substitution.")
+    let subtitle = if is_pre_connect {
+        i18n("Run command before connecting")
     } else {
-        i18n("Run command after disconnecting. Supports ${variable} substitution.")
+        i18n("Run command after disconnecting")
     };
 
-    let group = adw::PreferencesGroup::builder()
+    let group = adw::PreferencesGroup::builder().build();
+    let expander = adw::ExpanderRow::builder()
         .title(title)
-        .description(description)
+        .subtitle(subtitle)
+        .show_enable_switch(false)
         .build();
 
     // Enable checkbox
@@ -253,7 +259,7 @@ pub(super) fn create_task_section(
         .activatable_widget(&enabled_check)
         .build();
     enable_row.add_suffix(&enabled_check);
-    group.add(&enable_row);
+    expander.add_row(&enable_row);
 
     // Command entry
     let command_entry = Entry::builder()
@@ -270,7 +276,7 @@ pub(super) fn create_task_section(
         ))
         .build();
     command_row.add_suffix(&command_entry);
-    group.add(&command_row);
+    expander.add_row(&command_row);
 
     // Timeout
     let timeout_adj = gtk4::Adjustment::new(0.0, 0.0, 300_000.0, 1000.0, 5000.0, 0.0);
@@ -287,7 +293,7 @@ pub(super) fn create_task_section(
         .subtitle(i18n("0 = no timeout"))
         .build();
     timeout_row.add_suffix(&timeout_spin);
-    group.add(&timeout_row);
+    expander.add_row(&timeout_row);
 
     // Abort on failure (pre-connect only)
     let abort_check = CheckButton::builder()
@@ -303,7 +309,7 @@ pub(super) fn create_task_section(
             .activatable_widget(&abort_check)
             .build();
         abort_row.add_suffix(&abort_check);
-        group.add(&abort_row);
+        expander.add_row(&abort_row);
     }
 
     // Condition checkbox
@@ -330,7 +336,9 @@ pub(super) fn create_task_section(
         .activatable_widget(&condition_check)
         .build();
     condition_row.add_suffix(&condition_check);
-    group.add(&condition_row);
+    expander.add_row(&condition_row);
+
+    group.add(&expander);
 
     // Connect enabled checkbox to enable/disable other fields
     let command_entry_clone = command_entry.clone();

@@ -140,6 +140,19 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.14.3" date="2026-05-20">
+      <description>
+        <p>UI polish and GNOME HIG compliance:</p>
+        <ul>
+          <li>Settings: removed duplicate group titles above collapsible sections</li>
+          <li>CLI: secret set --password wrapped in Zeroizing immediately, added --password-stdin</li>
+          <li>External window: migrated to libadwaita for consistent styling</li>
+          <li>Settings: collapsible sections reduce visual clutter on overloaded pages</li>
+          <li>Settings: credential storage simplified to a single 3-state ComboRow per backend</li>
+          <li>Settings UI: 25 toggles converted from CheckButton to AdwSwitchRow</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.14.2" date="2026-05-19">
       <description>
         <p>Bug fixes and i18n improvements:</p>

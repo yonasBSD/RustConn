@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Tue May 20 12:00:00 UTC 2026 - totoshko88@gmail.com
+
+- Update to version 0.14.3
+  * Settings: removed duplicate group titles above collapsible sections
+  * CLI: secret set --password wrapped in Zeroizing immediately, added --password-stdin
+  * External window: migrated to libadwaita (adw::ApplicationWindow + ToolbarView)
+  * Settings: collapsible sections (GNOME HIG) for Terminal, Interface, and Edit Connection
+  * Settings: credential storage as a 3-state ComboRow for all secret backends
+  * Settings UI: 25 toggles converted from CheckButton to AdwSwitchRow (GNOME HIG)
+  * Settings dialog field types unified to adw::SwitchRow
+
+-------------------------------------------------------------------
 Mon May 19 09:00:00 UTC 2026 - totoshko88@gmail.com
 
 - Update to version 0.14.2

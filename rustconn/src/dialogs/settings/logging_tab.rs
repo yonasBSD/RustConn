@@ -1,15 +1,16 @@
 //! Logging settings tab using libadwaita components
 
-use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{Button, Entry, SpinButton};
+use gtk4::{Entry, SpinButton};
 use libadwaita as adw;
 use rustconn_core::config::LoggingSettings;
-use std::path::PathBuf;
 
 use crate::i18n::i18n;
 
-/// Creates the logging settings page using AdwPreferencesPage
+/// Creates the logging settings widgets (not added to any page).
+///
+/// Returns the individual widgets for embedding into a collapsible expander
+/// on the Terminal page.
 #[allow(clippy::type_complexity)]
 pub fn create_logging_page() -> (
     adw::PreferencesPage,
@@ -21,15 +22,11 @@ pub fn create_logging_page() -> (
     adw::SwitchRow,
     adw::SwitchRow, // log_timestamps
 ) {
+    // We still create a dummy page for API compatibility, but the widgets
+    // are NOT added to it — they will be placed into an ExpanderRow by mod.rs.
     let page = adw::PreferencesPage::builder()
         .title(i18n("Logging"))
         .icon_name("document-open-recent-symbolic")
-        .build();
-
-    // === General Logging Settings ===
-    let general_group = adw::PreferencesGroup::builder()
-        .title(i18n("General"))
-        .description(i18n("Configure session logging"))
         .build();
 
     // Enable logging switch
@@ -37,7 +34,6 @@ pub fn create_logging_page() -> (
         .title(i18n("Persist logs"))
         .subtitle(i18n("Save session logs to disk"))
         .build();
-    general_group.add(&logging_enabled_row);
 
     // Log directory
     let log_dir_entry = Entry::builder()
@@ -47,10 +43,6 @@ pub fn create_logging_page() -> (
         .valign(gtk4::Align::Center)
         .sensitive(false)
         .build();
-    let log_dir_row = adw::ActionRow::builder().title(i18n("Directory")).build();
-    log_dir_row.add_suffix(&log_dir_entry);
-    log_dir_row.set_activatable_widget(Some(&log_dir_entry));
-    general_group.add(&log_dir_row);
 
     // Retention days
     let retention_adj = gtk4::Adjustment::new(30.0, 1.0, 365.0, 1.0, 7.0, 0.0);
@@ -61,48 +53,6 @@ pub fn create_logging_page() -> (
         .valign(gtk4::Align::Center)
         .sensitive(false)
         .build();
-    let retention_row = adw::ActionRow::builder()
-        .title(i18n("Retention"))
-        .subtitle(i18n("Days to keep logs"))
-        .build();
-    retention_row.add_suffix(&retention_spin);
-    retention_row.set_activatable_widget(Some(&retention_spin));
-    general_group.add(&retention_row);
-
-    // Open logs directory button
-    let open_logs_btn = Button::builder()
-        .icon_name("folder-open-symbolic")
-        .valign(gtk4::Align::Center)
-        .tooltip_text(i18n("Open logs directory"))
-        .sensitive(false)
-        .build();
-    open_logs_btn.update_property(&[gtk4::accessible::Property::Label(&i18n(
-        "Open logs directory",
-    ))]);
-    let open_logs_row = adw::ActionRow::builder()
-        .title(i18n("Open Logs Directory"))
-        .activatable(true)
-        .build();
-    open_logs_row.add_suffix(&open_logs_btn);
-
-    let log_dir_entry_clone = log_dir_entry.clone();
-    open_logs_row.connect_activated(move |_| {
-        open_logs_directory(&log_dir_entry_clone);
-    });
-
-    let log_dir_entry_clone2 = log_dir_entry.clone();
-    open_logs_btn.connect_clicked(move |_| {
-        open_logs_directory(&log_dir_entry_clone2);
-    });
-
-    general_group.add(&open_logs_row);
-    page.add(&general_group);
-
-    // === Log Content Group ===
-    let content_group = adw::PreferencesGroup::builder()
-        .title(i18n("Log Content"))
-        .description(i18n("Select what to include in logs"))
-        .build();
 
     // Activity logging
     let log_activity_row = adw::SwitchRow::builder()
@@ -111,7 +61,6 @@ pub fn create_logging_page() -> (
         .active(true)
         .sensitive(false)
         .build();
-    content_group.add(&log_activity_row);
 
     // Input logging
     let log_input_row = adw::SwitchRow::builder()
@@ -119,7 +68,6 @@ pub fn create_logging_page() -> (
         .subtitle(i18n("Commands and keystrokes"))
         .sensitive(false)
         .build();
-    content_group.add(&log_input_row);
 
     // Output logging
     let log_output_row = adw::SwitchRow::builder()
@@ -127,28 +75,16 @@ pub fn create_logging_page() -> (
         .subtitle(i18n("Full session transcript"))
         .sensitive(false)
         .build();
-    content_group.add(&log_output_row);
 
-    page.add(&content_group);
-
-    // === Session Logging Group ===
-    let session_group = adw::PreferencesGroup::builder()
-        .title(i18n("Session Logging"))
-        .description(i18n("Format options for session logs"))
-        .build();
-
+    // Timestamps
     let log_timestamps_row = adw::SwitchRow::builder()
         .title(i18n("Timestamps"))
         .subtitle(i18n("Prepend [HH:MM:SS] to each line in session logs"))
         .build();
-    session_group.add(&log_timestamps_row);
-
-    page.add(&session_group);
 
     // Connect switch to enable/disable other controls
     let log_dir_entry_clone = log_dir_entry.clone();
     let retention_clone = retention_spin.clone();
-    let open_logs_btn_clone = open_logs_btn.clone();
     let log_activity_clone = log_activity_row.clone();
     let log_input_clone = log_input_row.clone();
     let log_output_clone = log_output_row.clone();
@@ -156,7 +92,6 @@ pub fn create_logging_page() -> (
         let state = row.is_active();
         log_dir_entry_clone.set_sensitive(state);
         retention_clone.set_sensitive(state);
-        open_logs_btn_clone.set_sensitive(state);
         log_activity_clone.set_sensitive(state);
         log_input_clone.set_sensitive(state);
         log_output_clone.set_sensitive(state);
@@ -222,41 +157,4 @@ pub fn collect_logging_settings(
         log_input: log_input_row.is_active(),
         log_output: log_output_row.is_active(),
     }
-}
-
-/// Opens the logs directory asynchronously
-///
-/// Creates the directory if it doesn't exist, then opens it in the file manager.
-/// Uses background thread to avoid blocking UI on slow filesystems.
-fn open_logs_directory(log_dir_entry: &Entry) {
-    let log_dir = log_dir_entry.text().to_string();
-    let log_path = if log_dir.starts_with('/') {
-        PathBuf::from(&log_dir)
-    } else {
-        dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("rustconn")
-            .join(&log_dir)
-    };
-
-    // Run directory creation in background to avoid blocking UI
-    crate::utils::spawn_blocking_with_callback(
-        move || {
-            if !log_path.exists()
-                && let Err(e) = std::fs::create_dir_all(&log_path)
-            {
-                return Err(format!("Failed to create logs directory: {e}"));
-            }
-            // open::that spawns a process and returns immediately, so it's safe here
-            if let Err(e) = open::that(&log_path) {
-                return Err(format!("Failed to open logs directory: {e}"));
-            }
-            Ok(())
-        },
-        |result: Result<(), String>| {
-            if let Err(e) = result {
-                tracing::error!("{e}");
-            }
-        },
-    );
 }

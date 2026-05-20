@@ -4,7 +4,9 @@
 //! external windows instead of embedded in the main application window.
 
 use gtk4::prelude::*;
-use gtk4::{ApplicationWindow, Box as GtkBox, HeaderBar, Label, Orientation};
+use gtk4::{Box as GtkBox, Label, Orientation};
+use libadwaita as adw;
+use libadwaita::prelude::*;
 use rustconn_core::models::{Connection, WindowGeometry};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -16,7 +18,7 @@ pub type WindowCloseCallback = Rc<RefCell<Option<Box<dyn Fn(Uuid, Option<WindowG
 
 /// External window for a connection session
 pub struct ExternalWindow {
-    window: ApplicationWindow,
+    window: adw::ApplicationWindow,
     connection_id: Uuid,
     session_id: Uuid,
     on_close: WindowCloseCallback,
@@ -31,7 +33,7 @@ impl ExternalWindow {
         session_id: Uuid,
         terminal: &Terminal,
     ) -> Self {
-        let window = ApplicationWindow::builder()
+        let window = adw::ApplicationWindow::builder()
             .application(app)
             .title(&format!("{} - RustConn", connection.name))
             .default_width(800)
@@ -46,27 +48,28 @@ impl ExternalWindow {
             window.set_default_size(geometry.width, geometry.height);
         }
 
-        // Create header bar
-        let header = HeaderBar::new();
-        header.set_show_title_buttons(true);
+        // Create header bar (adw::HeaderBar inside adw::ToolbarView)
+        let header = adw::HeaderBar::new();
 
         let title = Label::new(Some(&connection.name));
         title.add_css_class("title");
         header.set_title_widget(Some(&title));
-
-        window.set_titlebar(Some(&header));
 
         // Create content container
         let content = GtkBox::new(Orientation::Vertical, 0);
         content.set_vexpand(true);
         content.set_hexpand(true);
 
-        // Clone terminal widget for the external window
-        // Note: VTE terminals can only have one parent, so we need to reparent
+        // Reparent terminal widget into the external window
         terminal.unparent();
         content.append(terminal);
 
-        window.set_child(Some(&content));
+        // Assemble with ToolbarView (libadwaita pattern)
+        let toolbar_view = adw::ToolbarView::new();
+        toolbar_view.add_top_bar(&header);
+        toolbar_view.set_content(Some(&content));
+
+        window.set_content(Some(&toolbar_view));
 
         let on_close: WindowCloseCallback = Rc::new(RefCell::new(None));
 
@@ -90,7 +93,7 @@ impl ExternalWindow {
         session_id: Uuid,
         terminal: &Terminal,
     ) -> Self {
-        let window = ApplicationWindow::builder()
+        let window = adw::ApplicationWindow::builder()
             .application(app)
             .title(&format!("{} - RustConn", connection.name))
             .decorated(false)
@@ -101,11 +104,11 @@ impl ExternalWindow {
         content.set_vexpand(true);
         content.set_hexpand(true);
 
-        // Clone terminal widget for the external window
+        // Reparent terminal widget into the external window
         terminal.unparent();
         content.append(terminal);
 
-        window.set_child(Some(&content));
+        window.set_content(Some(&content));
 
         // Set fullscreen after showing
         window.fullscreen();
@@ -171,7 +174,7 @@ impl ExternalWindow {
 
     /// Gets the window widget
     #[must_use]
-    pub fn window(&self) -> &ApplicationWindow {
+    pub fn window(&self) -> &adw::ApplicationWindow {
         &self.window
     }
 

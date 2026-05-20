@@ -1,3 +1,15 @@
+rustconn (0.14.3-1) unstable; urgency=medium
+
+  * Settings: removed duplicate group titles above collapsible sections
+  * CLI: secret set --password wrapped in Zeroizing immediately, added --password-stdin
+  * External window: migrated to libadwaita (adw::ApplicationWindow + ToolbarView)
+  * Settings: collapsible sections (GNOME HIG) for Terminal, Interface, and Edit Connection
+  * Settings: credential storage as a 3-state ComboRow for all secret backends
+  * Settings UI: 25 toggles converted from CheckButton to AdwSwitchRow (GNOME HIG)
+  * Settings dialog field types unified to adw::SwitchRow
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Tue, 20 May 2026 12:00:00 +0300
+
 rustconn (0.14.2-1) unstable; urgency=medium
 
   * CLI: fix `add --protocol web` port=0 error

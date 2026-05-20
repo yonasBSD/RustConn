@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.14.2
+Version:        0.14.3
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,15 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Tue May 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.14.3-1
+- Settings: removed duplicate group titles above collapsible sections
+- CLI: secret set --password wrapped in Zeroizing immediately, added --password-stdin
+- External window: migrated to libadwaita (adw::ApplicationWindow + ToolbarView)
+- Settings: collapsible sections (GNOME HIG) for Terminal, Interface, and Edit Connection
+- Settings: credential storage as a 3-state ComboRow for all secret backends
+- Settings UI: 25 toggles converted from CheckButton to AdwSwitchRow (GNOME HIG)
+- Settings dialog field types unified to adw::SwitchRow
+
 * Mon May 19 2026 Anton Isaiev <totoshko88@gmail.com> - 0.14.2-1
 - CLI: fix `add --protocol web` port=0 error
 - CLI: add SecureCRT export/import format

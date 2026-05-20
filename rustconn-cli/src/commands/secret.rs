@@ -25,12 +25,14 @@ pub fn cmd_secret(config_path: Option<&Path>, subcmd: SecretCommands) -> Result<
             connection,
             user,
             password,
+            password_stdin,
             backend,
         } => cmd_secret_set(
             config_path,
             &connection,
             user.as_deref(),
-            password.as_deref(),
+            password,
+            password_stdin,
             backend.as_deref(),
         ),
         SecretCommands::Delete {
@@ -422,18 +424,23 @@ fn cmd_secret_set(
     config_path: Option<&Path>,
     connection_name: &str,
     username: Option<&str>,
-    password: Option<&str>,
+    password_arg: Option<String>,
+    password_stdin: bool,
     backend: Option<&str>,
 ) -> Result<(), CliError> {
     use rustconn_core::config::SecretBackendType;
     use rustconn_core::secret::{KeePassHierarchy, KeePassStatus};
+    use zeroize::Zeroizing;
 
-    if password.is_some() {
+    if password_arg.is_some() {
         eprintln!(
-            "Warning: --password is insecure (visible in process listings). \
-             Prefer interactive prompt."
+            "Warning: --password is deprecated and insecure (visible in \
+             /proc/cmdline). Use --password-stdin or interactive prompt instead."
         );
     }
+
+    // Wrap the argv password in Zeroizing immediately to minimize plain-heap lifetime.
+    let password_zeroizing: Option<Zeroizing<String>> = password_arg.map(Zeroizing::new);
 
     let config_manager = create_config_manager(config_path)?;
 
@@ -465,13 +472,28 @@ fn cmd_secret_set(
         .transpose()?
         .unwrap_or(settings.secrets.preferred_backend);
 
-    let password_value = secrecy::SecretString::from(if let Some(pwd) = password {
-        pwd.to_string()
+    let password_value = if let Some(pwd) = password_zeroizing {
+        secrecy::SecretString::from(pwd.as_str())
+    } else if password_stdin {
+        use std::io::BufRead;
+        let stdin = std::io::stdin();
+        let line = Zeroizing::new(
+            stdin
+                .lock()
+                .lines()
+                .next()
+                .ok_or_else(|| CliError::Secret("No input on stdin".to_string()))?
+                .map_err(|e| CliError::Secret(format!("Failed to read stdin: {e}")))?,
+        );
+        secrecy::SecretString::from(line.as_str())
     } else {
         eprint!("Enter password for '{}': ", connection.name);
-        rpassword::read_password()
-            .map_err(|e| CliError::Secret(format!("Failed to read password: {e}")))?
-    });
+        let prompted = Zeroizing::new(
+            rpassword::read_password()
+                .map_err(|e| CliError::Secret(format!("Failed to read password: {e}")))?,
+        );
+        secrecy::SecretString::from(prompted.as_str())
+    };
 
     let username_value = username
         .map(String::from)

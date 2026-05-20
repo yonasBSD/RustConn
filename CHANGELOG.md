@@ -7,10 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.14.3] - 2026-05-19
+
+## [0.14.3] - 2026-05-20
+
+### Fixed
+
+- **Settings: removed duplicate group titles above collapsible sections** — `PreferencesGroup` title was visually duplicated with the `ExpanderRow` title for System Tray, Session Restore, Logging, and Highlight Rules sections; removed the redundant group-level titles per GNOME HIG (ExpanderRow already carries the section label)
+- **CLI: `secret set --password` wrapped in `Zeroizing` immediately** — the plain `String` from argv is now wrapped in `zeroize::Zeroizing` as soon as clap parses it, minimizing heap lifetime; intermediate strings before `SecretString::from()` are zeroed on drop; added `--password-stdin` flag as the recommended secure alternative (reads one line from stdin pipe, never appears in `/proc/cmdline`); `--password` is deprecated with a runtime warning 
 
 ### Improved
 
+- **External window: migrated to libadwaita** — `external_window.rs` now uses `adw::ApplicationWindow` + `adw::ToolbarView` + `adw::HeaderBar` instead of plain `gtk4::ApplicationWindow` + `gtk4::HeaderBar`; consistent with the rest of the application, inherits Adwaita styling and color scheme support (UX-10)
+- **Settings: collapsible sections (GNOME HIG)** — wrapped secondary settings groups into `AdwExpanderRow` to reduce visual clutter on overloaded pages; collapsed by default, users expand only what they need:
+  - Terminal tab: Logging section (7 controls) collapsed into a single "Session Logging" expander
+  - Interface tab: System Tray (2 controls) and Session Restore (3 controls) collapsed into expanders
+  - Interface tab: Keybindings — each category (Terminal, Navigation, Tabs, etc.) is now a collapsible expander inside a single "Keyboard Shortcuts" group instead of separate full-width groups
+  - Highlight Rules already used an expander (unchanged)
+- **Edit Connection: collapsible sections (GNOME HIG)** — wrapped secondary settings groups in the connection dialog into `AdwExpanderRow` to reduce visual clutter:
+  - Advanced tab: Terminal Theme, Activity Monitor, Automatic Reconnection, Highlight Rules, and Wake On LAN collapsed into expanders; Remote Monitoring, Session Recording, and Connection Behavior remain as single-toggle groups
+  - Automation tab: Pattern Tester, Pre-Connect Task, and Post-Disconnect Task collapsed into expanders; Expect Rules list remains expanded as the primary function
 - **Settings: credential storage as a 3-state ComboRow** — replaced the per-backend pair of "Save password" + "Save to system keyring" CheckButtons (with hand-rolled mutual-exclusion logic) with a single `AdwComboRow` offering three canonical choices: "Don't save" / "Encrypted file (machine-specific)" / "System keyring (recommended)". Applies to all four secret backends: KeePassXC database password, Bitwarden master password, 1Password service-account token, and Passbolt GPG passphrase. Settings storage layout is unchanged — the previous `*_password_encrypted` and `*_save_to_keyring` fields are retained as the persistence sink, with a `CredentialStorage` enum and `*_storage()` / `set_*_storage()` helpers in `rustconn-core` providing the canonical API. Old configs round-trip through the new selector without a migration step (UX-7b)
 - **Settings UI: GNOME HIG compliance** — converted 25 toggle controls from `CheckButton`-in-`AdwActionRow` pattern to `AdwSwitchRow` across Interface, Terminal, Logging, and Monitoring pages; switches are the canonical libadwaita widget for boolean preferences and provide better touch targets, larger hit areas, and consistent rendering across themes; no behavioural changes (UX-7)
   - Interface tab: 7 toggles (Color tabs by protocol, Show protocol filters, Remember size, Show tray icon, Minimize to tray, Session restore Enabled, Ask first)

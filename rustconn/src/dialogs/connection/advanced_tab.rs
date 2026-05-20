@@ -61,10 +61,12 @@ pub(super) fn create_advanced_tab() -> (
     content.set_margin_start(12);
     content.set_margin_end(12);
 
-    // === Terminal Theme Section ===
-    let theme_group = adw::PreferencesGroup::builder()
+    // === Terminal Theme Section (collapsible) ===
+    let theme_group = adw::PreferencesGroup::builder().build();
+    let theme_expander = adw::ExpanderRow::builder()
         .title(i18n("Terminal Theme"))
-        .description(i18n("Override terminal colors for this connection"))
+        .subtitle(i18n("Override terminal colors for this connection"))
+        .show_enable_switch(false)
         .build();
 
     // Preset dropdown: built-in environment presets + user custom themes
@@ -87,7 +89,7 @@ pub(super) fn create_advanced_tab() -> (
         .subtitle(i18n("Quick color presets for environment identification"))
         .build();
     preset_row.add_suffix(&theme_preset_dropdown);
-    theme_group.add(&preset_row);
+    theme_expander.add_row(&preset_row);
 
     let color_dialog = gtk4::ColorDialog::new();
 
@@ -101,7 +103,7 @@ pub(super) fn create_advanced_tab() -> (
 
     let bg_row = adw::ActionRow::builder().title(i18n("Background")).build();
     bg_row.add_suffix(&theme_bg_button);
-    theme_group.add(&bg_row);
+    theme_expander.add_row(&bg_row);
 
     let theme_fg_button = ColorDialogButton::new(Some(color_dialog.clone()));
     theme_fg_button.set_valign(gtk4::Align::Center);
@@ -109,7 +111,7 @@ pub(super) fn create_advanced_tab() -> (
 
     let fg_row = adw::ActionRow::builder().title(i18n("Foreground")).build();
     fg_row.add_suffix(&theme_fg_button);
-    theme_group.add(&fg_row);
+    theme_expander.add_row(&fg_row);
 
     let theme_cursor_button = ColorDialogButton::new(Some(color_dialog));
     theme_cursor_button.set_valign(gtk4::Align::Center);
@@ -119,7 +121,7 @@ pub(super) fn create_advanced_tab() -> (
         .title(i18n("Cursor Color"))
         .build();
     cursor_row.add_suffix(&theme_cursor_button);
-    theme_group.add(&cursor_row);
+    theme_expander.add_row(&cursor_row);
 
     // Wire preset dropdown to apply colors (built-in + custom themes)
     {
@@ -239,7 +241,7 @@ pub(super) fn create_advanced_tab() -> (
 
     let preview_row = adw::ActionRow::builder().title(i18n("Preview")).build();
     preview_row.add_suffix(&theme_preview);
-    theme_group.add(&preview_row);
+    theme_expander.add_row(&preview_row);
 
     // Reset button to clear all theme overrides
     let theme_reset_button = Button::builder()
@@ -269,8 +271,9 @@ pub(super) fn create_advanced_tab() -> (
         .activatable_widget(&theme_reset_button)
         .build();
     reset_row.add_suffix(&theme_reset_button);
-    theme_group.add(&reset_row);
+    theme_expander.add_row(&reset_row);
 
+    theme_group.add(&theme_expander);
     content.append(&theme_group);
 
     // === Remote Monitoring Section ===
@@ -303,10 +306,12 @@ pub(super) fn create_advanced_tab() -> (
 
     content.append(&recording_group);
 
-    // === Activity Monitor Section ===
-    let activity_monitor_group = adw::PreferencesGroup::builder()
+    // === Activity Monitor Section (collapsible) ===
+    let activity_monitor_group = adw::PreferencesGroup::builder().build();
+    let activity_expander = adw::ExpanderRow::builder()
         .title(i18n("Activity Monitor"))
-        .description(i18n("Detect terminal output activity or silence"))
+        .subtitle(i18n("Detect terminal output activity or silence"))
+        .show_enable_switch(false)
         .build();
 
     let mode_items = StringList::new(&[&i18n("Off"), &i18n("Activity"), &i18n("Silence")]);
@@ -316,7 +321,7 @@ pub(super) fn create_advanced_tab() -> (
         .model(&mode_items)
         .selected(0)
         .build();
-    activity_monitor_group.add(&activity_mode_combo);
+    activity_expander.add_row(&activity_mode_combo);
 
     let quiet_period_adj = gtk4::Adjustment::new(10.0, 1.0, 300.0, 1.0, 10.0, 0.0);
     let quiet_period_spin = adw::SpinRow::builder()
@@ -325,7 +330,7 @@ pub(super) fn create_advanced_tab() -> (
         .adjustment(&quiet_period_adj)
         .visible(false)
         .build();
-    activity_monitor_group.add(&quiet_period_spin);
+    activity_expander.add_row(&quiet_period_spin);
 
     let silence_timeout_adj = gtk4::Adjustment::new(30.0, 1.0, 600.0, 1.0, 10.0, 0.0);
     let silence_timeout_spin = adw::SpinRow::builder()
@@ -334,7 +339,7 @@ pub(super) fn create_advanced_tab() -> (
         .adjustment(&silence_timeout_adj)
         .visible(false)
         .build();
-    activity_monitor_group.add(&silence_timeout_spin);
+    activity_expander.add_row(&silence_timeout_spin);
 
     // Wire sensitivity: show/hide spin rows based on mode selection
     {
@@ -361,12 +366,15 @@ pub(super) fn create_advanced_tab() -> (
         });
     }
 
+    activity_monitor_group.add(&activity_expander);
     content.append(&activity_monitor_group);
 
-    // === Automatic Reconnection Section ===
-    let retry_group = adw::PreferencesGroup::builder()
+    // === Automatic Reconnection Section (collapsible) ===
+    let retry_group = adw::PreferencesGroup::builder().build();
+    let retry_expander = adw::ExpanderRow::builder()
         .title(i18n("Automatic Reconnection"))
-        .description(i18n("Retry connection with exponential backoff on failure"))
+        .subtitle(i18n("Retry connection with exponential backoff on failure"))
+        .show_enable_switch(false)
         .build();
 
     let retry_enabled_toggle = adw::SwitchRow::builder()
@@ -374,7 +382,7 @@ pub(super) fn create_advanced_tab() -> (
         .subtitle(i18n("Automatically retry when connection drops"))
         .active(true)
         .build();
-    retry_group.add(&retry_enabled_toggle);
+    retry_expander.add_row(&retry_enabled_toggle);
 
     let retry_max_attempts_adj = gtk4::Adjustment::new(3.0, 1.0, 10.0, 1.0, 1.0, 0.0);
     let retry_max_attempts_spin = adw::SpinRow::builder()
@@ -382,7 +390,7 @@ pub(super) fn create_advanced_tab() -> (
         .subtitle(i18n("Number of reconnection attempts before giving up"))
         .adjustment(&retry_max_attempts_adj)
         .build();
-    retry_group.add(&retry_max_attempts_spin);
+    retry_expander.add_row(&retry_max_attempts_spin);
 
     let retry_initial_delay_adj = gtk4::Adjustment::new(1000.0, 100.0, 30000.0, 100.0, 1000.0, 0.0);
     let retry_initial_delay_spin = adw::SpinRow::builder()
@@ -390,7 +398,7 @@ pub(super) fn create_advanced_tab() -> (
         .subtitle(i18n("Delay before first reconnection attempt"))
         .adjustment(&retry_initial_delay_adj)
         .build();
-    retry_group.add(&retry_initial_delay_spin);
+    retry_expander.add_row(&retry_initial_delay_spin);
 
     let retry_max_delay_adj =
         gtk4::Adjustment::new(30000.0, 1000.0, 120_000.0, 1000.0, 5000.0, 0.0);
@@ -399,7 +407,7 @@ pub(super) fn create_advanced_tab() -> (
         .subtitle(i18n("Upper limit for backoff delay between attempts"))
         .adjustment(&retry_max_delay_adj)
         .build();
-    retry_group.add(&retry_max_delay_spin);
+    retry_expander.add_row(&retry_max_delay_spin);
 
     // Wire sensitivity: show/hide spin rows based on enabled toggle
     {
@@ -426,6 +434,7 @@ pub(super) fn create_advanced_tab() -> (
         });
     }
 
+    retry_group.add(&retry_expander);
     content.append(&retry_group);
 
     // === Connection Behavior Section ===
@@ -444,10 +453,12 @@ pub(super) fn create_advanced_tab() -> (
 
     content.append(&connection_group);
 
-    // === Highlight Rules Section ===
-    let highlight_group = adw::PreferencesGroup::builder()
+    // === Highlight Rules Section (collapsible) ===
+    let highlight_group = adw::PreferencesGroup::builder().build();
+    let highlight_expander = adw::ExpanderRow::builder()
         .title(i18n("Highlight Rules"))
-        .description(i18n("Regex-based text highlighting for this connection"))
+        .subtitle(i18n("Regex-based text highlighting for this connection"))
+        .show_enable_switch(false)
         .build();
 
     let highlight_scrolled = ScrolledWindow::builder()
@@ -463,7 +474,9 @@ pub(super) fn create_advanced_tab() -> (
     highlight_rules_list.set_placeholder(Some(&Label::new(Some(&i18n("No highlight rules")))));
     highlight_scrolled.set_child(Some(&highlight_rules_list));
 
-    highlight_group.add(&highlight_scrolled);
+    let scrolled_wrapper = adw::PreferencesRow::builder().build();
+    scrolled_wrapper.set_child(Some(&highlight_scrolled));
+    highlight_expander.add_row(&scrolled_wrapper);
 
     let hl_button_box = GtkBox::new(Orientation::Horizontal, 8);
     hl_button_box.set_halign(gtk4::Align::End);
@@ -475,12 +488,19 @@ pub(super) fn create_advanced_tab() -> (
         .build();
     hl_button_box.append(&add_highlight_rule_button);
 
-    highlight_group.add(&hl_button_box);
+    let button_wrapper = adw::PreferencesRow::builder().build();
+    button_wrapper.set_child(Some(&hl_button_box));
+    highlight_expander.add_row(&button_wrapper);
+
+    highlight_group.add(&highlight_expander);
     content.append(&highlight_group);
 
-    // === Wake On LAN Section ===
-    let wol_group = adw::PreferencesGroup::builder()
+    // === Wake On LAN Section (collapsible, merged) ===
+    let wol_group = adw::PreferencesGroup::builder().build();
+    let wol_expander = adw::ExpanderRow::builder()
         .title(i18n("Wake On LAN"))
+        .subtitle(i18n("Send magic packet before connecting"))
+        .show_enable_switch(false)
         .build();
 
     let wol_enabled_check = CheckButton::builder().valign(gtk4::Align::Center).build();
@@ -491,15 +511,7 @@ pub(super) fn create_advanced_tab() -> (
         .activatable_widget(&wol_enabled_check)
         .build();
     wol_enable_row.add_suffix(&wol_enabled_check);
-    wol_group.add(&wol_enable_row);
-
-    content.append(&wol_group);
-
-    // WOL Settings group
-    let wol_settings_group = adw::PreferencesGroup::builder()
-        .title(i18n("WOL Settings"))
-        .sensitive(false)
-        .build();
+    wol_expander.add_row(&wol_enable_row);
 
     let mac_entry = Entry::builder()
         .hexpand(true)
@@ -509,7 +521,7 @@ pub(super) fn create_advanced_tab() -> (
 
     let mac_row = adw::ActionRow::builder().title(i18n("MAC Address")).build();
     mac_row.add_suffix(&mac_entry);
-    wol_settings_group.add(&mac_row);
+    wol_expander.add_row(&mac_row);
 
     // MAC address format validation
     {
@@ -547,7 +559,7 @@ pub(super) fn create_advanced_tab() -> (
         .title(i18n("Broadcast Address"))
         .build();
     broadcast_row.add_suffix(&broadcast_entry);
-    wol_settings_group.add(&broadcast_row);
+    wol_expander.add_row(&broadcast_row);
 
     let port_adjustment =
         gtk4::Adjustment::new(f64::from(DEFAULT_WOL_PORT), 1.0, 65535.0, 1.0, 10.0, 0.0);
@@ -562,7 +574,7 @@ pub(super) fn create_advanced_tab() -> (
         .subtitle(i18n("Default: 9"))
         .build();
     port_row.add_suffix(&port_spin);
-    wol_settings_group.add(&port_row);
+    wol_expander.add_row(&port_row);
 
     let wait_adjustment = gtk4::Adjustment::new(
         f64::from(DEFAULT_WOL_WAIT_SECONDS),
@@ -583,15 +595,10 @@ pub(super) fn create_advanced_tab() -> (
         .subtitle(i18n("Time to wait for boot"))
         .build();
     wait_row.add_suffix(&wait_spin);
-    wol_settings_group.add(&wait_row);
+    wol_expander.add_row(&wait_row);
 
-    content.append(&wol_settings_group);
-
-    // Connect WOL enabled checkbox
-    let wol_settings_group_clone = wol_settings_group.clone();
-    wol_enabled_check.connect_toggled(move |check| {
-        wol_settings_group_clone.set_sensitive(check.is_active());
-    });
+    wol_group.add(&wol_expander);
+    content.append(&wol_group);
 
     clamp.set_child(Some(&content));
     scrolled.set_child(Some(&clamp));

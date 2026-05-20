@@ -179,7 +179,7 @@ impl SettingsDialog {
         ) = create_terminal_page();
 
         let (
-            logging_page,
+            _logging_page,
             logging_enabled_row,
             log_dir_entry,
             retention_spin,
@@ -229,19 +229,47 @@ impl SettingsDialog {
 
         // === GNOME HIG: 5 combined pages ===
         //
-        // 1. Terminal    = Terminal + Logging
+        // 1. Terminal    = Terminal + Logging (collapsible)
         // 2. Interface   = UI + Keybindings
         // 3. Secrets     = Secrets + SSH Agent
         // 4. Connection  = Clients
         // 5. Monitoring  = Monitoring + Activity Monitor
 
-        // 1. Terminal page already has terminal groups; add logging groups
-        move_groups(&logging_page, &terminal_page);
+        // 1. Terminal page already has terminal groups; add logging as collapsible
+        let logging_group = adw::PreferencesGroup::builder().build();
+
+        let logging_expander = adw::ExpanderRow::builder()
+            .title(i18n("Session Logging"))
+            .subtitle(i18n("Configure session log persistence and content"))
+            .show_enable_switch(false)
+            .build();
+
+        // Wrap logging controls as rows inside the expander
+        logging_expander.add_row(&logging_enabled_row);
+
+        let log_dir_action_row = adw::ActionRow::builder().title(i18n("Directory")).build();
+        log_dir_action_row.add_suffix(&log_dir_entry);
+        log_dir_action_row.set_activatable_widget(Some(&log_dir_entry));
+        logging_expander.add_row(&log_dir_action_row);
+
+        let retention_action_row = adw::ActionRow::builder()
+            .title(i18n("Retention"))
+            .subtitle(i18n("Days to keep logs"))
+            .build();
+        retention_action_row.add_suffix(&retention_spin);
+        retention_action_row.set_activatable_widget(Some(&retention_spin));
+        logging_expander.add_row(&retention_action_row);
+
+        logging_expander.add_row(&log_activity_check);
+        logging_expander.add_row(&log_input_check);
+        logging_expander.add_row(&log_output_check);
+        logging_expander.add_row(&log_timestamps_check);
+
+        logging_group.add(&logging_expander);
+        terminal_page.add(&logging_group);
 
         // Add global highlight rules group to terminal page
-        let hl_group = adw::PreferencesGroup::builder()
-            .title(i18n("Highlight Rules"))
-            .build();
+        let hl_group = adw::PreferencesGroup::builder().build();
 
         let hl_expander = adw::ExpanderRow::builder()
             .title(i18n("Highlight Rules"))

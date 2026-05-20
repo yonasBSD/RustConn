@@ -20,6 +20,9 @@ use crate::i18n::{i18n, i18n_f};
 ///
 /// Returns `(page, overrides_cell)` where `overrides_cell` holds the current
 /// user overrides and is updated live as the user records new shortcuts.
+///
+/// Each category is rendered as a collapsible `ExpanderRow` inside a single
+/// `PreferencesGroup`, keeping the Interface page compact.
 #[allow(clippy::too_many_lines)]
 pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<KeybindingSettings>>) {
     let page = adw::PreferencesPage::builder()
@@ -32,7 +35,12 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
 
     let defaults = default_keybindings();
 
-    // Build one PreferencesGroup per category
+    // Single group for all keybinding categories (collapsible expanders)
+    let group = adw::PreferencesGroup::builder()
+        .title(&i18n("Keyboard Shortcuts"))
+        .build();
+
+    // Build one ExpanderRow per category
     for category in KeybindingCategory::all() {
         let cat_defs: Vec<_> = defaults
             .iter()
@@ -42,8 +50,9 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
             continue;
         }
 
-        let group = adw::PreferencesGroup::builder()
+        let expander = adw::ExpanderRow::builder()
             .title(&i18n(category.label()))
+            .show_enable_switch(false)
             .build();
 
         for def in &cat_defs {
@@ -173,11 +182,13 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
                 accel_label.set_label(&default_accels);
             });
 
-            group.add(&row);
+            expander.add_row(&row);
         }
 
-        page.add(&group);
+        group.add(&expander);
     }
+
+    page.add(&group);
 
     // Reset All button at the bottom
     let reset_all_group = adw::PreferencesGroup::new();
@@ -210,27 +221,14 @@ pub fn load_keybinding_settings(
 ) {
     *overrides_cell.borrow_mut() = settings.clone();
 
-    // Walk the page and update labels to reflect overrides
+    // Collect all ActionRow widgets recursively and update their labels
     let defaults = default_keybindings();
-    let mut def_iter = defaults.iter();
+    let mut action_rows: Vec<gtk4::Widget> = Vec::new();
+    collect_action_rows(&page.clone().upcast::<gtk4::Widget>(), &mut action_rows);
 
-    // Iterate groups → rows → suffix labels
-    let mut child = page.first_child();
-    while let Some(widget) = child {
-        if let Some(group_widget) = widget.first_child() {
-            let mut group_child = group_widget.first_child();
-            while let Some(row_widget) = group_child {
-                if row_widget.is::<adw::ActionRow>()
-                    && let Some(def) = def_iter.next()
-                {
-                    let accel = settings.get_accel(def);
-                    // Find the dim-label Label in the row suffixes
-                    update_row_accel_label(&row_widget, accel);
-                }
-                group_child = row_widget.next_sibling();
-            }
-        }
-        child = widget.next_sibling();
+    for (row_widget, def) in action_rows.iter().zip(defaults.iter()) {
+        let accel = settings.get_accel(def);
+        update_row_accel_label(row_widget, accel);
     }
 }
 
@@ -288,22 +286,41 @@ fn is_modifier_key(keyval: gtk4::gdk::Key) -> bool {
 /// Refreshes all accelerator labels in the page to show defaults.
 fn refresh_accel_labels(page: &adw::PreferencesPage) {
     let defaults = default_keybindings();
-    let mut def_iter = defaults.iter();
+    let mut action_rows: Vec<gtk4::Widget> = Vec::new();
+    collect_action_rows(&page.clone().upcast::<gtk4::Widget>(), &mut action_rows);
 
-    let mut child = page.first_child();
-    while let Some(widget) = child {
-        if let Some(group_widget) = widget.first_child() {
-            let mut group_child = group_widget.first_child();
-            while let Some(row_widget) = group_child {
-                if row_widget.is::<adw::ActionRow>()
-                    && let Some(def) = def_iter.next()
-                {
-                    update_row_accel_label(&row_widget, &def.default_accels);
-                }
-                group_child = row_widget.next_sibling();
-            }
+    for (row_widget, def) in action_rows.iter().zip(defaults.iter()) {
+        update_row_accel_label(row_widget, &def.default_accels);
+    }
+}
+
+/// Recursively collects all `ActionRow` widgets from a widget tree.
+///
+/// Skips `ExpanderRow` itself (which is also an `ActionRow` subclass) and
+/// only collects leaf `ActionRow` widgets that represent keybinding entries.
+fn collect_action_rows(widget: &gtk4::Widget, rows: &mut Vec<gtk4::Widget>) {
+    // ExpanderRow is a subclass of PreferencesRow, not ActionRow, so
+    // checking `is::<adw::ActionRow>()` won't match it. But to be safe,
+    // skip any ExpanderRow explicitly.
+    if widget.is::<adw::ExpanderRow>() {
+        // Still recurse into its children to find nested ActionRows
+        let mut child = widget.first_child();
+        while let Some(w) = child {
+            collect_action_rows(&w, rows);
+            child = w.next_sibling();
         }
-        child = widget.next_sibling();
+        return;
+    }
+
+    if widget.is::<adw::ActionRow>() {
+        rows.push(widget.clone());
+        return;
+    }
+
+    let mut child = widget.first_child();
+    while let Some(w) = child {
+        collect_action_rows(&w, rows);
+        child = w.next_sibling();
     }
 }
 
