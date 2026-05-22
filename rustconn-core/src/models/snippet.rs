@@ -4,6 +4,38 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Target execution platform for a snippet.
+///
+/// Determines where and how the snippet command will be executed:
+/// - `Terminal` — sent directly to a VTE terminal (SSH/local shell)
+/// - `Windows` — executed on a remote Windows machine via RDP clipboard+paste
+/// - `Any` — available in both contexts
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SnippetTarget {
+    /// Execute in VTE terminal (Linux/SSH/local shell)
+    #[default]
+    Terminal,
+    /// Execute via RDP clipboard+paste (Windows PowerShell)
+    Windows,
+    /// Execute in both contexts (universal commands)
+    Any,
+}
+
+impl SnippetTarget {
+    /// Returns `true` if this snippet is available for VTE terminal sessions.
+    #[must_use]
+    pub const fn is_terminal_compatible(self) -> bool {
+        matches!(self, Self::Terminal | Self::Any)
+    }
+
+    /// Returns `true` if this snippet is available for RDP (Windows) sessions.
+    #[must_use]
+    pub const fn is_windows_compatible(self) -> bool {
+        matches!(self, Self::Windows | Self::Any)
+    }
+}
+
 /// A reusable command template
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snippet {
@@ -25,6 +57,9 @@ pub struct Snippet {
     /// Tags for filtering
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+    /// Target execution platform (terminal, windows, or any)
+    #[serde(default)]
+    pub target: SnippetTarget,
     /// When the snippet was created
     #[serde(default = "Utc::now")]
     pub created_at: DateTime<Utc>,
@@ -46,6 +81,7 @@ impl Snippet {
             variables: Vec::new(),
             category: None,
             tags: Vec::new(),
+            target: SnippetTarget::default(),
             created_at: now,
             updated_at: now,
         }
@@ -76,6 +112,13 @@ impl Snippet {
     #[must_use]
     pub fn with_tags(mut self, tags: Vec<String>) -> Self {
         self.tags = tags;
+        self
+    }
+
+    /// Sets the target execution platform for this snippet
+    #[must_use]
+    pub const fn with_target(mut self, target: SnippetTarget) -> Self {
+        self.target = target;
         self
     }
 }

@@ -31,6 +31,7 @@ pub use self::components::{
     get_installation_status, get_pinned_versions,
 };
 pub use self::detection::{PackageManager, detect_package_manager, get_system_install_command};
+pub use self::extract::find_binary_recursive;
 
 use self::install::install_download_component;
 use self::install_pip::install_pip_component;
@@ -292,7 +293,7 @@ impl DownloadableComponent {
         }
 
         // Search recursively in install_dir only (limited depth)
-        extract::find_binary_in_dir_recursive(&install_dir, self.binary_name, 5)
+        extract::find_binary_recursive(&install_dir, self.binary_name, 5)
     }
 
     /// Get the path to the installed binary (may not exist)

@@ -20,11 +20,11 @@ pub struct ConnectionPage {
     pub page: adw::NavigationPage,
     state: SharedAppState,
     // Shared widgets
-    name_row: adw::EntryRow,
-    host_row: adw::EntryRow,
-    port_row: adw::SpinRow,
-    username_row: adw::EntryRow,
-    domain_row: adw::EntryRow,
+    pub(super) name_row: adw::EntryRow,
+    pub(super) host_row: adw::EntryRow,
+    pub(super) port_row: adw::SpinRow,
+    pub(super) username_row: adw::EntryRow,
+    pub(super) domain_row: adw::EntryRow,
     jump_host_row: adw::ComboRow,
     // Serial-specific
     device_row: adw::EntryRow,
@@ -260,13 +260,6 @@ impl ConnectionPage {
             .build();
         templates_group.append(&templates_header);
 
-        let templates_desc = gtk4::Label::builder()
-            .label(&i18n("Quick-start from a predefined command"))
-            .halign(gtk4::Align::Start)
-            .css_classes(["dim-label"])
-            .build();
-        templates_group.append(&templates_desc);
-
         let templates_flow = gtk4::FlowBox::builder()
             .homogeneous(true)
             .min_children_per_line(2)
@@ -407,6 +400,7 @@ impl ConnectionPage {
             .build();
 
         let toolbar_view = adw::ToolbarView::new();
+        toolbar_view.add_top_bar(&adw::HeaderBar::new());
         toolbar_view.set_content(Some(&scrolled));
         toolbar_view.add_bottom_bar(&footer);
 
@@ -634,8 +628,7 @@ impl ConnectionPage {
         self.jump_host_row.set_visible(false);
         // ZT group: only command row, rename to "Custom Command"
         self.zt_group.set_title(&i18n("Custom Command"));
-        self.zt_group
-            .set_description(Some(&i18n("Run any CLI tool as a connection")));
+        self.zt_group.set_description(None);
         self.zt_provider_row.set_visible(false);
         self.zt_command_row.set_visible(true);
         self.zt_field1_row.set_visible(false);

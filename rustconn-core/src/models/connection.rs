@@ -816,6 +816,18 @@ impl Connection {
         matches!(self.window_mode, WindowMode::Fullscreen)
     }
 
+    /// Returns true if this connection's protocol supports `window_mode`.
+    ///
+    /// Currently only RDP and VNC honour the setting; for all other protocols
+    /// the value is silently ignored at connect time.
+    #[must_use]
+    pub const fn supports_window_mode(&self) -> bool {
+        matches!(
+            self.protocol,
+            ProtocolType::Rdp | ProtocolType::Vnc | ProtocolType::Spice
+        )
+    }
+
     /// Sets whether to remember window position for external windows
     #[must_use]
     pub const fn with_remember_window_position(mut self, remember: bool) -> Self {

@@ -6,10 +6,7 @@
 use crate::i18n::i18n;
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{
-    Box as GtkBox, Button, CheckButton, Entry, Label, ListBox, Orientation, ScrolledWindow,
-    SpinButton,
-};
+use gtk4::{Box as GtkBox, Button, Entry, Label, ListBox, Orientation, ScrolledWindow, SpinButton};
 use libadwaita as adw;
 use rustconn_core::automation::builtin_templates;
 
@@ -27,24 +24,24 @@ pub(super) struct AutomationTabWidgets {
     pub(super) expect_pattern_test_entry: Entry,
     /// Label showing pattern test results.
     pub(super) expect_test_result_label: Label,
-    /// Pre-connect task enabled checkbox.
-    pub(super) pre_connect_enabled_check: CheckButton,
+    /// Pre-connect task enabled switch.
+    pub(super) pre_connect_enabled_switch: adw::SwitchRow,
     /// Pre-connect command entry.
     pub(super) pre_connect_command_entry: Entry,
     /// Pre-connect timeout spin button.
     pub(super) pre_connect_timeout_spin: SpinButton,
-    /// Pre-connect abort on failure checkbox.
-    pub(super) pre_connect_abort_check: CheckButton,
-    /// Pre-connect first-connection-only checkbox.
-    pub(super) pre_connect_first_only_check: CheckButton,
-    /// Post-disconnect task enabled checkbox.
-    pub(super) post_disconnect_enabled_check: CheckButton,
+    /// Pre-connect abort on failure switch.
+    pub(super) pre_connect_abort_switch: adw::SwitchRow,
+    /// Pre-connect first-connection-only switch.
+    pub(super) pre_connect_first_only_switch: adw::SwitchRow,
+    /// Post-disconnect task enabled switch.
+    pub(super) post_disconnect_enabled_switch: adw::SwitchRow,
     /// Post-disconnect command entry.
     pub(super) post_disconnect_command_entry: Entry,
     /// Post-disconnect timeout spin button.
     pub(super) post_disconnect_timeout_spin: SpinButton,
-    /// Post-disconnect last-connection-only checkbox.
-    pub(super) post_disconnect_last_only_check: CheckButton,
+    /// Post-disconnect last-connection-only switch.
+    pub(super) post_disconnect_last_only_switch: adw::SwitchRow,
 }
 
 /// Creates the combined Automation tab (Expect Rules + Tasks).
@@ -180,22 +177,22 @@ pub(super) fn create_automation_combined_tab() -> AutomationTabWidgets {
     // === Pre-Connect Task Section ===
     let (
         pre_connect_group,
-        pre_connect_enabled_check,
+        pre_connect_enabled_switch,
         pre_connect_command_entry,
         pre_connect_timeout_spin,
-        pre_connect_abort_check,
-        pre_connect_first_only_check,
+        pre_connect_abort_switch,
+        pre_connect_first_only_switch,
     ) = create_task_section(&i18n("Pre-Connect Task"), true);
     content.append(&pre_connect_group);
 
     // === Post-Disconnect Task Section ===
     let (
         post_disconnect_group,
-        post_disconnect_enabled_check,
+        post_disconnect_enabled_switch,
         post_disconnect_command_entry,
         post_disconnect_timeout_spin,
-        _post_disconnect_abort_check,
-        post_disconnect_last_only_check,
+        _post_disconnect_abort_switch,
+        post_disconnect_last_only_switch,
     ) = create_task_section(&i18n("Post-Disconnect Task"), false);
     content.append(&post_disconnect_group);
 
@@ -212,15 +209,15 @@ pub(super) fn create_automation_combined_tab() -> AutomationTabWidgets {
         template_list_box,
         expect_pattern_test_entry: test_entry,
         expect_test_result_label: result_label,
-        pre_connect_enabled_check,
+        pre_connect_enabled_switch,
         pre_connect_command_entry,
         pre_connect_timeout_spin,
-        pre_connect_abort_check,
-        pre_connect_first_only_check,
-        post_disconnect_enabled_check,
+        pre_connect_abort_switch,
+        pre_connect_first_only_switch,
+        post_disconnect_enabled_switch,
         post_disconnect_command_entry,
         post_disconnect_timeout_spin,
-        post_disconnect_last_only_check,
+        post_disconnect_last_only_switch,
     }
 }
 
@@ -232,11 +229,11 @@ pub(super) fn create_task_section(
     is_pre_connect: bool,
 ) -> (
     adw::PreferencesGroup,
-    CheckButton,
+    adw::SwitchRow,
     Entry,
     SpinButton,
-    CheckButton,
-    CheckButton,
+    adw::SwitchRow,
+    adw::SwitchRow,
 ) {
     let subtitle = if is_pre_connect {
         i18n("Run command before connecting")
@@ -251,15 +248,12 @@ pub(super) fn create_task_section(
         .show_enable_switch(false)
         .build();
 
-    // Enable checkbox
-    let enabled_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-
-    let enable_row = adw::ActionRow::builder()
+    // Enable switch
+    let enabled_switch = adw::SwitchRow::builder()
         .title(i18n("Enable Task"))
-        .activatable_widget(&enabled_check)
+        .active(false)
         .build();
-    enable_row.add_suffix(&enabled_check);
-    expander.add_row(&enable_row);
+    expander.add_row(&enabled_switch);
 
     // Command entry
     let command_entry = Entry::builder()
@@ -296,28 +290,18 @@ pub(super) fn create_task_section(
     expander.add_row(&timeout_row);
 
     // Abort on failure (pre-connect only)
-    let abort_check = CheckButton::builder()
-        .valign(gtk4::Align::Center)
+    let abort_switch = adw::SwitchRow::builder()
+        .title(i18n("Abort on Failure"))
+        .subtitle(i18n("Cancel connection if this task fails"))
         .active(true)
         .sensitive(false)
         .build();
 
     if is_pre_connect {
-        let abort_row = adw::ActionRow::builder()
-            .title(i18n("Abort on Failure"))
-            .subtitle(i18n("Cancel connection if this task fails"))
-            .activatable_widget(&abort_check)
-            .build();
-        abort_row.add_suffix(&abort_check);
-        expander.add_row(&abort_row);
+        expander.add_row(&abort_switch);
     }
 
-    // Condition checkbox
-    let condition_check = CheckButton::builder()
-        .valign(gtk4::Align::Center)
-        .sensitive(false)
-        .build();
-
+    // Condition switch
     let (condition_title, condition_subtitle) = if is_pre_connect {
         (
             i18n("First Connection Only"),
@@ -330,35 +314,35 @@ pub(super) fn create_task_section(
         )
     };
 
-    let condition_row = adw::ActionRow::builder()
+    let condition_switch = adw::SwitchRow::builder()
         .title(condition_title)
         .subtitle(condition_subtitle)
-        .activatable_widget(&condition_check)
+        .active(false)
+        .sensitive(false)
         .build();
-    condition_row.add_suffix(&condition_check);
-    expander.add_row(&condition_row);
+    expander.add_row(&condition_switch);
 
     group.add(&expander);
 
-    // Connect enabled checkbox to enable/disable other fields
+    // Connect enabled switch to enable/disable other fields
     let command_entry_clone = command_entry.clone();
     let timeout_spin_clone = timeout_spin.clone();
-    let abort_check_clone = abort_check.clone();
-    let condition_check_clone = condition_check.clone();
-    enabled_check.connect_toggled(move |check| {
-        let enabled = check.is_active();
+    let abort_switch_clone = abort_switch.clone();
+    let condition_switch_clone = condition_switch.clone();
+    enabled_switch.connect_active_notify(move |switch| {
+        let enabled = switch.is_active();
         command_entry_clone.set_sensitive(enabled);
         timeout_spin_clone.set_sensitive(enabled);
-        abort_check_clone.set_sensitive(enabled);
-        condition_check_clone.set_sensitive(enabled);
+        abort_switch_clone.set_sensitive(enabled);
+        condition_switch_clone.set_sensitive(enabled);
     });
 
     (
         group,
-        enabled_check,
+        enabled_switch,
         command_entry,
         timeout_spin,
-        abort_check,
-        condition_check,
+        abort_switch,
+        condition_switch,
     )
 }

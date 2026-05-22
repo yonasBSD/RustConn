@@ -17,6 +17,7 @@
 
 mod advanced_tab;
 mod automation_tab;
+mod builders;
 mod data_tab;
 mod dialog;
 mod general_tab;

@@ -61,7 +61,7 @@ impl PasswordDialog {
             .build();
 
         // Header bar (GNOME HIG)
-        let (header, cancel_btn, connect_btn) = super::widgets::dialog_header("Cancel", "Connect");
+        let (header, connect_btn) = super::widgets::dialog_header("Connect");
 
         // Content
         let content = GtkBox::new(Orientation::Vertical, 12);
@@ -117,7 +117,6 @@ impl PasswordDialog {
 
         Self::connect_signals(
             &dialog,
-            &cancel_btn,
             &connect_btn,
             &migrate_button,
             &username_entry,
@@ -227,7 +226,6 @@ impl PasswordDialog {
     #[allow(clippy::too_many_arguments)]
     fn connect_signals(
         dialog: &adw::Dialog,
-        cancel_btn: &Button,
         connect_btn: &Button,
         migrate_button: &Button,
         username_entry: &Entry,
@@ -237,12 +235,6 @@ impl PasswordDialog {
         result: &Rc<RefCell<Option<PasswordDialogResult>>>,
         migrate_requested: &Rc<RefCell<bool>>,
     ) {
-        // Connect cancel
-        let dialog_clone = dialog.clone();
-        cancel_btn.connect_clicked(move |_| {
-            dialog_clone.close();
-        });
-
         // Connect migrate button
         let migrate_requested_clone = migrate_requested.clone();
         migrate_button.connect_clicked(move |_| {

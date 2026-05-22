@@ -218,6 +218,9 @@ pub const SNIPPET_INLINE_LIMIT: usize = 5;
 
 /// Rebuilds the snippet section of the terminal context menu.
 ///
+/// Only shows snippets with `target` compatible with VTE terminals
+/// (i.e. `Terminal` or `Any`; Windows-only snippets are excluded).
+///
 /// - ≤ `SNIPPET_INLINE_LIMIT` snippets → each shown as a direct menu item
 ///   with action `win.run-snippet-direct('uuid')`.
 /// - More than limit → single "Execute Snippet…" item opening the picker.
@@ -229,7 +232,11 @@ pub fn rebuild_snippet_menu_section(
     section.remove_all();
 
     let state_ref = state.borrow();
-    let snippets = state_ref.list_snippets();
+    let snippets: Vec<_> = state_ref
+        .list_snippets()
+        .into_iter()
+        .filter(|s| s.target.is_terminal_compatible())
+        .collect();
 
     if snippets.len() <= SNIPPET_INLINE_LIMIT && !snippets.is_empty() {
         // Few snippets — show each inline for quick access

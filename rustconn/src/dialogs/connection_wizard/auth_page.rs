@@ -25,6 +25,7 @@ pub struct AuthPage {
     password_radio: CheckButton,
     key_file_radio: CheckButton,
     agent_radio: CheckButton,
+    security_key_radio: CheckButton,
     password_entry: PasswordEntry,
     password_row: adw::ActionRow,
     key_file_row: adw::ActionRow,
@@ -92,11 +93,14 @@ impl AuthPage {
         key_file_radio.set_group(Some(&password_radio));
         let agent_radio = CheckButton::with_label(&i18n("SSH Agent"));
         agent_radio.set_group(Some(&password_radio));
+        let security_key_radio = CheckButton::with_label(&i18n("Security Key (FIDO2)"));
+        security_key_radio.set_group(Some(&password_radio));
 
         let method_box = GtkBox::new(Orientation::Horizontal, 12);
         method_box.append(&password_radio);
         method_box.append(&key_file_radio);
         method_box.append(&agent_radio);
+        method_box.append(&security_key_radio);
 
         let method_row = adw::ActionRow::builder().title(i18n("Method")).build();
         method_row.add_suffix(&method_box);
@@ -200,6 +204,7 @@ impl AuthPage {
             .build();
 
         let toolbar_view = adw::ToolbarView::new();
+        toolbar_view.add_top_bar(&adw::HeaderBar::new());
         toolbar_view.set_content(Some(&scrolled));
         toolbar_view.add_bottom_bar(&footer);
 
@@ -256,6 +261,15 @@ impl AuthPage {
             }
         });
 
+        let pw_row4 = password_row.clone();
+        let kf_row4 = key_file_row.clone();
+        security_key_radio.connect_toggled(move |r| {
+            if r.is_active() {
+                pw_row4.set_visible(false);
+                kf_row4.set_visible(false);
+            }
+        });
+
         password_radio.set_active(true);
 
         // Wire key file chooser button
@@ -291,6 +305,7 @@ impl AuthPage {
             password_radio,
             key_file_radio,
             agent_radio,
+            security_key_radio,
             password_entry,
             password_row,
             key_file_row,
@@ -346,9 +361,11 @@ impl AuthPage {
             if is_ssh_family {
                 self.key_file_radio.set_visible(true);
                 self.agent_radio.set_visible(true);
+                self.security_key_radio.set_visible(true);
             } else {
                 self.key_file_radio.set_visible(false);
                 self.agent_radio.set_visible(false);
+                self.security_key_radio.set_visible(false);
                 self.password_radio.set_active(true);
                 self.password_row.set_visible(true);
             }
@@ -394,6 +411,8 @@ impl AuthPage {
             SshAuthMethod::Agent
         } else if self.key_file_radio.is_active() {
             SshAuthMethod::PublicKey
+        } else if self.security_key_radio.is_active() {
+            SshAuthMethod::SecurityKey
         } else {
             SshAuthMethod::Password
         }

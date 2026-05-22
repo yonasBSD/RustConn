@@ -4,10 +4,7 @@
 //! and provides `set`/`build` methods for `LogConfig`.
 
 use gtk4::prelude::*;
-use gtk4::{
-    Box as GtkBox, CheckButton, DropDown, Entry, Orientation, ScrolledWindow, SpinButton,
-    StringList,
-};
+use gtk4::{Box as GtkBox, DropDown, Entry, Orientation, ScrolledWindow, SpinButton, StringList};
 use libadwaita as adw;
 use libadwaita::prelude::*;
 use rustconn_core::session::LogConfig;
@@ -26,15 +23,15 @@ const TIMESTAMP_FORMATS: [&str; 5] = [
 /// Logging tab widget group
 #[allow(dead_code)] // Fields kept for GTK widget lifecycle
 pub struct LoggingTab {
-    pub enabled_check: CheckButton,
+    pub enabled_switch: adw::SwitchRow,
     pub path_entry: Entry,
     pub timestamp_dropdown: DropDown,
     pub max_size_spin: SpinButton,
     pub retention_spin: SpinButton,
-    pub log_activity_check: CheckButton,
-    pub log_input_check: CheckButton,
-    pub log_output_check: CheckButton,
-    pub log_timestamps_check: CheckButton,
+    pub log_activity_switch: adw::SwitchRow,
+    pub log_input_switch: adw::SwitchRow,
+    pub log_output_switch: adw::SwitchRow,
+    pub log_timestamps_switch: adw::SwitchRow,
 }
 
 impl LoggingTab {
@@ -64,15 +61,12 @@ impl LoggingTab {
             .description(i18n("Record terminal output to files"))
             .build();
 
-        let enabled_check = CheckButton::builder().valign(gtk4::Align::Center).build();
-
-        let enable_row = adw::ActionRow::builder()
+        let enabled_switch = adw::SwitchRow::builder()
             .title(i18n("Enable Logging"))
             .subtitle(i18n("Record session output to log files"))
-            .activatable_widget(&enabled_check)
+            .active(false)
             .build();
-        enable_row.add_suffix(&enabled_check);
-        enable_group.add(&enable_row);
+        enable_group.add(&enabled_switch);
         content.append(&enable_group);
 
         // Log settings group
@@ -154,54 +148,37 @@ impl LoggingTab {
             .sensitive(false)
             .build();
 
-        let log_activity_check = CheckButton::builder()
-            .valign(gtk4::Align::Center)
+        let log_activity_switch = adw::SwitchRow::builder()
+            .title(i18n("Log Activity"))
+            .subtitle(i18n("Record connection and disconnection events"))
             .active(true)
             .sensitive(false)
             .build();
-        let log_activity_row = adw::ActionRow::builder()
-            .title(i18n("Log Activity"))
-            .subtitle(i18n("Record connection and disconnection events"))
-            .activatable_widget(&log_activity_check)
-            .build();
-        log_activity_row.add_suffix(&log_activity_check);
-        content_group.add(&log_activity_row);
+        content_group.add(&log_activity_switch);
 
-        let log_input_check = CheckButton::builder()
-            .valign(gtk4::Align::Center)
-            .sensitive(false)
-            .build();
-        let log_input_row = adw::ActionRow::builder()
+        let log_input_switch = adw::SwitchRow::builder()
             .title(i18n("Log Input"))
             .subtitle(i18n("Record keyboard input sent to remote"))
-            .activatable_widget(&log_input_check)
-            .build();
-        log_input_row.add_suffix(&log_input_check);
-        content_group.add(&log_input_row);
-
-        let log_output_check = CheckButton::builder()
-            .valign(gtk4::Align::Center)
+            .active(false)
             .sensitive(false)
             .build();
-        let log_output_row = adw::ActionRow::builder()
+        content_group.add(&log_input_switch);
+
+        let log_output_switch = adw::SwitchRow::builder()
             .title(i18n("Log Output"))
             .subtitle(i18n("Record terminal output from remote"))
-            .activatable_widget(&log_output_check)
-            .build();
-        log_output_row.add_suffix(&log_output_check);
-        content_group.add(&log_output_row);
-
-        let log_timestamps_check = CheckButton::builder()
-            .valign(gtk4::Align::Center)
+            .active(false)
             .sensitive(false)
             .build();
-        let log_timestamps_row = adw::ActionRow::builder()
+        content_group.add(&log_output_switch);
+
+        let log_timestamps_switch = adw::SwitchRow::builder()
             .title(i18n("Add Timestamps"))
             .subtitle(i18n("Prepend timestamp to each log line"))
-            .activatable_widget(&log_timestamps_check)
+            .active(false)
+            .sensitive(false)
             .build();
-        log_timestamps_row.add_suffix(&log_timestamps_check);
-        content_group.add(&log_timestamps_row);
+        content_group.add(&log_timestamps_switch);
 
         content.append(&content_group);
 
@@ -212,12 +189,12 @@ impl LoggingTab {
         let ret_clone = retention_spin.clone();
         let sg_clone = settings_group.clone();
         let cg_clone = content_group.clone();
-        let activity_clone = log_activity_check.clone();
-        let input_clone = log_input_check.clone();
-        let output_clone = log_output_check.clone();
-        let timestamps_clone = log_timestamps_check.clone();
-        enabled_check.connect_toggled(move |check| {
-            let on = check.is_active();
+        let activity_clone = log_activity_switch.clone();
+        let input_clone = log_input_switch.clone();
+        let output_clone = log_output_switch.clone();
+        let timestamps_clone = log_timestamps_switch.clone();
+        enabled_switch.connect_active_notify(move |switch| {
+            let on = switch.is_active();
             path_clone.set_sensitive(on);
             ts_clone.set_sensitive(on);
             size_clone.set_sensitive(on);
@@ -238,15 +215,15 @@ impl LoggingTab {
         vbox.append(&scrolled);
 
         let tab = Self {
-            enabled_check,
+            enabled_switch,
             path_entry,
             timestamp_dropdown,
             max_size_spin,
             retention_spin,
-            log_activity_check,
-            log_input_check,
-            log_output_check,
-            log_timestamps_check,
+            log_activity_switch,
+            log_input_switch,
+            log_output_switch,
+            log_timestamps_switch,
         };
         (vbox, tab)
     }
@@ -254,7 +231,7 @@ impl LoggingTab {
     /// Populates widgets from a `LogConfig`
     pub fn set(&self, config: Option<&LogConfig>) {
         if let Some(c) = config {
-            self.enabled_check.set_active(c.enabled);
+            self.enabled_switch.set_active(c.enabled);
             self.path_entry.set_text(&c.path_template);
 
             let idx = TIMESTAMP_FORMATS
@@ -264,46 +241,46 @@ impl LoggingTab {
             self.timestamp_dropdown.set_selected(idx as u32);
             self.max_size_spin.set_value(f64::from(c.max_size_mb));
             self.retention_spin.set_value(f64::from(c.retention_days));
-            self.log_activity_check.set_active(c.log_activity);
-            self.log_input_check.set_active(c.log_input);
-            self.log_output_check.set_active(c.log_output);
-            self.log_timestamps_check.set_active(c.log_timestamps);
+            self.log_activity_switch.set_active(c.log_activity);
+            self.log_input_switch.set_active(c.log_input);
+            self.log_output_switch.set_active(c.log_output);
+            self.log_timestamps_switch.set_active(c.log_timestamps);
 
             let on = c.enabled;
             self.path_entry.set_sensitive(on);
             self.timestamp_dropdown.set_sensitive(on);
             self.max_size_spin.set_sensitive(on);
             self.retention_spin.set_sensitive(on);
-            self.log_activity_check.set_sensitive(on);
-            self.log_input_check.set_sensitive(on);
-            self.log_output_check.set_sensitive(on);
-            self.log_timestamps_check.set_sensitive(on);
+            self.log_activity_switch.set_sensitive(on);
+            self.log_input_switch.set_sensitive(on);
+            self.log_output_switch.set_sensitive(on);
+            self.log_timestamps_switch.set_sensitive(on);
         } else {
-            self.enabled_check.set_active(false);
+            self.enabled_switch.set_active(false);
             self.path_entry.set_text("");
             self.timestamp_dropdown.set_selected(0);
             self.max_size_spin.set_value(10.0);
             self.retention_spin.set_value(30.0);
-            self.log_activity_check.set_active(true);
-            self.log_input_check.set_active(false);
-            self.log_output_check.set_active(false);
-            self.log_timestamps_check.set_active(false);
+            self.log_activity_switch.set_active(true);
+            self.log_input_switch.set_active(false);
+            self.log_output_switch.set_active(false);
+            self.log_timestamps_switch.set_active(false);
 
             self.path_entry.set_sensitive(false);
             self.timestamp_dropdown.set_sensitive(false);
             self.max_size_spin.set_sensitive(false);
             self.retention_spin.set_sensitive(false);
-            self.log_activity_check.set_sensitive(false);
-            self.log_input_check.set_sensitive(false);
-            self.log_output_check.set_sensitive(false);
-            self.log_timestamps_check.set_sensitive(false);
+            self.log_activity_switch.set_sensitive(false);
+            self.log_input_switch.set_sensitive(false);
+            self.log_output_switch.set_sensitive(false);
+            self.log_timestamps_switch.set_sensitive(false);
         }
     }
 
     /// Builds a `LogConfig` from current widget state
     #[must_use]
     pub fn build(&self) -> Option<LogConfig> {
-        if !self.enabled_check.is_active() {
+        if !self.enabled_switch.is_active() {
             return None;
         }
 
@@ -333,10 +310,10 @@ impl LoggingTab {
             timestamp_format,
             max_size_mb,
             retention_days,
-            log_activity: self.log_activity_check.is_active(),
-            log_input: self.log_input_check.is_active(),
-            log_output: self.log_output_check.is_active(),
-            log_timestamps: self.log_timestamps_check.is_active(),
+            log_activity: self.log_activity_switch.is_active(),
+            log_input: self.log_input_switch.is_active(),
+            log_output: self.log_output_switch.is_active(),
+            log_timestamps: self.log_timestamps_switch.is_active(),
         })
     }
 }

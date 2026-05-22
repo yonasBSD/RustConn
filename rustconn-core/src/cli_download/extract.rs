@@ -35,39 +35,11 @@ pub(super) fn find_binary_in_dir(dir: &Path, binary_name: &str) -> CliDownloadRe
     )))
 }
 
-pub(super) fn find_binary_recursive(
-    dir: &Path,
-    binary_name: &str,
-    max_depth: u32,
-) -> Option<PathBuf> {
-    if max_depth == 0 {
-        return None;
-    }
-
-    let entries = std::fs::read_dir(dir).ok()?;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_file() {
-            if let Some(name) = path.file_name()
-                && name == binary_name
-            {
-                return Some(path);
-            }
-        } else if path.is_dir()
-            && let Some(found) = find_binary_recursive(&path, binary_name, max_depth - 1)
-        {
-            return Some(found);
-        }
-    }
-    None
-}
-
-/// Helper to find binary in directory recursively (used by DownloadableComponent)
-pub(super) fn find_binary_in_dir_recursive(
-    dir: &Path,
-    binary_name: &str,
-    max_depth: u32,
-) -> Option<PathBuf> {
+/// Recursively search for a binary by name in a directory tree.
+///
+/// Returns the first matching file path, or `None` if not found.
+/// `max_depth` limits recursion to avoid traversing very deep trees.
+pub fn find_binary_recursive(dir: &Path, binary_name: &str, max_depth: u32) -> Option<PathBuf> {
     if max_depth == 0 || !dir.exists() {
         return None;
     }
@@ -82,7 +54,7 @@ pub(super) fn find_binary_in_dir_recursive(
                 return Some(path);
             }
         } else if path.is_dir()
-            && let Some(found) = find_binary_in_dir_recursive(&path, binary_name, max_depth - 1)
+            && let Some(found) = find_binary_recursive(&path, binary_name, max_depth - 1)
         {
             return Some(found);
         }

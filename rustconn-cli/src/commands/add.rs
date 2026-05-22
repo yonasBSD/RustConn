@@ -401,6 +401,13 @@ pub fn cmd_add(config_path: Option<&Path>, params: AddParams<'_>) -> Result<(), 
             "fullscreen" => rustconn_core::models::WindowMode::Fullscreen,
             _ => rustconn_core::models::WindowMode::Embedded,
         };
+        if !connection.supports_window_mode() {
+            tracing::warn!(
+                "--window-mode is currently honoured only for RDP and VNC connections; \
+                 ignored for {:?}",
+                connection.protocol
+            );
+        }
     }
 
     if params.skip_port_check {

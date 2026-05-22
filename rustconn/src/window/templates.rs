@@ -7,6 +7,7 @@ use crate::i18n::{i18n, i18n_f};
 use gtk4::glib;
 use gtk4::prelude::*;
 use gtk4::{Label, Orientation};
+use libadwaita::prelude::AdwDialogExt;
 use std::rc::Rc;
 
 use super::MainWindow;
@@ -26,7 +27,7 @@ pub fn show_templates_manager(
     state: SharedAppState,
     sidebar: SharedSidebar,
 ) {
-    let manager_dialog = TemplateManagerDialog::new(Some(&window.clone().upcast()));
+    let manager_dialog = TemplateManagerDialog::new(Some(window));
 
     // Load templates from config file and active document
     let templates = {
@@ -38,7 +39,7 @@ pub fn show_templates_manager(
     // Get references for closures
     let templates_list = manager_dialog.templates_list().clone();
     let state_templates = manager_dialog.state_templates().clone();
-    let manager_window = manager_dialog.window().clone();
+    let manager_window = manager_dialog.dialog().clone();
 
     // Connect filter dropdown
     if let Some(content) = manager_window.child()
@@ -70,7 +71,7 @@ pub fn show_templates_manager(
         let list_clone = templates_list.clone();
         let manager_clone = manager_window.clone();
         manager_dialog.set_on_new(move || {
-            let dialog = TemplateDialog::new(Some(&manager_clone.clone().upcast()));
+            let dialog = TemplateDialog::new(Some(&manager_clone));
             let state_inner = state_clone.clone();
             let templates_inner = templates_clone.clone();
             let list_inner = list_clone.clone();
@@ -100,7 +101,7 @@ pub fn show_templates_manager(
         let manager_clone = manager_window.clone();
         manager_dialog.set_on_edit(move |template| {
             let id = template.id;
-            let dialog = TemplateDialog::new(Some(&manager_clone.clone().upcast()));
+            let dialog = TemplateDialog::new(Some(&manager_clone));
             dialog.set_template(&template);
             let state_inner = state_clone.clone();
             let templates_inner = templates_clone.clone();
@@ -418,8 +419,8 @@ pub fn show_new_connection_from_template(
     dialog.set_connection(&connection);
     // Reset the title since we're creating a new connection
     dialog
-        .window()
-        .set_title(Some(&i18n("New Connection from Template")));
+        .dialog()
+        .set_title(&i18n("New Connection from Template"));
 
     let window_clone = window.clone();
     dialog.run(move |result| {

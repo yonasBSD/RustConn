@@ -199,6 +199,7 @@ impl ProtocolPage {
         });
 
         let toolbar_view = adw::ToolbarView::new();
+        toolbar_view.add_top_bar(&adw::HeaderBar::new());
         toolbar_view.set_content(Some(&clamp));
         toolbar_view.add_bottom_bar(&footer);
 

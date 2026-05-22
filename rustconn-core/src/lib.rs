@@ -155,10 +155,10 @@ pub use models::{
     MoshPredictMode, PasswordSource, PortForward, PortForwardDirection, PropertyType,
     ProtocolConfig, ProtocolType, RdpConfig, RdpGateway, Resolution, ScaleOverride, SerialBaudRate,
     SerialConfig, SerialDataBits, SerialFlowControl, SerialParity, SerialStopBits, Snippet,
-    SnippetVariable, SpiceConfig, SpiceImageCompression, SshAuthMethod, SshConfig, SshKeySource,
-    StandaloneTunnel, TelnetBackspaceSends, TelnetConfig, TelnetDeleteSends, TemplateError,
-    TunnelStatus, VncConfig, WindowGeometry, WindowMode, collect_descendant_group_ids,
-    group_templates_by_protocol,
+    SnippetTarget, SnippetVariable, SpiceConfig, SpiceImageCompression, SshAuthMethod, SshConfig,
+    SshKeySource, StandaloneTunnel, TelnetBackspaceSends, TelnetConfig, TelnetDeleteSends,
+    TemplateError, TunnelStatus, VncConfig, WindowGeometry, WindowMode,
+    collect_descendant_group_ids, group_templates_by_protocol,
 };
 pub use password_generator::{
     CharacterSet, PasswordGenerator, PasswordGeneratorConfig, PasswordGeneratorError,
@@ -191,7 +191,8 @@ pub use rdp_client::keyboard_layout::{
     LAYOUT_US_ENGLISH, detect_keyboard_layout, xkb_name_to_klid,
 };
 pub use rdp_client::quick_actions::{
-    QUICK_ACTIONS, QuickAction, build_key_sequence as build_rdp_quick_action,
+    QUICK_ACTIONS, QuickAction, build_enter_sequence, build_key_sequence as build_rdp_quick_action,
+    build_run_command,
 };
 #[cfg(feature = "rdp-embedded")]
 pub use rdp_client::{AudioFormatInfo, RdpClient, RdpCommandSender, RdpEventReceiver};

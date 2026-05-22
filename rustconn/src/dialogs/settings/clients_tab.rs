@@ -605,35 +605,7 @@ fn find_in_flatpak_cli_dir(command: &str) -> Option<PathBuf> {
     }
 
     // Recursive search in CLI dir (limited depth)
-    find_binary_recursive(&cli_dir, command, 5)
-}
-
-/// Recursively search for a binary in a directory
-fn find_binary_recursive(
-    dir: &std::path::Path,
-    binary_name: &str,
-    max_depth: u32,
-) -> Option<PathBuf> {
-    if max_depth == 0 || !dir.exists() {
-        return None;
-    }
-
-    let entries = std::fs::read_dir(dir).ok()?;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_file() {
-            if let Some(name) = path.file_name()
-                && name == binary_name
-            {
-                return Some(path);
-            }
-        } else if path.is_dir()
-            && let Some(found) = find_binary_recursive(&path, binary_name, max_depth - 1)
-        {
-            return Some(found);
-        }
-    }
-    None
+    rustconn_core::cli_download::find_binary_recursive(&cli_dir, command, 5)
 }
 
 /// Gets version output from a command and parses it

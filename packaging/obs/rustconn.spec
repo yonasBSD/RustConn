@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.14.4
+Version:        0.14.5
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,14 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu May 22 2026 Anton Isaiev <totoshko88@gmail.com> - 0.14.5-0
+- Version bump to 0.14.5
+- All dialogs migrated to adw::Dialog
+- Edit Group dialog redesigned with 5 tabs
+- RDP Scripts via clipboard-paste
+- Snippet target platform
+- Quick Connect theme fix (#156)
+
 * Tue May 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.14.4-1
 - CLI: history, pin/unpin, tag, move, monitor commands — full connection management
 - CLI: import --auto / --dry-run — auto-detect sources and preview imports

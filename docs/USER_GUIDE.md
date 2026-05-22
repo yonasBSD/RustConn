@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.14.4** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.14.5** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes, Web protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -227,7 +227,7 @@ Expect rules automate interactive prompts during connection. Each rule matches a
 4. Set priority (lower number = higher priority)
 5. Use the **Test** button to verify pattern matching
 
-> **Tip:** You can also configure Expect Rules at the group level (Edit Group → Automation). Connections with empty automation config automatically inherit rules from their parent group chain. See [Group Automation](#group-automation-expect-rules--post-login-scripts) for details.
+> **Tip:** You can also configure Expect Rules at the group level (Edit Group → **Automation** tab). Connections with empty automation config automatically inherit rules from their parent group chain. See [Group Automation](#group-automation-expect-rules--post-login-scripts) for details.
 
 **Examples:**
 | Pattern | Response | Use Case |
@@ -668,6 +668,44 @@ The embedded RDP toolbar includes a Quick Actions dropdown menu for launching co
 | Services | Win+R → `services.msc` | Opens Services console via Run dialog |
 
 The Quick Actions menu is accessible via the dropdown button (arrow icon) on the RDP toolbar. All labels are translatable.
+
+#### RDP Scripts
+
+The Scripts dropdown (terminal icon) in the RDP toolbar provides two sections:
+
+**Shell Launchers:**
+
+Open a shell on the remote Windows machine via Win+R. The user sees when the shell is ready (prompt appears) before running scripts.
+
+| Launcher | Action |
+|----------|--------|
+| PowerShell | Win+R → `powershell` → Enter |
+| PowerShell (Admin) | Win+R → elevated PowerShell via UAC |
+| CMD | Win+R → `cmd` → Enter |
+| CMD (Admin) | Win+R → elevated CMD via UAC |
+
+**Scripts (User Snippets):**
+
+Snippets with target "Windows" or "Any" (configured in the Snippet dialog → Target field) appear in the Scripts section. When clicked, the snippet command is sent via autotype (Unicode keyboard events) into the already-open shell, followed by Enter.
+
+**How It Works:**
+1. Click a Shell Launcher to open a shell on the remote machine
+2. Wait for the shell prompt to appear (user controls timing)
+3. Click a script from the Scripts section — it types the command and presses Enter
+
+This approach eliminates timing issues: no clipboard delays, no shell startup guessing.
+
+#### Snippet Target Platform
+
+Snippets can be marked with a target execution platform:
+
+| Target | Where visible | Use case |
+|--------|---------------|----------|
+| Terminal (SSH/Local) | Terminal context menu | Linux/Unix commands |
+| Windows (RDP) | RDP Scripts dropdown | PowerShell/CMD commands |
+| Any | Both contexts | Universal commands (e.g., `ping`) |
+
+Configure the target in the Snippet dialog → **Target** field.
 
 #### RemoteApp (RAIL)
 
@@ -1218,7 +1256,8 @@ This is useful for reorganizing large numbers of connections, cleaning up after 
 Groups can store default credentials (Username, Password, Domain) that are inherited by their children.
 
 **Configure Group Credentials:**
-1. In "New Group" or "Edit Group" dialog, expand the **Default Credentials** section
+1. Right-click a group → **Edit Group** → **Identity** tab
+2. Expand the **Default Credentials** section (toggle the switch to enable)
 2. Select **Password Source**:
    - **Prompt** — Ask for password on each connection
    - **Vault** — Store in the configured secret backend (KeePass, Keyring, Bitwarden, 1Password, Passbolt); click the **folder icon** to load an existing password from the vault
@@ -1249,8 +1288,8 @@ RustConn/
 Groups can define Expect Rules and Post-login Scripts that are automatically inherited by all connections in the group (and subgroups). This lets you configure automation once for hundreds of connections.
 
 **Configure Group Automation (GUI):**
-1. Right-click a group → **Edit Group**
-2. Expand the **Automation** section (toggle the switch to enable)
+1. Right-click a group → **Edit Group** → **Automation** tab
+2. Toggle the **Automation** switch to enable
 3. **Expect Rules** — add rules that auto-respond to terminal patterns:
    - Click **Add Rule** to create a blank rule
    - Or click **From Template** to pick a preset — SSH-specific templates are marked with "(SSH)":
@@ -2186,7 +2225,7 @@ Group Sync is designed for teams. Each root group exports to a dedicated `.rcn` 
 
 **Enable Group Sync:**
 1. Go to Settings → Cloud Sync → set a Sync Directory
-2. Right-click a root group → Edit Group → set Cloud Sync to "Master"
+2. Right-click a root group → Edit Group → **Cloud Sync** tab → set sync mode to "Master"
 3. The group is exported to `<sync-dir>/<group-slug>.rcn`
 
 **Import a shared group:**

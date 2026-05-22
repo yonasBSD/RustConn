@@ -3,8 +3,8 @@
 //! Provides a GTK4 dialog for creating/editing snippets with variable definitions
 //! and category assignment.
 //!
-//! Updated for GTK 4.10+ compatibility using Window instead of Dialog.
-//! Migrated to libadwaita components for GNOME HIG compliance.
+//! Uses `adw::Dialog` for GNOME HIG compliance: bottom-sheet on narrow screens,
+//! auto-close on Escape, drag-to-close support.
 
 use adw::prelude::*;
 use gtk4::prelude::*;
@@ -22,7 +22,7 @@ use crate::i18n::i18n;
 
 /// Snippet dialog for creating/editing snippets
 pub struct SnippetDialog {
-    window: adw::Window,
+    dialog: adw::Dialog,
     name_entry: Entry,
     description_entry: Entry,
     category_entry: Entry,
@@ -31,9 +31,11 @@ pub struct SnippetDialog {
     variables_list: ListBox,
     add_var_button: Button,
     save_btn: Button,
+    target_row: adw::ComboRow,
     editing_id: Rc<RefCell<Option<Uuid>>>,
     variables: Rc<RefCell<Vec<VariableRow>>>,
     on_save: super::SnippetCallback,
+    parent: Option<gtk4::Widget>,
 }
 
 /// Represents a variable row in the dialog
@@ -59,19 +61,11 @@ impl SnippetDialog {
     /// Creates a new snippet dialog
     #[must_use]
     pub fn new(parent: Option<&gtk4::Window>) -> Self {
-        // Create window instead of deprecated Dialog
-        let window = adw::Window::builder()
+        let dialog = adw::Dialog::builder()
             .title(i18n("New Snippet"))
-            .modal(true)
-            .default_width(500)
-            .default_height(400)
+            .content_width(600)
+            .content_height(780)
             .build();
-
-        if let Some(p) = parent {
-            window.set_transient_for(Some(p));
-        }
-
-        window.set_size_request(320, 280);
 
         // Header bar with Create icon button (GNOME HIG)
         let header = adw::HeaderBar::new();
@@ -105,10 +99,10 @@ impl SnippetDialog {
         let toolbar_view = adw::ToolbarView::new();
         toolbar_view.add_top_bar(&header);
         toolbar_view.set_content(Some(&scrolled));
-        window.set_content(Some(&toolbar_view));
+        dialog.set_child(Some(&toolbar_view));
 
         // === Basic Info Section ===
-        let (basic_frame, name_entry, description_entry, category_entry, tags_entry) =
+        let (basic_frame, name_entry, description_entry, category_entry, tags_entry, target_row) =
             Self::create_basic_section();
         content.append(&basic_frame);
 
@@ -134,8 +128,10 @@ impl SnippetDialog {
 
         let on_save: super::SnippetCallback = Rc::new(RefCell::new(None));
 
+        let parent_widget = parent.map(|p| p.clone().upcast::<gtk4::Widget>());
+
         Self {
-            window,
+            dialog,
             name_entry,
             description_entry,
             category_entry,
@@ -144,13 +140,22 @@ impl SnippetDialog {
             variables_list,
             add_var_button,
             save_btn: new_btn,
+            target_row,
             editing_id: Rc::new(RefCell::new(None)),
             variables,
             on_save,
+            parent: parent_widget,
         }
     }
 
-    fn create_basic_section() -> (adw::PreferencesGroup, Entry, Entry, Entry, Entry) {
+    fn create_basic_section() -> (
+        adw::PreferencesGroup,
+        Entry,
+        Entry,
+        Entry,
+        Entry,
+        adw::ComboRow,
+    ) {
         use super::widgets::EntryRowBuilder;
 
         let group = adw::PreferencesGroup::builder()
@@ -158,33 +163,47 @@ impl SnippetDialog {
             .build();
 
         // Name
-        let (name_row, name_entry) = EntryRowBuilder::new("Name")
-            .placeholder("Enter snippet name")
+        let (name_row, name_entry) = EntryRowBuilder::new(i18n("Name"))
+            .placeholder(i18n("Enter snippet name"))
             .build();
         name_row.set_activatable_widget(Some(&name_entry));
         group.add(&name_row);
 
         // Description
-        let (desc_row, description_entry) = EntryRowBuilder::new("Description")
-            .placeholder("Optional description")
+        let (desc_row, description_entry) = EntryRowBuilder::new(i18n("Description"))
+            .placeholder(i18n("Optional description"))
             .build();
         desc_row.set_activatable_widget(Some(&description_entry));
         group.add(&desc_row);
 
         // Category
-        let (cat_row, category_entry) = EntryRowBuilder::new("Category")
-            .placeholder("e.g., System, Network")
+        let (cat_row, category_entry) = EntryRowBuilder::new(i18n("Category"))
+            .placeholder(i18n("e.g., System, Network"))
             .build();
         cat_row.set_activatable_widget(Some(&category_entry));
         group.add(&cat_row);
 
         // Tags
-        let (tags_row, tags_entry) = EntryRowBuilder::new("Tags")
-            .subtitle("Comma-separated")
-            .placeholder("tag1, tag2, ...")
+        let (tags_row, tags_entry) = EntryRowBuilder::new(i18n("Tags"))
+            .subtitle(i18n("Comma-separated"))
+            .placeholder(i18n("tag1, tag2, ..."))
             .build();
         tags_row.set_activatable_widget(Some(&tags_entry));
         group.add(&tags_row);
+
+        // Target platform
+        let target_model = gtk4::StringList::new(&[
+            &i18n("Terminal (SSH/Local)"),
+            &i18n("Windows (RDP)"),
+            &i18n("Any"),
+        ]);
+        let target_row = adw::ComboRow::builder()
+            .title(i18n("Target"))
+            .subtitle(i18n("Where this snippet can be executed"))
+            .model(&target_model)
+            .selected(0)
+            .build();
+        group.add(&target_row);
 
         (
             group,
@@ -192,6 +211,7 @@ impl SnippetDialog {
             description_entry,
             category_entry,
             tags_entry,
+            target_row,
         )
     }
 
@@ -348,7 +368,9 @@ impl SnippetDialog {
 
     /// Populates the dialog with an existing snippet for editing
     pub fn set_snippet(&self, snippet: &Snippet) {
-        self.window.set_title(Some(&i18n("Edit Snippet")));
+        use rustconn_core::models::SnippetTarget;
+
+        self.dialog.set_title(&i18n("Edit Snippet"));
         self.save_btn.set_label(&i18n("Save"));
         *self.editing_id.borrow_mut() = Some(snippet.id);
 
@@ -360,6 +382,13 @@ impl SnippetDialog {
             self.category_entry.set_text(cat);
         }
         self.tags_entry.set_text(&snippet.tags.join(", "));
+
+        // Set target platform: 0=Terminal, 1=Windows, 2=Any
+        self.target_row.set_selected(match snippet.target {
+            SnippetTarget::Terminal => 0,
+            SnippetTarget::Windows => 1,
+            SnippetTarget::Any => 2,
+        });
 
         // Set command
         self.command_view.buffer().set_text(&snippet.command);
@@ -405,13 +434,6 @@ impl SnippetDialog {
         Ok(())
     }
 
-    /// Shows an error message as a toast notification
-    ///
-    /// Displays a warning toast with the given error message.
-    pub fn show_error(&self, message: &str) {
-        crate::toast::show_toast_on_window(&self.window, message, crate::toast::ToastType::Warning);
-    }
-
     /// Wires the add variable button to add new variable rows
     ///
     /// When clicked, prompts for a variable name and adds a new row
@@ -449,6 +471,7 @@ impl SnippetDialog {
     /// - Description and category (optional)
     /// - Tags (comma-separated)
     /// - Variables with description and `default_value` fields
+    /// - Target execution platform
     ///
     /// # Returns
     /// - `Some(Snippet)` with all fields populated from the dialog
@@ -463,13 +486,14 @@ impl SnippetDialog {
             &self.command_view,
             &self.variables,
             &self.editing_id,
+            &self.target_row,
         )
     }
 
     /// Runs the dialog and calls the callback with the result
     ///
     /// Connects the Save button to `validate()` and `build_snippet()` methods,
-    /// then presents the dialog window.
+    /// then presents the dialog.
     pub fn run<F: Fn(Option<Snippet>) + 'static>(&self, cb: F) {
         // Store callback
         *self.on_save.borrow_mut() = Some(Box::new(cb));
@@ -478,7 +502,7 @@ impl SnippetDialog {
         self.wire_add_var_button();
 
         // Connect save button directly using stored reference
-        let window = self.window.clone();
+        let dialog = self.dialog.clone();
         let on_save = self.on_save.clone();
         let name_entry = self.name_entry.clone();
         let description_entry = self.description_entry.clone();
@@ -487,6 +511,7 @@ impl SnippetDialog {
         let command_view = self.command_view.clone();
         let variables = self.variables.clone();
         let editing_id = self.editing_id.clone();
+        let target_row = self.target_row.clone();
 
         self.save_btn.connect_clicked(move |_| {
             // Validate
@@ -517,20 +542,23 @@ impl SnippetDialog {
                 &command_view,
                 &variables,
                 &editing_id,
+                &target_row,
             );
 
             if let Some(ref cb) = *on_save.borrow() {
                 cb(snippet);
             }
-            window.close();
+            dialog.close();
         });
 
-        self.window.present();
+        self.dialog
+            .present(self.parent.as_ref().map(|w| w as &gtk4::Widget));
     }
 
     /// Builds a Snippet from the provided field references
     ///
     /// Helper method to avoid code duplication between `run()` closure and `build_snippet()`.
+    #[allow(clippy::too_many_arguments)]
     fn build_snippet_from_fields(
         name_entry: &Entry,
         description_entry: &Entry,
@@ -539,7 +567,10 @@ impl SnippetDialog {
         command_view: &TextView,
         variables: &Rc<RefCell<Vec<VariableRow>>>,
         editing_id: &Rc<RefCell<Option<Uuid>>>,
+        target_row: &adw::ComboRow,
     ) -> Option<Snippet> {
+        use rustconn_core::models::SnippetTarget;
+
         let name = name_entry.text().trim().to_string();
         let buffer = command_view.buffer();
         let (start, end) = buffer.bounds();
@@ -568,6 +599,13 @@ impl SnippetDialog {
                 .filter(|s| !s.is_empty())
                 .collect();
         }
+
+        // Target platform: 0=Terminal, 1=Windows, 2=Any
+        snippet.target = match target_row.selected() {
+            1 => SnippetTarget::Windows,
+            2 => SnippetTarget::Any,
+            _ => SnippetTarget::Terminal,
+        };
 
         // Variables
         let vars = variables.borrow();
@@ -600,9 +638,9 @@ impl SnippetDialog {
         Some(snippet)
     }
 
-    /// Returns a reference to the underlying window
+    /// Returns a reference to the underlying dialog
     #[must_use]
-    pub const fn window(&self) -> &adw::Window {
-        &self.window
+    pub const fn dialog(&self) -> &adw::Dialog {
+        &self.dialog
     }
 }

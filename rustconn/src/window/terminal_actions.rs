@@ -286,6 +286,7 @@ impl MainWindow {
         let split_view_clone = self.split_view.clone();
         let sidebar_clone = self.sidebar.clone();
         let history_clone = self.quick_connect_history.clone();
+        let state_clone = state.clone();
         quick_connect_action.connect_activate(move |_, _| {
             if let Some(win) = window_weak.upgrade() {
                 Self::show_quick_connect_dialog(
@@ -293,6 +294,7 @@ impl MainWindow {
                     notebook_clone.clone(),
                     split_view_clone.clone(),
                     sidebar_clone.clone(),
+                    &state_clone,
                     history_clone.clone(),
                 );
             }

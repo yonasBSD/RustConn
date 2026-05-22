@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use rustconn_core::models::{Connection, ProtocolConfig, ProtocolType};
+use rustconn_core::models::{Connection, ProtocolType};
 use rustconn_core::protocol::ProtocolRegistry;
 
 use crate::error::CliError;
@@ -53,22 +53,16 @@ struct ConnectionCommand {
 /// protocol-specific handling for `ZeroTrust` and `Sftp` which require
 /// special treatment.
 fn build_connection_command(connection: &Connection) -> ConnectionCommand {
-    // ZeroTrust and Sftp need special handling outside the registry
-    match connection.protocol {
-        ProtocolType::Sftp => {
-            return ConnectionCommand {
-                program: "echo".to_string(),
-                args: vec![
-                    "SFTP connections open a file manager. \
-                     Use 'rustconn-cli sftp' instead."
-                        .to_string(),
-                ],
-            };
-        }
-        ProtocolType::ZeroTrust => {
-            return build_zerotrust_command(connection);
-        }
-        _ => {}
+    // Sftp opens a file manager, not a CLI command
+    if connection.protocol == ProtocolType::Sftp {
+        return ConnectionCommand {
+            program: "echo".to_string(),
+            args: vec![
+                "SFTP connections open a file manager. \
+                 Use 'rustconn-cli sftp' instead."
+                    .to_string(),
+            ],
+        };
     }
 
     // Delegate to the core Protocol trait via the registry
@@ -87,30 +81,6 @@ fn build_connection_command(connection: &Connection) -> ConnectionCommand {
     ConnectionCommand {
         program: "echo".to_string(),
         args: vec![format!("Unsupported protocol: {}", connection.protocol)],
-    }
-}
-
-/// Builds Zero Trust command arguments using cloud CLI tools.
-///
-/// Zero Trust connections use cloud provider CLIs (aws, gcloud, az, oci,
-/// etc.) to establish secure connections through identity-aware proxies.
-fn build_zerotrust_command(connection: &Connection) -> ConnectionCommand {
-    if let ProtocolConfig::ZeroTrust(ref zt_config) = connection.protocol_config {
-        tracing::info!(
-            provider = %zt_config.provider,
-            cli = %zt_config.provider.cli_command(),
-            connection = %connection.name,
-            "Building ZeroTrust command"
-        );
-        let (program, mut args) = zt_config.build_command(connection.username.as_deref());
-        args.extend(zt_config.custom_args.clone());
-        ConnectionCommand { program, args }
-    } else {
-        tracing::warn!("ZeroTrust protocol type but no ZeroTrust config");
-        ConnectionCommand {
-            program: "echo".to_string(),
-            args: vec!["Invalid Zero Trust configuration".to_string()],
-        }
     }
 }
 

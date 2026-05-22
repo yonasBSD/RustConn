@@ -65,7 +65,7 @@ impl FlatpakComponentsDialog {
 
         let dialog = adw::Dialog::builder()
             .title(i18n("Flatpak Components"))
-            .content_width(500)
+            .content_width(600)
             .content_height(500)
             .build();
 

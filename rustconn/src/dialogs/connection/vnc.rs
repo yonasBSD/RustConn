@@ -10,10 +10,7 @@
 
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{
-    Box as GtkBox, CheckButton, DropDown, Entry, Orientation, ScrolledWindow, SpinButton,
-    StringList,
-};
+use gtk4::{Box as GtkBox, DropDown, Entry, Orientation, ScrolledWindow, SpinButton, StringList};
 use libadwaita as adw;
 use rustconn_core::models::{ScaleOverride, VncClientMode, VncPerformanceMode};
 
@@ -28,10 +25,10 @@ pub(super) fn create_vnc_options() -> (
     DropDown,
     SpinButton,
     SpinButton,
-    CheckButton,
-    CheckButton,
-    CheckButton,
-    CheckButton,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
     DropDown,
     Entry,
     DropDown,
@@ -211,46 +208,36 @@ pub(super) fn create_vnc_options() -> (
         .build();
 
     // View-only mode
-    let view_only_check = CheckButton::new();
-    let view_only_row = adw::ActionRow::builder()
+    let view_only_switch = adw::SwitchRow::builder()
         .title(i18n("View-Only Mode"))
         .subtitle(i18n("Disable keyboard and mouse input"))
-        .activatable_widget(&view_only_check)
+        .active(false)
         .build();
-    view_only_row.add_suffix(&view_only_check);
-    features_group.add(&view_only_row);
+    features_group.add(&view_only_switch);
 
     // Scaling
-    let scaling_check = CheckButton::new();
-    scaling_check.set_active(true);
-    let scaling_row = adw::ActionRow::builder()
+    let scaling_switch = adw::SwitchRow::builder()
         .title(i18n("Scale Display"))
         .subtitle(i18n("Fit remote desktop to window size"))
-        .activatable_widget(&scaling_check)
+        .active(true)
         .build();
-    scaling_row.add_suffix(&scaling_check);
-    features_group.add(&scaling_row);
+    features_group.add(&scaling_switch);
 
     // Clipboard sharing
-    let clipboard_check = CheckButton::new();
-    clipboard_check.set_active(true);
-    let clipboard_row = adw::ActionRow::builder()
+    let clipboard_switch = adw::SwitchRow::builder()
         .title(i18n("Clipboard Sharing"))
         .subtitle(i18n("Synchronize clipboard with remote"))
-        .activatable_widget(&clipboard_check)
+        .active(true)
         .build();
-    clipboard_row.add_suffix(&clipboard_check);
-    features_group.add(&clipboard_row);
+    features_group.add(&clipboard_switch);
 
     // Show local cursor
-    let vnc_show_local_cursor_check = CheckButton::builder().active(true).build();
-    let show_cursor_row = adw::ActionRow::builder()
+    let show_local_cursor_switch = adw::SwitchRow::builder()
         .title(i18n("Show Local Cursor"))
         .subtitle(i18n("Hide to avoid double cursor in embedded mode"))
-        .activatable_widget(&vnc_show_local_cursor_check)
+        .active(true)
         .build();
-    show_cursor_row.add_suffix(&vnc_show_local_cursor_check);
-    features_group.add(&show_cursor_row);
+    features_group.add(&show_local_cursor_switch);
 
     // VNC-3: Password info row
     let password_info_row = adw::ActionRow::builder()
@@ -319,10 +306,10 @@ pub(super) fn create_vnc_options() -> (
         encoding_dropdown,
         compression_spin,
         quality_spin,
-        view_only_check,
-        scaling_check,
-        clipboard_check,
-        vnc_show_local_cursor_check,
+        view_only_switch,
+        scaling_switch,
+        clipboard_switch,
+        show_local_cursor_switch,
         scale_override_dropdown,
         custom_args_entry,
         vnc_jump_host_dropdown,

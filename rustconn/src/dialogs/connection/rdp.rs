@@ -14,8 +14,8 @@
 use adw::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{
-    Box as GtkBox, Button, CheckButton, DropDown, Entry, Label, Orientation, ScrolledWindow,
-    SpinButton, StringList,
+    Box as GtkBox, Button, DropDown, Entry, Label, Orientation, ScrolledWindow, SpinButton,
+    StringList,
 };
 use libadwaita as adw;
 use rustconn_core::models::{RdpClientMode, RdpPerformanceMode, ScaleOverride, SharedFolder};
@@ -26,7 +26,7 @@ use crate::i18n::i18n;
 
 /// Creates the RDP options panel with all protocol-specific widgets.
 ///
-/// Returns a 30-element tuple matching the fields expected by `ConnectionDialog`.
+/// Returns a 28-element tuple matching the fields expected by `ConnectionDialog`.
 #[allow(clippy::similar_names, clippy::too_many_lines, clippy::type_complexity)]
 pub(super) fn create_rdp_options() -> (
     GtkBox,
@@ -36,21 +36,21 @@ pub(super) fn create_rdp_options() -> (
     SpinButton,
     DropDown,
     DropDown,
-    CheckButton,
+    adw::SwitchRow,
     Entry,
     SpinButton,
     Entry,
-    CheckButton,
+    adw::SwitchRow,
     DropDown,
     SpinButton,
-    CheckButton,
-    CheckButton,
-    CheckButton,
-    CheckButton,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
     SpinButton,
     SpinButton,
     SpinButton,
-    CheckButton,
+    adw::SwitchRow,
     DropDown,
     Rc<RefCell<Vec<SharedFolder>>>,
     gtk4::ListBox,
@@ -228,44 +228,36 @@ pub(super) fn create_rdp_options() -> (
         .build();
 
     // Audio redirect
-    let audio_check = CheckButton::new();
-    let audio_row = adw::ActionRow::builder()
+    let audio_check = adw::SwitchRow::builder()
         .title(i18n("Audio Redirection"))
         .subtitle(i18n("Play remote audio locally"))
-        .activatable_widget(&audio_check)
+        .active(false)
         .build();
-    audio_row.add_suffix(&audio_check);
-    features_group.add(&audio_row);
+    features_group.add(&audio_check);
 
     // Clipboard sharing
-    let clipboard_check = CheckButton::builder().active(true).build();
-    let clipboard_row = adw::ActionRow::builder()
+    let clipboard_check = adw::SwitchRow::builder()
         .title(i18n("Clipboard Sharing"))
         .subtitle(i18n("Synchronize clipboard with remote"))
-        .activatable_widget(&clipboard_check)
+        .active(true)
         .build();
-    clipboard_row.add_suffix(&clipboard_check);
-    features_group.add(&clipboard_row);
+    features_group.add(&clipboard_check);
 
     // Show local cursor
-    let rdp_show_local_cursor_check = CheckButton::builder().active(true).build();
-    let show_cursor_row = adw::ActionRow::builder()
+    let rdp_show_local_cursor_check = adw::SwitchRow::builder()
         .title(i18n("Show Local Cursor"))
         .subtitle(i18n("Hide to avoid double cursor in embedded mode"))
-        .activatable_widget(&rdp_show_local_cursor_check)
+        .active(true)
         .build();
-    show_cursor_row.add_suffix(&rdp_show_local_cursor_check);
-    features_group.add(&show_cursor_row);
+    features_group.add(&rdp_show_local_cursor_check);
 
     // Mouse Jiggler — prevent idle disconnect
-    let rdp_jiggler_check = CheckButton::new();
-    let jiggler_row = adw::ActionRow::builder()
+    let rdp_jiggler_check = adw::SwitchRow::builder()
         .title(i18n("Mouse Jiggler"))
         .subtitle(i18n("Prevent idle disconnect by simulating mouse movement"))
-        .activatable_widget(&rdp_jiggler_check)
+        .active(false)
         .build();
-    jiggler_row.add_suffix(&rdp_jiggler_check);
-    features_group.add(&jiggler_row);
+    features_group.add(&rdp_jiggler_check);
 
     let jiggler_adjustment = gtk4::Adjustment::new(60.0, 10.0, 600.0, 10.0, 60.0, 0.0);
     let rdp_jiggler_interval_spin = gtk4::SpinButton::builder()
@@ -281,10 +273,10 @@ pub(super) fn create_rdp_options() -> (
     jiggler_interval_row.add_suffix(&rdp_jiggler_interval_spin);
     features_group.add(&jiggler_interval_row);
 
-    // Toggle interval sensitivity based on jiggler checkbox
+    // Toggle interval sensitivity based on jiggler switch
     let spin_ref = rdp_jiggler_interval_spin.clone();
-    rdp_jiggler_check.connect_toggled(move |check| {
-        spin_ref.set_sensitive(check.is_active());
+    rdp_jiggler_check.connect_active_notify(move |switch| {
+        spin_ref.set_sensitive(switch.is_active());
     });
 
     // Autotype settings — inter-character delay and initial delay
@@ -317,26 +309,22 @@ pub(super) fn create_rdp_options() -> (
     features_group.add(&autotype_initial_row);
 
     // Reconnect on Resize — force full reconnect instead of Display Control
-    let rdp_reconnect_on_resize_check = CheckButton::new();
-    let reconnect_resize_row = adw::ActionRow::builder()
+    let rdp_reconnect_on_resize_check = adw::SwitchRow::builder()
         .title(i18n("Reconnect on Resize"))
         .subtitle(i18n(
             "Full reconnect instead of dynamic resize (for legacy servers or fixed resolution)",
         ))
-        .activatable_widget(&rdp_reconnect_on_resize_check)
+        .active(false)
         .build();
-    reconnect_resize_row.add_suffix(&rdp_reconnect_on_resize_check);
-    features_group.add(&reconnect_resize_row);
+    features_group.add(&rdp_reconnect_on_resize_check);
 
     // Disable NLA
-    let disable_nla_check = CheckButton::new();
-    let nla_row = adw::ActionRow::builder()
+    let disable_nla_check = adw::SwitchRow::builder()
         .title(i18n("Disable NLA"))
         .subtitle(i18n("Skip Network Level Authentication (less secure)"))
-        .activatable_widget(&disable_nla_check)
+        .active(false)
         .build();
-    nla_row.add_suffix(&disable_nla_check);
-    features_group.add(&nla_row);
+    features_group.add(&disable_nla_check);
 
     // Security Layer dropdown
     let security_layer_items: Vec<String> = rustconn_core::models::RdpSecurityLayer::all()
@@ -382,16 +370,14 @@ pub(super) fn create_rdp_options() -> (
     });
 
     // Ignore certificate
-    let ignore_certificate_check = CheckButton::new();
-    let cert_row = adw::ActionRow::builder()
+    let ignore_certificate_check = adw::SwitchRow::builder()
         .title(i18n("Accept Certificate"))
         .subtitle(i18n(
             "Accept changed/self-signed certificates (removes stored fingerprint)",
         ))
-        .activatable_widget(&ignore_certificate_check)
+        .active(false)
         .build();
-    cert_row.add_suffix(&ignore_certificate_check);
-    features_group.add(&cert_row);
+    features_group.add(&ignore_certificate_check);
 
     // Gateway
     let gateway_entry = Entry::builder()

@@ -47,7 +47,7 @@ pub use inventory::{
 pub use credential_check::CredentialResolutionResult;
 pub use group_export::{
     GroupSyncExport, SyncConnection, SyncError, SyncGroup, collect_variable_templates,
-    compute_group_path, group_name_to_filename,
+    compute_group_path, group_name_to_filename, validate_sync_filename,
 };
 pub use group_merge::{GroupMergeEngine, GroupMergeResult};
 pub use manager::{GroupSyncState, SyncManager, SyncReport};

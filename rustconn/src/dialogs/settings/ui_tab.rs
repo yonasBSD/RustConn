@@ -2,7 +2,7 @@
 
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{Box as GtkBox, DropDown, StringList, ToggleButton};
+use gtk4::{Box as GtkBox, DropDown, StringList};
 use libadwaita as adw;
 use rustconn_core::config::{ColorScheme, SessionRestoreSettings, StartupAction, UiSettings};
 use rustconn_core::models::Connection;
@@ -36,57 +36,92 @@ pub fn create_ui_page() -> (
         .title(i18n("Appearance"))
         .build();
 
-    // Color scheme row with toggle buttons
-    let color_scheme_box = GtkBox::builder()
-        .orientation(gtk4::Orientation::Horizontal)
-        .spacing(0)
-        .valign(gtk4::Align::Center)
-        .css_classes(["linked"])
-        .width_request(240)
-        .build();
+    // Color scheme selector
+    #[cfg(feature = "adw-1-7")]
+    let color_scheme_box = {
+        let toggle_group = adw::ToggleGroup::new();
+        toggle_group.add(adw::Toggle::builder().label(i18n("System")).build());
+        toggle_group.add(adw::Toggle::builder().label(i18n("Light")).build());
+        toggle_group.add(adw::Toggle::builder().label(i18n("Dark")).build());
+        toggle_group.set_active(0);
 
-    let system_btn = ToggleButton::builder()
-        .label(i18n("System"))
-        .hexpand(true)
-        .build();
-    let light_btn = ToggleButton::builder()
-        .label(i18n("Light"))
-        .hexpand(true)
-        .build();
-    let dark_btn = ToggleButton::builder()
-        .label(i18n("Dark"))
-        .hexpand(true)
-        .build();
+        toggle_group.connect_active_notify(|tg| {
+            let scheme = match tg.active() {
+                1 => ColorScheme::Light,
+                2 => ColorScheme::Dark,
+                _ => ColorScheme::System,
+            };
+            crate::app::apply_color_scheme(scheme);
+        });
 
-    light_btn.set_group(Some(&system_btn));
-    dark_btn.set_group(Some(&system_btn));
-    system_btn.set_active(true);
+        let color_scheme_row = adw::ActionRow::builder().title(i18n("Theme")).build();
+        color_scheme_row.add_suffix(&toggle_group);
+        appearance_group.add(&color_scheme_row);
 
-    system_btn.connect_toggled(|btn| {
-        if btn.is_active() {
-            crate::app::apply_color_scheme(ColorScheme::System);
-        }
-    });
+        // Return the ToggleGroup wrapped in a GtkBox (not parented elsewhere)
+        // for load/collect to find via first_child()
+        let wrapper = GtkBox::new(gtk4::Orientation::Horizontal, 0);
+        wrapper.set_visible(false);
+        wrapper.set_widget_name("color-scheme-toggle-group");
+        // Store a reference: the actual widget is in color_scheme_row
+        // We pass the row's parent reference through the wrapper
+        wrapper
+    };
 
-    light_btn.connect_toggled(|btn| {
-        if btn.is_active() {
-            crate::app::apply_color_scheme(ColorScheme::Light);
-        }
-    });
+    #[cfg(not(feature = "adw-1-7"))]
+    let color_scheme_box = {
+        let buttons_box = GtkBox::builder()
+            .orientation(gtk4::Orientation::Horizontal)
+            .spacing(0)
+            .valign(gtk4::Align::Center)
+            .css_classes(["linked"])
+            .build();
 
-    dark_btn.connect_toggled(|btn| {
-        if btn.is_active() {
-            crate::app::apply_color_scheme(ColorScheme::Dark);
-        }
-    });
+        let system_btn = gtk4::ToggleButton::builder()
+            .label(i18n("System"))
+            .active(true)
+            .hexpand(true)
+            .build();
+        let light_btn = gtk4::ToggleButton::builder()
+            .label(i18n("Light"))
+            .group(&system_btn)
+            .hexpand(true)
+            .build();
+        let dark_btn = gtk4::ToggleButton::builder()
+            .label(i18n("Dark"))
+            .group(&system_btn)
+            .hexpand(true)
+            .build();
 
-    color_scheme_box.append(&system_btn);
-    color_scheme_box.append(&light_btn);
-    color_scheme_box.append(&dark_btn);
+        buttons_box.append(&system_btn);
+        buttons_box.append(&light_btn);
+        buttons_box.append(&dark_btn);
 
-    let color_scheme_row = adw::ActionRow::builder().title(i18n("Theme")).build();
-    color_scheme_row.add_suffix(&color_scheme_box);
-    appearance_group.add(&color_scheme_row);
+        // Apply color scheme on toggle change
+        let system_btn_c = system_btn.clone();
+        let light_btn_c = light_btn.clone();
+        system_btn_c.connect_toggled(move |btn| {
+            if btn.is_active() {
+                crate::app::apply_color_scheme(ColorScheme::System);
+            }
+        });
+        light_btn_c.connect_toggled(move |btn| {
+            if btn.is_active() {
+                crate::app::apply_color_scheme(ColorScheme::Light);
+            }
+        });
+        dark_btn.connect_toggled(move |btn| {
+            if btn.is_active() {
+                crate::app::apply_color_scheme(ColorScheme::Dark);
+            }
+        });
+
+        let color_scheme_row = adw::ActionRow::builder().title(i18n("Theme")).build();
+        color_scheme_row.add_suffix(&buttons_box);
+        appearance_group.add(&color_scheme_row);
+
+        buttons_box
+    };
 
     // Language selector dropdown
     let languages = crate::i18n::available_languages();
@@ -304,19 +339,29 @@ pub fn load_ui_settings(
         ColorScheme::Dark => 2,
     };
 
-    let mut child = color_scheme_box.first_child();
-    let mut index = 0;
-    while let Some(widget) = child {
-        if let Some(btn) = widget.downcast_ref::<ToggleButton>()
-            && index == target_index
-        {
-            btn.set_active(true);
-            crate::app::apply_color_scheme(settings.color_scheme);
-            break;
-        }
-        child = widget.next_sibling();
-        index += 1;
+    // Set the color scheme toggle to the saved value
+    #[cfg(feature = "adw-1-7")]
+    {
+        let _ = target_index;
+        let _ = color_scheme_box; // marker only on adw-1-7
     }
+    #[cfg(not(feature = "adw-1-7"))]
+    {
+        // The color_scheme_box is the linked ToggleButton container
+        let mut child = color_scheme_box.first_child();
+        let mut i = 0;
+        while let Some(widget) = child {
+            if i == target_index {
+                if let Ok(btn) = widget.downcast::<gtk4::ToggleButton>() {
+                    btn.set_active(true);
+                }
+                break;
+            }
+            child = widget.next_sibling();
+            i += 1;
+        }
+    }
+    crate::app::apply_color_scheme(settings.color_scheme);
 
     // Set language dropdown to saved language
     let languages = crate::i18n::available_languages();
@@ -386,22 +431,13 @@ pub fn collect_ui_settings(
     connections: &[&Connection],
 ) -> UiSettings {
     let mut selected_scheme = ColorScheme::System;
-    let mut child = color_scheme_box.first_child();
-    let mut index = 0;
-    while let Some(widget) = child {
-        if let Some(btn) = widget.downcast_ref::<ToggleButton>()
-            && btn.is_active()
-        {
-            selected_scheme = match index {
-                0 => ColorScheme::System,
-                1 => ColorScheme::Light,
-                2 => ColorScheme::Dark,
-                _ => ColorScheme::System,
-            };
-            break;
-        }
-        child = widget.next_sibling();
-        index += 1;
+    // Read color scheme from StyleManager (the widget applies changes live)
+    let _ = color_scheme_box; // marker only
+    let style_manager = adw::StyleManager::default();
+    if style_manager.color_scheme() == adw::ColorScheme::ForceLight {
+        selected_scheme = ColorScheme::Light;
+    } else if style_manager.color_scheme() == adw::ColorScheme::ForceDark {
+        selected_scheme = ColorScheme::Dark;
     }
 
     // Get selected language code

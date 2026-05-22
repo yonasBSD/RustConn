@@ -12,8 +12,7 @@
 use adw::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{
-    Box as GtkBox, Button, CheckButton, DropDown, Entry, Label, Orientation, ScrolledWindow,
-    StringList,
+    Box as GtkBox, Button, DropDown, Entry, Label, Orientation, ScrolledWindow, StringList,
 };
 use libadwaita as adw;
 use rustconn_core::models::SharedFolder;
@@ -26,15 +25,15 @@ use crate::i18n::i18n;
 #[allow(clippy::type_complexity, clippy::too_many_lines)]
 pub(super) fn create_spice_options() -> (
     GtkBox,
-    CheckButton,
+    adw::SwitchRow,
     Entry,
     Button,
-    CheckButton,
-    CheckButton,
-    CheckButton,
+    adw::SwitchRow,
+    adw::SwitchRow,
+    adw::SwitchRow,
     DropDown,
     Entry,
-    CheckButton,
+    adw::SwitchRow,
     Rc<RefCell<Vec<SharedFolder>>>,
     gtk4::ListBox,
     DropDown,
@@ -62,14 +61,12 @@ pub(super) fn create_spice_options() -> (
         .build();
 
     // TLS enabled
-    let tls_check = CheckButton::new();
-    let tls_row = adw::ActionRow::builder()
+    let tls_check = adw::SwitchRow::builder()
         .title(i18n("TLS Encryption"))
         .subtitle(i18n("Encrypt connection with TLS"))
-        .activatable_widget(&tls_check)
+        .active(false)
         .build();
-    tls_row.add_suffix(&tls_check);
-    security_group.add(&tls_row);
+    security_group.add(&tls_check);
 
     // CA certificate path
     let ca_cert_box = GtkBox::new(Orientation::Horizontal, 4);
@@ -115,14 +112,12 @@ pub(super) fn create_spice_options() -> (
     });
 
     // Skip certificate verification
-    let skip_verify_check = CheckButton::new();
-    let skip_verify_row = adw::ActionRow::builder()
+    let skip_verify_check = adw::SwitchRow::builder()
         .title(i18n("Skip Verification"))
         .subtitle(i18n("Disable certificate verification (insecure)"))
-        .activatable_widget(&skip_verify_check)
+        .active(false)
         .build();
-    skip_verify_row.add_suffix(&skip_verify_check);
-    security_group.add(&skip_verify_row);
+    security_group.add(&skip_verify_check);
 
     content.append(&security_group);
 
@@ -132,25 +127,20 @@ pub(super) fn create_spice_options() -> (
         .build();
 
     // USB redirection
-    let usb_check = CheckButton::new();
-    let usb_row = adw::ActionRow::builder()
+    let usb_check = adw::SwitchRow::builder()
         .title(i18n("USB Redirection"))
         .subtitle(i18n("Forward USB devices to remote"))
-        .activatable_widget(&usb_check)
+        .active(false)
         .build();
-    usb_row.add_suffix(&usb_check);
-    features_group.add(&usb_row);
+    features_group.add(&usb_check);
 
     // Clipboard sharing
-    let clipboard_check = CheckButton::new();
-    clipboard_check.set_active(true);
-    let clipboard_row = adw::ActionRow::builder()
+    let clipboard_check = adw::SwitchRow::builder()
         .title(i18n("Clipboard Sharing"))
         .subtitle(i18n("Synchronize clipboard with remote"))
-        .activatable_widget(&clipboard_check)
+        .active(true)
         .build();
-    clipboard_row.add_suffix(&clipboard_check);
-    features_group.add(&clipboard_row);
+    features_group.add(&clipboard_check);
 
     // Image compression
     let comp_items: Vec<String> = vec![
@@ -189,22 +179,19 @@ pub(super) fn create_spice_options() -> (
     features_group.add(&proxy_row);
 
     // Show local cursor
-    let show_local_cursor_check = CheckButton::new();
-    show_local_cursor_check.set_active(true);
-    let show_cursor_row = adw::ActionRow::builder()
+    let show_local_cursor_check = adw::SwitchRow::builder()
         .title(i18n("Show Local Cursor"))
         .subtitle(i18n("Hide to avoid double cursor in embedded mode"))
-        .activatable_widget(&show_local_cursor_check)
+        .active(true)
         .build();
-    show_cursor_row.add_suffix(&show_local_cursor_check);
-    features_group.add(&show_cursor_row);
+    features_group.add(&show_local_cursor_check);
 
     content.append(&features_group);
 
     // Wire TLS toggle to CA cert and skip verify sensitivity
     let ca_cert_row_clone = ca_cert_row.clone();
     let skip_verify_check_clone = skip_verify_check.clone();
-    tls_check.connect_toggled(move |check| {
+    tls_check.connect_active_notify(move |check| {
         let on = check.is_active();
         ca_cert_row_clone.set_sensitive(on);
         skip_verify_check_clone.set_sensitive(on);

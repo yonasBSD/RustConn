@@ -140,6 +140,22 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.14.5" date="2026-05-22">
+      <description>
+        <p>Version 0.14.5 - UX overhaul and adaptive dialogs:</p>
+        <ul>
+          <li>All 25+ dialogs migrated to modern adaptive style (bottom-sheet, drag-to-close)</li>
+          <li>Edit Group dialog redesigned with 5 tabs</li>
+          <li>Connection dialog adapts to narrow windows</li>
+          <li>Connection Wizard: Security Key (FIDO2) authentication</li>
+          <li>RDP Scripts: run PowerShell on remote Windows via clipboard-paste</li>
+          <li>Snippet target platform (Terminal, Windows, or Any)</li>
+          <li>Color scheme selector modernized</li>
+          <li>SSH Agent passphrase no longer written to disk</li>
+          <li>Fixed: Quick Connect now uses configured terminal theme (#156)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.14.4" date="2026-05-20">
       <description>
         <p>CLI full parity with GUI, architecture improvements:</p>

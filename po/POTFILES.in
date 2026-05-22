@@ -17,11 +17,13 @@ rustconn/src/window/sessions.rs
 rustconn/src/window/smart_folders.rs
 rustconn/src/window/snippets.rs
 rustconn/src/window/clusters.rs
+rustconn/src/window/connection_actions.rs
 rustconn/src/window/credentials.rs
 rustconn/src/window/connection_dialogs.rs
 rustconn/src/window/document_actions.rs
 rustconn/src/window/edit_actions.rs
 rustconn/src/window/edit_dialogs.rs
+rustconn/src/window/edit_group.rs
 rustconn/src/window/groups.rs
 rustconn/src/window/operations.rs
 rustconn/src/window/sorting.rs
@@ -31,6 +33,7 @@ rustconn/src/window/ui.rs
 rustconn/src/dialogs/mod.rs
 rustconn/src/dialogs/connection/advanced_tab.rs
 rustconn/src/dialogs/connection/automation_tab.rs
+rustconn/src/dialogs/connection/builders.rs
 rustconn/src/dialogs/connection/dialog.rs
 rustconn/src/dialogs/connection/general_tab.rs
 rustconn/src/dialogs/connection/ssh.rs
@@ -53,13 +56,15 @@ rustconn/src/dialogs/settings/ui_tab.rs
 rustconn/src/dialogs/settings/terminal_tab.rs
 rustconn/src/dialogs/settings/clients_tab.rs
 rustconn/src/dialogs/settings/cloud_sync_tab.rs
-rustconn/src/dialogs/settings/secrets_tab.rs
+rustconn/src/dialogs/settings/secrets_tab/mod.rs
+rustconn/src/dialogs/settings/secrets_tab/detection.rs
 rustconn/src/dialogs/settings/ssh_agent_tab.rs
 rustconn/src/dialogs/settings/logging_tab.rs
 rustconn/src/dialogs/settings/monitoring_tab.rs
 rustconn/src/dialogs/settings/keybindings_tab.rs
 rustconn/src/dialogs/export.rs
-rustconn/src/dialogs/import.rs
+rustconn/src/dialogs/import/mod.rs
+rustconn/src/dialogs/import/sources.rs
 rustconn/src/dialogs/history.rs
 rustconn/src/dialogs/keyboard.rs
 rustconn/src/dialogs/shortcuts.rs
@@ -67,6 +72,7 @@ rustconn/src/dialogs/smart_folder.rs
 rustconn/src/dialogs/snippet.rs
 rustconn/src/dialogs/statistics.rs
 rustconn/src/dialogs/template.rs
+rustconn/src/dialogs/template_manager.rs
 rustconn/src/dialogs/password.rs
 rustconn/src/dialogs/password_generator.rs
 rustconn/src/dialogs/progress.rs
@@ -91,6 +97,8 @@ rustconn/src/split_view/adapter.rs
 rustconn/src/split_view/bridge.rs
 rustconn/src/terminal/mod.rs
 rustconn/src/terminal/config.rs
+rustconn/src/terminal/recording.rs
+rustconn/src/terminal/tab_menu.rs
 rustconn/src/validation.rs
 rustconn/src/vault_ops.rs
 rustconn/src/empty_state.rs
@@ -106,4 +114,5 @@ rustconn/src/embedded_rdp/file_dnd.rs
 rustconn/src/embedded_rdp/resize.rs
 rustconn/src/embedded_spice.rs
 rustconn/src/embedded_trait.rs
-rustconn/src/embedded_vnc.rs
+rustconn/src/embedded_vnc/mod.rs
+rustconn/src/embedded_vnc/ui.rs

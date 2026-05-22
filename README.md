@@ -20,7 +20,7 @@
 RustConn is a cross-platform connection orchestrator with a GTK4/libadwaita interface.
 It brings SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and Zero Trust connections under one roof — with embedded Rust clients where possible and seamless integration with external tools where needed.
 
-[![Demo](https://img.youtube.com/vi/4cMxo-lxfQ8/maxresdefault.jpg)](https://youtu.be/4cMxo-lxfQ8)
+[![Demo](https://img.youtube.com/vi/b-TI0i1I380/maxresdefault.jpg)](https://youtu.be/b-TI0i1I380)
 
 ## Features
 

@@ -7,7 +7,7 @@ use crate::models::ProtocolType;
 
 use super::{
     KubernetesProtocol, MoshProtocol, Protocol, RdpProtocol, SerialProtocol, SftpProtocol,
-    SpiceProtocol, SshProtocol, TelnetProtocol, VncProtocol, WebProtocol,
+    SpiceProtocol, SshProtocol, TelnetProtocol, VncProtocol, WebProtocol, ZeroTrustProtocol,
 };
 
 /// Registry for protocol handlers
@@ -35,6 +35,7 @@ impl ProtocolRegistry {
         let kubernetes = Arc::new(KubernetesProtocol::new());
         let mosh = Arc::new(MoshProtocol::new());
         let web = Arc::new(WebProtocol::new());
+        let zerotrust = Arc::new(ZeroTrustProtocol::new());
 
         protocols.insert(ssh.protocol_id(), ssh);
         protocols.insert(rdp.protocol_id(), rdp);
@@ -46,6 +47,7 @@ impl ProtocolRegistry {
         protocols.insert(kubernetes.protocol_id(), kubernetes);
         protocols.insert(mosh.protocol_id(), mosh);
         protocols.insert(web.protocol_id(), web);
+        protocols.insert(zerotrust.protocol_id(), zerotrust);
 
         Self { protocols }
     }
@@ -81,10 +83,8 @@ impl ProtocolRegistry {
             ProtocolType::Spice => "spice",
             ProtocolType::Telnet => "telnet",
             ProtocolType::Serial => "serial",
-            // ZeroTrust is intentionally not registered in the registry.
-            // It delegates to provider-specific protocols (AWS SSM, gcloud IAP,
-            // Cloudflare Tunnel, etc.) at connection time, so there is no single
-            // protocol handler for it. This lookup will return None.
+            // ZeroTrust now has a registered handler that delegates to
+            // provider-specific CLIs via ZeroTrustConfig::build_command().
             ProtocolType::ZeroTrust => "zerotrust",
             ProtocolType::Sftp => "sftp",
             ProtocolType::Kubernetes => "kubernetes",

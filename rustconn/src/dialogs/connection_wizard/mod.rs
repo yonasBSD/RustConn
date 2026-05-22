@@ -402,16 +402,17 @@ impl ConnectionWizard {
         let dialog = adw::Dialog::builder()
             .title(i18n("New Connection"))
             .content_width(600)
-            .content_height(520)
+            .content_height(580)
             .build();
 
         let nav_view = adw::NavigationView::new();
 
-        let toolbar_view = adw::ToolbarView::new();
-        let header = adw::HeaderBar::new();
-        toolbar_view.add_top_bar(&header);
-        toolbar_view.set_content(Some(&nav_view));
-        dialog.set_child(Some(&toolbar_view));
+        // NavigationView as direct child — each NavigationPage gets its own
+        // header bar with automatic back button (GNOME HIG)
+        // Set minimum size to avoid AdwDialog warnings
+        nav_view.set_width_request(360);
+        nav_view.set_height_request(400);
+        dialog.set_child(Some(&nav_view));
 
         let protocol_page = ProtocolPage::new();
         let connection_page = ConnectionPage::new(state.clone());
@@ -734,6 +735,45 @@ impl ConnectionWizard {
             self.connection_page.selected_template_icon()
         };
         conn
+    }
+
+    /// Pre-fill the wizard from a `PartialConnection` (e.g. "Duplicate via Wizard").
+    ///
+    /// Sets the protocol, navigates to the connection page (step 2), and
+    /// populates host/port/username/domain/name fields.
+    pub fn set_partial(&self, partial: &PartialConnection) {
+        let Some(protocol) = partial.protocol else {
+            return;
+        };
+
+        // Set selected protocol
+        *self.selected_protocol.borrow_mut() = Some(protocol);
+
+        // Configure connection page for this protocol
+        self.connection_page.configure_for_protocol(protocol);
+
+        // Pre-fill connection page fields
+        if let Some(ref name) = partial.name {
+            self.connection_page.name_row.set_text(name);
+        }
+        if let Some(ref host) = partial.host {
+            self.connection_page.host_row.set_text(host);
+        }
+        if let Some(port) = partial.port {
+            self.connection_page.port_row.set_value(f64::from(port));
+        }
+        if let Some(ref username) = partial.username {
+            self.connection_page.username_row.set_text(username);
+        }
+        if let Some(ref domain) = partial.domain {
+            self.connection_page.domain_row.set_text(domain);
+        }
+
+        // Navigate directly to connection page (skip protocol selection)
+        self.nav_view.push(&self.connection_page.page);
+
+        // Update dialog title to indicate duplication
+        self.dialog.set_title(&i18n("Duplicate Connection"));
     }
 
     /// Present the wizard dialog

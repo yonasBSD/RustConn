@@ -362,6 +362,9 @@ impl BitwardenBackend {
     fn build_command(&self, args: &[&str]) -> Command {
         let mut cmd = Command::new(&self.bw_cmd);
         cmd.env("PATH", crate::cli_download::get_extended_path());
+        // --nointeraction prevents CLI from prompting for input or performing
+        // implicit network operations that can hang in sandboxed environments.
+        cmd.arg("--nointeraction");
         cmd.args(args);
 
         if let Some(ref session) = self.session_key {
@@ -383,11 +386,20 @@ impl BitwardenBackend {
             "Bitwarden run_command"
         );
 
-        let output = self
-            .build_command(args)
-            .output()
-            .await
-            .map_err(|e| SecretError::ConnectionFailed(format!("Failed to run bw: {e}")))?;
+        // Timeout prevents hanging when Bitwarden CLI stalls on network
+        // requests (e.g. expired session triggers a sync attempt that blocks).
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            self.build_command(args).output(),
+        )
+        .await
+        .map_err(|_| {
+            tracing::warn!(args = ?args, "Bitwarden run_command: timed out after 30s");
+            SecretError::ConnectionFailed(format!(
+                "bw command timed out after 30s (args: {args:?})"
+            ))
+        })?
+        .map_err(|e| SecretError::ConnectionFailed(format!("Failed to run bw: {e}")))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -437,10 +449,25 @@ impl BitwardenBackend {
     /// unlocked and a session key is available, without spawning `bw status`.
     /// Falls back to the full [`is_unlocked`] check when the cached result
     /// has expired.
+    ///
+    /// # Bitwarden CLI v2026.4+ compatibility
+    ///
+    /// `bw status` ignores the `BW_SESSION` environment variable and always
+    /// reports "locked" unless the vault was unlocked in the same process.
+    /// When a session key is present, we trust it and skip the unreliable
+    /// `bw status` check. If the session is actually expired, the next
+    /// data command (`bw list items`) will fail and trigger a re-unlock.
     pub async fn is_unlocked_fast(&self) -> bool {
-        // If we have a session key and recently verified, skip the CLI call
         let has_session = self.session_key.is_some() || get_session_key().is_some();
-        if has_session && is_recently_verified() {
+        if has_session {
+            // Trust the session key — bw status is unreliable with BW_SESSION
+            if is_recently_verified() {
+                return true;
+            }
+            // Session key exists but not recently verified — re-mark and trust.
+            // The alternative (calling bw status) always returns "locked" on
+            // Bitwarden CLI v2026.4+ even with a valid session key.
+            mark_verified();
             return true;
         }
         self.is_unlocked().await
@@ -1242,15 +1269,17 @@ pub async fn auto_unlock(
 
     // 1. Check in-process session store, then fall back to BW_SESSION env var
     //    (supports externally unlocked vaults, e.g. `export BW_SESSION=...` in shell)
+    //
+    // Trust the session key without calling `bw status` — on Bitwarden CLI
+    // v2026.4+ `bw status` ignores BW_SESSION and always reports "locked".
+    // If the session is expired, the subsequent data command will fail and
+    // the caller can retry.
     if let Some(session) = stored_session {
+        tracing::debug!("Bitwarden: using existing session key (trusting without status check)");
+        mark_verified();
         let backend = BitwardenBackend::with_session(session);
-        if backend.is_unlocked().await {
-            tracing::debug!("Bitwarden: using existing session key");
-            // Sync once per verified session to pick up remote changes
-            let _ = backend.sync().await;
-            return Ok(backend);
-        }
-        tracing::debug!("Bitwarden: stored session key present but vault not unlocked");
+        let _ = backend.sync().await;
+        return Ok(backend);
     }
 
     // 2. Check if vault is already unlocked (no session needed)
@@ -1290,6 +1319,7 @@ pub async fn auto_unlock(
         match unlock_vault(&password).await {
             Ok(session_key) => {
                 set_session_key(SecretString::from(session_key.expose_secret().to_owned()));
+                mark_verified();
                 let backend = BitwardenBackend::with_session(session_key);
                 let _ = backend.sync().await;
                 return Ok(backend);
@@ -1302,6 +1332,7 @@ pub async fn auto_unlock(
                     && try_relogin_and_unlock(settings, &password).await.is_ok()
                     && let Some(key) = get_session_key()
                 {
+                    mark_verified();
                     return Ok(BitwardenBackend::with_session(key));
                 }
             }
@@ -1321,6 +1352,7 @@ pub async fn auto_unlock(
             match unlock_vault(password).await {
                 Ok(session_key) => {
                     set_session_key(SecretString::from(session_key.expose_secret().to_owned()));
+                    mark_verified();
                     let backend = BitwardenBackend::with_session(session_key);
                     let _ = backend.sync().await;
                     return Ok(backend);
@@ -1333,6 +1365,7 @@ pub async fn auto_unlock(
                         && try_relogin_and_unlock(settings, password).await.is_ok()
                         && let Some(key) = get_session_key()
                     {
+                        mark_verified();
                         return Ok(BitwardenBackend::with_session(key));
                     }
                 }

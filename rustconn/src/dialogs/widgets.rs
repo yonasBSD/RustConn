@@ -12,31 +12,27 @@ use libadwaita as adw;
 
 /// Creates a standard dialog header bar following GNOME HIG.
 ///
-/// Returns `(header_bar, start_button, end_button)`. The start button
-/// (Cancel/Close) is placed at the start, the action button at the end
-/// with the `suggested-action` CSS class. The caller is responsible for
-/// connecting the start button to close the dialog/window.
+/// Returns `(header_bar, end_button)`. The action button is placed at the end
+/// with the `suggested-action` CSS class. Since `adw::Dialog` natively handles
+/// Escape to close, no Cancel button is needed.
 ///
 /// # Arguments
 ///
-/// * `start_label` - Label for the start (cancel/close) button.
 /// * `end_label` - Label for the end (action) button.
 #[must_use]
-pub fn dialog_header(start_label: &str, end_label: &str) -> (adw::HeaderBar, Button, Button) {
+pub fn dialog_header(end_label: &str) -> (adw::HeaderBar, Button) {
     let header = adw::HeaderBar::new();
     header.set_show_end_title_buttons(false);
     header.set_show_start_title_buttons(false);
 
-    let start_btn = Button::builder().label(i18n(start_label)).build();
     let end_btn = Button::builder()
         .label(i18n(end_label))
         .css_classes(["suggested-action"])
         .build();
 
-    header.pack_start(&start_btn);
     header.pack_end(&end_btn);
 
-    (header, start_btn, end_btn)
+    (header, end_btn)
 }
 
 /// Common label strings used across dialogs
@@ -452,7 +448,6 @@ impl SwitchRowBuilder {
 fn _i18n_markers() {
     // Button labels used in dialog_header() across the codebase
     i18n("Close");
-    i18n("Cancel");
     i18n("Save");
     i18n("Create");
     i18n("Export");

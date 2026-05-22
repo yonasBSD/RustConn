@@ -41,6 +41,6 @@ pub use protocol::{
     ZeroTrustProvider, ZeroTrustProviderConfig, build_remote_app_freerdp_args,
 };
 pub use smart_folder::SmartFolder;
-pub use snippet::{Snippet, SnippetVariable};
+pub use snippet::{Snippet, SnippetTarget, SnippetVariable};
 pub use template::{ConnectionTemplate, TemplateError, group_templates_by_protocol};
 pub use tunnel::{StandaloneTunnel, TunnelStatus};

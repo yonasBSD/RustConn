@@ -44,40 +44,27 @@ pub enum DocumentDialogResult {
 
 /// Dialog for creating a new document
 pub struct NewDocumentDialog {
-    window: adw::Window,
+    dialog: adw::Dialog,
     name_entry: Entry,
     password_check: CheckButton,
     password_entry: PasswordEntry,
     confirm_entry: PasswordEntry,
     on_complete: DocumentCallback,
+    parent: Option<gtk4::Widget>,
 }
 
 impl NewDocumentDialog {
     /// Creates a new document creation dialog
     #[must_use]
     pub fn new(parent: Option<&gtk4::Window>) -> Self {
-        let window = adw::Window::builder()
+        let dialog = adw::Dialog::builder()
             .title(i18n("New Document"))
-            .modal(true)
-            .default_width(400)
+            .content_width(400)
             .build();
 
-        if let Some(p) = parent {
-            window.set_transient_for(Some(p));
-        }
-
-        window.set_size_request(280, -1);
-
         // Header bar (GNOME HIG)
-        let (header, cancel_btn, create_btn) =
-            crate::dialogs::widgets::dialog_header("Cancel", "Create");
+        let (header, create_btn) = crate::dialogs::widgets::dialog_header("Create");
         create_btn.set_sensitive(false);
-
-        // Cancel button handler
-        let window_clone = window.clone();
-        cancel_btn.connect_clicked(move |_| {
-            window_clone.close();
-        });
 
         // Content
         let content = GtkBox::new(Orientation::Vertical, 12);
@@ -86,7 +73,7 @@ impl NewDocumentDialog {
         content.set_margin_start(12);
         content.set_margin_end(12);
 
-        // Use ToolbarView for adw::Window
+        // Use ToolbarView for adw::Dialog
         let toolbar_view = adw::ToolbarView::new();
         toolbar_view.add_top_bar(&header);
         let clamp = adw::Clamp::builder()
@@ -94,7 +81,7 @@ impl NewDocumentDialog {
             .child(&content)
             .build();
         toolbar_view.set_content(Some(&clamp));
-        window.set_content(Some(&toolbar_view));
+        dialog.set_child(Some(&toolbar_view));
 
         // Name field
         let name_label = Label::builder()
@@ -147,7 +134,6 @@ impl NewDocumentDialog {
         password_box.append(&confirm_entry);
 
         content.append(&password_box);
-        window.set_child(Some(&content));
 
         let on_complete: DocumentCallback = Rc::new(RefCell::new(None));
 
@@ -188,18 +174,16 @@ impl NewDocumentDialog {
         let validate_clone = validate;
         password_check.connect_toggled(move |_| validate_clone());
 
-        // Cancel button
-        let window_clone = window.clone();
+        // On dialog closed (Escape or programmatic close) → notify callback
         let on_complete_clone = on_complete.clone();
-        cancel_btn.connect_clicked(move |_| {
+        dialog.connect_closed(move |_| {
             if let Some(ref cb) = *on_complete_clone.borrow() {
                 cb(None);
             }
-            window_clone.close();
         });
 
         // Create button
-        let window_clone = window.clone();
+        let dialog_clone = dialog.clone();
         let on_complete_clone = on_complete.clone();
         let name_entry_clone = name_entry.clone();
         let password_check_clone = password_check.clone();
@@ -215,16 +199,17 @@ impl NewDocumentDialog {
             if let Some(ref cb) = *on_complete_clone.borrow() {
                 cb(Some(DocumentDialogResult::Create { name, password }));
             }
-            window_clone.close();
+            dialog_clone.close();
         });
 
         Self {
-            window,
+            dialog,
             name_entry,
             password_check,
             password_entry,
             confirm_entry,
             on_complete,
+            parent: parent.map(|p| p.clone().upcast::<gtk4::Widget>()),
         }
     }
 
@@ -242,7 +227,7 @@ impl NewDocumentDialog {
         self.password_check.set_active(false);
         self.password_entry.set_text("");
         self.confirm_entry.set_text("");
-        self.window.present();
+        self.dialog.present(self.parent.as_ref());
     }
 }
 
@@ -321,20 +306,12 @@ impl OpenDocumentDialog {
         path: PathBuf,
         on_complete: DocumentCallback,
     ) {
-        let window = adw::Window::builder()
+        let dialog = adw::Dialog::builder()
             .title(i18n("Enter Password"))
-            .modal(true)
-            .default_width(350)
+            .content_width(350)
             .build();
 
-        if let Some(p) = parent {
-            window.set_transient_for(Some(p));
-        }
-
-        window.set_size_request(280, -1);
-
-        let (header, cancel_btn, open_btn) =
-            crate::dialogs::widgets::dialog_header("Cancel", "Open");
+        let (header, open_btn) = crate::dialogs::widgets::dialog_header("Open");
 
         let content = GtkBox::new(Orientation::Vertical, 12);
         content.set_margin_top(12);
@@ -354,24 +331,22 @@ impl OpenDocumentDialog {
         let password_entry = PasswordEntry::builder().show_peek_icon(true).build();
         content.append(&password_entry);
 
-        // Use ToolbarView for adw::Window
+        // Use ToolbarView for adw::Dialog
         let toolbar_view = adw::ToolbarView::new();
         toolbar_view.add_top_bar(&header);
         toolbar_view.set_content(Some(&content));
-        window.set_content(Some(&toolbar_view));
+        dialog.set_child(Some(&toolbar_view));
 
-        // Cancel
-        let window_clone = window.clone();
+        // On dialog closed (Escape) → notify callback with None
         let on_complete_clone = on_complete.clone();
-        cancel_btn.connect_clicked(move |_| {
+        dialog.connect_closed(move |_| {
             if let Some(ref cb) = *on_complete_clone.borrow() {
                 cb(None);
             }
-            window_clone.close();
         });
 
         // Open
-        let window_clone = window.clone();
+        let dialog_clone = dialog.clone();
         let path_clone = path;
         open_btn.connect_clicked(move |_| {
             let password = SecretString::from(password_entry.text().to_string());
@@ -381,10 +356,11 @@ impl OpenDocumentDialog {
                     password: Some(password),
                 }));
             }
-            window_clone.close();
+            dialog_clone.close();
         });
 
-        window.present();
+        let parent_widget = parent.map(|p| p.clone().upcast::<gtk4::Widget>());
+        dialog.present(parent_widget.as_ref());
     }
 }
 
@@ -558,7 +534,7 @@ impl DocumentProtectionDialog {
             .build();
 
         // Header bar (GNOME HIG)
-        let (header, cancel_btn, apply_btn) = super::widgets::dialog_header("Cancel", "Apply");
+        let (header, apply_btn) = super::widgets::dialog_header("Apply");
 
         // Content
         let content = GtkBox::new(Orientation::Vertical, 12);
@@ -668,14 +644,12 @@ impl DocumentProtectionDialog {
         let validate_clone = validate;
         enable_check.connect_toggled(move |_| validate_clone());
 
-        // Cancel button
-        let dialog_clone = dialog.clone();
+        // On dialog closed (Escape) → notify callback with None
         let on_complete_clone = on_complete.clone();
-        cancel_btn.connect_clicked(move |_| {
+        dialog.connect_closed(move |_| {
             if let Some(ref cb) = *on_complete_clone.borrow() {
                 cb(None);
             }
-            dialog_clone.close();
         });
 
         // Apply button

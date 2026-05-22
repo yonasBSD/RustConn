@@ -378,8 +378,18 @@ impl MainWindow {
                                             );
                                         }
                                         crate::dialogs::BackendMissingResponse::OpenSettings => {
-                                            // Connection not started — user will retry after configuring
+                                            // Connection not started — open settings so user can configure backend
                                             tracing::info!("User chose to open settings to configure secret backend");
+                                            if let Some(root) = notebook_be.widget().root()
+                                                && let Some(win) = root.downcast_ref::<gtk4::Window>()
+                                            {
+                                                gtk4::prelude::WidgetExt::activate_action(
+                                                    win,
+                                                    "win.settings",
+                                                    None,
+                                                )
+                                                .ok();
+                                            }
                                         }
                                     }
                                 },

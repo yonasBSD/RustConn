@@ -602,7 +602,7 @@ fn show_add_edit_dialog(
 
     let dialog = adw::Dialog::builder()
         .title(&dialog_title)
-        .content_width(500)
+        .content_width(600)
         .content_height(600)
         .build();
 

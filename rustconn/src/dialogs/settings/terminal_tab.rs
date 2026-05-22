@@ -205,71 +205,123 @@ pub fn create_terminal_page() -> (
         .title(i18n("Cursor"))
         .build();
 
-    // Cursor shape - toggle buttons
-    let shape_buttons_box = GtkBox::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(0)
-        .valign(gtk4::Align::Center)
-        .css_classes(["linked"])
-        .width_request(240)
-        .build();
+    // Cursor shape
+    #[cfg(feature = "adw-1-7")]
+    let shape_buttons_box = {
+        let toggle_group = adw::ToggleGroup::new();
+        toggle_group.add(adw::Toggle::builder().label(i18n("Block")).build());
+        toggle_group.add(adw::Toggle::builder().label(i18n("IBeam")).build());
+        toggle_group.add(adw::Toggle::builder().label(i18n("Underline")).build());
+        toggle_group.set_active(0);
 
-    let shape_block_btn = ToggleButton::builder()
-        .label(i18n("Block"))
-        .active(true)
-        .hexpand(true)
-        .build();
-    let shape_ibeam_btn = ToggleButton::builder()
-        .label(i18n("IBeam"))
-        .group(&shape_block_btn)
-        .hexpand(true)
-        .build();
-    let shape_underline_btn = ToggleButton::builder()
-        .label(i18n("Underline"))
-        .group(&shape_block_btn)
-        .hexpand(true)
-        .build();
+        // Use GtkBox as the suffix container holding the ToggleGroup
+        let wrapper = GtkBox::new(Orientation::Horizontal, 0);
+        wrapper.set_valign(gtk4::Align::Center);
+        wrapper.set_widget_name("cursor-shape-toggle-group");
+        wrapper.append(&toggle_group);
 
-    shape_buttons_box.append(&shape_block_btn);
-    shape_buttons_box.append(&shape_ibeam_btn);
-    shape_buttons_box.append(&shape_underline_btn);
+        let cursor_shape_row = adw::ActionRow::builder().title(i18n("Shape")).build();
+        cursor_shape_row.add_suffix(&wrapper);
+        cursor_group.add(&cursor_shape_row);
 
-    let cursor_shape_row = adw::ActionRow::builder().title(i18n("Shape")).build();
-    cursor_shape_row.add_suffix(&shape_buttons_box);
-    cursor_group.add(&cursor_shape_row);
+        wrapper
+    };
 
-    // Cursor blink - toggle buttons
-    let blink_buttons_box = GtkBox::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(0)
-        .valign(gtk4::Align::Center)
-        .css_classes(["linked"])
-        .width_request(240)
-        .build();
+    #[cfg(not(feature = "adw-1-7"))]
+    let shape_buttons_box = {
+        let buttons_box = GtkBox::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(0)
+            .valign(gtk4::Align::Center)
+            .css_classes(["linked"])
+            .width_request(240)
+            .build();
 
-    let blink_on_btn = ToggleButton::builder()
-        .label(i18n("On"))
-        .active(true)
-        .hexpand(true)
-        .build();
-    let blink_off_btn = ToggleButton::builder()
-        .label(i18n("Off"))
-        .group(&blink_on_btn)
-        .hexpand(true)
-        .build();
-    let blink_system_btn = ToggleButton::builder()
-        .label(i18n("System"))
-        .group(&blink_on_btn)
-        .hexpand(true)
-        .build();
+        let shape_block_btn = ToggleButton::builder()
+            .label(i18n("Block"))
+            .active(true)
+            .hexpand(true)
+            .build();
+        let shape_ibeam_btn = ToggleButton::builder()
+            .label(i18n("IBeam"))
+            .group(&shape_block_btn)
+            .hexpand(true)
+            .build();
+        let shape_underline_btn = ToggleButton::builder()
+            .label(i18n("Underline"))
+            .group(&shape_block_btn)
+            .hexpand(true)
+            .build();
 
-    blink_buttons_box.append(&blink_on_btn);
-    blink_buttons_box.append(&blink_off_btn);
-    blink_buttons_box.append(&blink_system_btn);
+        buttons_box.append(&shape_block_btn);
+        buttons_box.append(&shape_ibeam_btn);
+        buttons_box.append(&shape_underline_btn);
 
-    let cursor_blink_row = adw::ActionRow::builder().title(i18n("Blink")).build();
-    cursor_blink_row.add_suffix(&blink_buttons_box);
-    cursor_group.add(&cursor_blink_row);
+        let cursor_shape_row = adw::ActionRow::builder().title(i18n("Shape")).build();
+        cursor_shape_row.add_suffix(&buttons_box);
+        cursor_group.add(&cursor_shape_row);
+
+        buttons_box
+    };
+
+    // Cursor blink
+    #[cfg(feature = "adw-1-7")]
+    let blink_buttons_box = {
+        let toggle_group = adw::ToggleGroup::new();
+        toggle_group.add(adw::Toggle::builder().label(i18n("On")).build());
+        toggle_group.add(adw::Toggle::builder().label(i18n("Off")).build());
+        toggle_group.add(adw::Toggle::builder().label(i18n("System")).build());
+        toggle_group.set_active(0);
+
+        // Use GtkBox as the suffix container holding the ToggleGroup
+        let wrapper = GtkBox::new(Orientation::Horizontal, 0);
+        wrapper.set_valign(gtk4::Align::Center);
+        wrapper.set_widget_name("cursor-blink-toggle-group");
+        wrapper.append(&toggle_group);
+
+        let cursor_blink_row = adw::ActionRow::builder().title(i18n("Blink")).build();
+        cursor_blink_row.add_suffix(&wrapper);
+        cursor_group.add(&cursor_blink_row);
+
+        wrapper
+    };
+
+    #[cfg(not(feature = "adw-1-7"))]
+    let blink_buttons_box = {
+        let buttons_box = GtkBox::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(0)
+            .valign(gtk4::Align::Center)
+            .css_classes(["linked"])
+            .width_request(240)
+            .build();
+
+        let blink_on_btn = ToggleButton::builder()
+            .label(i18n("On"))
+            .active(true)
+            .hexpand(true)
+            .build();
+        let blink_off_btn = ToggleButton::builder()
+            .label(i18n("Off"))
+            .group(&blink_on_btn)
+            .hexpand(true)
+            .build();
+        let blink_system_btn = ToggleButton::builder()
+            .label(i18n("System"))
+            .group(&blink_on_btn)
+            .hexpand(true)
+            .build();
+
+        buttons_box.append(&blink_on_btn);
+        buttons_box.append(&blink_off_btn);
+        buttons_box.append(&blink_system_btn);
+
+        let cursor_blink_row = adw::ActionRow::builder().title(i18n("Blink")).build();
+        cursor_blink_row.add_suffix(&buttons_box);
+        cursor_group.add(&cursor_blink_row);
+
+        buttons_box
+    };
 
     page.add(&cursor_group);
 
@@ -453,27 +505,23 @@ pub fn load_terminal_settings(
         color_theme_dropdown.set_selected(index as u32);
     }
 
-    // Set cursor shape via toggle buttons
+    // Set cursor shape
     let cursor_shape_index = match settings.cursor_shape.as_str() {
         "Block" => 0,
         "IBeam" => 1,
         "Underline" => 2,
         _ => 0,
     };
-    if let Some(btn) = get_toggle_button_at_index(cursor_shape_buttons, cursor_shape_index) {
-        btn.set_active(true);
-    }
+    set_toggle_index(cursor_shape_buttons, cursor_shape_index);
 
-    // Set cursor blink via toggle buttons
+    // Set cursor blink
     let cursor_blink_index = match settings.cursor_blink.as_str() {
         "On" => 0,
         "Off" => 1,
         "System" => 2,
         _ => 0,
     };
-    if let Some(btn) = get_toggle_button_at_index(cursor_blink_buttons, cursor_blink_index) {
-        btn.set_active(true);
-    }
+    set_toggle_index(cursor_blink_buttons, cursor_blink_index);
 
     scroll_on_output_row.set_active(settings.scroll_on_output);
     scroll_on_keystroke_row.set_active(settings.scroll_on_keystroke);
@@ -484,6 +532,54 @@ pub fn load_terminal_settings(
     copy_on_select_row.set_active(settings.copy_on_select);
     show_scrollbar_row.set_active(settings.show_scrollbar);
     local_shell_command_entry.set_text(&settings.local_shell_command);
+}
+
+/// Sets the active toggle index.
+///
+/// On adw-1-7+ the wrapper `GtkBox` holds an `AdwToggleGroup` child as a
+/// reference. On older libadwaita the `GtkBox` contains linked `ToggleButton`s.
+fn set_toggle_index(button_box: &GtkBox, index: usize) {
+    #[cfg(feature = "adw-1-7")]
+    {
+        if let Some(toggle_group) = find_toggle_group_in_box(button_box) {
+            toggle_group.set_active(index as u32);
+            return;
+        }
+        // Fallback to legacy ToggleButton approach
+        if let Some(btn) = get_toggle_button_at_index(button_box, index) {
+            btn.set_active(true);
+        }
+    }
+    #[cfg(not(feature = "adw-1-7"))]
+    {
+        if let Some(btn) = get_toggle_button_at_index(button_box, index) {
+            btn.set_active(true);
+        }
+    }
+}
+
+/// Gets the active toggle index.
+///
+/// See [`set_toggle_index`] for the dual-path logic.
+fn get_toggle_index(button_box: &GtkBox) -> usize {
+    #[cfg(feature = "adw-1-7")]
+    {
+        if let Some(toggle_group) = find_toggle_group_in_box(button_box) {
+            return toggle_group.active() as usize;
+        }
+        get_active_toggle_index(button_box)
+    }
+    #[cfg(not(feature = "adw-1-7"))]
+    {
+        get_active_toggle_index(button_box)
+    }
+}
+
+/// Finds the `AdwToggleGroup` stored as a child of the marker `GtkBox`.
+#[cfg(feature = "adw-1-7")]
+fn find_toggle_group_in_box(marker: &GtkBox) -> Option<adw::ToggleGroup> {
+    let child = marker.first_child()?;
+    child.downcast::<adw::ToggleGroup>().ok()
 }
 
 /// Gets the toggle button at a specific index in a button box
@@ -544,13 +640,13 @@ pub fn collect_terminal_settings(
 
     let cursor_shapes = ["Block", "IBeam", "Underline"];
     let cursor_shape = cursor_shapes
-        .get(get_active_toggle_index(cursor_shape_buttons))
+        .get(get_toggle_index(cursor_shape_buttons))
         .unwrap_or(&"Block")
         .to_string();
 
     let cursor_blink_modes = ["On", "Off", "System"];
     let cursor_blink_mode = cursor_blink_modes
-        .get(get_active_toggle_index(cursor_blink_buttons))
+        .get(get_toggle_index(cursor_blink_buttons))
         .unwrap_or(&"On")
         .to_string();
 

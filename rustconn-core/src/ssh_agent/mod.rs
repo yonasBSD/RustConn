@@ -510,21 +510,21 @@ impl SshAgentManager {
             use secrecy::ExposeSecret;
             use zeroize::Zeroizing;
 
-            // Write a temporary SSH_ASKPASS helper script that echoes the passphrase.
-            // SSH_ASKPASS_REQUIRE=force tells ssh-add to use the helper even without
-            // a terminal, avoiding the need for a PTY/expect library.
+            // SEC-2: Pass the passphrase via an environment variable instead of
+            // writing it to a temp file. On CoW filesystems (btrfs, APFS) overwriting
+            // with zeros is unreliable — the original data persists in old extents.
+            //
+            // The SSH_ASKPASS script only references the env var by name; the actual
+            // secret lives solely in the child process's memory and is never written
+            // to disk. The env var is not visible in /proc/<pid>/cmdline.
             let script_dir =
                 std::env::temp_dir().join(format!("rustconn-askpass-{}", uuid::Uuid::new_v4()));
             std::fs::create_dir_all(&script_dir)
                 .map_err(|e| AgentError::AddKeyFailed(format!("mkdir askpass: {e}")))?;
             let script_path = script_dir.join("askpass.sh");
 
-            // The script prints the passphrase to stdout.
-            // Single-quotes are escaped to prevent shell injection.
-            // Wrap intermediate in Zeroizing to ensure cleanup on drop.
-            let escaped = Zeroizing::new(pass.expose_secret().replace('\'', "'\\''"));
-            let script_content =
-                Zeroizing::new(format!("#!/bin/sh\nprintf '%s\\n' '{}'", escaped.as_str()));
+            // The script reads the passphrase from an env var — no secret on disk.
+            let script_content = "#!/bin/sh\nprintf '%s\\n' \"$RUSTCONN_ASKPASS_SECRET\"\n";
             std::fs::write(&script_path, script_content.as_bytes())
                 .map_err(|e| AgentError::AddKeyFailed(format!("write askpass: {e}")))?;
 
@@ -541,24 +541,19 @@ impl SshAgentManager {
                 .env("SSH_ASKPASS", &script_path)
                 .env("SSH_ASKPASS_REQUIRE", "force")
                 .env("DISPLAY", ":0")
+                // Pass the passphrase via env var — never touches disk.
+                // Wrap in Zeroizing so the String is zeroed when dropped.
+                .env(
+                    "RUSTCONN_ASKPASS_SECRET",
+                    Zeroizing::new(pass.expose_secret().to_string()).as_str(),
+                )
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .output()
                 .map_err(|e| AgentError::AddKeyFailed(e.to_string()));
 
-            // Zeroize the askpass script before removal to prevent recovery
-            if let Ok(metadata) = std::fs::metadata(&script_path) {
-                let size = metadata.len() as usize;
-                if let Ok(mut f) = std::fs::OpenOptions::new().write(true).open(&script_path) {
-                    use std::io::Write;
-                    let zeros = vec![0u8; size];
-                    let _ = f.write_all(&zeros);
-                    let _ = f.sync_all();
-                }
-            }
-
-            // Always clean up the temporary script
+            // Clean up the helper script (contains no secrets, just env var reference)
             let _ = std::fs::remove_dir_all(&script_dir);
 
             let output = output?;
