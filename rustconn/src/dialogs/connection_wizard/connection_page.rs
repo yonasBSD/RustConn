@@ -20,11 +20,11 @@ pub struct ConnectionPage {
     pub page: adw::NavigationPage,
     state: SharedAppState,
     // Shared widgets
-    name_row: adw::EntryRow,
-    host_row: adw::EntryRow,
-    port_row: adw::SpinRow,
-    username_row: adw::EntryRow,
-    domain_row: adw::EntryRow,
+    pub(super) name_row: adw::EntryRow,
+    pub(super) host_row: adw::EntryRow,
+    pub(super) port_row: adw::SpinRow,
+    pub(super) username_row: adw::EntryRow,
+    pub(super) domain_row: adw::EntryRow,
     jump_host_row: adw::ComboRow,
     // Serial-specific
     device_row: adw::EntryRow,

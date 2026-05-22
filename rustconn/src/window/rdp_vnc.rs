@@ -464,6 +464,13 @@ fn start_embedded_rdp_session(
     // Create embedded RDP widget
     let embedded_widget = EmbeddedRdpWidget::new();
 
+    // Populate scripts menu with user-defined Windows-compatible snippets
+    {
+        let state_ref = state.borrow();
+        let user_snippets = state_ref.list_snippets();
+        embedded_widget.update_scripts_menu(&user_snippets);
+    }
+
     // We'll connect after the widget is realized to get actual size
     // For now, create config with placeholder resolution
     let mut embedded_config = EmbeddedRdpConfig::new(host)

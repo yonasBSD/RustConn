@@ -221,6 +221,35 @@ pub struct EmbeddedRdpWidget {
     file_dnd_circuit_breaker: Rc<RefCell<file_dnd::FileDndCircuitBreaker>>,
     /// Toast overlay for file DnD notifications (set via `set_toast_overlay`)
     toast_overlay: Rc<RefCell<Option<libadwaita::ToastOverlay>>>,
+    /// Scripts dropdown button (kept for dynamic menu updates with user snippets)
+    scripts_button: gtk4::MenuButton,
+}
+
+/// String extraction for xgettext — labels defined in `rustconn-core` as
+/// `&'static str` constants that are passed to `i18n()` at runtime.
+/// xgettext cannot extract them from the loop, so we list them here as literals.
+/// This function is never called; it exists solely for `po/update-pot.sh`.
+#[allow(dead_code, unreachable_code)]
+fn _extract_builtin_labels() {
+    return;
+    // Quick Actions labels
+    i18n("Task Manager");
+    i18n("Settings");
+    i18n("PowerShell");
+    i18n("CMD");
+    i18n("Event Viewer");
+    i18n("Services");
+    i18n("Disk Management");
+    i18n("Resource Monitor");
+    i18n("Computer Management");
+    // Built-in Windows Scripts labels
+    i18n("Clear Temp Files");
+    i18n("IIS Log Rotation");
+    i18n("System Info");
+    // Built-in section header
+    i18n("Built-in");
+    // Snippets section header
+    i18n("Snippets");
 }
 
 impl EmbeddedRdpWidget {
@@ -259,19 +288,30 @@ impl EmbeddedRdpWidget {
         paste_button.set_tooltip_text(Some(&i18n("Paste from local clipboard to remote session")));
         toolbar.append(&paste_button);
 
-        // Autotype: Type Clipboard button - sends clipboard as keystrokes
-        let type_clipboard_button = Button::with_label(&i18n("Type Clipboard"));
-        type_clipboard_button.set_tooltip_text(Some(&i18n(
-            "Send clipboard contents as keystrokes (bypasses paste restrictions)",
+        // Autotype dropdown — consolidates "Type Clipboard" and "Type Text…" (GNOME HIG)
+        let autotype_button = gtk4::MenuButton::new();
+        autotype_button.set_label(&i18n("Autotype"));
+        autotype_button.set_tooltip_text(Some(&i18n(
+            "Send text as keystrokes (bypasses paste restrictions)",
         )));
-        toolbar.append(&type_clipboard_button);
+        autotype_button.add_css_class("flat");
+        autotype_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Autotype"))]);
+        {
+            let menu = gtk4::gio::Menu::new();
+            menu.append(
+                Some(&i18n("Type Clipboard")),
+                Some("rdp-autotype.type-clipboard"),
+            );
+            menu.append(Some(&i18n("Type Text…")), Some("rdp-autotype.type-text"));
+            autotype_button.set_menu_model(Some(&menu));
+        }
+        toolbar.append(&autotype_button);
 
-        // Autotype: Type Text button - opens dialog for ad-hoc text input
-        let type_text_button = Button::with_label(&i18n("Type Text…"));
-        type_text_button.set_tooltip_text(Some(&i18n(
-            "Type custom text as keystrokes into remote session",
-        )));
-        toolbar.append(&type_text_button);
+        // Hidden buttons for autotype actions (signal handlers attached later)
+        let type_clipboard_button = Button::new();
+        type_clipboard_button.set_visible(false);
+        let type_text_button = Button::new();
+        type_text_button.set_visible(false);
 
         // Separator
         let separator = gtk4::Separator::new(Orientation::Vertical);
@@ -313,6 +353,8 @@ impl EmbeddedRdpWidget {
             "Run script on remote",
         ))]);
         {
+            // Initially populate with built-in scripts only;
+            // user snippets are added later via update_scripts_menu()
             let menu = gtk4::gio::Menu::new();
             for snippet in rustconn_core::BUILTIN_WINDOWS_SNIPPETS {
                 menu.append(
@@ -448,6 +490,7 @@ impl EmbeddedRdpWidget {
             jiggler_timer: Rc::new(RefCell::new(None)),
             file_dnd_circuit_breaker: Rc::new(RefCell::new(file_dnd::FileDndCircuitBreaker::new())),
             toast_overlay: Rc::new(RefCell::new(None)),
+            scripts_button: scripts_button.clone(),
         };
 
         widget.setup_drawing();
@@ -459,6 +502,7 @@ impl EmbeddedRdpWidget {
         widget.setup_autotype_clipboard_button(&type_clipboard_button);
         #[cfg(feature = "rdp-embedded")]
         widget.setup_autotype_dialog_button(&type_text_button);
+        widget.setup_autotype_actions(&type_clipboard_button, &type_text_button);
         widget.setup_quick_actions();
         widget.setup_script_actions();
         widget.setup_reconnect_button();
@@ -580,6 +624,177 @@ impl EmbeddedRdpWidget {
         *self.toast_overlay.borrow_mut() = Some(overlay);
     }
 
+    /// Updates the Scripts dropdown menu with user-defined Windows-compatible snippets.
+    ///
+    /// Called after the widget is created, when the application state is available.
+    /// Rebuilds the menu to include both built-in scripts and user snippets that
+    /// have `target == Windows` or `target == Any`.
+    pub fn update_scripts_menu(&self, user_snippets: &[&rustconn_core::models::Snippet]) {
+        use gtk4::gio;
+
+        let menu = gio::Menu::new();
+
+        // Built-in scripts section
+        let builtin_section = gio::Menu::new();
+        for snippet in rustconn_core::BUILTIN_WINDOWS_SNIPPETS {
+            builtin_section.append(
+                Some(&i18n(snippet.label)),
+                Some(&format!("rdp-script.{}", snippet.id)),
+            );
+        }
+        menu.append_section(Some(&i18n("Built-in")), &builtin_section);
+
+        // User snippets section (only Windows-compatible ones)
+        let windows_snippets: Vec<&rustconn_core::models::Snippet> = user_snippets
+            .iter()
+            .filter(|s| s.target.is_windows_compatible())
+            .copied()
+            .collect();
+
+        if !windows_snippets.is_empty() {
+            let user_section = gio::Menu::new();
+            for snippet in &windows_snippets {
+                user_section.append(
+                    Some(&snippet.name),
+                    Some(&format!("rdp-user-script.{}", snippet.id)),
+                );
+            }
+            menu.append_section(Some(&i18n("Snippets")), &user_section);
+
+            // Register actions for user snippets
+            self.register_user_script_actions(&windows_snippets);
+        }
+
+        self.scripts_button.set_menu_model(Some(&menu));
+    }
+
+    /// Registers GIO actions for user-defined Windows snippets.
+    ///
+    /// Each snippet gets an action `rdp-user-script.<uuid>` that executes
+    /// the snippet command via the clipboard+paste workflow.
+    fn register_user_script_actions(&self, snippets: &[&rustconn_core::models::Snippet]) {
+        use gtk4::gio;
+
+        let action_group = gio::SimpleActionGroup::new();
+
+        for snippet in snippets {
+            let action_name = snippet.id.to_string();
+            let action = gio::SimpleAction::new(&action_name, None);
+
+            #[cfg(feature = "rdp-embedded")]
+            {
+                let tx = self.ironrdp_command_tx.clone();
+                let script_text = snippet.command.clone();
+                let snippet_name = snippet.name.clone();
+                let status_label = self.status_label.clone();
+
+                action.connect_activate(move |_, _| {
+                    let Some(ref sender) = *tx.borrow() else {
+                        return;
+                    };
+
+                    let config = rustconn_core::ScriptExecutionConfig::default();
+
+                    // Step 1: Send script text to server clipboard
+                    if let Err(e) = sender.send(
+                        rustconn_core::RdpClientCommand::ClipboardText(script_text.clone()),
+                    ) {
+                        tracing::warn!(
+                            protocol = "rdp",
+                            snippet = %snippet_name,
+                            error = %e,
+                            "User script execution aborted: CLIPRDR channel not ready"
+                        );
+                        status_label.set_text(&i18n("Clipboard channel not ready"));
+                        status_label.set_visible(true);
+                        let hide = status_label.clone();
+                        glib::timeout_add_local_once(
+                            std::time::Duration::from_secs(3),
+                            move || {
+                                hide.set_visible(false);
+                            },
+                        );
+                        return;
+                    }
+
+                    tracing::info!(
+                        protocol = "rdp",
+                        snippet = %snippet_name,
+                        "User script execution: clipboard set"
+                    );
+
+                    // Step 2: After clipboard settles, open PowerShell via Win+R
+                    let tx_step2 = tx.clone();
+                    let status = status_label.clone();
+                    glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(u64::from(config.clipboard_settle_ms)),
+                        move || {
+                            let Some(ref sender) = *tx_step2.borrow() else {
+                                return;
+                            };
+
+                            let keys = rustconn_core::build_open_powershell_sequence();
+                            let _ = sender.send(
+                                rustconn_core::RdpClientCommand::SendKeySequence { keys },
+                            );
+
+                            // Step 3: After PowerShell starts, paste + enter
+                            let tx_step3 = tx_step2.clone();
+                            glib::timeout_add_local_once(
+                                std::time::Duration::from_millis(
+                                    u64::from(config.shell_startup_delay_ms),
+                                ),
+                                move || {
+                                    let Some(ref sender) = *tx_step3.borrow() else {
+                                        return;
+                                    };
+
+                                    let paste_keys = rustconn_core::build_paste_sequence();
+                                    let _ = sender.send(
+                                        rustconn_core::RdpClientCommand::SendKeySequence {
+                                            keys: paste_keys,
+                                        },
+                                    );
+
+                                    let tx_step4 = tx_step3.clone();
+                                    glib::timeout_add_local_once(
+                                        std::time::Duration::from_millis(150),
+                                        move || {
+                                            if let Some(ref sender) = *tx_step4.borrow() {
+                                                let enter_keys =
+                                                    rustconn_core::build_enter_sequence();
+                                                let _ = sender.send(
+                                                    rustconn_core::RdpClientCommand::SendKeySequence {
+                                                        keys: enter_keys,
+                                                    },
+                                                );
+                                            }
+                                        },
+                                    );
+                                },
+                            );
+
+                            status.set_text(&i18n("Script sent"));
+                            status.set_visible(true);
+                            let hide = status.clone();
+                            glib::timeout_add_local_once(
+                                std::time::Duration::from_secs(3),
+                                move || {
+                                    hide.set_visible(false);
+                                },
+                            );
+                        },
+                    );
+                });
+            }
+
+            action_group.add_action(&action);
+        }
+
+        self.container
+            .insert_action_group("rdp-user-script", Some(&action_group));
+    }
+
     /// Sets up visibility handler to redraw when widget becomes visible again
     /// This fixes the issue where the image disappears when switching tabs
     fn setup_visibility_handler(&self) {
@@ -600,6 +815,34 @@ impl EmbeddedRdpWidget {
                 callback();
             }
         });
+    }
+
+    /// Registers GIO actions for the Autotype dropdown menu.
+    ///
+    /// Maps `rdp-autotype.type-clipboard` and `rdp-autotype.type-text` actions
+    /// to programmatic clicks on the hidden autotype buttons (which have their
+    /// signal handlers already connected via `setup_autotype_*_button`).
+    fn setup_autotype_actions(&self, type_clipboard_btn: &Button, type_text_btn: &Button) {
+        use gtk4::gio;
+
+        let action_group = gio::SimpleActionGroup::new();
+
+        let clipboard_action = gio::SimpleAction::new("type-clipboard", None);
+        let btn = type_clipboard_btn.clone();
+        clipboard_action.connect_activate(move |_, _| {
+            btn.emit_clicked();
+        });
+        action_group.add_action(&clipboard_action);
+
+        let text_action = gio::SimpleAction::new("type-text", None);
+        let btn = type_text_btn.clone();
+        text_action.connect_activate(move |_, _| {
+            btn.emit_clicked();
+        });
+        action_group.add_action(&text_action);
+
+        self.container
+            .insert_action_group("rdp-autotype", Some(&action_group));
     }
 
     /// Sets up the Windows admin quick actions menu.

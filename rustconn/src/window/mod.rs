@@ -1762,7 +1762,7 @@ impl MainWindow {
 
         let partial = PartialConnection::from_connection(&conn);
         let wizard = ConnectionWizard::new(state.clone());
-        // TODO: pre-fill wizard pages from partial (requires ConnectionWizard::set_partial)
+        wizard.set_partial(&partial);
 
         let state_for_cb = state.clone();
         let sidebar_for_cb = sidebar.clone();

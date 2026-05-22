@@ -1750,26 +1750,33 @@ impl ConnectionDialog {
 
     /// Creates the view stack widget and adds it to the dialog with adaptive switcher.
     ///
-    /// Uses an `adw::Breakpoint` to reveal the `ViewSwitcherBar` at the bottom
-    /// on narrow screens (<500sp). On wide screens the bar is always visible
-    /// since `adw::Dialog` has limited header space for a full switcher.
+    /// Uses an `adw::Breakpoint` to switch between a `ViewSwitcher` in the
+    /// header bar (wide screens) and a `ViewSwitcherBar` at the bottom
+    /// (narrow screens <500sp), following GNOME HIG adaptive patterns.
     fn create_view_stack(dialog: &adw::Dialog, header: &adw::HeaderBar) -> adw::ViewStack {
         let view_stack = adw::ViewStack::new();
 
-        // Bottom bar switcher (always visible, but breakpoint can adjust layout)
+        // ViewSwitcher in header bar for wide screens (GNOME HIG)
+        let view_switcher = adw::ViewSwitcher::builder()
+            .stack(&view_stack)
+            .policy(adw::ViewSwitcherPolicy::Wide)
+            .build();
+        header.set_title_widget(Some(&view_switcher));
+
+        // Bottom bar switcher for narrow screens (hidden by default on wide)
         let view_switcher_bar = adw::ViewSwitcherBar::builder()
             .stack(&view_stack)
-            .reveal(true)
+            .reveal(false)
             .build();
 
-        // Breakpoint: narrow (<500sp) → ensure bar stays revealed
-        // (future-proofing for when we might hide it on wide screens)
+        // Breakpoint: narrow (<500sp) → hide header switcher, show bottom bar
         let breakpoint = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
             adw::BreakpointConditionLengthType::MaxWidth,
             500.0,
             adw::LengthUnit::Sp,
         ));
         breakpoint.add_setter(&view_switcher_bar, "reveal", Some(&true.to_value()));
+        breakpoint.add_setter(&view_switcher, "visible", Some(&false.to_value()));
         dialog.add_breakpoint(breakpoint);
 
         // Each tab provides its own ScrolledWindow, so the ViewStack sits

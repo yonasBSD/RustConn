@@ -737,6 +737,45 @@ impl ConnectionWizard {
         conn
     }
 
+    /// Pre-fill the wizard from a `PartialConnection` (e.g. "Duplicate via Wizard").
+    ///
+    /// Sets the protocol, navigates to the connection page (step 2), and
+    /// populates host/port/username/domain/name fields.
+    pub fn set_partial(&self, partial: &PartialConnection) {
+        let Some(protocol) = partial.protocol else {
+            return;
+        };
+
+        // Set selected protocol
+        *self.selected_protocol.borrow_mut() = Some(protocol);
+
+        // Configure connection page for this protocol
+        self.connection_page.configure_for_protocol(protocol);
+
+        // Pre-fill connection page fields
+        if let Some(ref name) = partial.name {
+            self.connection_page.name_row.set_text(name);
+        }
+        if let Some(ref host) = partial.host {
+            self.connection_page.host_row.set_text(host);
+        }
+        if let Some(port) = partial.port {
+            self.connection_page.port_row.set_value(f64::from(port));
+        }
+        if let Some(ref username) = partial.username {
+            self.connection_page.username_row.set_text(username);
+        }
+        if let Some(ref domain) = partial.domain {
+            self.connection_page.domain_row.set_text(domain);
+        }
+
+        // Navigate directly to connection page (skip protocol selection)
+        self.nav_view.push(&self.connection_page.page);
+
+        // Update dialog title to indicate duplication
+        self.dialog.set_title(&i18n("Duplicate Connection"));
+    }
+
     /// Present the wizard dialog
     pub fn present(&self, parent: &impl IsA<gtk4::Widget>) {
         self.dialog.present(Some(parent));

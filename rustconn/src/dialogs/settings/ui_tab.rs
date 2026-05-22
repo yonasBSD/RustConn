@@ -40,9 +40,9 @@ pub fn create_ui_page() -> (
     #[cfg(feature = "adw-1-7")]
     let color_scheme_box = {
         let toggle_group = adw::ToggleGroup::new();
-        toggle_group.toggle(&adw::Toggle::builder().label(i18n("System")).build());
-        toggle_group.toggle(&adw::Toggle::builder().label(i18n("Light")).build());
-        toggle_group.toggle(&adw::Toggle::builder().label(i18n("Dark")).build());
+        toggle_group.add(adw::Toggle::builder().label(i18n("System")).build());
+        toggle_group.add(adw::Toggle::builder().label(i18n("Light")).build());
+        toggle_group.add(adw::Toggle::builder().label(i18n("Dark")).build());
         toggle_group.set_active(0);
 
         toggle_group.connect_active_notify(|tg| {
@@ -70,30 +70,57 @@ pub fn create_ui_page() -> (
 
     #[cfg(not(feature = "adw-1-7"))]
     let color_scheme_box = {
-        let items = StringList::new(&[&i18n("System"), &i18n("Light"), &i18n("Dark")]);
-        let combo = adw::ComboRow::builder()
-            .title(i18n("Theme"))
-            .model(&items)
-            .selected(0)
+        let buttons_box = GtkBox::builder()
+            .orientation(gtk4::Orientation::Horizontal)
+            .spacing(0)
+            .valign(gtk4::Align::Center)
+            .css_classes(["linked"])
             .build();
 
-        combo.connect_selected_notify(|row| {
-            let scheme = match row.selected() {
-                1 => ColorScheme::Light,
-                2 => ColorScheme::Dark,
-                _ => ColorScheme::System,
-            };
-            crate::app::apply_color_scheme(scheme);
+        let system_btn = gtk4::ToggleButton::builder()
+            .label(i18n("System"))
+            .active(true)
+            .hexpand(true)
+            .build();
+        let light_btn = gtk4::ToggleButton::builder()
+            .label(i18n("Light"))
+            .group(&system_btn)
+            .hexpand(true)
+            .build();
+        let dark_btn = gtk4::ToggleButton::builder()
+            .label(i18n("Dark"))
+            .group(&system_btn)
+            .hexpand(true)
+            .build();
+
+        buttons_box.append(&system_btn);
+        buttons_box.append(&light_btn);
+        buttons_box.append(&dark_btn);
+
+        // Apply color scheme on toggle change
+        let system_btn_c = system_btn.clone();
+        let light_btn_c = light_btn.clone();
+        system_btn_c.connect_toggled(move |btn| {
+            if btn.is_active() {
+                crate::app::apply_color_scheme(ColorScheme::System);
+            }
+        });
+        light_btn_c.connect_toggled(move |btn| {
+            if btn.is_active() {
+                crate::app::apply_color_scheme(ColorScheme::Light);
+            }
+        });
+        dark_btn.connect_toggled(move |btn| {
+            if btn.is_active() {
+                crate::app::apply_color_scheme(ColorScheme::Dark);
+            }
         });
 
-        appearance_group.add(&combo);
+        let color_scheme_row = adw::ActionRow::builder().title(i18n("Theme")).build();
+        color_scheme_row.add_suffix(&buttons_box);
+        appearance_group.add(&color_scheme_row);
 
-        // Return the ComboRow wrapped in a GtkBox (not parented elsewhere)
-        // for load/collect to find via first_child()
-        let wrapper = GtkBox::new(gtk4::Orientation::Horizontal, 0);
-        wrapper.set_visible(false);
-        wrapper.set_widget_name("color-scheme-combo-row");
-        wrapper
+        buttons_box
     };
 
     // Language selector dropdown
@@ -312,10 +339,28 @@ pub fn load_ui_settings(
         ColorScheme::Dark => 2,
     };
 
-    // Apply color scheme directly — the widget updates are handled by
-    // the PreferencesGroup internally (ToggleGroup or ComboRow)
-    let _ = target_index; // used below
-    let _ = color_scheme_box; // marker only, widget lives in appearance_group
+    // Set the color scheme toggle to the saved value
+    #[cfg(feature = "adw-1-7")]
+    {
+        let _ = target_index;
+        let _ = color_scheme_box; // marker only on adw-1-7
+    }
+    #[cfg(not(feature = "adw-1-7"))]
+    {
+        // The color_scheme_box is the linked ToggleButton container
+        let mut child = color_scheme_box.first_child();
+        let mut i = 0;
+        while let Some(widget) = child {
+            if i == target_index {
+                if let Ok(btn) = widget.downcast::<gtk4::ToggleButton>() {
+                    btn.set_active(true);
+                }
+                break;
+            }
+            child = widget.next_sibling();
+            i += 1;
+        }
+    }
     crate::app::apply_color_scheme(settings.color_scheme);
 
     // Set language dropdown to saved language

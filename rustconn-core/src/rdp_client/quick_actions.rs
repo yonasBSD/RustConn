@@ -253,8 +253,6 @@ const fn char_to_scancode(ch: char) -> Option<(u16, bool)> {
 pub struct ScriptExecutionConfig {
     /// Delay after setting clipboard before sending keys (ms)
     pub clipboard_settle_ms: u32,
-    /// Delay after opening Run dialog before typing (ms)
-    pub run_dialog_delay_ms: u32,
     /// Delay after launching PowerShell before paste (ms)
     pub shell_startup_delay_ms: u32,
 }
@@ -263,7 +261,6 @@ impl Default for ScriptExecutionConfig {
     fn default() -> Self {
         Self {
             clipboard_settle_ms: 200,
-            run_dialog_delay_ms: 300,
             shell_startup_delay_ms: 500,
         }
     }

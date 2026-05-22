@@ -53,10 +53,17 @@ pub fn show_edit_group_dialog(
     let view_stack = adw::ViewStack::new();
     view_stack.set_vexpand(true);
 
-    // Bottom switcher bar for tab navigation
+    // ViewSwitcher in header bar for wide screens (GNOME HIG)
+    let view_switcher = adw::ViewSwitcher::builder()
+        .stack(&view_stack)
+        .policy(adw::ViewSwitcherPolicy::Wide)
+        .build();
+    header.set_title_widget(Some(&view_switcher));
+
+    // Bottom switcher bar for narrow screens (fallback via breakpoint)
     let view_switcher_bar = adw::ViewSwitcherBar::builder()
         .stack(&view_stack)
-        .reveal(true)
+        .reveal(false)
         .build();
 
     // Layout: HeaderBar on top, ViewStack in center, ViewSwitcherBar at bottom
@@ -65,6 +72,16 @@ pub fn show_edit_group_dialog(
     toolbar_view.set_content(Some(&view_stack));
     toolbar_view.add_bottom_bar(&view_switcher_bar);
     group_dialog.set_child(Some(&toolbar_view));
+
+    // Breakpoint: narrow (<500sp) → hide header switcher, show bottom bar
+    let breakpoint = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
+        adw::BreakpointConditionLengthType::MaxWidth,
+        500.0,
+        adw::LengthUnit::Sp,
+    ));
+    breakpoint.add_setter(&view_switcher_bar, "reveal", Some(&true.to_value()));
+    breakpoint.add_setter(&view_switcher, "visible", Some(&false.to_value()));
+    group_dialog.add_breakpoint(breakpoint);
 
     // === Helper: create a scrollable page container ===
     let make_page_content = || -> gtk4::Box {

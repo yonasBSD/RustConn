@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **RDP Scripts** — new "Scripts" dropdown in the RDP toolbar lets you run PowerShell scripts on remote Windows machines via clipboard-paste; ships with 3 built-in scripts (Clear Temp Files, IIS Log Rotation, System Info) and supports configurable delays between steps
+- **RDP Scripts** — new "Scripts" dropdown in the RDP toolbar lets you run PowerShell scripts on remote Windows machines via clipboard-paste; ships with 3 built-in scripts (Clear Temp Files, IIS Log Rotation, System Info) and shows user-defined Windows-compatible snippets; uses timed delays between steps for reliability
 - **Snippet target platform** — snippets can now be marked as "Terminal", "Windows", or "Any"; the terminal context menu hides Windows-only snippets, and RDP sessions show only Windows-compatible ones
 
 ### Improved
