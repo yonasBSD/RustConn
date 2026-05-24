@@ -373,8 +373,8 @@ impl StepConnectionPage {
     pub fn bastion_connection(&self) -> Option<Connection> {
         // First check manual jump host override
         let jump_idx = self.jump_host_row.selected() as usize;
-        let jump_ids = self.jump_host_ids.borrow();
-        if let Some(Some(bastion_id)) = jump_ids.get(jump_idx) {
+        let jh_ids_ref = self.jump_host_ids.borrow();
+        if let Some(Some(bastion_id)) = jh_ids_ref.get(jump_idx) {
             let state_ref = self.state.borrow();
             return state_ref.get_connection(*bastion_id).cloned();
         }
@@ -534,8 +534,8 @@ impl StepConnectionPage {
     fn resolve_bastion_label(&self) -> Option<String> {
         // First check manual jump host override
         let jump_idx = self.jump_host_row.selected() as usize;
-        let jump_ids = self.jump_host_ids.borrow();
-        if let Some(Some(bastion_id)) = jump_ids.get(jump_idx) {
+        let jh_ids_ref = self.jump_host_ids.borrow();
+        if let Some(Some(bastion_id)) = jh_ids_ref.get(jump_idx) {
             let state_ref = self.state.borrow();
             if let Some(bastion_conn) = state_ref.get_connection(*bastion_id) {
                 return Some(format!("{} ({})", bastion_conn.name, bastion_conn.host));

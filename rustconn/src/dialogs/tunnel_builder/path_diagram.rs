@@ -140,25 +140,25 @@ impl TunnelPathDiagram {
         bastion_node.set_visible(false);
 
         // Create arrow labels
-        let arrow1 = gtk4::Label::builder()
+        let first_arrow = gtk4::Label::builder()
             .label("→")
             .css_classes(["tunnel-arrow"])
             .build();
         // Mark arrows as decorative for accessibility
-        arrow1.update_property(&[gtk4::accessible::Property::Label("")]);
+        first_arrow.update_property(&[gtk4::accessible::Property::Label("")]);
 
-        let arrow2 = gtk4::Label::builder()
+        let second_arrow = gtk4::Label::builder()
             .label("→")
             .css_classes(["tunnel-arrow"])
             .visible(false)
             .build();
-        arrow2.update_property(&[gtk4::accessible::Property::Label("")]);
+        second_arrow.update_property(&[gtk4::accessible::Property::Label("")]);
 
         // Assemble: localhost → (bastion →) target
         container.append(&localhost_node.frame);
-        container.append(&arrow1);
+        container.append(&first_arrow);
         container.append(&bastion_node.frame);
-        container.append(&arrow2);
+        container.append(&second_arrow);
         container.append(&target_node.frame);
 
         // Set accessible role for the container (image-like diagram)
@@ -168,7 +168,7 @@ impl TunnelPathDiagram {
         ))]);
 
         let nodes = vec![localhost_node, bastion_node, target_node];
-        let arrows = vec![arrow1, arrow2];
+        let arrows = vec![first_arrow, second_arrow];
 
         Self {
             container,

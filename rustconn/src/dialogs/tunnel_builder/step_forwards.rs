@@ -516,8 +516,8 @@ impl StepForwardsPage {
             let expander_c = expander.clone();
             let dir_c = direction_dropdown.clone();
             let lp_c = local_port_spin.clone();
-            let rh_c = remote_host_entry.clone();
-            let rp_c = remote_port_spin.clone();
+            let remote_host_c = remote_host_entry.clone();
+            let remote_port_c = remote_port_spin.clone();
             let rules_d = rules.clone();
             let diagram_d = diagram.clone();
             let bastion_d = bastion_host.clone();
@@ -532,9 +532,9 @@ impl StepForwardsPage {
                 };
                 #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
                 let lp = lp_c.value() as u16;
-                let rh = rh_c.text();
+                let rh = remote_host_c.text();
                 #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-                let rp = rp_c.value() as u16;
+                let rp = remote_port_c.value() as u16;
                 let title = if dir == "D" {
                     format!("D {lp} (SOCKS)")
                 } else {
