@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Issues
 
-- RemoteApp (RAIL) windows do not appear on Wayland sessions due to an upstream xfreerdp3 bug — RAIL app windows fail to create via XWayland (`xf_Pointer: Invalid appWindow`). Workaround: use an X11 session or full desktop RDP instead. ([FreeRDP#11292](https://github.com/FreeRDP/FreeRDP/issues/11292))
+- RemoteApp (RAIL) windows do not appear on Wayland sessions due to an upstream xfreerdp3 bug — RAIL app windows fail to create via XWayland (`xf_Pointer: Invalid appWindow`). Workaround: use an X11 session or full desktop RDP instead. ([FreeRDP#8071](https://github.com/FreeRDP/FreeRDP/issues/8071), [FreeRDP#12485](https://github.com/FreeRDP/FreeRDP/issues/12485))
 
 ## [0.14.8] - 2026-05-26
 
