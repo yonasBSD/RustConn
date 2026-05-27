@@ -49,32 +49,32 @@ pub fn create_kubernetes_options() -> KubernetesOptionsWidgets {
         .description(i18n("Connect to pod shell via kubectl exec"))
         .build();
 
-    let (kubeconfig_row, kubeconfig_entry) = EntryRowBuilder::new("Kubeconfig")
-        .subtitle("Path to kubeconfig file (default if empty)")
+    let (kubeconfig_row, kubeconfig_entry) = EntryRowBuilder::new(i18n("Kubeconfig"))
+        .subtitle(i18n("Path to kubeconfig file (default if empty)"))
         .placeholder("~/.kube/config")
         .build();
     connection_group.add(&kubeconfig_row);
 
-    let (context_row, context_entry) = EntryRowBuilder::new("Context")
-        .subtitle("Kubernetes context (current-context if empty)")
+    let (context_row, context_entry) = EntryRowBuilder::new(i18n("Context"))
+        .subtitle(i18n("Kubernetes context (current-context if empty)"))
         .placeholder("my-cluster")
         .build();
     connection_group.add(&context_row);
 
-    let (namespace_row, namespace_entry) = EntryRowBuilder::new("Namespace")
-        .subtitle("Target namespace (default if empty)")
+    let (namespace_row, namespace_entry) = EntryRowBuilder::new(i18n("Namespace"))
+        .subtitle(i18n("Target namespace (default if empty)"))
         .placeholder("default")
         .build();
     connection_group.add(&namespace_row);
 
-    let (pod_row, pod_entry) = EntryRowBuilder::new("Pod")
-        .subtitle("Pod name to exec into")
+    let (pod_row, pod_entry) = EntryRowBuilder::new(i18n("Pod"))
+        .subtitle(i18n("Pod name to exec into"))
         .placeholder("my-pod-abc123")
         .build();
     connection_group.add(&pod_row);
 
-    let (container_row, container_entry) = EntryRowBuilder::new("Container")
-        .subtitle("Container name (optional for single-container)")
+    let (container_row, container_entry) = EntryRowBuilder::new(i18n("Container"))
+        .subtitle(i18n("Container name (optional for single-container)"))
         .placeholder("app")
         .build();
     connection_group.add(&container_row);
@@ -107,8 +107,8 @@ pub fn create_kubernetes_options() -> KubernetesOptionsWidgets {
     busybox_row.add_suffix(&busybox_check);
     busybox_group.add(&busybox_row);
 
-    let (busybox_image_row, busybox_image_entry) = EntryRowBuilder::new("Image")
-        .subtitle("Container image for temporary pod")
+    let (busybox_image_row, busybox_image_entry) = EntryRowBuilder::new(i18n("Image"))
+        .subtitle(i18n("Container image for temporary pod"))
         .placeholder("busybox:latest")
         .build();
     busybox_image_entry.set_sensitive(false);
@@ -133,8 +133,8 @@ pub fn create_kubernetes_options() -> KubernetesOptionsWidgets {
         .title(i18n("Advanced"))
         .build();
 
-    let (custom_args_row, custom_args_entry) = EntryRowBuilder::new("Custom Arguments")
-        .subtitle("Additional kubectl arguments")
+    let (custom_args_row, custom_args_entry) = EntryRowBuilder::new(i18n("Custom Arguments"))
+        .subtitle(i18n("Additional kubectl arguments"))
         .placeholder("--request-timeout=30s")
         .build();
     advanced_group.add(&custom_args_row);

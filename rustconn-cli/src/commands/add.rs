@@ -114,6 +114,13 @@ pub struct AddParams<'a> {
 }
 
 /// Add connection command handler
+///
+/// # Errors
+///
+/// Returns:
+/// - [`CliError::Config`] when connections cannot be loaded or saved, or when
+///   the requested protocol / auth method / port combination is invalid
+/// - [`CliError::Group`] when `--group` is set and the group cannot be created
 #[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
 pub fn cmd_add(config_path: Option<&Path>, params: AddParams<'_>) -> Result<(), CliError> {
     let (protocol_type, default_port) = parse_protocol(params.protocol)?;

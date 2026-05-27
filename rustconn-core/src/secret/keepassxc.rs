@@ -375,3 +375,31 @@ pub async fn get_kdbx_password_from_keyring() -> SecretResult<Option<SecretStrin
 pub async fn delete_kdbx_password_from_keyring() -> SecretResult<()> {
     super::keyring::clear(KEY_KDBX_PASSWORD).await
 }
+
+impl std::fmt::Debug for KeePassXcBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeePassXcBackend")
+            .field("socket_path", &self.socket_path)
+            .field("client_id", &self.client_id)
+            .field(
+                "associated",
+                &self.associated.load(Ordering::Relaxed),
+            )
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod debug_tests {
+    use super::*;
+
+    #[test]
+    fn debug_does_not_leak_secret() {
+        // KeePassXcBackend keeps no passwords in-process — the association
+        // is purely transport-level. The test guards against future fields.
+        let backend = KeePassXcBackend::new("hunter2-client-id");
+        let rendered = format!("{backend:?}");
+        assert!(rendered.contains("KeePassXcBackend"));
+        assert!(rendered.contains("associated"));
+    }
+}

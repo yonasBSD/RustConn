@@ -9,6 +9,14 @@ use crate::error::CliError;
 use crate::util::create_config_manager;
 
 /// Export connections command handler
+///
+/// # Errors
+///
+/// Returns:
+/// - [`CliError::Config`] when connections, groups, or settings cannot be loaded
+/// - [`CliError::Export`] when the requested format does not support the
+///   selected options (`--csv-delimiter` / `--csv-fields` outside CSV) or the
+///   underlying exporter fails to write the output file
 pub fn cmd_export(
     config_path: Option<&Path>,
     format: ExportFormatArg,
@@ -177,6 +185,14 @@ fn export_connections(
 }
 
 /// Import connections command handler
+///
+/// # Errors
+///
+/// Returns:
+/// - [`CliError::Import`] when no file is provided (and `--auto` is off), the
+///   file does not exist, the format cannot be parsed, or no source files are
+///   found in `--auto` mode
+/// - [`CliError::Config`] when imported connections cannot be saved
 #[allow(clippy::too_many_lines)]
 pub fn cmd_import(
     config_path: Option<&Path>,

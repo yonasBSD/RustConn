@@ -8,6 +8,15 @@ use crate::error::CliError;
 use crate::util::{create_config_manager, find_connection};
 
 /// Open SFTP session for an SSH connection
+///
+/// # Errors
+///
+/// Returns:
+/// - [`CliError::Config`] when connections cannot be loaded
+/// - [`CliError::ConnectionNotFound`] when no connection matches `name`
+/// - [`CliError::Protocol`] when the connection is not an SSH connection
+/// - [`CliError::Connection`] when the SFTP client (sftp / Midnight Commander /
+///   GIO file manager) cannot be launched
 #[allow(clippy::too_many_lines)]
 pub fn cmd_sftp(
     config_path: Option<&Path>,

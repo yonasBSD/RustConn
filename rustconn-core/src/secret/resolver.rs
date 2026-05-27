@@ -1357,3 +1357,36 @@ mod tests {
         );
     }
 }
+
+
+impl std::fmt::Debug for CredentialResolver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CredentialResolver")
+            .field("preferred_backend", &self.settings.preferred_backend)
+            .field("kdbx_enabled", &self.settings.kdbx_enabled)
+            .field("kdbx_path_present", &self.settings.kdbx_path.is_some())
+            .field("enable_fallback", &self.settings.enable_fallback)
+            .field("secret_manager", &self.secret_manager)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod debug_tests {
+    use super::*;
+
+    #[test]
+    fn debug_does_not_leak_secret() {
+        // CredentialResolver wraps SecretManager + non-secret settings.
+        // Sentinel that future fields don't accidentally render secrets.
+        let manager = Arc::new(SecretManager::empty());
+        let resolver = CredentialResolver::new(manager, SecretSettings::default());
+        let rendered = format!("{resolver:?}");
+        assert!(rendered.contains("CredentialResolver"));
+        assert!(rendered.contains("preferred_backend"));
+        assert!(
+            !rendered.contains("password"),
+            "Debug must not render password field: {rendered}"
+        );
+    }
+}

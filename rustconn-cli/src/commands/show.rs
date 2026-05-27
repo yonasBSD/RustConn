@@ -9,6 +9,12 @@ use crate::error::CliError;
 use crate::util::{create_config_manager, find_connection};
 
 /// Show connection details command handler
+///
+/// # Errors
+///
+/// Returns:
+/// - [`CliError::Config`] when connections or groups cannot be loaded
+/// - [`CliError::ConnectionNotFound`] when no connection matches `name`
 #[allow(clippy::too_many_lines)]
 pub fn cmd_show(
     config_path: Option<&Path>,

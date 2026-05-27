@@ -1388,3 +1388,36 @@ pub async fn auto_unlock(
 fn base64_encode(data: &[u8]) -> String {
     data_encoding::BASE64.encode(data)
 }
+
+impl std::fmt::Debug for BitwardenBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BitwardenBackend")
+            // Never log the actual session key — only its presence.
+            .field("session_present", &self.session_key.is_some())
+            .field("server_url", &self.server_url)
+            .field("organization_id", &self.organization_id)
+            .field("folder_name", &self.folder_name)
+            .field("bw_cmd", &self.bw_cmd)
+            .finish_non_exhaustive()
+    }
+}
+
+#[cfg(test)]
+mod debug_tests {
+    use super::*;
+
+    #[test]
+    fn debug_does_not_leak_secret() {
+        let session = SecretString::from("hunter2-bw-session".to_string());
+        let backend = BitwardenBackend::with_session(session)
+            .with_server_url("https://vault.example.org")
+            .with_organization("org-hunter2");
+        let rendered = format!("{backend:?}");
+        assert!(
+            !rendered.contains("hunter2-bw-session"),
+            "Debug leaked the session key: {rendered}"
+        );
+        assert!(rendered.contains("BitwardenBackend"));
+        assert!(rendered.contains("session_present"));
+    }
+}

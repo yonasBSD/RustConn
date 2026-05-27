@@ -98,8 +98,8 @@ impl ClusterDialog {
             .build();
 
         // Name entry row using builder
-        let (name_row, name_entry) = super::widgets::EntryRowBuilder::new("Name")
-            .placeholder("Enter cluster name")
+        let (name_row, name_entry) = super::widgets::EntryRowBuilder::new(i18n("Name"))
+            .placeholder(i18n("Enter cluster name"))
             .build();
         name_row.set_activatable_widget(Some(&name_entry));
         details_group.add(&name_row);

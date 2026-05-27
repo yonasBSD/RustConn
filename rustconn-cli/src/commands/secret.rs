@@ -14,6 +14,14 @@ fn create_pass_backend(
 }
 
 /// Secret command handler
+///
+/// # Errors
+///
+/// Returns:
+/// - [`CliError::Config`] when configuration cannot be read
+/// - [`CliError::ConnectionNotFound`] when the targeted connection does not exist
+/// - [`CliError::Secret`] when the configured secret backend is unreachable
+///   or the requested operation (get / set / delete / status) fails
 pub fn cmd_secret(config_path: Option<&Path>, subcmd: SecretCommands) -> Result<(), CliError> {
     match subcmd {
         SecretCommands::Status => cmd_secret_status(config_path),

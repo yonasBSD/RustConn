@@ -112,6 +112,15 @@ pub struct UpdateParams<'a> {
 }
 
 /// Update connection command handler
+///
+/// # Errors
+///
+/// Returns:
+/// - [`CliError::Config`] when connections cannot be loaded or saved, or when
+///   the requested protocol / auth method / port combination is invalid
+/// - [`CliError::ConnectionNotFound`] when no connection matches `params.name`
+///   or `--jump-host` references an unknown connection
+/// - [`CliError::Group`] when `--group` is set and the group cannot be created
 #[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
 pub fn cmd_update(config_path: Option<&Path>, params: UpdateParams<'_>) -> Result<(), CliError> {
     let config_manager = create_config_manager(config_path)?;

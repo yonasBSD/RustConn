@@ -13,6 +13,12 @@ use crate::format::escape_csv_field;
 use crate::util::create_config_manager;
 
 /// Group command handler
+///
+/// # Errors
+///
+/// Returns:
+/// - [`CliError::Config`] when groups or connections cannot be loaded or saved
+/// - [`CliError::Group`] when a referenced group does not exist or a name conflicts
 pub fn cmd_group(config_path: Option<&Path>, subcmd: GroupCommands) -> Result<(), CliError> {
     match subcmd {
         GroupCommands::List { format } => cmd_group_list(config_path, format.effective()),

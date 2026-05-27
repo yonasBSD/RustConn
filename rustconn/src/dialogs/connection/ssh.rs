@@ -115,8 +115,8 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         .visible(false)
         .build();
 
-    let (mosh_port_range_row, mosh_port_range_entry) = EntryRowBuilder::new("Port Range")
-        .subtitle("UDP port range for MOSH (start:end)")
+    let (mosh_port_range_row, mosh_port_range_entry) = EntryRowBuilder::new(i18n("Port Range"))
+        .subtitle(i18n("UDP port range for MOSH (start:end)"))
         .placeholder("60000:60010")
         .build();
     mosh_group.add(&mosh_port_range_row);
@@ -137,10 +137,11 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
     predict_row.set_activatable_widget(Some(&mosh_predict_dropdown));
     mosh_group.add(&predict_row);
 
-    let (mosh_server_binary_row, mosh_server_binary_entry) = EntryRowBuilder::new("Server Binary")
-        .subtitle("Path to mosh-server on the remote host (optional)")
-        .placeholder("/usr/bin/mosh-server")
-        .build();
+    let (mosh_server_binary_row, mosh_server_binary_entry) =
+        EntryRowBuilder::new(i18n("Server Binary"))
+            .subtitle(i18n("Path to mosh-server on the remote host (optional)"))
+            .placeholder("/usr/bin/mosh-server")
+            .build();
     mosh_group.add(&mosh_server_binary_row);
 
     content.append(&mosh_group);
@@ -466,8 +467,8 @@ fn create_connection_group() -> (
     connection_group.add(&jump_host_row);
 
     // ProxyJump entry
-    let (proxy_row, proxy_entry) = EntryRowBuilder::new("ProxyJump")
-        .subtitle("Jump host for tunneling (-J)")
+    let (proxy_row, proxy_entry) = EntryRowBuilder::new(i18n("ProxyJump"))
+        .subtitle(i18n("Jump host for tunneling (-J)"))
         .placeholder("user@jumphost")
         .build();
     connection_group.add(&proxy_row);

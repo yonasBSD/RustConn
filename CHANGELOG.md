@@ -5,6 +5,26 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — 0.15.0 quality pass
+
+A focused quality-and-cleanup release. No new user-facing features — the goal is to retire technical debt and make the codebase easier to evolve. See [`docs/roadmap/0.15.0-quality-pass.md`](docs/roadmap/0.15.0-quality-pass.md) for the full plan.
+
+### Security
+
+- **RDP RemoteApp no longer passes `/p:` on the command line.** RemoteApp launches now write a single-use `.rdp` file in `$XDG_RUNTIME_DIR` with mode 0600 containing the password (`xfreerdp3 /path/to/file.rdp /app:...`). The temp file is removed on `Drop` even if the launcher panics. Closes the [#153](https://github.com/totoshko88/RustConn/issues/153) Known Issue from 0.14.10. _(planned — see roadmap group 2)_
+
+### Improved
+
+- **`#[allow]` → `#[expect(reason = "…")]` migration.** Every clippy/compiler override now carries an explanatory `reason = "…"` string and uses `#[expect]`, so stale overrides surface as warnings during code review instead of silently accumulating. Workspace lint `clippy::allow_attributes_without_reason = "warn"` enforces this going forward. _(planned — see roadmap group 1)_
+- **Manual `Debug` impls for secret backends.** `BitwardenBackend`, `KeePassXcBackend`, `LibSecretBackend`, `MacOsKeychainBackend`, `OnePasswordBackend`, `PassBackend`, `PassboltBackend`, `SecretManager`, and `CredentialResolver` now render meaningful `Debug` output (backend kind, server address, whether a session is held) without leaking session keys or passwords. Each backend file ships a `debug_does_not_leak_secret` unit test.
+- **CLI `# Errors` documentation.** Every public `cmd_*` function in `rustconn-cli/src/commands/` now lists the `CliError` variants it can return, satisfying `clippy::missing_errors_doc` for the package.
+- **GUI spacing follows GNOME HIG.** All `set_margin_*` / `set_spacing` calls in `rustconn/src/window/` and `rustconn/src/dialogs/` use the HIG steps (6 / 12 / 18 / 24 px); deviations carry a one-line comment justifying them. _(planned — see roadmap group 5)_
+- **`EntryRowBuilder::new` requires pre-translated titles.** Callers now pass `&i18n("Kubeconfig")` instead of `"Kubeconfig"`, so `xgettext` extracts every UI label and translators see them in `po/*.po`. Previously several rows in Kubernetes / Serial / Telnet / Cluster / Smart Folder dialogs stayed untranslated forever.
+
+### Fixed
+
+- **Settings-save failures now surface a toast.** `update_settings` results in `rustconn/src/window/smart_folders.rs` and `rustconn/src/window/connection_actions.rs` are no longer dropped silently with `let _ = …`; recoverable errors log a `tracing::warn!` and the active window shows a toast so the user knows the change did not stick.
+
 ## [0.14.10] - 2026-05-27
 
 This release focuses on hardening how passwords flow through the app, removing several places where plaintext credentials could linger on the heap longer than necessary, plus a few startup-robustness and HIG-compliance fixes.
