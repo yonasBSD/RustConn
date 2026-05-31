@@ -237,7 +237,7 @@ else
             -- -D warnings || fail "cargo clippy reported warnings"
         cargo clippy --all-targets --quiet \
             -p rustconn --no-default-features \
-            --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded" \
+            --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded,adw-1-8" \
             -- -D warnings || fail "cargo clippy reported warnings (rustconn)"
     else
         cargo clippy --all-targets --quiet -- -D warnings || fail "cargo clippy reported warnings"

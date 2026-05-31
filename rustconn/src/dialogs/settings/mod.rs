@@ -156,9 +156,16 @@ impl SettingsDialog {
     /// Creates a new settings dialog using AdwPreferencesDialog
     #[must_use]
     pub fn new(_parent: Option<&gtk4::Window>) -> Self {
+        // On macOS the header bar ViewSwitcher shares space with traffic lights,
+        // so we need extra width for 6 tab labels to display without truncation.
+        #[cfg(target_os = "macos")]
+        let width = 1000;
+        #[cfg(not(target_os = "macos"))]
+        let width = 800;
+
         let dialog = adw::PreferencesDialog::builder()
             .search_enabled(true)
-            .content_width(800)
+            .content_width(width)
             .build();
 
         // Create all pages

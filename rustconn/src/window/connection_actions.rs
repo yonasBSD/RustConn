@@ -511,7 +511,7 @@ impl MainWindow {
                     state_clone.clone(),
                     tunnel_manager_clone.clone(),
                 );
-                manager.present();
+                manager.present(Some(win.upcast_ref()));
             }
         });
         window.add_action(&ssh_tunnels_action);

@@ -34,7 +34,7 @@ use uuid::Uuid;
 pub struct TunnelBuilderContext {
     pub state: SharedAppState,
     pub tunnel_manager: SharedTunnelManager,
-    pub parent_window: adw::Window,
+    pub parent_window: adw::Dialog,
     /// Callback invoked after successful save (to refresh tunnel list)
     pub on_save: Rc<RefCell<Option<Box<dyn Fn()>>>>,
 }

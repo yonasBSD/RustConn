@@ -20,26 +20,41 @@ brew install gtk4 libadwaita vte3 adwaita-icon-theme \
 
 ```bash
 pkg-config --modversion gtk4          # 4.22+
-pkg-config --modversion libadwaita-1  # 1.5+
+pkg-config --modversion libadwaita-1  # 1.5+ (1.8+ recommended for full widget set)
 pkg-config --modversion vte-2.91-gtk4 # 0.76+
 ```
+
+> **Tip:** If libadwaita ≥ 1.8 is available (Homebrew ships 1.9+), build with `adw-1-8` feature
+> for access to `AdwToggleGroup`, `AdwShortcutsDialog`, and other modern widgets.
 
 ---
 
 ## Building
 
-### Debug Build (fast compilation)
+### One-Command Build + Launch (Recommended)
+
+```bash
+./scripts/macos-build.sh              # debug build + .app bundle + launch
+./scripts/macos-build.sh --release    # release build + .app bundle + launch
+./scripts/macos-build.sh --no-launch  # build only, don't launch
+./scripts/macos-build.sh --clean      # remove old bundle before building
+```
+
+The script handles everything: cargo build with correct features, `.app` bundle creation,
+icon generation, locale compilation, Adwaita icons, ad-hoc code signing, and launch.
+
+### Manual: Debug Build (fast compilation)
 
 ```bash
 cargo build -p rustconn --no-default-features \
-  --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded"
+  --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded,adw-1-8"
 ```
 
-### Release Build (optimized)
+### Manual: Release Build (optimized)
 
 ```bash
 cargo build --release -p rustconn --no-default-features \
-  --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded"
+  --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded,adw-1-8"
 ```
 
 ### CLI Only
@@ -54,6 +69,7 @@ cargo build -p rustconn-cli
 |---------|--------|
 | `tray` | Requires D-Bus StatusNotifierItem (Linux only) |
 | `wayland-native` | Wayland doesn't exist on macOS |
+| `adw-1-8` | Optional; requires libadwaita ≥ 1.8 (Homebrew provides 1.9+) |
 
 ---
 
@@ -68,6 +84,9 @@ LOCALEDIR="$(pwd)/locale" \
 RUST_LOG=info \
 ./target/debug/rustconn
 ```
+
+> **Note:** When launched directly (not via `.app` bundle), macOS Dock will show a generic icon.
+> For proper Dock icon, launch via `open RustConn.app`.
 
 ### Via .app Bundle (Recommended)
 
@@ -95,7 +114,7 @@ RUST_LOG=debug \
 ```bash
 # 1. Build
 cargo build -p rustconn --no-default-features \
-  --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded"
+  --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded,adw-1-8"
 
 # 2. Create bundle structure
 mkdir -p RustConn.app/Contents/{MacOS,Resources}
@@ -159,9 +178,9 @@ cat > RustConn.app/Contents/Info.plist << 'EOF'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleVersion</key>
-    <string>0.13.16</string>
+    <string>0.15.4</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.13.16</string>
+    <string>0.15.4</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSMinimumSystemVersion</key>

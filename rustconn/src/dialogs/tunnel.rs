@@ -1,6 +1,6 @@
-//! SSH Tunnel Manager window
+//! SSH Tunnel Manager dialog
 //!
-//! Provides a standalone window for managing SSH port-forwarding tunnels
+//! Provides a dialog for managing SSH port-forwarding tunnels
 //! that run independently of terminal sessions. Each tunnel references
 //! an existing SSH connection for host/key/password configuration.
 //!
@@ -21,12 +21,13 @@ use std::rc::Rc;
 use uuid::Uuid;
 
 // ---------------------------------------------------------------------------
-// Tunnel Manager Window
+// Tunnel Manager Dialog
 // ---------------------------------------------------------------------------
 
-/// Standalone window for managing SSH tunnels
+/// Dialog for managing SSH tunnels (migrated from adw::Window to adw::Dialog
+/// for consistent presentation across platforms — no native traffic lights on macOS)
 pub struct TunnelManagerWindow {
-    window: adw::Window,
+    dialog: adw::Dialog,
     state: SharedAppState,
     tunnel_manager: SharedTunnelManager,
     content_stack: gtk4::Stack,
@@ -36,25 +37,18 @@ pub struct TunnelManagerWindow {
 }
 
 impl TunnelManagerWindow {
-    /// Creates a new tunnel manager window
+    /// Creates a new tunnel manager dialog
     #[must_use]
     pub fn new(
-        parent: Option<&gtk4::Window>,
+        _parent: Option<&gtk4::Window>,
         state: SharedAppState,
         tunnel_manager: SharedTunnelManager,
     ) -> Self {
-        let window = adw::Window::builder()
+        let dialog = adw::Dialog::builder()
             .title(i18n("SSH Tunnels"))
-            .modal(true)
-            .default_width(600)
-            .default_height(700)
+            .content_width(600)
+            .content_height(700)
             .build();
-
-        if let Some(p) = parent {
-            window.set_transient_for(Some(p));
-        }
-
-        window.set_size_request(400, 350);
 
         // Header bar with add button
         let header = adw::HeaderBar::new();
@@ -124,10 +118,10 @@ impl TunnelManagerWindow {
         let toolbar_view = adw::ToolbarView::new();
         toolbar_view.add_top_bar(&header);
         toolbar_view.set_content(Some(&content_stack));
-        window.set_content(Some(&toolbar_view));
+        dialog.set_child(Some(&toolbar_view));
 
         let manager = Self {
-            window,
+            dialog,
             state,
             tunnel_manager,
             content_stack,
@@ -139,7 +133,7 @@ impl TunnelManagerWindow {
         // Wire up add buttons
         {
             let state_c = manager.state.clone();
-            let window_c = manager.window.clone();
+            let dialog_c = manager.dialog.clone();
             let tm_c = manager.tunnel_manager.clone();
             let active_g = manager.active_group.clone();
             let stopped_g = manager.stopped_group.clone();
@@ -147,13 +141,13 @@ impl TunnelManagerWindow {
             let page_c = manager.prefs_page.clone();
             add_button.connect_clicked(move |_| {
                 open_tunnel_builder(
-                    &window_c, &state_c, None, &tm_c, &active_g, &stopped_g, &stack_c, &page_c,
+                    &dialog_c, &state_c, None, &tm_c, &active_g, &stopped_g, &stack_c, &page_c,
                 );
             });
         }
         {
             let state_c = manager.state.clone();
-            let window_c = manager.window.clone();
+            let dialog_c = manager.dialog.clone();
             let tm_c = manager.tunnel_manager.clone();
             let active_g = manager.active_group.clone();
             let stopped_g = manager.stopped_group.clone();
@@ -161,7 +155,7 @@ impl TunnelManagerWindow {
             let page_c = manager.prefs_page.clone();
             empty_add_button.connect_clicked(move |_| {
                 open_tunnel_builder(
-                    &window_c, &state_c, None, &tm_c, &active_g, &stopped_g, &stack_c, &page_c,
+                    &dialog_c, &state_c, None, &tm_c, &active_g, &stopped_g, &stack_c, &page_c,
                 );
             });
         }
@@ -205,7 +199,7 @@ impl TunnelManagerWindow {
         self.content_stack.set_visible_child_name("list");
 
         let ctx = Rc::new(TunnelRowContext {
-            window: self.window.clone(),
+            dialog: self.dialog.clone(),
             state: self.state.clone(),
             tunnel_manager: self.tunnel_manager.clone(),
             active_group: self.active_group.clone(),
@@ -230,9 +224,13 @@ impl TunnelManagerWindow {
         }
     }
 
-    /// Presents the tunnel manager window
-    pub fn present(&self) {
-        self.window.present();
+    /// Presents the tunnel manager dialog
+    pub fn present(&self, parent: Option<&gtk4::Window>) {
+        if let Some(p) = parent {
+            self.dialog.present(Some(p));
+        } else {
+            self.dialog.present(gtk4::Widget::NONE);
+        }
     }
 }
 
@@ -242,7 +240,7 @@ impl TunnelManagerWindow {
 
 /// Context for wiring tunnel row actions (avoids >6 params)
 struct TunnelRowContext {
-    window: adw::Window,
+    dialog: adw::Dialog,
     state: SharedAppState,
     tunnel_manager: SharedTunnelManager,
     active_group: Rc<RefCell<adw::PreferencesGroup>>,
@@ -423,7 +421,7 @@ fn wire_tunnel_row_actions(
         let tunnel_c = tunnel_clone.clone();
         edit_btn.connect_clicked(move |_| {
             open_tunnel_builder(
-                &ctx_c.window,
+                &ctx_c.dialog,
                 &ctx_c.state,
                 Some(&tunnel_c),
                 &ctx_c.tunnel_manager,
@@ -516,7 +514,7 @@ fn delete_tunnel(tunnel_id: Uuid, ctx: &Rc<TunnelRowContext>) {
         refresh_from_context(&ctx_c);
     });
 
-    confirm.present(Some(&ctx.window));
+    confirm.present(Some(&ctx.dialog));
 }
 
 /// Refreshes the tunnel list using a `TunnelRowContext`
@@ -554,7 +552,7 @@ fn refresh_from_context(ctx: &TunnelRowContext) {
     ctx.content_stack.set_visible_child_name("list");
 
     let rc_ctx = Rc::new(TunnelRowContext {
-        window: ctx.window.clone(),
+        dialog: ctx.dialog.clone(),
         state: ctx.state.clone(),
         tunnel_manager: ctx.tunnel_manager.clone(),
         active_group: ctx.active_group.clone(),
@@ -589,7 +587,7 @@ fn refresh_from_context(ctx: &TunnelRowContext) {
     reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
 )]
 fn open_tunnel_builder(
-    parent: &adw::Window,
+    parent: &adw::Dialog,
     state: &SharedAppState,
     existing: Option<&StandaloneTunnel>,
     tunnel_manager: &SharedTunnelManager,
@@ -600,7 +598,7 @@ fn open_tunnel_builder(
 ) {
     // Build the on_save callback that refreshes the tunnel list
     let refresh_ctx = TunnelRowContext {
-        window: parent.clone(),
+        dialog: parent.clone(),
         state: state.clone(),
         tunnel_manager: tunnel_manager.clone(),
         active_group: active_group.clone(),

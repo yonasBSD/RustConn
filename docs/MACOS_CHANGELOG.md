@@ -1,5 +1,26 @@
 # macOS Port — Changelog
 
+## [0.15.4] - 2026-05-31
+
+### Fixed
+
+- **UI hang when editing connection with broken ssh-agent** — `ConnectionDialog::refresh_agent_keys()` now probes the agent asynchronously on a background thread with a 5-second timeout; if the agent does not respond in time the child process is killed and the dropdown shows "No keys loaded" without blocking the UI.
+- **Clippy `useless_conversion` on macOS** — `cfg_attr` for `u64::from()` on `statvfs` fields was inverted (`not(target_os = "macos")` → `target_os = "macos"`); the conversion is identity on macOS (u64→u64) but needed on Linux (u32→u64).
+- **Clippy `new_without_default` for `MacOsKeychainBackend`** — added `Default` impl delegating to `new()`.
+- **Clippy `redundant_clone` in macOS Keychain** — `bytes.to_vec()` / `bytes.clone()` removed where `bytes` is already an owned `Vec<u8>` passed by value to `String::from_utf8`.
+- **Clippy `case_sensitive_file_extension_comparisons`** — `.app` bundle detection now uses `Path::extension().is_some_and(|ext| ext.eq_ignore_ascii_case("app"))`.
+- **macOS tray: `single_match_else`** — replaced `match` with `if let ... else` for icon rendering.
+- **macOS tray: `while_let_loop`** — replaced `loop { match recv() { ... Err => break } }` with `while let Ok(event) = recv()`.
+- **macOS tray: `useless_conversion`** — removed `.into()` on `menu_id` that was already `String`.
+- **macOS tray: `if_not_else`** — inverted conditions in `set_active_sessions`, `set_recent_connections`, `set_window_visible` to satisfy clippy.
+- **Unused `PtyFlags` import on macOS** — gated with `#[cfg(not(target_os = "macos"))]` since it's only used in the Linux `spawn_async` path.
+- **`collapsible_if` in `macos_pty.rs`** — merged nested `if` into let-chain.
+- **`collapsible_if` in `window/mod.rs`** — merged nested `if` for bundle icons path check.
+- **`needless_return` in `edit_actions.rs`** — removed trailing `return;` in macOS SFTP URI handler.
+- **`items_after_statements` in `dialog.rs`** — moved `const AGENT_TIMEOUT` before statements in `refresh_agent_keys()`.
+- **`release.sh` crash on macOS** — script used `declare -A` (bash 4+ associative arrays) but macOS ships bash 3.2; replaced with parallel indexed arrays.
+- **`release.sh` clippy on macOS** — added platform detection to run clippy with `--no-default-features --features tray-macos,...` on Darwin, avoiding the missing `gtk4-wayland` pkg-config error.
+
 ## Changes for macOS Support
 
 ### Added
@@ -50,12 +71,12 @@
 
 ```bash
 cargo build -p rustconn --no-default-features \
-  --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded"
+  --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded,adw-1-8"
 ```
 
 Disabled features: `tray` (Linux D-Bus only), `wayland-native`
 
-Enabled macOS-specific features: `tray-macos` (NSStatusItem via `tray-icon` crate)
+Enabled macOS-specific features: `tray-macos` (NSStatusItem via `tray-icon` crate), `adw-1-8` (libadwaita 1.8+ widgets)
 
 ### Dependencies (Homebrew)
 
