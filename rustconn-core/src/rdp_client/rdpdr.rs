@@ -956,27 +956,27 @@ fn get_disk_stats(path: &str) -> (i64, i64) {
     match nix::sys::statvfs::statvfs(path) {
         Ok(stat) => {
             #[cfg_attr(
-                not(target_os = "macos"),
+                target_os = "macos",
                 allow(
                     clippy::useless_conversion,
-                    reason = "u64::from is identity on Linux but a real conversion on macOS where fragment_size() returns u32"
+                    reason = "u64::from is needed on Linux where fragment_size() returns u32, identity on macOS"
                 )
             )]
             let frag_size = u64::from(stat.fragment_size());
             // Convert from filesystem blocks to 4096-byte allocation units
             #[cfg_attr(
-                not(target_os = "macos"),
+                target_os = "macos",
                 allow(
                     clippy::useless_conversion,
-                    reason = "u64::from is identity on Linux but a real conversion on macOS where blocks() returns u32"
+                    reason = "u64::from is needed on Linux where blocks() returns u32, identity on macOS"
                 )
             )]
             let total_bytes = u64::from(stat.blocks()).saturating_mul(frag_size);
             #[cfg_attr(
-                not(target_os = "macos"),
+                target_os = "macos",
                 allow(
                     clippy::useless_conversion,
-                    reason = "u64::from is identity on Linux but a real conversion on macOS where blocks_available() returns u32"
+                    reason = "u64::from is needed on Linux where blocks_available() returns u32, identity on macOS"
                 )
             )]
             let avail_bytes = u64::from(stat.blocks_available()).saturating_mul(frag_size);
