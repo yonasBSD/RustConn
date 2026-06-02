@@ -112,6 +112,7 @@ pub(super) struct ConnectionDialogData<'a> {
     pub vnc_scale_override_dropdown: &'a DropDown,
     pub vnc_custom_args_entry: &'a Entry,
     pub vnc_jump_host_dropdown: &'a DropDown,
+    pub vnc_accept_certificate_check: &'a adw::SwitchRow,
     pub vnc_connections_data: &'a Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     pub spice_tls_check: &'a adw::SwitchRow,
     pub spice_ca_cert_entry: &'a Entry,
@@ -1373,6 +1374,7 @@ impl ConnectionDialogData<'_> {
                     None
                 }
             },
+            accept_certificate: self.vnc_accept_certificate_check.is_active(),
         }
     }
 

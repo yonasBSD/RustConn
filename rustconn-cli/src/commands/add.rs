@@ -230,13 +230,20 @@ pub fn cmd_add(config_path: Option<&Path>, params: AddParams<'_>) -> Result<(), 
         }
     }
 
-    // Apply RDP ignore-certificate setting
+    // Apply RDP/VNC ignore-certificate setting
     if params.ignore_certificate {
-        if let rustconn_core::models::ProtocolConfig::Rdp(ref mut cfg) = connection.protocol_config
-        {
-            cfg.ignore_certificate = true;
-        } else {
-            tracing::warn!("--ignore-certificate is only applicable to RDP connections");
+        match connection.protocol_config {
+            rustconn_core::models::ProtocolConfig::Rdp(ref mut cfg) => {
+                cfg.ignore_certificate = true;
+            }
+            rustconn_core::models::ProtocolConfig::Vnc(ref mut cfg) => {
+                cfg.accept_certificate = true;
+            }
+            _ => {
+                tracing::warn!(
+                    "--ignore-certificate is only applicable to RDP and VNC connections"
+                );
+            }
         }
     }
 

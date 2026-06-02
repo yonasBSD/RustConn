@@ -233,6 +233,7 @@ fn arb_vnc_config() -> impl Strategy<Value = VncConfig> {
             scale_override: Default::default(),
             show_local_cursor: true,
             jump_host_id: None,
+            accept_certificate: false,
         })
 }
 

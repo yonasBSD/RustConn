@@ -2570,6 +2570,7 @@ impl TemplateDialog {
             scale_override: ScaleOverride::default(),
             show_local_cursor: true,
             jump_host_id: None,
+            accept_certificate: false,
         })
     }
 

@@ -105,6 +105,11 @@ impl Protocol for VncProtocol {
                 args.push("-quality".to_string());
                 args.push(quality.to_string());
             }
+            // Accept untrusted TLS certificates (VeNCrypt)
+            if vnc_config.accept_certificate {
+                args.push("-SecurityTypes".to_string());
+                args.push("VeNCrypt,TLSVnc,X509Vnc,VncAuth,None".to_string());
+            }
             for arg in &vnc_config.custom_args {
                 if arg.contains('\0') || arg.contains('\n') {
                     tracing::warn!(arg = %arg, "Skipping suspicious VNC custom arg");

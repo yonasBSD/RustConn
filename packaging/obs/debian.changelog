@@ -1,3 +1,16 @@
+rustconn (0.15.6-1) unstable; urgency=medium
+
+  * VNC: new "Accept Certificate" toggle for VeNCrypt servers with
+    self-signed TLS certificates
+  * CLI --ignore-certificate now works for both RDP and VNC connections
+  * Fixed Welcome screen "Remote host monitoring" icon missing on macOS
+  * Fixed sidebar right-click context menu not opening for nested items
+  * Updated: bitflags 2.11.1→2.12.1, log 0.4.30→0.4.31,
+    lzma-rust2 0.16.2→0.16.4; removed sha2 0.10.9
+  * Flathub: inetutils 2.7→2.8
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Mon, 02 Jun 2026 14:00:00 +0300
+
 rustconn (0.15.5-1) unstable; urgency=medium
 
   * IronRDP 0.14→0.15: bulk compression (XCRUSH/MPPC), slow-path rendering,

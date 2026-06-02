@@ -140,6 +140,18 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.15.6" date="2026-06-02">
+      <description>
+        <p>Version 0.15.6 — VNC Accept Certificate and dependency updates:</p>
+        <ul>
+          <li>VNC: new "Accept Certificate" toggle for servers with self-signed TLS certificates (VeNCrypt)</li>
+          <li>CLI --ignore-certificate now works for both RDP and VNC connections</li>
+          <li>Fixed Welcome screen "Remote host monitoring" icon missing on macOS</li>
+          <li>Fixed sidebar right-click context menu not opening for nested items</li>
+          <li>Dependencies: bitflags 2.12.1, log 0.4.31, lzma-rust2 0.16.4; Flathub inetutils 2.8</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.15.5" date="2026-06-01">
       <description>
         <p>Version 0.15.5 — IronRDP 0.15 upgrade and macOS fixes:</p>

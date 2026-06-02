@@ -214,7 +214,7 @@ pub enum Commands {
         #[arg(long)]
         ssh_verbose: bool,
 
-        /// Accept any RDP server certificate (skip TOFU verification)
+        /// Accept untrusted certificate for RDP or VNC (skip verification)
         #[arg(long)]
         ignore_certificate: bool,
 
@@ -663,7 +663,7 @@ pub enum Commands {
         #[arg(long)]
         ssh_verbose: bool,
 
-        /// Accept any RDP server certificate (skip TOFU verification)
+        /// Accept untrusted certificate for RDP or VNC (skip verification)
         #[arg(long)]
         ignore_certificate: bool,
 

@@ -35,6 +35,7 @@ pub(super) fn create_vnc_options() -> (
     DropDown,
     Entry,
     DropDown,
+    adw::SwitchRow,
 ) {
     let scrolled = ScrolledWindow::builder()
         .hscrollbar_policy(gtk4::PolicyType::Never)
@@ -242,6 +243,16 @@ pub(super) fn create_vnc_options() -> (
         .build();
     features_group.add(&show_local_cursor_switch);
 
+    // Accept certificate (for VeNCrypt/TLS connections with self-signed certs)
+    let accept_certificate_switch = adw::SwitchRow::builder()
+        .title(i18n("Accept Certificate"))
+        .subtitle(i18n(
+            "Accept self-signed or untrusted TLS certificates from VNC server",
+        ))
+        .active(false)
+        .build();
+    features_group.add(&accept_certificate_switch);
+
     // VNC-3: Password info row
     let password_info_row = adw::ActionRow::builder()
         .title(i18n("Authentication"))
@@ -316,5 +327,6 @@ pub(super) fn create_vnc_options() -> (
         scale_override_dropdown,
         custom_args_entry,
         vnc_jump_host_dropdown,
+        accept_certificate_switch,
     )
 }

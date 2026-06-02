@@ -5,6 +5,22 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.6] - 2026-06-02
+
+### Added
+
+- **VNC: Accept Certificate option** — new "Accept Certificate" toggle in VNC connection settings allows connecting to VNC servers with self-signed or untrusted TLS certificates (VeNCrypt). When enabled, the external viewer (TigerVNC) receives `-SecurityTypes VeNCrypt,TLSVnc,X509Vnc,VncAuth,None` arguments. The embedded VNC client auto-fallbacks to the external viewer with proper security types when VeNCrypt is detected. CLI `--ignore-certificate` now works for both RDP and VNC connections ([#164](https://github.com/totoshko88/RustConn/issues/164))
+
+### Fixed
+
+- **Welcome screen: "Remote host monitoring" icon missing on macOS** — replaced `speedometer-symbolic` (not part of the standard Adwaita icon theme bundle) with `power-profile-performance-symbolic` (same icon used in Settings → Monitoring tab) which is available across all platforms
+- **Sidebar: right-click context menu not opening for nested items** — context menu gesture was attached to the `TreeExpander` widget, whose internal indent/arrow gesture silently swallowed right-click events for items at depth ≥ 1; moved the gesture controller to the content box inside the expander, bypassing the conflict ([#157](https://github.com/totoshko88/RustConn/issues/157))
+
+### Dependencies
+
+- **Updated**: bitflags 2.11.1→2.12.1, log 0.4.30→0.4.31, lzma-rust2 0.16.2→0.16.4. Removed: sha2 0.10.9 (unused transitive dependency)
+- **Flathub**: inetutils 2.7→2.8
+
 ## [0.15.5] - 2026-06-01
 
 ### Added

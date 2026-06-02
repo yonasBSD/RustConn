@@ -551,8 +551,9 @@ impl EmbeddedVncWidget {
                             );
                             *is_embedded.borrow_mut() = false;
 
-                            let no_support_msg =
-                                i18n("VNC encryption not supported. Install TigerVNC.");
+                            let no_support_msg = i18n(
+                                "VNC encryption not supported. Install TigerVNC and enable 'Accept Certificate'.",
+                            );
 
                             // Try to launch external viewer with stored config
                             let fallback_ok = fallback_config
@@ -568,10 +569,19 @@ impl EmbeddedVncWidget {
                                     } else {
                                         format!("{}::{}", cfg.host, cfg.port)
                                     };
-                                    Some((viewer, server))
+                                    Some((viewer, server, cfg.accept_certificate))
                                 })
-                                .and_then(|(viewer, server)| {
-                                    match Command::new(&viewer).arg(&server).spawn() {
+                                .and_then(|(viewer, server, accept_cert)| {
+                                    let mut cmd = Command::new(&viewer);
+                                    // Pass VeNCrypt security types if accept_certificate is set
+                                    if accept_cert
+                                        && (viewer == "vncviewer" || viewer == "xvnc4viewer")
+                                    {
+                                        cmd.arg("-SecurityTypes");
+                                        cmd.arg("VeNCrypt,TLSVnc,X509Vnc,VncAuth,None");
+                                    }
+                                    cmd.arg(&server);
+                                    match cmd.spawn() {
                                         Ok(child) => {
                                             tracing::info!(
                                                 viewer = %viewer,
@@ -687,6 +697,12 @@ impl EmbeddedVncWidget {
 
                 if config.view_only {
                     cmd.arg("-ViewOnly");
+                }
+
+                // Accept untrusted TLS certificates (VeNCrypt)
+                if config.accept_certificate {
+                    cmd.arg("-SecurityTypes");
+                    cmd.arg("VeNCrypt,TLSVnc,X509Vnc,VncAuth,None");
                 }
 
                 // Password file handling would go here

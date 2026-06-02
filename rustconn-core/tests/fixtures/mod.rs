@@ -199,6 +199,7 @@ pub fn sample_vnc_connection_custom_port() -> Connection {
         scale_override: Default::default(),
         show_local_cursor: true,
         jump_host_id: None,
+        accept_certificate: false,
     };
 
     Connection::new(

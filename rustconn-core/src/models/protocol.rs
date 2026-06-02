@@ -1716,6 +1716,12 @@ pub struct VncConfig {
     /// port forwarding (`ssh -L`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jump_host_id: Option<uuid::Uuid>,
+    /// Accept untrusted/self-signed TLS certificates without prompting.
+    /// When true, the external VNC viewer will be instructed to skip
+    /// certificate verification (similar to RDP's `ignore_certificate`).
+    /// Default: false (strict verification — connection fails on untrusted cert).
+    #[serde(default)]
+    pub accept_certificate: bool,
 }
 
 impl VncConfig {

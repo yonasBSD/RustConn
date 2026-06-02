@@ -210,6 +210,7 @@ pub struct ConnectionDialog {
     vnc_scale_override_dropdown: DropDown,
     vnc_custom_args_entry: Entry,
     vnc_jump_host_dropdown: DropDown,
+    vnc_accept_certificate_check: adw::SwitchRow,
     vnc_connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     // SPICE fields
     spice_tls_check: adw::SwitchRow,
@@ -591,6 +592,7 @@ impl ConnectionDialog {
             vnc_scale_override_dropdown,
             vnc_custom_args_entry,
             vnc_jump_host_dropdown,
+            vnc_accept_certificate_check,
         ) = super::vnc::create_vnc_options();
         protocol_stack.add_named(&vnc_box, Some("vnc"));
 
@@ -917,6 +919,7 @@ impl ConnectionDialog {
             &vnc_scale_override_dropdown,
             &vnc_custom_args_entry,
             &vnc_jump_host_dropdown,
+            &vnc_accept_certificate_check,
             &vnc_connections_data,
             &spice_tls_check,
             &spice_ca_cert_entry,
@@ -1114,6 +1117,7 @@ impl ConnectionDialog {
             vnc_scale_override_dropdown,
             vnc_custom_args_entry,
             vnc_jump_host_dropdown,
+            vnc_accept_certificate_check,
             vnc_connections_data,
             spice_tls_check,
             variables_list,
@@ -2036,6 +2040,7 @@ impl ConnectionDialog {
         vnc_scale_override_dropdown: &DropDown,
         vnc_custom_args_entry: &Entry,
         vnc_jump_host_dropdown: &DropDown,
+        vnc_accept_certificate_check: &adw::SwitchRow,
         vnc_connections_data: &Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
         spice_tls_check: &adw::SwitchRow,
         spice_ca_cert_entry: &Entry,
@@ -2214,6 +2219,7 @@ impl ConnectionDialog {
         let vnc_custom_args_entry = vnc_custom_args_entry.clone();
         let vnc_performance_mode_dropdown = vnc_performance_mode_dropdown.clone();
         let vnc_jump_host_dropdown = vnc_jump_host_dropdown.clone();
+        let vnc_accept_certificate_check = vnc_accept_certificate_check.clone();
         let vnc_connections_data = vnc_connections_data.clone();
         let spice_tls_check = spice_tls_check.clone();
         let spice_ca_cert_entry = spice_ca_cert_entry.clone();
@@ -2403,6 +2409,7 @@ impl ConnectionDialog {
                 vnc_scale_override_dropdown: &vnc_scale_override_dropdown,
                 vnc_custom_args_entry: &vnc_custom_args_entry,
                 vnc_jump_host_dropdown: &vnc_jump_host_dropdown,
+                vnc_accept_certificate_check: &vnc_accept_certificate_check,
                 vnc_connections_data: &vnc_connections_data,
                 spice_tls_check: &spice_tls_check,
                 spice_ca_cert_entry: &spice_ca_cert_entry,
@@ -4827,6 +4834,9 @@ impl ConnectionDialog {
                 self.vnc_jump_host_dropdown.set_selected(idx as u32);
             }
         }
+
+        self.vnc_accept_certificate_check
+            .set_active(vnc.accept_certificate);
     }
 
     fn set_spice_config(&self, spice: &SpiceConfig) {

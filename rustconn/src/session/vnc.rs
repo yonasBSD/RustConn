@@ -487,6 +487,7 @@ impl VncSessionWidget {
                 .with_clipboard(config.clipboard_enabled);
             embedded_config.scale_override = config.scale_override;
             embedded_config.show_local_cursor = config.show_local_cursor;
+            embedded_config.accept_certificate = config.accept_certificate;
 
             let embedded_config = if let Some(pwd) = password {
                 embedded_config.with_password(pwd)
@@ -599,6 +600,11 @@ impl VncSessionWidget {
                 }
                 if config.view_only {
                     cmd.arg("-ViewOnly");
+                }
+                // Accept untrusted TLS certificates (VeNCrypt)
+                if config.accept_certificate {
+                    cmd.arg("-SecurityTypes");
+                    cmd.arg("VeNCrypt,TLSVnc,X509Vnc,VncAuth,None");
                 }
                 cmd.arg(&server);
             }

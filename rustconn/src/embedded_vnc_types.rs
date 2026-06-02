@@ -106,6 +106,10 @@ impl std::fmt::Display for VncConnectionState {
 
 /// VNC connection configuration
 #[derive(Debug, Clone, Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "VNC protocol config has natural boolean flags"
+)]
 pub struct VncConfig {
     /// Target hostname or IP address
     pub host: String,
@@ -133,6 +137,8 @@ pub struct VncConfig {
     pub extra_args: Vec<String>,
     /// Show local mouse cursor over embedded viewer (disable to avoid double cursor)
     pub show_local_cursor: bool,
+    /// Accept untrusted TLS certificates (for VeNCrypt connections)
+    pub accept_certificate: bool,
 }
 
 impl VncConfig {
@@ -153,6 +159,7 @@ impl VncConfig {
             scale_override: ScaleOverride::default(),
             extra_args: Vec::new(),
             show_local_cursor: true,
+            accept_certificate: false,
         }
     }
 

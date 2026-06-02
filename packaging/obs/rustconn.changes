@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Mon Jun 02 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.6
+
+- VNC: new "Accept Certificate" toggle for VeNCrypt servers with
+  self-signed TLS certificates; CLI --ignore-certificate for VNC
+- Fixed Welcome screen "Remote host monitoring" icon missing on macOS
+- Fixed sidebar right-click context menu not opening for nested items
+- Updated: bitflags 2.11.1→2.12.1, log 0.4.30→0.4.31,
+  lzma-rust2 0.16.2→0.16.4; removed sha2 0.10.9
+- Flathub: inetutils 2.7→2.8
+
+-------------------------------------------------------------------
 Mon Jun 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.5
 
 - IronRDP 0.14→0.15: bulk compression (XCRUSH/MPPC), slow-path rendering,

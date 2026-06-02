@@ -55,17 +55,17 @@ and updates OBS.
 
 ```mermaid
 graph TD
-    Tag[git push tag v0.15.5] --> BuildDeb[Build .deb]
+    Tag[git push tag v0.15.6] --> BuildDeb[Build .deb]
     Tag --> BuildRPM[Build .rpm]
     Tag --> BuildAppImage[Build AppImage]
     Tag --> BuildSnap[Build .snap]
     Tag --> BuildFlatpak[Build .flatpak]
 
-    BuildDeb --> |ubuntu-24.04| DebArtifact[rustconn_0.15.5_amd64.deb]
-    BuildRPM --> |fedora:44 container| RPMArtifact[rustconn-0.15.5-1.fc44.x86_64.rpm]
-    BuildAppImage --> |ubuntu-24.04| AppImageArtifact[RustConn-0.15.5-x86_64.AppImage]
-    BuildSnap --> |LXD + snapcraft| SnapArtifact[rustconn_0.15.5_amd64.snap]
-    BuildFlatpak --> |GNOME 50 container| FlatpakArtifact[RustConn-0.15.5.flatpak]
+    BuildDeb --> |ubuntu-24.04| DebArtifact[rustconn_0.15.6_amd64.deb]
+    BuildRPM --> |fedora:44 container| RPMArtifact[rustconn-0.15.6-1.fc44.x86_64.rpm]
+    BuildAppImage --> |ubuntu-24.04| AppImageArtifact[RustConn-0.15.6-x86_64.AppImage]
+    BuildSnap --> |LXD + snapcraft| SnapArtifact[rustconn_0.15.6_amd64.snap]
+    BuildFlatpak --> |GNOME 50 container| FlatpakArtifact[RustConn-0.15.6.flatpak]
 
     BuildSnap --> |continue-on-error| SnapStore[Publish to Snap Store edge]
 
@@ -188,15 +188,15 @@ sequenceDiagram
     participant GH as GitHub Actions
     participant FH as flathub/io.github.totoshko88.RustConn
 
-    Dev->>GH: Push tag v0.15.5
+    Dev->>GH: Push tag v0.15.6
     GH->>GH: Generate cargo-sources.json
     GH->>GH: Update manifest tag
-    GH->>GH: Upload artifact: flathub-update-v0.15.5
+    GH->>GH: Upload artifact: flathub-update-v0.15.6
 
     Dev->>Dev: Download artifact
     Dev->>FH: Create branch
     Dev->>FH: Upload manifest + cargo-sources.json
-    Dev->>FH: Create PR "Update to v0.15.5"
+    Dev->>FH: Create PR "Update to v0.15.6"
     FH->>FH: Flathub CI builds and tests
     FH->>FH: Merge → published to Flathub
 ```
