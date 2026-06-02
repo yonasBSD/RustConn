@@ -520,11 +520,7 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
 /// This function retries creation in case a future macOS update or GTK4
 /// fix resolves the scene registration issue.
 #[cfg(feature = "tray-macos")]
-fn try_create_macos_tray(
-    state: SharedAppState,
-    tray_manager: SharedTrayManager,
-    attempt: u32,
-) {
+fn try_create_macos_tray(state: SharedAppState, tray_manager: SharedTrayManager, attempt: u32) {
     const MAX_ATTEMPTS: u32 = 3;
     // Retry delays: 3s, 5s after initial 2s delay
     const RETRY_DELAYS_MS: [u64; 2] = [3000, 5000];
@@ -546,12 +542,9 @@ fn try_create_macos_tray(
             "macOS tray icon creation failed — retrying"
         );
         let next_attempt = attempt + 1;
-        glib::timeout_add_local_once(
-            std::time::Duration::from_millis(next_delay),
-            move || {
-                try_create_macos_tray(state, tray_manager, next_attempt);
-            },
-        );
+        glib::timeout_add_local_once(std::time::Duration::from_millis(next_delay), move || {
+            try_create_macos_tray(state, tray_manager, next_attempt);
+        });
     } else {
         tracing::warn!(
             attempts = MAX_ATTEMPTS,

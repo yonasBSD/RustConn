@@ -244,9 +244,7 @@ fn macos_bundle_locale_dir() -> Option<String> {
     let bundle_dir = contents_dir.parent()?;
 
     // Verify this looks like a .app bundle
-    let bundle_ext = bundle_dir
-        .extension()
-        .and_then(|e| e.to_str())?;
+    let bundle_ext = bundle_dir.extension().and_then(|e| e.to_str())?;
     if !bundle_ext.eq_ignore_ascii_case("app") {
         return None;
     }

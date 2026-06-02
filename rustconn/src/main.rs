@@ -358,16 +358,20 @@ pub fn configure_gsettings_schemas() {
     use gtk4::gio;
 
     let schema_dir = MACOS_BUNDLE_RESOURCES.with(|cell| {
-        cell.borrow().as_ref().map(|resources| {
-            resources.join("share/glib-2.0/schemas")
-        })
+        cell.borrow()
+            .as_ref()
+            .map(|resources| resources.join("share/glib-2.0/schemas"))
     });
 
     // Check if schemas are available somewhere
     let candidates = [
         schema_dir,
-        Some(std::path::PathBuf::from("/opt/homebrew/share/glib-2.0/schemas")),
-        Some(std::path::PathBuf::from("/usr/local/share/glib-2.0/schemas")),
+        Some(std::path::PathBuf::from(
+            "/opt/homebrew/share/glib-2.0/schemas",
+        )),
+        Some(std::path::PathBuf::from(
+            "/usr/local/share/glib-2.0/schemas",
+        )),
     ];
 
     for candidate in candidates.into_iter().flatten() {
