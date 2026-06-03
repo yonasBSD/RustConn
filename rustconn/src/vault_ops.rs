@@ -584,20 +584,26 @@ pub fn load_variable_from_vault(
     settings: &rustconn_core::config::SecretSettings,
     var_name: &str,
 ) -> Result<Option<String>, String> {
-    load_variable_from_vault_with_path(settings, var_name, None)
+    load_variable_from_vault_with_path(settings, var_name, None, None)
 }
 
 /// Loads a secret variable value from the configured vault backend,
-/// optionally using a custom KeePass entry path.
+/// optionally using a custom KeePass entry path or vault entry name.
 ///
 /// When `kdbx_entry_path` is `Some(path)`, the KeePass backend looks up
 /// the entry at that exact path (the function prepends `RustConn/` prefix
 /// is NOT added — the path is used as-is for direct entry lookup).
 /// This allows referencing existing entries in the user's KeePass database.
+///
+/// When `vault_entry_name` is `Some(name)`, non-KeePass backends
+/// (Bitwarden, 1Password, Passbolt, Pass) search for an existing entry
+/// by exact name instead of the default `rustconn/var/{name}` key.
+/// This allows reusing credentials already stored in the vault.
 pub fn load_variable_from_vault_with_path(
     settings: &rustconn_core::config::SecretSettings,
     var_name: &str,
     kdbx_entry_path: Option<&str>,
+    vault_entry_name: Option<&str>,
 ) -> Result<Option<String>, String> {
     use rustconn_core::config::SecretBackendType;
     use secrecy::ExposeSecret;
@@ -675,10 +681,111 @@ pub fn load_variable_from_vault_with_path(
             }
         }
         _ => {
-            let creds = dispatch_vault_op(settings, &default_key, VaultOp::Retrieve)?;
-            Ok(creds.and_then(|c| c.expose_password().map(String::from)))
+            // For non-KeePass backends: if vault_entry_name is set, search by
+            // exact name in the vault (Bitwarden, 1Password, etc.) instead of
+            // the default rustconn/var/{name} key.
+            let effective_entry_name =
+                vault_entry_name.filter(|n| !n.trim().is_empty());
+
+            if let Some(entry_name) = effective_entry_name {
+                // Direct lookup by exact vault entry name
+                retrieve_by_vault_entry_name(settings, entry_name)
+            } else {
+                let creds = dispatch_vault_op(settings, &default_key, VaultOp::Retrieve)?;
+                Ok(creds.and_then(|c| c.expose_password().map(String::from)))
+            }
         }
     }
+}
+
+/// Retrieves a password from a vault entry matched by exact name.
+///
+/// Used when a variable has a custom `vault_entry_name` — searches
+/// for an existing entry in Bitwarden/1Password/Passbolt/Pass by
+/// its exact name (without `RustConn:` prefix or `rustconn/var/` key).
+///
+/// # Errors
+/// Returns an error string if vault operations fail or time out.
+fn retrieve_by_vault_entry_name(
+    settings: &rustconn_core::config::SecretSettings,
+    entry_name: &str,
+) -> Result<Option<String>, String> {
+    use rustconn_core::config::SecretBackendType;
+    use rustconn_core::secret::SecretBackend;
+    use secrecy::ExposeSecret;
+
+    let backend_type = select_backend_for_load(settings);
+
+    crate::async_utils::with_runtime(|rt| {
+        let result = rt.block_on(async {
+            tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                match backend_type {
+                    SecretBackendType::Bitwarden => {
+                        let bw = rustconn_core::secret::auto_unlock(settings)
+                            .await
+                            .map_err(|e| format!("{e}"))?;
+                        let item = bw
+                            .find_item_by_exact_name(entry_name)
+                            .await
+                            .map_err(|e| format!("{e}"))?;
+                        let password = item.and_then(|i| i.login).and_then(|l| l.password);
+                        Ok(password.map(|p| {
+                            let z = zeroize::Zeroizing::new(p);
+                            String::from(z.as_str())
+                        }))
+                    }
+                    SecretBackendType::OnePassword => {
+                        // 1Password: use `op item get "{name}" --fields password`
+                        let backend = rustconn_core::secret::OnePasswordBackend::new();
+                        let creds = backend.retrieve(entry_name).await.map_err(|e| format!("{e}"))?;
+                        Ok(creds.and_then(|c| c.expose_password().map(|p| {
+                            let z = zeroize::Zeroizing::new(p.to_string());
+                            String::from(z.as_str())
+                        })))
+                    }
+                    SecretBackendType::Pass => {
+                        // Pass: entry_name is the pass path (e.g. "work/ad-creds")
+                        let backend =
+                            rustconn_core::secret::PassBackend::from_secret_settings(settings);
+                        let creds = backend.retrieve(entry_name).await.map_err(|e| format!("{e}"))?;
+                        Ok(creds.and_then(|c| c.expose_password().map(|p| {
+                            let z = zeroize::Zeroizing::new(p.to_string());
+                            String::from(z.as_str())
+                        })))
+                    }
+                    SecretBackendType::Passbolt => {
+                        let backend = rustconn_core::secret::PassboltBackend::new();
+                        let creds = backend.retrieve(entry_name).await.map_err(|e| format!("{e}"))?;
+                        Ok(creds.and_then(|c| c.expose_password().map(|p| {
+                            let z = zeroize::Zeroizing::new(p.to_string());
+                            String::from(z.as_str())
+                        })))
+                    }
+                    #[cfg(target_os = "macos")]
+                    SecretBackendType::MacOsKeychain => {
+                        let backend = rustconn_core::secret::MacOsKeychainBackend::new();
+                        let creds = backend.retrieve(entry_name).await.map_err(|e| format!("{e}"))?;
+                        Ok(creds.and_then(|c| c.expose_password().map(|p| {
+                            let z = zeroize::Zeroizing::new(p.to_string());
+                            String::from(z.as_str())
+                        })))
+                    }
+                    _ => {
+                        // LibSecret (Linux) — lookup by entry_name as attribute
+                        let backend = rustconn_core::secret::LibSecretBackend::new("rustconn");
+                        let creds = backend.retrieve(entry_name).await.map_err(|e| format!("{e}"))?;
+                        Ok(creds.and_then(|c| c.expose_password().map(|p| {
+                            let z = zeroize::Zeroizing::new(p.to_string());
+                            String::from(z.as_str())
+                        })))
+                    }
+                }
+            })
+            .await
+            .map_err(|_| "Vault retrieve by entry name timed out after 10s".to_string())?
+        });
+        result
+    })?
 }
 
 /// Returns global variables with secret values restored from vault.
@@ -700,6 +807,7 @@ pub fn resolve_global_variables(
                 &settings.secrets,
                 &var.name,
                 var.kdbx_entry_path.as_deref(),
+                var.vault_entry_name.as_deref(),
             ) {
                 Ok(Some(pwd)) => var.value = pwd,
                 Ok(None) => {

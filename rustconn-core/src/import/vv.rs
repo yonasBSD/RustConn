@@ -4,6 +4,10 @@
 //! connections. These INI-style files contain a `[virt-viewer]` section
 //! with connection parameters like host, port, TLS settings, and proxy.
 //!
+//! Inline PEM CA certificates (common in Proxmox VE tickets) are
+//! automatically saved to `$XDG_DATA_HOME/rustconn/certs/` so the
+//! connection can use TLS immediately without manual file management.
+//!
 //! Reference: <https://manpages.debian.org/testing/virt-viewer/remote-viewer.1.en.html>
 
 use std::collections::HashMap;
@@ -95,16 +99,29 @@ impl VirtViewerImporter {
                 let has_tls = tls_port.is_some();
 
                 let ca_cert_path = fields.get("ca").and_then(|ca| {
-                    // The CA is inline PEM — we cannot map it to a file path
-                    // directly. Warn the user so they know TLS may fail.
                     if ca.starts_with("-----BEGIN") {
-                        result.add_skipped(SkippedEntry::with_location(
-                            source_path,
-                            "Inline PEM CA certificate cannot be imported automatically. \
-                             Save it to a file and set the CA path in connection settings.",
-                            source_path,
-                        ));
-                        None
+                        // Inline PEM — save to a file automatically so TLS works
+                        // immediately (critical for Proxmox VE short-lived tickets).
+                        match save_inline_pem_cert(ca, source_path) {
+                            Ok(saved_path) => {
+                                result.record_warning(format!(
+                                    "Inline CA certificate saved to {}",
+                                    saved_path.display()
+                                ));
+                                Some(saved_path)
+                            }
+                            Err(reason) => {
+                                result.add_skipped(SkippedEntry::with_location(
+                                    source_path,
+                                    format!(
+                                        "Could not save inline PEM CA certificate: {reason}. \
+                                         Save it manually and set the CA path in connection settings."
+                                    ),
+                                    source_path,
+                                ));
+                                None
+                            }
+                        }
                     } else {
                         Some(PathBuf::from(ca))
                     }
@@ -192,6 +209,78 @@ impl VirtViewerImporter {
 
         Some(conn)
     }
+}
+
+/// Saves an inline PEM certificate string to a file on disk.
+///
+/// The certificate is stored in `$XDG_DATA_HOME/rustconn/certs/` with a
+/// filename derived from the source path (FNV-1a hash) to avoid collisions.
+/// The file is created with mode 0600 to prevent other users from reading it.
+///
+/// # Errors
+///
+/// Returns a human-readable error string if the directory cannot be created,
+/// the PEM content is invalid, or the file cannot be written.
+fn save_inline_pem_cert(pem_content: &str, source_hint: &str) -> Result<PathBuf, String> {
+    // Basic PEM validation: must contain both BEGIN and END markers
+    if !pem_content.contains("-----BEGIN") {
+        return Err("PEM content missing -----BEGIN marker".to_string());
+    }
+    // Decode escaped newlines first to check for END marker
+    let decoded = pem_content.replace("\\n", "\n");
+    if !decoded.contains("-----END") {
+        return Err(
+            "PEM content missing -----END marker — certificate may be truncated".to_string(),
+        );
+    }
+
+    let certs_dir = dirs::data_dir()
+        .ok_or_else(|| "cannot determine XDG data directory".to_string())?
+        .join("rustconn")
+        .join("certs");
+
+    std::fs::create_dir_all(&certs_dir)
+        .map_err(|e| format!("failed to create {}: {e}", certs_dir.display()))?;
+
+    // Restrict directory permissions to owner only (rwx------)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let dir_perms = std::fs::Permissions::from_mode(0o700);
+        let _ = std::fs::set_permissions(&certs_dir, dir_perms);
+    }
+
+    // Generate a short stable filename from the source path
+    let hash = simple_hash(source_hint);
+    let filename = format!("ca-{hash}.pem");
+    let cert_path = certs_dir.join(&filename);
+
+    std::fs::write(&cert_path, decoded.as_bytes())
+        .map_err(|e| format!("failed to write {}: {e}", cert_path.display()))?;
+
+    // Restrict file permissions to owner read/write only (rw-------)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let file_perms = std::fs::Permissions::from_mode(0o600);
+        std::fs::set_permissions(&cert_path, file_perms)
+            .map_err(|e| format!("failed to set permissions on {}: {e}", cert_path.display()))?;
+    }
+
+    Ok(cert_path)
+}
+
+/// Produces a short hex hash (first 16 chars of a simple FNV-like digest).
+///
+/// We avoid pulling in a full SHA crate for a single non-security use.
+fn simple_hash(input: &str) -> String {
+    // FNV-1a 64-bit
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in input.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    format!("{hash:016x}")
 }
 
 /// Returns the appropriate default port for a SPICE connection
@@ -314,7 +403,7 @@ delete-this-file=1
 toggle-fullscreen=Shift+F11
 release-cursor=Ctrl+Alt+R
 secure-attention=Ctrl+Alt+Ins
-ca=-----BEGIN CERTIFICATE-----\\nMIIFake...
+ca=-----BEGIN CERTIFICATE-----\\nMIIFake...\\n-----END CERTIFICATE-----
 ";
         let f = write_vv_file(content);
         let importer = VirtViewerImporter::new();
@@ -336,14 +425,31 @@ ca=-----BEGIN CERTIFICATE-----\\nMIIFake...
             ProtocolConfig::Spice(ref s) if s.proxy.as_deref() == Some("http://192.168.1.100:3128")
         ));
         assert!(conn.tags.iter().any(|t| t.starts_with("host-subject:")));
-        // Inline PEM CA should produce a skipped entry warning
+        // Inline PEM CA should be saved to a file automatically
         assert!(
-            result
-                .skipped
-                .iter()
-                .any(|s| s.reason.contains("Inline PEM")),
-            "Expected skipped entry for inline PEM CA certificate"
+            matches!(
+                conn.protocol_config,
+                ProtocolConfig::Spice(ref s) if s.ca_cert_path.is_some()
+            ),
+            "Expected ca_cert_path to be set after inline PEM save"
         );
+        // A warning should inform the user where the cert was saved
+        assert!(
+            result.warnings.iter().any(|w| w.contains("Inline CA certificate saved")),
+            "Expected a warning about saved CA certificate"
+        );
+        // Verify the saved file exists and contains decoded PEM
+        if let ProtocolConfig::Spice(ref s) = conn.protocol_config {
+            let ca_path = s.ca_cert_path.as_ref().unwrap();
+            assert!(ca_path.exists(), "Saved CA cert file should exist");
+            let contents = std::fs::read_to_string(ca_path).unwrap();
+            assert!(
+                contents.contains("-----BEGIN CERTIFICATE-----"),
+                "Saved file should contain PEM header"
+            );
+            // Cleanup
+            let _ = std::fs::remove_file(ca_path);
+        }
     }
 
     #[test]
@@ -416,5 +522,88 @@ port=5900
         let importer = VirtViewerImporter::new();
         let result = importer.import_from_path(f.path()).expect("import");
         assert_eq!(result.connections[0].name, "10.0.0.1:5900");
+    }
+
+    #[test]
+    fn test_inline_pem_missing_end_marker() {
+        // PEM without -----END should be rejected with a meaningful error
+        let content = "\
+[virt-viewer]
+type=spice
+host=test.example.com
+tls-port=61000
+ca=-----BEGIN CERTIFICATE-----\\nMIIFakeContentWithoutEndMarker
+";
+        let f = write_vv_file(content);
+        let importer = VirtViewerImporter::new();
+        let result = importer.import_from_path(f.path()).expect("import");
+        // Connection should still be created but without ca_cert_path
+        assert_eq!(result.connections.len(), 1);
+        assert!(
+            matches!(
+                result.connections[0].protocol_config,
+                ProtocolConfig::Spice(ref s) if s.ca_cert_path.is_none()
+            ),
+            "Expected no ca_cert_path when PEM is invalid (missing END marker)"
+        );
+        // Should have a skipped entry explaining the issue
+        assert!(
+            result.skipped.iter().any(|s| s.reason.contains("END marker")),
+            "Expected skipped entry mentioning missing END marker"
+        );
+    }
+
+    #[test]
+    fn test_inline_pem_multiline_full_cert() {
+        // Simulate a realistic multi-line Proxmox PEM certificate
+        let pem_lines = [
+            "-----BEGIN CERTIFICATE-----",
+            "MIIFnTCCA4WgAwIBAgICEAAwDQYJKoZIhvcNAQELBQAwYTELMAkGA1UEBhMCVVMx",
+            "EDAOBgNVBAgMB0FyaXpvbmExEDAOBgNVBAcMB1Bob2VuaXgxDTALBgNVBAoMBFRl",
+            "c3QxHzAdBgNVBAMMFlByb3htb3ggVkUgVGVzdCBDQSAyMDI0MB4XDTI0MDEwMTAw",
+            "MDAwMFoXDTM0MDEwMTAwMDAwMFowYTELMAkGA1UEBhMCVVMxEDAOBgNVBAgMB0Fy",
+            "aXpvbmExEDAOBgNVBAcMB1Bob2VuaXgxDTALBgNVBAoMBFRlc3QxHzAdBgNVBAMM",
+            "FlByb3htb3ggVkUgVGVzdCBDQSAyMDI0MIICIjANBgkqhkiG9w0BAQEFAAOCAg8A",
+            "-----END CERTIFICATE-----",
+        ];
+        // Proxmox INI format uses literal \\n between lines
+        let ca_value = pem_lines.join("\\n");
+
+        let content = format!(
+            "[virt-viewer]\ntype=spice\nhost=pve.example.org\ntls-port=61234\nca={ca_value}\n"
+        );
+        let f = write_vv_file(&content);
+        let importer = VirtViewerImporter::new();
+        let result = importer.import_from_path(f.path()).expect("import");
+
+        assert_eq!(result.connections.len(), 1);
+        let conn = &result.connections[0];
+        if let ProtocolConfig::Spice(ref s) = conn.protocol_config {
+            let ca_path = s.ca_cert_path.as_ref().expect("ca_cert_path should be set");
+            assert!(ca_path.exists(), "Saved CA cert file should exist");
+            let contents = std::fs::read_to_string(ca_path).unwrap();
+            assert!(contents.contains("-----BEGIN CERTIFICATE-----"));
+            assert!(contents.contains("-----END CERTIFICATE-----"));
+            // Verify newlines were decoded properly (no literal \\n remains)
+            assert!(
+                !contents.contains("\\n"),
+                "Literal backslash-n should be decoded to real newlines"
+            );
+            // Verify file permissions on Unix
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let perms = std::fs::metadata(ca_path).unwrap().permissions();
+                assert_eq!(
+                    perms.mode() & 0o777,
+                    0o600,
+                    "PEM file should have 0600 permissions"
+                );
+            }
+            // Cleanup
+            let _ = std::fs::remove_file(ca_path);
+        } else {
+            panic!("Expected Spice protocol config");
+        }
     }
 }

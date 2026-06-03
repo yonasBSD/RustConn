@@ -19,6 +19,9 @@
 #
 # Requires: curl
 # Optional: GITHUB_TOKEN env var to avoid rate limiting
+#
+# NOTE: This script avoids grep -P (PCRE) for macOS compatibility.
+# All parsing uses sed/awk which work on both BSD (macOS) and GNU (Linux).
 
 set -euo pipefail
 
@@ -61,7 +64,7 @@ check_kubectl_endpoint() {
 check_tailscale_endpoint() {
     local ver
     ver=$(curl -sL --max-time 10 "https://pkgs.tailscale.com/stable/" 2>/dev/null \
-        | grep -oP 'tailscale_\K[0-9]+\.[0-9]+\.[0-9]+(?=_amd64\.tgz)' \
+        | sed -n 's/.*tailscale_\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)_amd64\.tgz.*/\1/p' \
         | head -1)
     if [[ -n "$ver" ]]; then
         echo "$ver"
@@ -73,7 +76,7 @@ check_tailscale_endpoint() {
 check_teleport_endpoint() {
     local tag
     tag=$(gh_api "https://api.github.com/repos/gravitational/teleport/releases/latest" \
-        | grep -oP '"tag_name"\s*:\s*"v\K[^"]+' | head -1)
+        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\([^"]*\)".*/\1/p' | head -1)
     if [[ -n "$tag" ]]; then
         echo "$tag"
     else
@@ -84,7 +87,7 @@ check_teleport_endpoint() {
 check_boundary_endpoint() {
     local ver
     ver=$(curl -sL --max-time 10 "https://checkpoint-api.hashicorp.com/v1/check/boundary" 2>/dev/null \
-        | grep -oP '"current_version"\s*:\s*"\K[^"]+' | head -1)
+        | sed -n 's/.*"current_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
     if [[ -n "$ver" ]]; then
         echo "$ver"
     else
@@ -105,7 +108,7 @@ check_hoop_endpoint() {
 check_bitwarden_endpoint() {
     local tag
     tag=$(gh_api "https://api.github.com/repos/bitwarden/clients/releases?per_page=30" \
-        | grep -oP '"tag_name"\s*:\s*"cli-v\K[^"]+' | head -1)
+        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"cli-v\([^"]*\)".*/\1/p' | head -1)
     if [[ -n "$tag" ]]; then
         echo "$tag"
     else
@@ -116,7 +119,7 @@ check_bitwarden_endpoint() {
 check_1password_endpoint() {
     local ver
     ver=$(curl -sL --max-time 10 "https://app-updates.agilebits.com/check/1/0/CLI2/en/2.0.0/N" 2>/dev/null \
-        | grep -oP '"version"\s*:\s*"\K[^"]+' | head -1)
+        | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
     if [[ -n "$ver" ]]; then
         echo "$ver"
     else
@@ -129,7 +132,7 @@ check_tigervnc_pinned() {
     local pinned latest
     pinned=$(awk '/id: "vncviewer"/{found=1} found && /pinned_version: Some/{gsub(/.*Some\("/,""); gsub(/".*/,""); print; exit}' "$CLI_DOWNLOAD_RS")
     latest=$(gh_api "https://api.github.com/repos/TigerVNC/tigervnc/releases/latest" \
-        | grep -oP '"tag_name"\s*:\s*"v?\K[^"]+' | head -1)
+        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\{0,1\}\([^"]*\)".*/\1/p' | head -1)
     echo "${pinned}|${latest}"
 }
 

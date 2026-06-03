@@ -50,6 +50,16 @@ pub struct Variable {
     /// Example: `Network/Switches/RADIUS_Secret`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kdbx_entry_path: Option<String>,
+    /// Optional custom vault entry name for non-KeePass backends.
+    ///
+    /// When set, the variable's secret value is read from an existing vault
+    /// entry matched by **exact name** (Bitwarden, 1Password, Passbolt, Pass)
+    /// instead of the default `rustconn/var/{name}` key.
+    /// This allows reusing existing vault entries without duplicating them.
+    ///
+    /// Example: `"AD Credentials"` (matches Bitwarden item named exactly that)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vault_entry_name: Option<String>,
 }
 
 impl Drop for Variable {
@@ -70,6 +80,7 @@ impl Variable {
             is_secret: false,
             description: None,
             kdbx_entry_path: None,
+            vault_entry_name: None,
         }
     }
 
@@ -82,6 +93,7 @@ impl Variable {
             is_secret: true,
             description: None,
             kdbx_entry_path: None,
+            vault_entry_name: None,
         }
     }
 

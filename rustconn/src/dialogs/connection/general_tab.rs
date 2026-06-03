@@ -312,8 +312,22 @@ pub(super) fn create_basic_tab() -> BasicTabWidgets {
         .model(&variable_name_list)
         .valign(gtk4::Align::Center)
         .build();
-    let variable_action_row = adw::ActionRow::builder().title(i18n("Variable")).build();
+    let variable_manage_btn = Button::builder()
+        .icon_name("list-add-symbolic")
+        .tooltip_text(i18n("Manage global variables"))
+        .valign(gtk4::Align::Center)
+        .css_classes(["flat"])
+        .build();
+    variable_manage_btn
+        .update_property(&[gtk4::accessible::Property::Label(&i18n("Manage global variables"))]);
+    // Clicking the manage button activates the same action as Tools → Variables
+    variable_manage_btn.set_action_name(Some("win.manage-variables"));
+    let variable_action_row = adw::ActionRow::builder()
+        .title(i18n("Variable"))
+        .subtitle(i18n("Create secret variables in Tools → Variables"))
+        .build();
     variable_action_row.add_suffix(&variable_dropdown);
+    variable_action_row.add_suffix(&variable_manage_btn);
     auth_group.add(&variable_action_row);
 
     let variable_row = GtkBox::new(Orientation::Horizontal, 0);

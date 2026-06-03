@@ -1078,6 +1078,17 @@ impl SettingsDialog {
 
         // PreferencesDialog uses connect_closed signal (not connect_close_request)
         self.dialog.connect_closed(move |_| {
+            // Ensure accelerators are restored in case recording was in progress
+            // when the dialog was closed (e.g. via Escape on the dialog level).
+            if let Some(app) = gtk4::gio::Application::default()
+                .and_then(|a| a.downcast::<gtk4::Application>().ok())
+            {
+                keybindings_tab::restore_accels_with_overrides(
+                    &app,
+                    &keybindings_overrides_clone.borrow(),
+                );
+            }
+
             // If settings were restored from backup, skip saving — the UI widgets
             // still show pre-restore values and would overwrite the restored file.
             if was_restored_clone.get() {

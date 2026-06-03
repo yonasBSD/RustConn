@@ -6,7 +6,7 @@
 
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{Button, EventControllerKey, Label};
+use gtk4::{gio, Button, EventControllerKey, Label};
 use libadwaita as adw;
 use rustconn_core::config::keybindings::{
     KeybindingCategory, KeybindingSettings, default_keybindings, is_valid_accelerator,
@@ -105,13 +105,26 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
                 btn.set_label(&i18n("Press keys..."));
                 btn.set_sensitive(false);
 
-                // Create a temporary key controller on the button's toplevel
+                // Temporarily remove all application accelerators so they do not
+                // intercept key events before our EventControllerKey receives them.
+                // See: https://github.com/totoshko88/RustConn/issues/167
+                let app = gio::Application::default()
+                    .and_then(|a| a.downcast::<gtk4::Application>().ok());
+                if let Some(ref app) = app {
+                    suspend_accels(app);
+                }
+
+                // Create a temporary key controller in Capture phase so it
+                // receives key events before any child widget or mnemonic.
                 let key_ctrl = EventControllerKey::new();
+                key_ctrl.set_propagation_phase(gtk4::PropagationPhase::Capture);
+
                 let action = action_name.clone();
                 let defaults_str = default_accels.clone();
                 let label = accel_label_clone.clone();
                 let overrides = overrides_clone.clone();
                 let record = record_btn_clone.clone();
+                let app_for_restore = app.clone();
 
                 key_ctrl.connect_key_pressed(move |ctrl, keyval, _keycode, modifier| {
                     // Ignore lone modifier presses
@@ -131,6 +144,9 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
                         );
                         record.set_label(&i18n("Record"));
                         record.set_sensitive(true);
+                        if let Some(ref app) = app_for_restore {
+                            restore_accels_with_overrides(app, &overrides.borrow());
+                        }
                         if let Some(widget) = ctrl.widget() {
                             widget.remove_controller(ctrl);
                         }
@@ -163,6 +179,9 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
 
                     record.set_label(&i18n("Record"));
                     record.set_sensitive(true);
+                    if let Some(ref app) = app_for_restore {
+                        restore_accels_with_overrides(app, &overrides.borrow());
+                    }
                     if let Some(widget) = ctrl.widget() {
                         widget.remove_controller(ctrl);
                     }
@@ -364,3 +383,32 @@ fn update_row_accel_label(row_widget: &gtk4::Widget, accel: &str) {
         child = w.next_sibling();
     }
 }
+
+/// Temporarily removes all application accelerators.
+///
+/// This prevents global shortcuts (e.g. `Ctrl+W` for close-tab) from
+/// intercepting key events while the user is recording a new shortcut.
+/// Call [`restore_accels_with_overrides`] after recording completes or is cancelled.
+///
+/// See: <https://github.com/totoshko88/RustConn/issues/167>
+fn suspend_accels(app: &gtk4::Application) {
+    let defaults = default_keybindings();
+    for def in &defaults {
+        app.set_accels_for_action(&def.action, &[]);
+    }
+}
+
+/// Restores all application accelerators respecting user overrides.
+///
+/// This re-applies the currently effective accelerators (user overrides
+/// where present, defaults otherwise) after a recording session has ended.
+/// Also called on dialog close to guarantee accelerators are never left empty.
+pub fn restore_accels_with_overrides(app: &gtk4::Application, overrides: &KeybindingSettings) {
+    let defaults = default_keybindings();
+    for def in &defaults {
+        let effective = overrides.get_accel(def);
+        let accels: Vec<&str> = effective.split('|').collect();
+        app.set_accels_for_action(&def.action, &accels);
+    }
+}
+

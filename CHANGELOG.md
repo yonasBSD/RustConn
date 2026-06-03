@@ -5,6 +5,19 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.7] - 2026-06-03
+
+### Improved
+
+- **Variable password source: discoverability** — when "Variable" is selected as password source in the connection or group dialog, the row now shows a subtitle hint ("Create secret variables in Tools → Variables") and a "+" button that opens the global variables manager directly. Previously the dropdown appeared empty with no guidance, making the feature appear broken for users who had not yet created secret variables ([#166](https://github.com/totoshko88/RustConn/issues/166))
+- **Variable password source: custom vault entry name** — secret variables can now reference an existing entry in Bitwarden, 1Password, Passbolt, or Pass by its exact name (e.g., "AD Credentials") instead of the default `rustconn/var/{name}` lookup key. This is the non-KeePass equivalent of the existing "KeePass entry" field — both allow reusing credentials already stored in the vault without duplication. Configure via Tools → Variables → mark as Secret → fill "Vault entry" field ([#166](https://github.com/totoshko88/RustConn/issues/166))
+
+### Fixed
+
+- **Proxmox SPICE: inline PEM CA certificate now saved automatically** — when importing a `.vv` file from Proxmox VE that contains an inline PEM CA certificate (common in SPICE tickets), the certificate is now automatically saved to `~/.local/share/rustconn/certs/ca-<hash>.pem` and the path is set in connection settings. Previously the import only showed a warning asking the user to save the certificate manually, which was impractical because Proxmox tickets expire in 30–40 seconds. Now the connection works immediately after import via file manager or `rustconn file.vv` ([#165](https://github.com/totoshko88/RustConn/issues/165))
+- **Keybinding reassignment not working** — recording a new keyboard shortcut in Settings → Interface did not register keystrokes because global application accelerators (e.g. `Ctrl+W`) intercepted the key event before the recording controller could receive it. Now all accelerators are temporarily suspended during recording and the `EventControllerKey` uses the Capture phase, ensuring any key combination reaches the recorder ([#167](https://github.com/totoshko88/RustConn/issues/167))
+- **Sidebar: right-click context menu still not working at depth ≥ 2** — the 0.15.6 fix moved the gesture from `TreeExpander` to `content_box`, but `content_box` does not cover the indent/arrow area that `TreeExpander` renders to the left of the content for nested items. Right-clicks landing in the indent area (which grows wider at each nesting level) never reached `content_box` and were silently ignored. Moved the gesture back to the `TreeExpander` widget with `BUTTON_SECONDARY` — this does not conflict with TreeExpander's internal expand/collapse handler which only listens for `BUTTON_PRIMARY` ([#157](https://github.com/totoshko88/RustConn/issues/157))
+
 ## [0.15.6] - 2026-06-02
 
 ### Added

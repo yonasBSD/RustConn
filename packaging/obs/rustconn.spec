@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.15.6
+Version:        0.15.7
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,25 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Tue Jun 03 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.7-0
+- Variable password source: discoverability — subtitle hint and "+"
+  button to open Variables manager directly from connection dialog
+- Variable password source: custom vault entry name — reference existing
+  vault entries by name instead of default rustconn/var/{name} key
+- Fixed Proxmox SPICE inline PEM CA certificate now saved automatically
+  on import from .vv file
+- Fixed keybinding reassignment not working — accelerators suspended
+  during recording, EventControllerKey uses Capture phase
+
+* Mon Jun 02 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.6-0
+- VNC: new "Accept Certificate" toggle for VeNCrypt servers with
+  self-signed TLS certificates; CLI --ignore-certificate for VNC
+- Fixed Welcome screen "Remote host monitoring" icon missing on macOS
+- Fixed sidebar right-click context menu not opening for nested items
+- Updated: bitflags 2.11.1→2.12.1, log 0.4.30→0.4.31,
+  lzma-rust2 0.16.2→0.16.4; removed sha2 0.10.9
+- Flathub: inetutils 2.7→2.8
+
 * Mon Jun 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.5-0
 - IronRDP 0.14→0.15: bulk compression, slow-path rendering, RemoteApp
   alternate_shell, multitransport dispatch, pixel format fix

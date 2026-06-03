@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Tue Jun 03 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.7
+
+- Variable password source: discoverability — subtitle hint and "+"
+  button to open Variables manager directly from connection dialog
+- Variable password source: custom vault entry name — reference existing
+  vault entries by name instead of default rustconn/var/{name} key
+- Fixed Proxmox SPICE inline PEM CA certificate now saved automatically
+  on import from .vv file
+- Fixed keybinding reassignment not working — accelerators suspended
+  during recording, EventControllerKey uses Capture phase
+
+-------------------------------------------------------------------
 Mon Jun 02 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.6
 
 - VNC: new "Accept Certificate" toggle for VeNCrypt servers with

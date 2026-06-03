@@ -237,7 +237,7 @@ proptest! {
 
     /// Inline PEM CA produces a skipped entry warning
     #[test]
-    fn prop_inline_pem_produces_skipped_entry(
+    fn prop_inline_pem_saves_cert_file(
         host in arb_hostname(),
         port in arb_port(),
     ) {
@@ -250,15 +250,22 @@ proptest! {
 
         // Connection should still be imported
         prop_assert_eq!(result.connections.len(), 1);
-        // But with a skipped entry for the PEM
-        prop_assert!(
-            result.skipped.iter().any(|s| s.reason.contains("Inline PEM")),
-            "Expected skipped entry for inline PEM CA"
-        );
-        // And no ca_cert_path set
+        // Inline PEM should be saved — ca_cert_path set
         if let ProtocolConfig::Spice(ref s) = result.connections[0].protocol_config {
-            prop_assert!(s.ca_cert_path.is_none());
+            prop_assert!(
+                s.ca_cert_path.is_some(),
+                "Expected ca_cert_path to be set after inline PEM save"
+            );
+            // Cleanup saved cert file
+            if let Some(ref path) = s.ca_cert_path {
+                let _ = std::fs::remove_file(path);
+            }
         }
+        // A warning should mention the saved path
+        prop_assert!(
+            result.warnings.iter().any(|w| w.contains("Inline CA certificate saved")),
+            "Expected warning about saved CA certificate"
+        );
     }
 
     /// Unsupported protocol types produce skipped entries, not errors

@@ -5856,10 +5856,19 @@ impl ConnectionDialog {
             // Clear existing items
             sl.splice(0, sl.n_items(), &[] as &[&str]);
             // Add secret variables only
+            let mut has_secrets = false;
             for var in variables {
                 if var.is_secret {
                     sl.append(&var.name);
+                    has_secrets = true;
                 }
+            }
+            // Show placeholder when no secret variables are defined
+            if !has_secrets {
+                sl.append(&i18n("(no secret variables)"));
+                self.variable_dropdown.set_sensitive(false);
+            } else {
+                self.variable_dropdown.set_sensitive(true);
             }
         }
     }

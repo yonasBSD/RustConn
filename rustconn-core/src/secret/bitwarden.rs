@@ -559,6 +559,48 @@ impl BitwardenBackend {
 
         Ok(result)
     }
+
+    /// Finds an item by exact vault entry name (without `RustConn:` prefix).
+    ///
+    /// This allows reusing existing Bitwarden entries that were not created
+    /// by RustConn. The search matches the item name exactly as stored.
+    ///
+    /// # Errors
+    /// Returns `SecretError` if the vault is locked or CLI fails.
+    pub async fn find_item_by_exact_name(
+        &self,
+        entry_name: &str,
+    ) -> SecretResult<Option<BitwardenItem>> {
+        tracing::debug!(
+            entry_name = %entry_name,
+            "Bitwarden find_item_by_exact_name: searching vault"
+        );
+
+        let output = self
+            .run_command(&["list", "items", "--search", entry_name])
+            .await?;
+
+        let items: Vec<BitwardenItem> = serde_json::from_str(&output)
+            .map_err(|e| SecretError::RetrieveFailed(format!("Failed to parse items: {e}")))?;
+
+        tracing::debug!(
+            items_count = items.len(),
+            entry_name = %entry_name,
+            "Bitwarden find_item_by_exact_name: parsed results"
+        );
+
+        // Find exact match by name (case-sensitive)
+        let result = items.into_iter().find(|item| item.name == entry_name);
+
+        if result.is_none() {
+            tracing::debug!(
+                entry_name = %entry_name,
+                "Bitwarden find_item_by_exact_name: no exact match found"
+            );
+        }
+
+        Ok(result)
+    }
 }
 
 impl Default for BitwardenBackend {

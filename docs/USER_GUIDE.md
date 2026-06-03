@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.15.6** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.15.7** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes, Web protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -1274,7 +1274,7 @@ Groups can store default credentials (Username, Password, Domain) that are inher
 2. Select **Password Source**:
    - **Prompt** — Ask for password on each connection
    - **Vault** — Store in the configured secret backend (KeePass, Keyring, Bitwarden, 1Password, Passbolt); click the **folder icon** to load an existing password from the vault
-   - **Variable** — Use a named secret global variable (dropdown shows only variables marked as secret in Settings → Variables)
+   - **Variable** — Use a named secret global variable (dropdown shows only variables marked as secret in Tools → Variables)
    - **Inherit** — Inherit from parent group
    - **None** — No password
 3. Password source determines which UI is shown: Vault shows a password field with load button, Variable shows a dropdown of secret variables
@@ -1761,6 +1761,19 @@ This avoids duplicating secrets — you can reuse entries already in your KeePas
 
 If the field is left empty, the default path `RustConn/rustconn/var/{name}` is used (created automatically on save).
 
+**Vault Entry Name (Bitwarden, 1Password, Passbolt, Pass):**
+
+When using Bitwarden, 1Password, Passbolt, or Pass as the secret backend, secret variables can reference an existing vault entry by its exact name:
+
+1. Mark the variable as **Secret**
+2. A **Vault entry** field appears (only when a non-KeePass backend is active)
+3. Enter the exact name of an existing vault entry, e.g., `AD Credentials` or `Production DB`
+4. The password is read from that entry at connection time
+
+This is the non-KeePass equivalent of "KeePass entry" — it allows reusing credentials already stored in your vault without duplicating them under the `rustconn/var/` namespace. The search matches the entry name exactly (case-sensitive).
+
+If the field is left empty, the default key `rustconn/var/{name}` is used (entry named `RustConn: rustconn/var/{name}` for Bitwarden).
+
 **Example:**
 ```
 Variable: PROD_USER = admin
@@ -1776,6 +1789,17 @@ Connection Password Source: Variable → RADIUS  →  reads from KeePass entry "
 - Variable names are case-sensitive
 - Undefined variables remain as literal text
 - Combine with Group Credentials for hierarchical credential management
+
+**Using Variables as Password Source (shared credentials):**
+
+To reuse the same credentials across multiple connections (e.g., one Active Directory account for many RDP sessions):
+
+1. Create a secret variable in **Tools → Variables** (e.g., `AD_PASSWORD`, mark as Secret)
+2. Set its value manually or load from vault (Bitwarden, KeePass, 1Password, etc.)
+3. In each connection dialog → **Password** dropdown → select **Variable**
+4. Choose your secret variable from the dropdown that appears
+
+All connections that reference the same variable share the credential — change it once, all connections use the updated value. The "+" button next to the dropdown opens the Variables manager directly if you have not created any secret variables yet.
 
 ### Password Generator
 
@@ -2210,6 +2234,29 @@ RustConn registers as a handler for `.rdp` files. Double-clicking an `.rdp` file
 **Desktop Integration:**
 ```bash
 xdg-mime default io.github.totoshko88.RustConn.desktop application/x-rdp
+```
+
+### Virt-Viewer (.vv) File Association
+
+RustConn registers as a handler for `.vv` files (SPICE/VNC connections from libvirt, Proxmox VE, oVirt). Double-clicking a `.vv` file opens RustConn and connects automatically.
+
+**How It Works:**
+1. Double-click a `.vv` file (or run `rustconn file.vv`)
+2. RustConn parses the file and creates a connection with all settings (host, port, TLS, proxy, password)
+3. The connection starts immediately
+
+**Proxmox VE SPICE Tickets:**
+
+Proxmox VE generates short-lived `.vv` files ("SPICE tickets") valid for 30–40 seconds. RustConn handles these correctly:
+- Inline PEM CA certificates are automatically saved to `~/.local/share/rustconn/certs/` and configured in connection settings
+- The proxy URL (`pvespiceproxy`) is preserved in the SPICE configuration
+- The connection starts immediately after import, meeting the ticket TTL requirement
+
+**Supported Fields:** `type` (spice/vnc), `host`, `port`, `tls-port`, `password`, `title`, `proxy`, `ca` (file path or inline PEM), `host-subject`, `delete-this-file`.
+
+**Desktop Integration:**
+```bash
+xdg-mime default io.github.totoshko88.RustConn.desktop application/x-virt-viewer
 ```
 
 ### Migration Guide

@@ -114,12 +114,15 @@ pub fn setup_list_item(
     // Note: is_group will be determined at bind time via list_item data
     let gesture = GestureClick::new();
     gesture.set_button(gdk::BUTTON_SECONDARY);
-    // Use CAPTURE phase so the gesture fires before TreeExpander's internal
-    // handlers, which can swallow the event for nested items (issue #83).
-    // The gesture is attached to content_box (not the TreeExpander) to avoid
-    // conflict with TreeExpander's internal gesture that handles the
-    // indent/arrow area — this conflict caused right-click to silently fail
-    // for items at depth >= 1.
+    // Use CAPTURE phase so the gesture fires before any internal handlers.
+    // The gesture is attached to the TreeExpander itself (not content_box)
+    // because TreeExpander renders indent + arrow widgets to the left of the
+    // content for nested items.  When the user right-clicks anywhere on a row
+    // at depth >= 2, the event target may be one of those indent/arrow
+    // children — which are NOT descendants of content_box.  Attaching to
+    // content_box therefore missed right-clicks that land in the indent area.
+    // BUTTON_SECONDARY does not conflict with TreeExpander's internal
+    // expand/collapse gesture, which only handles BUTTON_PRIMARY.
     gesture.set_propagation_phase(gtk4::PropagationPhase::Capture);
     let list_item_weak = list_item.downgrade();
     gesture.connect_pressed(move |gesture, _n_press, x, y| {
@@ -227,7 +230,7 @@ pub fn setup_list_item(
             gesture.set_state(gtk4::EventSequenceState::Claimed);
         }
     });
-    content_box.add_controller(gesture);
+    expander.add_controller(gesture);
 }
 
 /// Binds data to a list item

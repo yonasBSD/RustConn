@@ -54,6 +54,8 @@ struct VariableRow {
     description_entry: Entry,
     /// Entry for custom KeePass entry path
     kdbx_path_entry: Entry,
+    /// Entry for custom vault entry name (Bitwarden, 1Password, etc.)
+    vault_name_entry: Entry,
     /// Delete button
     delete_button: Button,
 }
@@ -305,6 +307,25 @@ impl VariablesDialog {
         grid.attach(&kdbx_path_label, 0, 4, 1, 1);
         grid.attach(&kdbx_path_entry, 1, 4, 1, 1);
 
+        // Row 5: Vault entry name (visible for secret variables with non-KeePass backends)
+        let vault_name_label = Label::builder()
+            .label(i18n("Vault entry:"))
+            .halign(gtk4::Align::End)
+            .build();
+        let vault_name_entry = Entry::builder()
+            .hexpand(true)
+            .placeholder_text(i18n("e.g. AD Credentials (optional)"))
+            .tooltip_text(i18n(
+                "Existing vault entry name. If set, the password is read from this \
+                 entry by exact name instead of the default rustconn/var/ key.",
+            ))
+            .build();
+        vault_name_label.set_visible(false);
+        vault_name_entry.set_visible(false);
+
+        grid.attach(&vault_name_label, 0, 5, 1, 1);
+        grid.attach(&vault_name_entry, 1, 5, 1, 1);
+
         // Build expander with custom label widget showing name + value preview
         let label_box = GtkBox::new(Orientation::Horizontal, 8);
         label_box.set_hexpand(true);
@@ -398,6 +419,7 @@ impl VariablesDialog {
         let secret_entry_for_load = secret_entry.clone();
         let name_entry_for_load = name_entry.clone();
         let kdbx_path_entry_for_load = kdbx_path_entry.clone();
+        let vault_name_entry_for_load = vault_name_entry.clone();
         let settings_for_load = settings.clone();
         load_vault_btn.connect_clicked(move |btn| {
             let var_name = name_entry_for_load.text().to_string();
@@ -416,6 +438,15 @@ impl VariablesDialog {
                     Some(trimmed)
                 }
             };
+            let vault_entry = {
+                let text = vault_name_entry_for_load.text();
+                let trimmed = text.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            };
 
             btn.set_sensitive(false);
             btn.set_icon_name("content-loading-symbolic");
@@ -427,6 +458,7 @@ impl VariablesDialog {
                             &s.secrets,
                             &var_name,
                             custom_path.as_deref(),
+                            vault_entry.as_deref(),
                         )
                     } else {
                         // No settings — fall back to libsecret
@@ -493,6 +525,8 @@ impl VariablesDialog {
         let secret_buttons_clone = secret_buttons_box.clone();
         let kdbx_path_label_clone = kdbx_path_label.clone();
         let kdbx_path_entry_clone = kdbx_path_entry.clone();
+        let vault_name_label_clone = vault_name_label.clone();
+        let vault_name_entry_clone = vault_name_entry.clone();
         let settings_for_toggle = settings.clone();
         is_secret_check.connect_toggled(move |check| {
             let is_secret = check.is_active();
@@ -511,6 +545,20 @@ impl VariablesDialog {
                 });
             kdbx_path_label_clone.set_visible(show_kdbx);
             kdbx_path_entry_clone.set_visible(show_kdbx);
+
+            // Show vault entry name field when secret AND backend is NOT KeePass
+            let show_vault_name = is_secret
+                && settings_for_toggle.borrow().as_ref().is_some_and(|s| {
+                    matches!(
+                        s.secrets.preferred_backend,
+                        rustconn_core::config::SecretBackendType::Bitwarden
+                            | rustconn_core::config::SecretBackendType::OnePassword
+                            | rustconn_core::config::SecretBackendType::Passbolt
+                            | rustconn_core::config::SecretBackendType::Pass
+                    )
+                });
+            vault_name_label_clone.set_visible(show_vault_name);
+            vault_name_entry_clone.set_visible(show_vault_name);
 
             // Transfer value between entries when toggling
             if is_secret {
@@ -538,6 +586,9 @@ impl VariablesDialog {
             }
             if let Some(ref kdbx_path) = var.kdbx_entry_path {
                 kdbx_path_entry.set_text(kdbx_path);
+            }
+            if let Some(ref vault_name) = var.vault_entry_name {
+                vault_name_entry.set_text(vault_name);
             }
         }
 
@@ -571,6 +622,7 @@ impl VariablesDialog {
             is_secret_check,
             description_entry,
             kdbx_path_entry,
+            vault_name_entry,
             delete_button,
         }
     }
@@ -659,10 +711,18 @@ impl VariablesDialog {
                     Some(kdbx_path.trim().to_string())
                 };
 
+                let vault_name = row.vault_name_entry.text();
+                let vault_entry_name = if vault_name.trim().is_empty() {
+                    None
+                } else {
+                    Some(vault_name.trim().to_string())
+                };
+
                 let mut var = Variable::new(name, value);
                 var.is_secret = is_secret;
                 var.description = description;
                 var.kdbx_entry_path = kdbx_entry_path;
+                var.vault_entry_name = vault_entry_name;
                 Some(var)
             })
             .collect()

@@ -361,15 +361,27 @@ pub fn default_keybindings() -> Vec<KeybindingDef> {
 /// Validates a GTK accelerator string.
 ///
 /// Returns `true` if the string looks like a valid GTK accelerator
-/// (contains at least one key name, optionally with modifiers).
+/// (contains at least one key name with at least one modifier, or is
+/// a function/special key). Bare character keys without modifiers are
+/// rejected to avoid conflicts with text input.
 #[must_use]
 pub fn is_valid_accelerator(accel: &str) -> bool {
     if accel.is_empty() {
         return false;
     }
-    // Basic validation: must end with a key name (not a modifier tag)
     let trimmed = accel.trim();
-    !trimmed.is_empty() && !trimmed.ends_with('>')
+    if trimmed.is_empty() || trimmed.ends_with('>') {
+        return false;
+    }
+    // Allow function keys (F1–F12), Escape, Delete, etc. without modifiers
+    let has_modifier = trimmed.contains('<');
+    if has_modifier {
+        return true;
+    }
+    // Without modifiers, only allow special keys (multi-char names)
+    // Single characters like "a", "x" conflict with text input
+    let key_name = trimmed;
+    key_name.len() > 1 && key_name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 #[cfg(test)]
@@ -460,10 +472,27 @@ mod tests {
 
     #[test]
     fn valid_accelerator_checks() {
+        // With modifiers — always valid
         assert!(is_valid_accelerator("<Control>q"));
-        assert!(is_valid_accelerator("F11"));
         assert!(is_valid_accelerator("<Control><Shift>c"));
+        assert!(is_valid_accelerator("<Alt>F4"));
+        assert!(is_valid_accelerator("<Super>e"));
+
+        // Special/function keys without modifiers — valid (multi-char)
+        assert!(is_valid_accelerator("F11"));
+        assert!(is_valid_accelerator("F1"));
+        assert!(is_valid_accelerator("Escape"));
+        assert!(is_valid_accelerator("Delete"));
+        assert!(is_valid_accelerator("Home"));
+        assert!(is_valid_accelerator("Return"));
+
+        // Invalid: empty or incomplete
         assert!(!is_valid_accelerator(""));
         assert!(!is_valid_accelerator("<Control>"));
+
+        // Invalid: bare single characters conflict with text input
+        assert!(!is_valid_accelerator("a"));
+        assert!(!is_valid_accelerator("x"));
+        assert!(!is_valid_accelerator("1"));
     }
 }
