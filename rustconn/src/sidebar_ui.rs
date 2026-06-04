@@ -27,8 +27,15 @@ pub fn close_active_popover() {
         // `clear_active_popover`) does not hit a double-borrow panic.
         let popover = cell.borrow_mut().take();
         if let Some(old) = popover {
+            // popdown() may synchronously emit `closed` → connect_closed
+            // handler already calls unparent().  Only call unparent()
+            // ourselves if the popover still has a parent after popdown
+            // (which happens when the popover was not visible and closed
+            // signal did not fire).
             old.popdown();
-            old.unparent();
+            if old.parent().is_some() {
+                old.unparent();
+            }
         }
     });
 }
@@ -335,11 +342,6 @@ fn show_popover(
     });
     popover.add_controller(key_controller);
 
-    popover.connect_closed(|p| {
-        p.unparent();
-        clear_active_popover(p);
-    });
-
     // Close the popover when focus leaves it (e.g. user presses a keyboard
     // shortcut that opens a dialog, or clicks a toolbar button).  This
     // replaces the autohide behaviour for the focus-loss scenario (#93)
@@ -348,8 +350,11 @@ fn show_popover(
     //
     // We watch the window's focus-widget property: when it changes to a
     // widget that is NOT a descendant of this popover, we close the menu.
+    // The handler is disconnected in `connect_closed` to avoid accumulating
+    // stale handlers on the window (#168).
     let popover_weak_focus = popover.downgrade();
-    window.connect_notify_local(Some("focus-widget"), move |win, _| {
+    let window_for_handler = window.clone();
+    let focus_handler_id = window.connect_notify_local(Some("focus-widget"), move |win, _| {
         let Some(pop) = popover_weak_focus.upgrade() else {
             return;
         };
@@ -367,6 +372,21 @@ fn show_popover(
             // No focus widget — dialog or another window took focus
             pop.popdown();
         }
+    });
+
+    // Store the handler ID so we can disconnect it when the popover closes.
+    // Use Rc<Cell> to move the handler ID into the connect_closed closure.
+    let focus_handler_cell = std::rc::Rc::new(std::cell::Cell::new(Some(focus_handler_id)));
+    let focus_handler_for_close = focus_handler_cell.clone();
+    popover.connect_closed(move |p| {
+        // Disconnect the focus-widget handler to prevent accumulation (#168)
+        if let Some(handler_id) = focus_handler_for_close.take() {
+            window_for_handler.disconnect(handler_id);
+        }
+        if p.parent().is_some() {
+            p.unparent();
+        }
+        clear_active_popover(p);
     });
 
     set_active_popover(&popover);

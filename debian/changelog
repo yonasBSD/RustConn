@@ -1,3 +1,15 @@
+rustconn (0.15.8-1) unstable; urgency=medium
+
+  * Fixed keybinding reassignment not registering keystrokes — recorder
+    moves focus to parent ActionRow and disables PreferencesDialog search
+  * Fixed sidebar right-click context menu not appearing for hosts in groups
+  * Fixed secret variable with vault entry name writing duplicate to vault
+  * Fixed sidebar status icon size inconsistent with custom icons
+  * Variable dialog: vault entry UX hints — placeholder and tooltip
+  * Updated: chrono 0.4.44→0.4.45, log 0.4.31→0.4.32, yoke 0.8.2→0.8.3
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Wed, 04 Jun 2026 14:00:00 +0300
+
 rustconn (0.15.7-1) unstable; urgency=medium
 
   * Variable password source: discoverability — subtitle hint and "+"

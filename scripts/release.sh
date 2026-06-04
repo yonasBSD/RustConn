@@ -257,7 +257,16 @@ else
         warn "Skipping tests (--skip-tests)"
     else
         info "Running: cargo test --workspace (this takes ~120s)"
-        cargo test --workspace || fail "cargo test failed"
+        # On macOS, gdk4-wayland cannot build (no Wayland). Run tests per-crate
+        # with macOS-compatible features for the GUI crate.
+        if [[ "$(uname -s)" == "Darwin" ]]; then
+            cargo test -p rustconn-core -p rustconn-cli || fail "cargo test failed"
+            cargo test -p rustconn --no-default-features \
+                --features "tray-macos,vnc-embedded,rdp-embedded,rdp-audio,spice-embedded,adw-1-8" \
+                || fail "cargo test failed (rustconn)"
+        else
+            cargo test --workspace || fail "cargo test failed"
+        fi
         ok "cargo test passed"
     fi
 fi

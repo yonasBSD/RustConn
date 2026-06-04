@@ -5,6 +5,23 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.8] - 2026-06-04
+
+### Fixed
+
+- **Keybinding reassignment not registering keystrokes** — the 0.15.7 fix (suspending accelerators) was necessary but not sufficient: after the Record button becomes insensitive it loses keyboard focus, leaving GTK4 with no target widget for key event propagation. Additionally, `AdwPreferencesDialog` with `search_enabled=true` installs a `key_capture_widget` on its internal `SearchEntry` that intercepts letter keys in bubble phase. Now the recorder (1) moves focus to the parent `ActionRow` so GTK4 has a valid propagation target, and (2) temporarily disables PreferencesDialog search during recording to eliminate `SearchEntry` interference. Both are restored on recording completion or cancellation ([#167](https://github.com/totoshko88/RustConn/issues/167))
+- **Sidebar: right-click context menu not appearing for hosts in groups** — on Wayland with multiple groups, the `empty_space_gesture` on `ScrolledWindow` (bubble phase) could race with the per-item gesture on `TreeExpander` (capture phase): both handlers fired for the same right-click event, causing `empty_space_gesture` to call `close_active_popover()` and immediately destroy the item context menu that had just opened. Now `empty_space_gesture` checks via `pick()` + `ancestor(TreeExpander)` whether the click landed on an actual row and bails out if so. Additionally fixed a memory leak where `focus-widget` signal handlers accumulated on the window (never disconnected after popover close) and eliminated double `unparent()` calls that produced GTK critical warnings ([#168](https://github.com/totoshko88/RustConn/issues/168))
+- **Secret variable with vault entry name wrote duplicate entry to vault** — when a secret variable had a custom "Vault entry" name (e.g., `AD Credentials`), saving still wrote the password under the default `rustconn/var/{name}` key, creating an unnecessary duplicate in Bitwarden/1Password/Passbolt/Pass. Now variables with a vault entry reference are treated as read-only — nothing is written back to the vault ([#166](https://github.com/totoshko88/RustConn/issues/166))
+- **Sidebar: status icon size inconsistent with custom icons** — the connection status indicator (green checkmark / red stop) appeared larger for connections with a custom emoji icon because the sibling-based widget navigation found the wrong `Image` widget when an emoji label was prepended. Now status icons are located by CSS class (`status-icon`) and the main connection icon has a fixed `pixel_size(16)`, ensuring uniform 10px status indicators for all connection types
+
+### Improved
+
+- **Variable dialog: vault entry UX hints** — when the "Vault entry" field is filled, the password field placeholder changes to "Fetched from vault at connect time" to indicate no manual password input is needed. Updated tooltip explains that nothing is written back to the vault ([#166](https://github.com/totoshko88/RustConn/issues/166))
+
+### Dependencies
+
+- **Updated**: chrono 0.4.44→0.4.45, log 0.4.31→0.4.32, yoke 0.8.2→0.8.3
+
 ## [0.15.7] - 2026-06-03
 
 ### Improved

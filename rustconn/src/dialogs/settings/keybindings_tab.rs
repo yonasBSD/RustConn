@@ -114,6 +114,17 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
                     suspend_accels(app);
                 }
 
+                // Disable PreferencesDialog search during recording.
+                // When search_enabled=true, libadwaita sets a key_capture_widget
+                // on the SearchEntry which intercepts letter keys in bubble phase,
+                // interfering with shortcut recording.
+                let prefs_dialog = btn
+                    .ancestor(adw::PreferencesDialog::static_type())
+                    .and_then(|w| w.downcast::<adw::PreferencesDialog>().ok());
+                if let Some(ref dlg) = prefs_dialog {
+                    dlg.set_search_enabled(false);
+                }
+
                 // Create a temporary key controller in Capture phase so it
                 // receives key events before any child widget or mnemonic.
                 let key_ctrl = EventControllerKey::new();
@@ -125,6 +136,7 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
                 let overrides = overrides_clone.clone();
                 let record = record_btn_clone.clone();
                 let app_for_restore = app.clone();
+                let prefs_dialog_restore = prefs_dialog.clone();
 
                 key_ctrl.connect_key_pressed(move |ctrl, keyval, _keycode, modifier| {
                     // Ignore lone modifier presses
@@ -146,6 +158,9 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
                         record.set_sensitive(true);
                         if let Some(ref app) = app_for_restore {
                             restore_accels_with_overrides(app, &overrides.borrow());
+                        }
+                        if let Some(ref dlg) = prefs_dialog_restore {
+                            dlg.set_search_enabled(true);
                         }
                         if let Some(widget) = ctrl.widget() {
                             widget.remove_controller(ctrl);
@@ -182,15 +197,30 @@ pub fn create_keybindings_page() -> (adw::PreferencesPage, Rc<RefCell<Keybinding
                     if let Some(ref app) = app_for_restore {
                         restore_accels_with_overrides(app, &overrides.borrow());
                     }
+                    if let Some(ref dlg) = prefs_dialog_restore {
+                        dlg.set_search_enabled(true);
+                    }
                     if let Some(widget) = ctrl.widget() {
                         widget.remove_controller(ctrl);
                     }
                     gtk4::glib::Propagation::Stop
                 });
 
-                // Attach key controller to the toplevel window
+                // Attach key controller to the toplevel window and ensure it
+                // has focus so key events are delivered during recording.
+                // When set_sensitive(false) is called above, the button loses
+                // focus and without an explicit focus target GTK4 may not
+                // deliver key events (no target widget for propagation).
                 if let Some(toplevel) = btn.root() {
                     toplevel.add_controller(key_ctrl);
+                    // Move focus to the parent row; this ensures GTK4 has a
+                    // valid target widget for key event propagation.
+                    if let Some(row) = btn.ancestor(adw::ActionRow::static_type()) {
+                        row.grab_focus();
+                    } else if let Some(window) = toplevel.downcast_ref::<gtk4::Window>() {
+                        // Fallback: clear focus to let Window itself be target
+                        gtk4::prelude::GtkWindowExt::set_focus(window, gtk4::Widget::NONE);
+                    }
                 }
             });
 

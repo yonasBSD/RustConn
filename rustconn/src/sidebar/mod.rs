@@ -720,13 +720,39 @@ impl ConnectionSidebar {
             .child(&list_view)
             .build();
 
-        // Add right-click handler for empty space context menu
+        // Add right-click handler for empty space context menu.
+        // Use BUBBLE phase (default) so item-level gestures (CAPTURE) fire first.
+        // Check that no list row exists at the click coordinates — otherwise
+        // this gesture races with the per-item gesture on some Wayland compositors
+        // and closes the item context menu immediately after it opens (#168).
+        let list_view_for_empty = list_view.clone();
         let empty_space_gesture = GestureClick::new();
         empty_space_gesture.set_button(gdk::BUTTON_SECONDARY);
         empty_space_gesture.connect_pressed(move |gesture, _n_press, x, y| {
-            if let Some(widget) = gesture.widget() {
-                // Show context menu for empty space
-                sidebar_ui::show_empty_space_context_menu(&widget, x, y);
+            // Translate coordinates from ScrolledWindow to ListView
+            // to check whether the click landed on an actual row.
+            if let Some(sw) = gesture.widget() {
+                let point = gtk4::graphene::Point::new(x as f32, y as f32);
+                let (lv_x, lv_y) = sw
+                    .compute_point(&list_view_for_empty, &point)
+                    .map(|p| (f64::from(p.x()), f64::from(p.y())))
+                    .unwrap_or((-1.0, -1.0));
+                // If pick() finds a widget that is a descendant of a TreeExpander
+                // (i.e. an actual row) → the click is on a list item, not on
+                // empty space.  Let the per-item gesture handle it.
+                if lv_x >= 0.0
+                    && lv_y >= 0.0
+                    && let Some(picked) =
+                        list_view_for_empty.pick(lv_x, lv_y, gtk4::PickFlags::DEFAULT)
+                {
+                    // Walk up from picked widget to see if it belongs to a row
+                    let has_row_ancestor = picked.ancestor(TreeExpander::static_type()).is_some()
+                        || picked.downcast_ref::<TreeExpander>().is_some();
+                    if has_row_ancestor {
+                        return;
+                    }
+                }
+                sidebar_ui::show_empty_space_context_menu(&sw, x, y);
             }
         });
         scrolled_window.add_controller(empty_space_gesture);

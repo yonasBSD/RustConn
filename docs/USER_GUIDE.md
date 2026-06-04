@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.15.7** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.15.8** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes, Web protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -1768,11 +1768,17 @@ When using Bitwarden, 1Password, Passbolt, or Pass as the secret backend, secret
 1. Mark the variable as **Secret**
 2. A **Vault entry** field appears (only when a non-KeePass backend is active)
 3. Enter the exact name of an existing vault entry, e.g., `AD Credentials` or `Production DB`
-4. The password is read from that entry at connection time
+4. Leave the password field empty — it will be fetched from the vault at connection time
 
-This is the non-KeePass equivalent of "KeePass entry" — it allows reusing credentials already stored in your vault without duplicating them under the `rustconn/var/` namespace. The search matches the entry name exactly (case-sensitive).
+**How it works:**
+- At connection time, RustConn searches your vault for an entry matching the exact name (case-sensitive) and reads the password from it.
+- Nothing is written back to the vault — the entry is treated as read-only.
+- No credentials are stored locally on disk; only the reference (entry name) is persisted in settings.
+- You do not need to enter the password in the variable dialog — the password field can be left blank.
 
-If the field is left empty, the default key `rustconn/var/{name}` is used (entry named `RustConn: rustconn/var/{name}` for Bitwarden).
+This is the non-KeePass equivalent of "KeePass entry" — it allows reusing credentials already stored in your vault without duplicating them under the `rustconn/var/` namespace.
+
+If the **Vault entry** field is left empty, RustConn uses the default key `rustconn/var/{name}` (Bitwarden item named `RustConn: rustconn/var/{name}`). In that case, you must enter the password value, which will be saved to the vault once on creation.
 
 **Example:**
 ```
@@ -1795,11 +1801,16 @@ Connection Password Source: Variable → RADIUS  →  reads from KeePass entry "
 To reuse the same credentials across multiple connections (e.g., one Active Directory account for many RDP sessions):
 
 1. Create a secret variable in **Tools → Variables** (e.g., `AD_PASSWORD`, mark as Secret)
-2. Set its value manually or load from vault (Bitwarden, KeePass, 1Password, etc.)
-3. In each connection dialog → **Password** dropdown → select **Variable**
-4. Choose your secret variable from the dropdown that appears
+2. In the **Vault entry** field, type the exact name of your existing Bitwarden/1Password/Passbolt/Pass entry (e.g., `AD Credentials`)
+3. Leave the password field empty — RustConn will fetch it from the vault at connect time
+4. In each connection dialog → **Password** dropdown → select **Variable**
+5. Choose your secret variable from the dropdown that appears
 
-All connections that reference the same variable share the credential — change it once, all connections use the updated value. The "+" button next to the dropdown opens the Variables manager directly if you have not created any secret variables yet.
+All connections that reference the same variable share the credential — change it once in your vault, all connections pick up the updated value. Nothing is duplicated or written back to the vault.
+
+The "+" button next to the dropdown opens the Variables manager directly if you have not created any secret variables yet.
+
+> **Note:** If you do not have an existing vault entry (and want RustConn to manage the secret for you), leave the "Vault entry" field blank and enter the password directly. It will be stored under `rustconn/var/{name}` in your vault.
 
 ### Password Generator
 

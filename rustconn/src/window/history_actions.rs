@@ -51,6 +51,20 @@ impl MainWindow {
                                 {
                                     continue;
                                 }
+                                // Skip saving to vault if variable references an existing
+                                // vault entry by name — the entry is managed externally
+                                // and should not be duplicated under rustconn/var/ (#166)
+                                if var
+                                    .vault_entry_name
+                                    .as_ref()
+                                    .is_some_and(|n| !n.trim().is_empty())
+                                {
+                                    tracing::debug!(
+                                        var_name = %var.name,
+                                        "Skipping vault write — variable uses external vault entry"
+                                    );
+                                    continue;
+                                }
                                 // Wrap into SecretString immediately so plaintext
                                 // does not live in the closure as a plain String.
                                 let pwd = secrecy::SecretString::from(var.value.clone());

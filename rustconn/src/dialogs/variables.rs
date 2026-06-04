@@ -316,8 +316,9 @@ impl VariablesDialog {
             .hexpand(true)
             .placeholder_text(i18n("e.g. AD Credentials (optional)"))
             .tooltip_text(i18n(
-                "Existing vault entry name. If set, the password is read from this \
-                 entry by exact name instead of the default rustconn/var/ key.",
+                "Existing vault entry name. If set, the password is fetched from this \
+                 entry at connection time — no need to enter a password above. \
+                 Nothing is written back to the vault.",
             ))
             .build();
         vault_name_label.set_visible(false);
@@ -591,6 +592,20 @@ impl VariablesDialog {
                 vault_name_entry.set_text(vault_name);
             }
         }
+
+        // Update password placeholder when vault entry name changes — helps
+        // the user understand that the password will be fetched from the vault
+        // automatically and no manual entry is needed.
+        let secret_entry_for_hint = secret_entry.clone();
+        vault_name_entry.connect_changed(move |entry| {
+            let text = entry.text();
+            if text.trim().is_empty() {
+                secret_entry_for_hint.set_placeholder_text(Some(&i18n("Password value")));
+            } else {
+                secret_entry_for_hint
+                    .set_placeholder_text(Some(&i18n("Fetched from vault at connect time")));
+            }
+        });
 
         let row = ListBoxRow::builder().child(&main_box).build();
 
