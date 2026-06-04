@@ -276,7 +276,10 @@ pub fn bind_list_item(
         let mut child = content_box.first_child();
         loop {
             match child {
-                Some(w) if w.downcast_ref::<Image>().is_some() && !w.css_classes().iter().any(|c| c == "status-icon") => {
+                Some(w)
+                    if w.downcast_ref::<Image>().is_some()
+                        && !w.css_classes().iter().any(|c| c == "status-icon") =>
+                {
                     break w.downcast::<Image>().ok();
                 }
                 Some(w) => child = w.next_sibling(),
@@ -288,8 +291,8 @@ pub fn bind_list_item(
         return;
     };
 
-    let Some(status_icon) = find_child_by_css_class(&content_box, "status-icon")
-        .and_downcast::<Image>()
+    let Some(status_icon) =
+        find_child_by_css_class(&content_box, "status-icon").and_downcast::<Image>()
     else {
         return;
     };
@@ -513,8 +516,8 @@ pub fn bind_list_item(
 
         // Setup status monitoring logic
         // Update status icon
-        if let Some(status_icon) = find_child_by_css_class(&content_box, "status-icon")
-            .and_downcast::<gtk4::Image>()
+        if let Some(status_icon) =
+            find_child_by_css_class(&content_box, "status-icon").and_downcast::<gtk4::Image>()
         {
             // Helper to update icon state with accessibility announcements
             let update_icon = |icon: &gtk4::Image, status: &str| {
