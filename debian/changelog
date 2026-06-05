@@ -1,3 +1,22 @@
+rustconn (0.15.9-1) unstable; urgency=medium
+
+  * Lazy init secret backends — only preferred backend is initialized at
+    startup and when opening Settings; other backends loaded on-demand
+  * KeePass keyring failure toast at startup when password not loaded
+  * Connection wizard: ComboRow model lazy init eliminates auth method flash
+  * Fixed KeePass vault credentials not resolved on Flatpak after restart (#170)
+  * Fixed crash (SIGSEGV) when opening new SSH tab or on screen lock/unlock —
+    deferred close_tab via idle_add_local_once, terminal.reset() in
+    mark_tab_disconnected (#171)
+  * Fixed connection wizard auth method label overflow — replaced radio
+    buttons with adw::ComboRow (#169)
+  * Fixed Telnet connection not closed when closing the tab — explicit
+    SIGTERM to process group on tab close (#172)
+  * Fixed 1Password/Passbolt credentials not passed in vault entry lookups
+  * Fixed connection wizard redundant Method dropdown for non-SSH protocols
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Thu, 05 Jun 2026 14:00:00 +0300
+
 rustconn (0.15.8-1) unstable; urgency=medium
 
   * Fixed keybinding reassignment not registering keystrokes — recorder

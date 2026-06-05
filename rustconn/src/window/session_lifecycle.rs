@@ -468,8 +468,23 @@ impl MainWindow {
                     %connection_id,
                     "Session exited cleanly, auto-closing tab (close_on_clean_exit=true)"
                 );
-                notebook_clone.close_tab(session_id);
-                sidebar_clone.decrement_session_count(&connection_id_str, false);
+                // Defer close_tab to the next idle iteration of the main loop.
+                // Closing the VTE widget synchronously from within its own
+                // `child-exited` signal can race with a pending GTK snapshot,
+                // causing a use-after-free SIGSEGV in libvte/pango (#171).
+                let nb = notebook_clone.clone();
+                let sb = sidebar_clone.clone();
+                let cid = connection_id_str.clone();
+                glib::idle_add_local_once(move || {
+                    // Guard: if user already closed the tab before idle fires,
+                    // the session no longer exists — skip to avoid double
+                    // decrement_session_count.
+                    if nb.get_session_info(session_id).is_none() {
+                        return;
+                    }
+                    nb.close_tab(session_id);
+                    sb.decrement_session_count(&cid, false);
+                });
                 return;
             }
 

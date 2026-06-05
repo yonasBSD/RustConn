@@ -169,6 +169,11 @@ pub struct TerminalNotebook {
     /// Updated when snippets are created/edited/deleted; all terminals
     /// share the same live `gio::Menu` model so changes propagate automatically.
     snippet_menu_section: Rc<gio::Menu>,
+    /// VTE child process PIDs per session.
+    /// Used to send SIGTERM/SIGKILL to the process group on tab close.
+    /// Some terminal clients (e.g. telnet) do not exit on PTY close (SIGHUP),
+    /// so an explicit kill is needed (#172).
+    vte_child_pids: Rc<RefCell<HashMap<Uuid, i32>>>,
 }
 
 impl TerminalNotebook {
@@ -255,6 +260,7 @@ impl TerminalNotebook {
             activity_coordinator: Rc::new(RefCell::new(None)),
             tab_containers: Rc::new(RefCell::new(HashMap::new())),
             snippet_menu_section: Rc::new(gio::Menu::new()),
+            vte_child_pids: Rc::new(RefCell::new(HashMap::new())),
         };
 
         term_notebook.setup_tab_view_signals();
@@ -282,6 +288,7 @@ impl TerminalNotebook {
         let broadcast_controller = self.broadcast_controller.clone();
         let ssh_tunnels = self.ssh_tunnels.clone();
         let tab_containers = self.tab_containers.clone();
+        let vte_child_pids = self.vte_child_pids.clone();
 
         // Handle create-window signal - we must connect this to prevent the default
         // behavior which causes CRITICAL warnings. Returning None cancels the tearoff.
@@ -373,6 +380,60 @@ impl TerminalNotebook {
                 }
 
                 session_info.borrow_mut().remove(&session_id);
+
+                // Kill VTE child process group explicitly (#172).
+                // Some CLI clients (notably telnet) do not exit on SIGHUP
+                // when the PTY master fd is closed. Sending SIGTERM to the
+                // process group ensures all children terminate.
+                if let Some(pid) = vte_child_pids.borrow_mut().remove(&session_id) {
+                    // kill(-pid) sends the signal to the entire process group
+                    let pgid = nix::unistd::Pid::from_raw(-pid);
+                    if nix::sys::signal::kill(pgid, nix::sys::signal::Signal::SIGTERM).is_err() {
+                        // Process (group) may have already exited — try direct PID
+                        let direct = nix::unistd::Pid::from_raw(pid);
+                        let _ = nix::sys::signal::kill(direct, nix::sys::signal::Signal::SIGKILL);
+                    } else {
+                        // SIGTERM delivered successfully, but the process may
+                        // ignore it. Schedule a SIGKILL fallback after 500ms.
+                        let pgid_raw = pid;
+                        glib::timeout_add_local_once(
+                            std::time::Duration::from_millis(500),
+                            move || {
+                                // Check if process still exists AND belongs to our
+                                // process group (guards against PID reuse by verifying
+                                // the process group leader is still `pid`).
+                                let probe = nix::unistd::Pid::from_raw(pid);
+                                if nix::sys::signal::kill(probe, None).is_ok() {
+                                    // Verify process group hasn't changed (PID reuse guard):
+                                    // if the PID was recycled, getpgid will return a different
+                                    // group or fail.
+                                    let still_ours = nix::unistd::getpgid(Some(probe))
+                                        .is_ok_and(|pgid| pgid.as_raw() == pgid_raw);
+                                    if still_ours {
+                                        let _ = nix::sys::signal::kill(
+                                            probe,
+                                            nix::sys::signal::Signal::SIGKILL,
+                                        );
+                                        tracing::debug!(
+                                            %pid,
+                                            "VTE child ignored SIGTERM, sent SIGKILL"
+                                        );
+                                    } else {
+                                        tracing::debug!(
+                                            %pid,
+                                            "PID recycled (pgid mismatch), skipping SIGKILL"
+                                        );
+                                    }
+                                }
+                            },
+                        );
+                    }
+                    tracing::debug!(
+                        session = %session_id,
+                        %pid,
+                        "Killed VTE child process group on tab close"
+                    );
+                }
 
                 // Drop SSH tunnel — the SshTunnel::drop impl kills the SSH process
                 ssh_tunnels.borrow_mut().remove(&session_id);
@@ -1155,6 +1216,7 @@ impl TerminalNotebook {
         let sessions_rc = self.sessions.clone();
         let session_info_rc = self.session_info.clone();
         let on_reconnect_rc = self.on_reconnect.clone();
+        let vte_child_pids_rc = self.vte_child_pids.clone();
 
         tracing::debug!(
             command = %command_name,
@@ -1175,10 +1237,14 @@ impl TerminalNotebook {
                 &env_refs,
                 working_directory,
             ) {
-                Ok(_pid) => {
+                Ok(pid) => {
+                    vte_child_pids_rc
+                        .borrow_mut()
+                        .insert(session_id, pid as i32);
                     tracing::info!(
                         command = %command_name,
                         %session_id,
+                        %pid,
                         "Command spawned successfully (macOS native PTY)"
                     );
                 }
@@ -1258,10 +1324,12 @@ impl TerminalNotebook {
                 -1,
                 gio::Cancellable::NONE,
                 move |result| {
-                    if let Ok(_pid) = &result {
+                    if let Ok(pid) = &result {
+                        vte_child_pids_rc.borrow_mut().insert(session_id, pid.0);
                         tracing::info!(
                             command = %command_name,
                             %session_id,
+                            pid = pid.0,
                             "Command spawned successfully"
                         );
                     }
@@ -1567,6 +1635,12 @@ impl TerminalNotebook {
         // Remove stale highlight overlay (will be re-created by set_highlight_rules)
         self.highlight_overlays.borrow_mut().remove(&session_id);
 
+        // Remove stale VTE child PID entry — the process should have already
+        // exited (child-exited removes it), but if reconnect is triggered
+        // before child-exited fires (e.g. timeout disconnect), we must clean
+        // it to avoid killing a recycled PID later.
+        self.vte_child_pids.borrow_mut().remove(&session_id);
+
         true
     }
 
@@ -1592,6 +1666,16 @@ impl TerminalNotebook {
         if let Some(page) = self.sessions.borrow().get(&session_id) {
             page.set_indicator_icon(Some(&gio::ThemedIcon::new("network-offline-symbolic")));
             page.set_indicator_activatable(false);
+        }
+        // Reset VTE internal state to prevent use-after-free in libvte/pango
+        // during the next GTK snapshot cycle. After the child process exits,
+        // VTE may hold stale references to Pango font resources that get
+        // invalidated (e.g. on screen lock/unlock or GPU context loss).
+        // Calling reset(true, false) forces VTE to release internal state
+        // (including Pango layout caches) while preserving scrollback history
+        // for reconnect (#171).
+        if let Some(terminal) = self.terminals.borrow().get(&session_id) {
+            terminal.reset(true, false);
         }
     }
 
@@ -2408,7 +2492,10 @@ impl TerminalNotebook {
         F: Fn(i32) + 'static,
     {
         if let Some(terminal) = self.get_terminal(session_id) {
+            let pids = self.vte_child_pids.clone();
             terminal.connect_child_exited(move |_terminal, status| {
+                // Remove PID — process already exited, no need to kill on tab close
+                pids.borrow_mut().remove(&session_id);
                 callback(status);
             });
         }

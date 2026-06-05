@@ -176,6 +176,42 @@ impl Default for ToastOverlay {
     }
 }
 
+/// Shows a typed toast with an action button on a window
+///
+/// Like [`show_toast_on_window`] but adds a clickable button that triggers
+/// the given action. Useful for "open Settings" or "retry" scenarios.
+pub fn show_toast_with_action_on_window(
+    window: &impl IsA<gui::Window>,
+    message: &str,
+    button_label: &str,
+    action_name: &str,
+    toast_type: ToastType,
+) {
+    let build_toast = |overlay: &adw::ToastOverlay| {
+        let toast = adw::Toast::new(message);
+        toast.set_priority(toast_type.priority());
+        toast.set_button_label(Some(button_label));
+        toast.set_action_name(Some(action_name));
+        overlay.add_toast(toast);
+    };
+
+    if let Some(child) = window.child()
+        && let Some(overlay) = find_toast_overlay(&child)
+    {
+        build_toast(&overlay);
+        return;
+    }
+
+    let widget = window.as_ref().upcast_ref::<gui::Widget>();
+    if let Some(overlay) = find_toast_overlay(widget) {
+        build_toast(&overlay);
+        return;
+    }
+
+    // Fallback without action button
+    show_toast_on_window(window, message, toast_type);
+}
+
 /// Helper function to show a toast on a window
 ///
 /// Tries to find an `adw::ToastOverlay` in the window structure. If no overlay

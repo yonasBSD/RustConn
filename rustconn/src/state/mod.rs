@@ -189,6 +189,9 @@ pub struct AppState {
     sync_manager: SyncManager,
     /// Shared folder connection tracker for conditional task execution
     folder_tracker: Arc<std::sync::Mutex<FolderConnectionTracker>>,
+    /// Whether the KeePass keyring load at startup failed or timed out.
+    /// Checked once after the main window is shown to display a toast.
+    kdbx_keyring_failed: bool,
 }
 
 /// Bundles the parameters needed for blocking credential resolution.
@@ -225,6 +228,7 @@ impl AppState {
             .unwrap_or_else(|_| AppSettings::default());
 
         // Validate KDBX integration at startup
+        let mut kdbx_keyring_failed = false;
         if settings.secrets.kdbx_enabled {
             let mut disable_integration = false;
 
@@ -256,12 +260,185 @@ impl AppState {
                 if settings.secrets.decrypt_password() {
                     tracing::info!("KeePass password restored from encrypted storage");
                 }
+
+                // If password still not available and user chose system keyring storage,
+                // load it from keyring now. This is typically a fast local D-Bus
+                // call (~10ms), but on cold boot (daemon not started) or with KWallet
+                // it may block longer. Use a 5-second timeout to avoid delaying startup.
+                // Without this, connections using KeePass vault cannot resolve credentials
+                // until the user opens Settings (where keyring loading previously lived).
+                // Guard: skip if kdbx_path doesn't exist (file deleted, USB detached) —
+                // no point holding a password in memory for an unreachable database.
+                if settings.secrets.kdbx_password.is_none()
+                    && settings.secrets.kdbx_save_to_keyring
+                    && settings
+                        .secrets
+                        .kdbx_path
+                        .as_ref()
+                        .is_some_and(|p| p.exists())
+                {
+                    match with_runtime(|rt| {
+                        rt.block_on(async {
+                            tokio::time::timeout(
+                                std::time::Duration::from_secs(5),
+                                rustconn_core::secret::get_kdbx_password_from_keyring(),
+                            )
+                            .await
+                        })
+                    }) {
+                        Ok(Ok(Ok(Some(password)))) => {
+                            settings.secrets.kdbx_password = Some(password);
+                            tracing::info!("KeePass password restored from system keyring");
+                        }
+                        Ok(Ok(Ok(None))) => {
+                            tracing::warn!(
+                                "KeePass password not found in system keyring — \
+                                 user may need to re-enter it in Settings"
+                            );
+                            kdbx_keyring_failed = true;
+                        }
+                        Ok(Ok(Err(e))) => {
+                            tracing::warn!(
+                                error = %e,
+                                "Failed to load KeePass password from system keyring"
+                            );
+                            kdbx_keyring_failed = true;
+                        }
+                        Ok(Err(_elapsed)) => {
+                            tracing::warn!(
+                                "Keyring query timed out after 5s — \
+                                 KeePass credentials will be loaded when Settings is opened"
+                            );
+                            kdbx_keyring_failed = true;
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                error = %e,
+                                "Runtime error loading KeePass password from keyring"
+                            );
+                            kdbx_keyring_failed = true;
+                        }
+                    }
+                }
             }
         }
 
         // Note: Bitwarden password decryption and vault auto-unlock are deferred
         // to startup which runs asynchronously after the
         // main window is presented. This avoids blocking the UI on startup.
+
+        // Decrypt 1Password / Passbolt credentials at startup (decrypt is ~instant).
+        // Only for the preferred backend — lazy init principle.
+        match settings.secrets.preferred_backend {
+            rustconn_core::config::SecretBackendType::OnePassword => {
+                if settings
+                    .secrets
+                    .onepassword_service_account_token_encrypted
+                    .is_some()
+                    && settings.secrets.decrypt_onepassword_token()
+                {
+                    tracing::info!(
+                        "1Password service account token restored from encrypted storage"
+                    );
+                }
+                // If token still not available and keyring storage is configured,
+                // load from keyring with a 5s timeout (same pattern as KeePass above).
+                if settings.secrets.onepassword_service_account_token.is_none()
+                    && settings.secrets.onepassword_save_to_keyring
+                {
+                    match with_runtime(|rt| {
+                        rt.block_on(async {
+                            tokio::time::timeout(
+                                std::time::Duration::from_secs(5),
+                                rustconn_core::secret::get_token_from_keyring(),
+                            )
+                            .await
+                        })
+                    }) {
+                        Ok(Ok(Ok(Some(token)))) => {
+                            settings.secrets.onepassword_service_account_token = Some(token);
+                            tracing::info!(
+                                "1Password service account token restored from system keyring"
+                            );
+                        }
+                        Ok(Ok(Ok(None))) => {
+                            tracing::debug!("No 1Password token found in system keyring");
+                        }
+                        Ok(Ok(Err(e))) => {
+                            tracing::warn!(
+                                error = %e,
+                                "Failed to load 1Password token from system keyring"
+                            );
+                        }
+                        Ok(Err(_elapsed)) => {
+                            tracing::warn!(
+                                "Keyring query timed out after 5s — \
+                                 1Password token will be loaded when Settings is opened"
+                            );
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                error = %e,
+                                "Runtime error loading 1Password token from keyring"
+                            );
+                        }
+                    }
+                }
+            }
+            rustconn_core::config::SecretBackendType::Passbolt => {
+                if settings.secrets.passbolt_passphrase_encrypted.is_some()
+                    && settings.secrets.decrypt_passbolt_passphrase()
+                {
+                    tracing::info!("Passbolt passphrase restored from encrypted storage");
+                }
+                // If passphrase still not available and keyring storage is configured,
+                // load from keyring with a 5s timeout.
+                if settings.secrets.passbolt_passphrase.is_none()
+                    && settings.secrets.passbolt_save_to_keyring
+                {
+                    match with_runtime(|rt| {
+                        rt.block_on(async {
+                            tokio::time::timeout(
+                                std::time::Duration::from_secs(5),
+                                rustconn_core::secret::get_passphrase_from_keyring(),
+                            )
+                            .await
+                        })
+                    }) {
+                        Ok(Ok(Ok(Some(passphrase)))) => {
+                            settings.secrets.passbolt_passphrase = Some(passphrase);
+                            tracing::info!("Passbolt passphrase restored from system keyring");
+                        }
+                        Ok(Ok(Ok(None))) => {
+                            tracing::debug!("No Passbolt passphrase found in system keyring");
+                        }
+                        Ok(Ok(Err(e))) => {
+                            tracing::warn!(
+                                error = %e,
+                                "Failed to load Passbolt passphrase from system keyring"
+                            );
+                        }
+                        Ok(Err(_elapsed)) => {
+                            tracing::warn!(
+                                "Keyring query timed out after 5s — \
+                                 Passbolt passphrase will be loaded when Settings is opened"
+                            );
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                error = %e,
+                                "Runtime error loading Passbolt passphrase from keyring"
+                            );
+                        }
+                    }
+                }
+            }
+            _ => {
+                // Bitwarden: handled in app.rs idle_add_local_once
+                // KeePass: handled above
+                // LibSecret, Pass, macOS Keychain: stateless
+            }
+        }
 
         // Initialize connection manager
         let connection_manager = ConnectionManager::new(config_manager.clone())
@@ -324,6 +501,7 @@ impl AppState {
             secret_backend_available: None,
             sync_manager,
             folder_tracker: Arc::new(std::sync::Mutex::new(FolderConnectionTracker::new())),
+            kdbx_keyring_failed,
         })
     }
 
@@ -918,6 +1096,13 @@ impl AppState {
     /// Returns the shared folder connection tracker for task conditional execution
     pub fn folder_tracker(&self) -> &Arc<std::sync::Mutex<FolderConnectionTracker>> {
         &self.folder_tracker
+    }
+
+    /// Returns `true` (once) if the KeePass keyring load at startup failed.
+    ///
+    /// After the first call the flag is cleared, so the toast is shown only once.
+    pub fn take_kdbx_keyring_failed(&mut self) -> bool {
+        std::mem::take(&mut self.kdbx_keyring_failed)
     }
 
     /// Gets mutable reference to settings for in-place modifications

@@ -343,7 +343,10 @@ fn cmd_secret_get(
             let rt = tokio::runtime::Runtime::new()
                 .map_err(|e| CliError::Secret(format!("Runtime error: {e}")))?;
 
-            let backend = OnePasswordBackend::new();
+            let mut backend = OnePasswordBackend::new();
+            if let Some(ref token) = settings.secrets.onepassword_service_account_token {
+                backend.set_service_account_token(token.clone());
+            }
             let result: Result<Option<Credentials>, _> = rt.block_on(backend.retrieve(&lookup_key));
 
             match result {
@@ -375,7 +378,13 @@ fn cmd_secret_get(
             let rt = tokio::runtime::Runtime::new()
                 .map_err(|e| CliError::Secret(format!("Runtime error: {e}")))?;
 
-            let backend = PassboltBackend::new();
+            let mut backend = PassboltBackend::new();
+            if let Some(ref url) = settings.secrets.passbolt_server_url {
+                backend = backend.with_server_address(url.clone());
+            }
+            if let Some(ref passphrase) = settings.secrets.passbolt_passphrase {
+                backend = backend.with_user_password(passphrase.clone());
+            }
             let pb_key = connection.id.to_string();
             let result: Result<Option<Credentials>, _> = rt.block_on(backend.retrieve(&pb_key));
 
@@ -618,7 +627,10 @@ fn cmd_secret_set(
             let rt = tokio::runtime::Runtime::new()
                 .map_err(|e| CliError::Secret(format!("Runtime error: {e}")))?;
 
-            let backend = OnePasswordBackend::new();
+            let mut backend = OnePasswordBackend::new();
+            if let Some(ref token) = settings.secrets.onepassword_service_account_token {
+                backend.set_service_account_token(token.clone());
+            }
             let creds = Credentials {
                 username: Some(username_value.clone()),
                 password: Some(password_value),
@@ -644,7 +656,13 @@ fn cmd_secret_set(
             let rt = tokio::runtime::Runtime::new()
                 .map_err(|e| CliError::Secret(format!("Runtime error: {e}")))?;
 
-            let backend = PassboltBackend::new();
+            let mut backend = PassboltBackend::new();
+            if let Some(ref url) = settings.secrets.passbolt_server_url {
+                backend = backend.with_server_address(url.clone());
+            }
+            if let Some(ref passphrase) = settings.secrets.passbolt_passphrase {
+                backend = backend.with_user_password(passphrase.clone());
+            }
             let creds = Credentials {
                 username: Some(username_value.clone()),
                 password: Some(password_value),
@@ -793,7 +811,10 @@ fn cmd_secret_delete(
             let rt = tokio::runtime::Runtime::new()
                 .map_err(|e| CliError::Secret(format!("Runtime error: {e}")))?;
 
-            let backend = OnePasswordBackend::new();
+            let mut backend = OnePasswordBackend::new();
+            if let Some(ref token) = settings.secrets.onepassword_service_account_token {
+                backend.set_service_account_token(token.clone());
+            }
             let op_key = connection.id.to_string();
             rt.block_on(backend.delete(&op_key))
                 .map_err(|e| CliError::Secret(format!("1Password error: {e}")))?;
@@ -810,7 +831,13 @@ fn cmd_secret_delete(
             let rt = tokio::runtime::Runtime::new()
                 .map_err(|e| CliError::Secret(format!("Runtime error: {e}")))?;
 
-            let backend = PassboltBackend::new();
+            let mut backend = PassboltBackend::new();
+            if let Some(ref url) = settings.secrets.passbolt_server_url {
+                backend = backend.with_server_address(url.clone());
+            }
+            if let Some(ref passphrase) = settings.secrets.passbolt_passphrase {
+                backend = backend.with_user_password(passphrase.clone());
+            }
             let pb_key = connection.id.to_string();
             rt.block_on(backend.delete(&pb_key))
                 .map_err(|e| CliError::Secret(format!("Passbolt error: {e}")))?;

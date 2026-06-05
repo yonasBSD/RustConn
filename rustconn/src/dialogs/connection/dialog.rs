@@ -5383,15 +5383,34 @@ impl ConnectionDialog {
                                         })?
                                     }
                                     SecretBackendType::OnePassword => {
-                                        let backend =
+                                        let mut backend =
                                             rustconn_core::secret::OnePasswordBackend::new();
+                                        if let Some(ref token) =
+                                            secret_settings
+                                                .onepassword_service_account_token
+                                        {
+                                            backend.set_service_account_token(token.clone());
+                                        }
                                         crate::async_utils::with_runtime(|rt| {
                                             rt.block_on(backend.retrieve(&flat_lookup_key))
                                                 .map_err(|e| format!("{e}"))
                                         })?
                                     }
                                     SecretBackendType::Passbolt => {
-                                        let backend = rustconn_core::secret::PassboltBackend::new();
+                                        let mut backend =
+                                            rustconn_core::secret::PassboltBackend::new();
+                                        if let Some(ref url) =
+                                            secret_settings.passbolt_server_url
+                                        {
+                                            backend =
+                                                backend.with_server_address(url.clone());
+                                        }
+                                        if let Some(ref passphrase) =
+                                            secret_settings.passbolt_passphrase
+                                        {
+                                            backend =
+                                                backend.with_user_password(passphrase.clone());
+                                        }
                                         crate::async_utils::with_runtime(|rt| {
                                             rt.block_on(backend.retrieve(&flat_lookup_key))
                                                 .map_err(|e| format!("{e}"))

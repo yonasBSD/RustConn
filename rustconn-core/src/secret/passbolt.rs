@@ -37,6 +37,8 @@ use super::backend::SecretBackend;
 pub struct PassboltBackend {
     /// Custom server address (overrides config file)
     server_address: Option<String>,
+    /// GPG private key passphrase (overrides config file)
+    user_password: Option<SecretString>,
 }
 
 /// Passbolt resource from JSON output
@@ -106,6 +108,7 @@ impl PassboltBackend {
     pub fn new() -> Self {
         Self {
             server_address: None,
+            user_password: None,
         }
     }
 
@@ -113,6 +116,13 @@ impl PassboltBackend {
     #[must_use]
     pub fn with_server_address(mut self, address: impl Into<String>) -> Self {
         self.server_address = Some(address.into());
+        self
+    }
+
+    /// Sets the GPG private key passphrase (overrides config file)
+    #[must_use]
+    pub fn with_user_password(mut self, passphrase: SecretString) -> Self {
+        self.user_password = Some(passphrase);
         self
     }
 
@@ -124,6 +134,13 @@ impl PassboltBackend {
 
         if let Some(ref addr) = self.server_address {
             cmd.arg("--serverAddress").arg(addr);
+        }
+
+        if let Some(ref passphrase) = self.user_password {
+            // NOTE: go-passbolt-cli does not support stdin-based passphrase input.
+            // The passphrase is visible in /proc/PID/cmdline for the command duration.
+            // This is a limitation of the upstream CLI tool.
+            cmd.arg("--userPassword").arg(passphrase.expose_secret());
         }
 
         // Always request JSON output for parsing
@@ -471,6 +488,10 @@ impl std::fmt::Debug for PassboltBackend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PassboltBackend")
             .field("server_address", &self.server_address)
+            .field(
+                "user_password",
+                &self.user_password.as_ref().map(|_| "[REDACTED]"),
+            )
             .finish()
     }
 }
@@ -481,15 +502,22 @@ mod debug_tests {
 
     #[test]
     fn debug_does_not_leak_secret() {
-        // PassboltBackend keeps no secrets in-process; passphrases live
-        // only inside the OS keyring. Sentinel test for future fields.
-        let backend =
-            PassboltBackend::new().with_server_address("https://passbolt.example.org/hunter2");
+        let backend = PassboltBackend::new()
+            .with_server_address("https://passbolt.example.org")
+            .with_user_password(SecretString::from("hunter2"));
         let rendered = format!("{backend:?}");
         assert!(rendered.contains("PassboltBackend"));
         assert!(
             rendered.contains("server_address"),
             "unexpected Debug shape: {rendered}"
+        );
+        assert!(
+            !rendered.contains("hunter2"),
+            "Debug leaks passphrase: {rendered}"
+        );
+        assert!(
+            rendered.contains("[REDACTED]"),
+            "Debug must show redacted marker: {rendered}"
         );
     }
 }

@@ -213,10 +213,21 @@ impl SecretManager {
                 backends.push(Arc::new(super::BitwardenBackend::new()));
             }
             SecretBackendType::OnePassword => {
-                backends.push(Arc::new(super::OnePasswordBackend::new()));
+                let mut backend = super::OnePasswordBackend::new();
+                if let Some(ref token) = settings.onepassword_service_account_token {
+                    backend.set_service_account_token(token.clone());
+                }
+                backends.push(Arc::new(backend));
             }
             SecretBackendType::Passbolt => {
-                backends.push(Arc::new(super::PassboltBackend::new()));
+                let mut backend = super::PassboltBackend::new();
+                if let Some(ref url) = settings.passbolt_server_url {
+                    backend = backend.with_server_address(url.clone());
+                }
+                if let Some(ref passphrase) = settings.passbolt_passphrase {
+                    backend = backend.with_user_password(passphrase.clone());
+                }
+                backends.push(Arc::new(backend));
             }
             SecretBackendType::LibSecret => {
                 backends.push(Arc::new(super::LibSecretBackend::default_app()));

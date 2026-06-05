@@ -437,6 +437,23 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
             }
         }
 
+        // Show toast if KeePass keyring load failed at startup
+        if let Ok(mut state_mut) = state_for_secrets.try_borrow_mut()
+            && state_mut.take_kdbx_keyring_failed()
+            && let Some(win) = window_for_secrets.upgrade()
+        {
+            let msg = crate::i18n::i18n(
+                "KeePass password not loaded from keyring — re-enter it in Settings",
+            );
+            crate::toast::show_toast_with_action_on_window(
+                &win,
+                &msg,
+                &crate::i18n::i18n("Settings"),
+                "win.settings",
+                crate::toast::ToastType::Warning,
+            );
+        }
+
         // Phase 2: Bitwarden auto-unlock (only when Bitwarden is the preferred backend)
         if needs_bitwarden {
             // Clone settings for the background thread (Send + 'static)

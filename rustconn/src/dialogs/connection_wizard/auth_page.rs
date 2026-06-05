@@ -6,9 +6,7 @@
 use crate::i18n::i18n;
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{
-    Box as GtkBox, Button, CheckButton, Orientation, PasswordEntry, ScrolledWindow, StringList,
-};
+use gtk4::{Box as GtkBox, Button, Orientation, PasswordEntry, ScrolledWindow, StringList};
 use libadwaita as adw;
 use rustconn_core::models::{ConnectionThemeOverride, ProtocolType, SshAuthMethod};
 use rustconn_core::terminal_themes::TerminalTheme;
@@ -22,10 +20,7 @@ pub struct AuthPage {
     pub page: adw::NavigationPage,
     // Auth widgets
     auth_group: adw::PreferencesGroup,
-    password_radio: CheckButton,
-    key_file_radio: CheckButton,
-    agent_radio: CheckButton,
-    security_key_radio: CheckButton,
+    method_row: adw::ComboRow,
     password_entry: PasswordEntry,
     password_row: adw::ActionRow,
     key_file_row: adw::ActionRow,
@@ -44,6 +39,8 @@ pub struct AuthPage {
     on_save: Rc<RefCell<Option<Box<dyn Fn()>>>>,
     on_connect: Rc<RefCell<Option<Box<dyn Fn()>>>>,
     on_advanced: Rc<RefCell<Option<Box<dyn Fn()>>>>,
+    // Auth method list — kept in sync with the ComboRow model
+    all_methods: Rc<RefCell<Vec<SshAuthMethod>>>,
 }
 
 impl AuthPage {
@@ -88,22 +85,17 @@ impl AuthPage {
             .visible(false)
             .build();
 
-        let password_radio = CheckButton::with_label(&i18n("Password"));
-        let key_file_radio = CheckButton::with_label(&i18n("Key File"));
-        key_file_radio.set_group(Some(&password_radio));
-        let agent_radio = CheckButton::with_label(&i18n("SSH Agent"));
-        agent_radio.set_group(Some(&password_radio));
-        let security_key_radio = CheckButton::with_label(&i18n("Security Key (FIDO2)"));
-        security_key_radio.set_group(Some(&password_radio));
-
-        let method_box = GtkBox::new(Orientation::Horizontal, 12);
-        method_box.append(&password_radio);
-        method_box.append(&key_file_radio);
-        method_box.append(&agent_radio);
-        method_box.append(&security_key_radio);
-
-        let method_row = adw::ActionRow::builder().title(i18n("Method")).build();
-        method_row.add_suffix(&method_box);
+        // Auth method selection via ComboRow (fits any width without overflow)
+        // Model starts empty — populated by configure_for_protocol() for the
+        // correct protocol, avoiding a brief flash of all SSH methods during
+        // page transition animations.
+        let all_methods: Rc<RefCell<Vec<SshAuthMethod>>> = Rc::new(RefCell::new(Vec::new()));
+        let method_model = StringList::new(&[] as &[&str]);
+        let method_row = adw::ComboRow::builder()
+            .title(i18n("Method"))
+            .model(&method_model)
+            .visible(false)
+            .build();
         auth_group.add(&method_row);
 
         let password_entry = PasswordEntry::builder()
@@ -115,7 +107,7 @@ impl AuthPage {
         password_row.add_suffix(&password_entry);
         auth_group.add(&password_row);
 
-        // Key file row (shown when Key File radio is active)
+        // Key file row (shown when Key File method is selected)
         let key_file_label = gtk4::Label::builder()
             .label(i18n("No file selected"))
             .css_classes(["dim-label"])
@@ -235,42 +227,15 @@ impl AuthPage {
             }
         });
 
-        // Auth method radio → show/hide password and key file
+        // Auth method ComboRow → show/hide password and key file rows
         let pw_row = password_row.clone();
         let kf_row = key_file_row.clone();
-        password_radio.connect_toggled(move |r| {
-            pw_row.set_visible(r.is_active());
-            kf_row.set_visible(false);
+        method_row.connect_notify_local(Some("selected"), move |combo, _| {
+            let selected = combo.selected();
+            // 0 = Password, 1 = Key File, 2 = SSH Agent, 3 = Security Key
+            pw_row.set_visible(selected == 0);
+            kf_row.set_visible(selected == 1);
         });
-
-        let pw_row2 = password_row.clone();
-        let kf_row2 = key_file_row.clone();
-        key_file_radio.connect_toggled(move |r| {
-            if r.is_active() {
-                pw_row2.set_visible(false);
-                kf_row2.set_visible(true);
-            }
-        });
-
-        let pw_row3 = password_row.clone();
-        let kf_row3 = key_file_row.clone();
-        agent_radio.connect_toggled(move |r| {
-            if r.is_active() {
-                pw_row3.set_visible(false);
-                kf_row3.set_visible(false);
-            }
-        });
-
-        let pw_row4 = password_row.clone();
-        let kf_row4 = key_file_row.clone();
-        security_key_radio.connect_toggled(move |r| {
-            if r.is_active() {
-                pw_row4.set_visible(false);
-                kf_row4.set_visible(false);
-            }
-        });
-
-        password_radio.set_active(true);
 
         // Wire key file chooser button
         let key_file_path: Rc<RefCell<Option<std::path::PathBuf>>> = Rc::new(RefCell::new(None));
@@ -302,10 +267,7 @@ impl AuthPage {
         Self {
             page,
             auth_group,
-            password_radio,
-            key_file_radio,
-            agent_radio,
-            security_key_radio,
+            method_row,
             password_entry,
             password_row,
             key_file_row,
@@ -321,6 +283,7 @@ impl AuthPage {
             on_save,
             on_connect,
             on_advanced,
+            all_methods,
         }
     }
 
@@ -359,16 +322,39 @@ impl AuthPage {
         if has_auth {
             self.auth_group.set_visible(true);
             if is_ssh_family {
-                self.key_file_radio.set_visible(true);
-                self.agent_radio.set_visible(true);
-                self.security_key_radio.set_visible(true);
+                // Show all 4 methods for SSH family
+                self.method_row.set_visible(true);
+                let methods = vec![
+                    SshAuthMethod::Password,
+                    SshAuthMethod::PublicKey,
+                    SshAuthMethod::Agent,
+                    SshAuthMethod::SecurityKey,
+                ];
+                let method_names: Vec<String> = vec![
+                    i18n("Password"),
+                    i18n("Key File"),
+                    i18n("SSH Agent"),
+                    i18n("Security Key (FIDO2)"),
+                ];
+                let method_refs: Vec<&str> = method_names.iter().map(String::as_str).collect();
+                let model = StringList::new(&method_refs);
+                self.method_row.set_model(Some(&model));
+                self.method_row.set_selected(0);
+                *self.all_methods.borrow_mut() = methods;
             } else {
-                self.key_file_radio.set_visible(false);
-                self.agent_radio.set_visible(false);
-                self.security_key_radio.set_visible(false);
-                self.password_radio.set_active(true);
+                // Non-SSH: only Password method — hide the method dropdown
+                // since there's only one option (no point showing a single-item combo)
+                self.method_row.set_visible(false);
+                let methods = vec![SshAuthMethod::Password];
+                *self.all_methods.borrow_mut() = methods;
                 self.password_row.set_visible(true);
+                self.key_file_row.set_visible(false);
             }
+            // Reset password and key file state when switching protocols
+            self.password_entry.set_text("");
+            self.key_file_label.set_label(&i18n("No file selected"));
+            self.key_file_label.add_css_class("dim-label");
+            *self.key_file_path.borrow_mut() = None;
         } else {
             self.summary_group.set_visible(true);
             self.summary_protocol_row
@@ -407,13 +393,16 @@ impl AuthPage {
     /// Get selected auth method
     #[must_use]
     pub fn auth_method(&self) -> SshAuthMethod {
-        if self.agent_radio.is_active() {
-            SshAuthMethod::Agent
-        } else if self.key_file_radio.is_active() {
-            SshAuthMethod::PublicKey
-        } else if self.security_key_radio.is_active() {
-            SshAuthMethod::SecurityKey
+        let selected = self.method_row.selected() as usize;
+        let methods = self.all_methods.borrow();
+        if let Some(method) = methods.get(selected) {
+            method.clone()
         } else {
+            tracing::warn!(
+                selected_index = selected,
+                methods_count = methods.len(),
+                "Auth method ComboRow selected index out of bounds, defaulting to Password"
+            );
             SshAuthMethod::Password
         }
     }

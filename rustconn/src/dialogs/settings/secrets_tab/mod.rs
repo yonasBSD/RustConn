@@ -1008,6 +1008,12 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     let passbolt_version_clone = passbolt_version.clone();
     let pass_version_clone = pass_version.clone();
     let detection_complete_clone = detection_complete.clone();
+    // Clones for on-demand keyring loading when user switches backend
+    let bw_status_label_switch = bitwarden_status_label.clone();
+    let op_token_entry_switch = onepassword_token_entry.clone();
+    let op_status_label_switch = onepassword_status_label.clone();
+    let pb_passphrase_entry_switch = passbolt_passphrase_entry.clone();
+    let kdbx_password_entry_switch = kdbx_password_entry.clone();
     secret_backend_dropdown.connect_selected_notify(move |dropdown| {
         let selected = dropdown.selected();
         // Show Bitwarden group only when Bitwarden is selected (index 2)
@@ -1054,6 +1060,105 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
             4 => set_ver(&passbolt_version_clone.borrow()),
             5 => set_ver(&pass_version_clone.borrow()),
             _ => version_row_clone.set_visible(false),
+        }
+
+        // On-demand keyring loading when user switches to a new backend
+        match selected {
+            2 => {
+                // Bitwarden selected — trigger auto-unlock from keyring
+                let status_label = bw_status_label_switch.clone();
+                glib::spawn_future_local(async move {
+                    let result = glib::spawn_future(async move {
+                        use secrecy::ExposeSecret;
+                        let bw_cmd = rustconn_core::secret::get_bw_cmd();
+                        let password = get_bw_password_from_keyring();
+                        let password = password?;
+                        let bw_status = check_bitwarden_status_sync(&bw_cmd);
+                        if bw_status.0 != "Locked" {
+                            return Some((bw_status.0, bw_status.1, None));
+                        }
+                        let unlock_result = std::process::Command::new(&bw_cmd)
+                            .arg("unlock")
+                            .arg("--passwordenv")
+                            .arg("BW_PASSWORD")
+                            .env("BW_PASSWORD", password.expose_secret())
+                            .output();
+                        if let Ok(output) = unlock_result
+                            && output.status.success()
+                        {
+                            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                            if let Some(session_key) = extract_session_key(&stdout) {
+                                return Some((
+                                    "Unlocked".to_string(),
+                                    "success",
+                                    Some(session_key),
+                                ));
+                            }
+                        }
+                        Some(("Locked".to_string(), "warning", None))
+                    })
+                    .await
+                    .ok()
+                    .flatten();
+                    if let Some((text, css, session_key)) = result {
+                        if let Some(key) = session_key {
+                            set_session_key(SecretString::from(key));
+                        }
+                        update_status_label(&status_label, &text, css);
+                    }
+                });
+            }
+            3 => {
+                // 1Password selected — load token from keyring
+                let token_entry = op_token_entry_switch.clone();
+                let status_label = op_status_label_switch.clone();
+                glib::spawn_future_local(async move {
+                    let token = glib::spawn_future(async move { get_op_token_from_keyring() })
+                        .await
+                        .ok()
+                        .flatten();
+                    if let Some(token) = token {
+                        use secrecy::ExposeSecret;
+                        token_entry.set_text(token.expose_secret());
+                        update_status_label(
+                            &status_label,
+                            &i18n("Token loaded from keyring"),
+                            "success",
+                        );
+                    }
+                });
+            }
+            4 => {
+                // Passbolt selected — load passphrase from keyring
+                let passphrase_entry = pb_passphrase_entry_switch.clone();
+                glib::spawn_future_local(async move {
+                    let passphrase =
+                        glib::spawn_future(async move { get_pb_passphrase_from_keyring() })
+                            .await
+                            .ok()
+                            .flatten();
+                    if let Some(passphrase) = passphrase {
+                        use secrecy::ExposeSecret;
+                        passphrase_entry.set_text(passphrase.expose_secret());
+                    }
+                });
+            }
+            0 => {
+                // KeePassXC selected — load password from keyring
+                let password_entry = kdbx_password_entry_switch.clone();
+                glib::spawn_future_local(async move {
+                    let password =
+                        glib::spawn_future(async move { get_kdbx_password_from_keyring() })
+                            .await
+                            .ok()
+                            .flatten();
+                    if let Some(password) = password {
+                        use secrecy::ExposeSecret;
+                        password_entry.set_text(password.expose_secret());
+                    }
+                });
+            }
+            _ => {} // LibSecret, Pass, macOS Keychain — stateless
         }
     });
 
@@ -1516,163 +1621,194 @@ pub fn load_secret_settings(widgets: &SecretsPageWidgets, settings: &SecretSetti
     };
     widgets.kdbx_status_label.add_css_class(status_css_class);
 
-    // Auto-unlock Bitwarden from keyring if configured
-    if settings.bitwarden_save_to_keyring {
-        let status_label = widgets.bitwarden_status_label.clone();
-        tracing::debug!("Scheduling Bitwarden auto-unlock from keyring (async)");
-        glib::spawn_future_local({
-            let status_label = status_label.clone();
-            async move {
-                let t_bw = std::time::Instant::now();
-                let result = glib::spawn_future(async move {
-                    use secrecy::ExposeSecret;
-                    // Use the globally resolved bw command path (set by
-                    // detect_secret_backends / resolve_bw_cmd at startup).
-                    // The local Rc<RefCell<String>> may still hold the default
-                    // "bw" if detection hasn't completed yet.
-                    let bw_cmd = rustconn_core::secret::get_bw_cmd();
-                    let password = get_bw_password_from_keyring();
-                    let password = if let Some(p) = password {
-                        p
-                    } else {
-                        tracing::debug!("No keyring password found for auto-unlock");
-                        return None;
-                    };
-                    tracing::debug!(
-                        bw_cmd = %bw_cmd,
-                        "Got keyring password, checking vault status"
-                    );
-                    let bw_status = check_bitwarden_status_sync(&bw_cmd);
-                    if bw_status.0 != "Locked" {
-                        return Some((bw_status.0, bw_status.1, None));
-                    }
-                    let unlock_result = std::process::Command::new(&bw_cmd)
-                        .arg("unlock")
-                        .arg("--passwordenv")
-                        .arg("BW_PASSWORD")
-                        .env("BW_PASSWORD", password.expose_secret())
-                        .output();
-                    if let Ok(output) = unlock_result {
-                        if output.status.success() {
-                            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                            if let Some(session_key) = extract_session_key(&stdout) {
-                                return Some((
-                                    "Unlocked".to_string(),
-                                    "success",
-                                    Some(session_key),
-                                ));
-                            }
-                            tracing::warn!("bw unlock succeeded but no session key");
-                        } else {
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-                            tracing::warn!(
-                                %stderr,
-                                "bw unlock from keyring failed"
-                            );
-                        }
-                    }
-                    Some(("Locked".to_string(), "warning", None))
-                })
-                .await
-                .ok()
-                .flatten();
+    // Load credentials from keyring ONLY for the preferred backend (lazy init).
+    // Other backends' credentials are loaded on-demand when the user switches
+    // to them via the dropdown.
+    match settings.preferred_backend {
+        SecretBackendType::Bitwarden => {
+            load_bitwarden_credentials_from_keyring(widgets, settings);
+        }
+        SecretBackendType::OnePassword => {
+            load_onepassword_credentials_from_keyring(widgets, settings);
+        }
+        SecretBackendType::Passbolt => {
+            load_passbolt_credentials_from_keyring(widgets, settings);
+        }
+        SecretBackendType::KeePassXc | SecretBackendType::KdbxFile => {
+            load_kdbx_credentials_from_keyring(widgets, settings);
+        }
+        SecretBackendType::LibSecret
+        | SecretBackendType::MacOsKeychain
+        | SecretBackendType::Pass => {
+            // Stateless backends — nothing to load from keyring
+        }
+    }
+}
+
+/// Loads Bitwarden credentials from keyring and performs auto-unlock.
+fn load_bitwarden_credentials_from_keyring(
+    widgets: &SecretsPageWidgets,
+    settings: &SecretSettings,
+) {
+    if !settings.bitwarden_save_to_keyring {
+        return;
+    }
+    let status_label = widgets.bitwarden_status_label.clone();
+    tracing::debug!("Scheduling Bitwarden auto-unlock from keyring (async)");
+    glib::spawn_future_local({
+        let status_label = status_label.clone();
+        async move {
+            let t_bw = std::time::Instant::now();
+            let result = glib::spawn_future(async move {
+                use secrecy::ExposeSecret;
+                let bw_cmd = rustconn_core::secret::get_bw_cmd();
+                let password = get_bw_password_from_keyring();
+                let password = if let Some(p) = password {
+                    p
+                } else {
+                    tracing::debug!("No keyring password found for auto-unlock");
+                    return None;
+                };
                 tracing::debug!(
-                    elapsed_ms = t_bw.elapsed().as_millis(),
-                    "load_secret_settings — Bitwarden auto-unlock COMPLETED"
+                    bw_cmd = %bw_cmd,
+                    "Got keyring password, checking vault status"
                 );
-
-                if let Some((text, css, session_key)) = result {
-                    if let Some(key) = session_key {
-                        set_session_key(SecretString::from(key));
-                        tracing::info!("Bitwarden auto-unlocked from keyring");
-                    }
-                    update_status_label(&status_label, &text, css);
+                let bw_status = check_bitwarden_status_sync(&bw_cmd);
+                if bw_status.0 != "Locked" {
+                    return Some((bw_status.0, bw_status.1, None));
                 }
-            }
-        });
-    }
-
-    // Auto-load 1Password token from keyring if configured
-    if settings.onepassword_save_to_keyring {
-        let token_entry = widgets.onepassword_token_entry.clone();
-        let status_label = widgets.onepassword_status_label.clone();
-        tracing::debug!("Scheduling 1Password token auto-load from keyring (async)");
-        glib::spawn_future_local(async move {
-            let t_op = std::time::Instant::now();
-            let token = glib::spawn_future(async move { get_op_token_from_keyring() })
-                .await
-                .ok()
-                .flatten();
+                let unlock_result = std::process::Command::new(&bw_cmd)
+                    .arg("unlock")
+                    .arg("--passwordenv")
+                    .arg("BW_PASSWORD")
+                    .env("BW_PASSWORD", password.expose_secret())
+                    .output();
+                if let Ok(output) = unlock_result {
+                    if output.status.success() {
+                        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                        if let Some(session_key) = extract_session_key(&stdout) {
+                            return Some(("Unlocked".to_string(), "success", Some(session_key)));
+                        }
+                        tracing::warn!("bw unlock succeeded but no session key");
+                    } else {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        tracing::warn!(
+                            %stderr,
+                            "bw unlock from keyring failed"
+                        );
+                    }
+                }
+                Some(("Locked".to_string(), "warning", None))
+            })
+            .await
+            .ok()
+            .flatten();
             tracing::debug!(
-                elapsed_ms = t_op.elapsed().as_millis(),
-                "load_secret_settings — 1Password keyring COMPLETED"
+                elapsed_ms = t_bw.elapsed().as_millis(),
+                "load_secret_settings — Bitwarden auto-unlock COMPLETED"
             );
 
-            if let Some(token) = token {
-                use secrecy::ExposeSecret;
-                tracing::debug!("1Password token loaded from keyring");
-                token_entry.set_text(token.expose_secret());
-                // Token is passed to `op` CLI via Command::env() in OnePasswordBackend,
-                // no need to set process-wide env var.
-                update_status_label(&status_label, &i18n("Token loaded from keyring"), "success");
-                tracing::info!("1Password token set from keyring");
-            } else {
-                tracing::debug!("No 1Password token found in keyring");
+            if let Some((text, css, session_key)) = result {
+                if let Some(key) = session_key {
+                    set_session_key(SecretString::from(key));
+                    tracing::info!("Bitwarden auto-unlocked from keyring");
+                }
+                update_status_label(&status_label, &text, css);
             }
-        });
+        }
+    });
+}
+
+/// Loads 1Password service account token from keyring.
+fn load_onepassword_credentials_from_keyring(
+    widgets: &SecretsPageWidgets,
+    settings: &SecretSettings,
+) {
+    if !settings.onepassword_save_to_keyring {
+        return;
     }
+    let token_entry = widgets.onepassword_token_entry.clone();
+    let status_label = widgets.onepassword_status_label.clone();
+    tracing::debug!("Scheduling 1Password token auto-load from keyring (async)");
+    glib::spawn_future_local(async move {
+        let t_op = std::time::Instant::now();
+        let token = glib::spawn_future(async move { get_op_token_from_keyring() })
+            .await
+            .ok()
+            .flatten();
+        tracing::debug!(
+            elapsed_ms = t_op.elapsed().as_millis(),
+            "load_secret_settings — 1Password keyring COMPLETED"
+        );
 
-    // Auto-load Passbolt passphrase from keyring if configured
-    if settings.passbolt_save_to_keyring {
-        let passphrase_entry = widgets.passbolt_passphrase_entry.clone();
-        tracing::debug!("Scheduling Passbolt passphrase auto-load (async)");
-        glib::spawn_future_local(async move {
-            let t_pb = std::time::Instant::now();
-            let passphrase = glib::spawn_future(async move { get_pb_passphrase_from_keyring() })
-                .await
-                .ok()
-                .flatten();
-            tracing::debug!(
-                elapsed_ms = t_pb.elapsed().as_millis(),
-                "load_secret_settings — Passbolt keyring COMPLETED"
-            );
+        if let Some(token) = token {
+            use secrecy::ExposeSecret;
+            tracing::debug!("1Password token loaded from keyring");
+            token_entry.set_text(token.expose_secret());
+            update_status_label(&status_label, &i18n("Token loaded from keyring"), "success");
+            tracing::info!("1Password token set from keyring");
+        } else {
+            tracing::debug!("No 1Password token found in keyring");
+        }
+    });
+}
 
-            if let Some(passphrase) = passphrase {
-                use secrecy::ExposeSecret;
-                tracing::debug!("Passbolt passphrase loaded from keyring");
-                passphrase_entry.set_text(passphrase.expose_secret());
-                tracing::info!("Passbolt passphrase restored from keyring");
-            } else {
-                tracing::debug!("No Passbolt passphrase found in keyring");
-            }
-        });
+/// Loads Passbolt passphrase from keyring.
+fn load_passbolt_credentials_from_keyring(widgets: &SecretsPageWidgets, settings: &SecretSettings) {
+    if !settings.passbolt_save_to_keyring {
+        return;
     }
+    let passphrase_entry = widgets.passbolt_passphrase_entry.clone();
+    tracing::debug!("Scheduling Passbolt passphrase auto-load (async)");
+    glib::spawn_future_local(async move {
+        let t_pb = std::time::Instant::now();
+        let passphrase = glib::spawn_future(async move { get_pb_passphrase_from_keyring() })
+            .await
+            .ok()
+            .flatten();
+        tracing::debug!(
+            elapsed_ms = t_pb.elapsed().as_millis(),
+            "load_secret_settings — Passbolt keyring COMPLETED"
+        );
 
-    // Auto-load KeePassXC password from keyring if configured
-    if settings.kdbx_save_to_keyring {
-        let password_entry = widgets.kdbx_password_entry.clone();
-        tracing::debug!("Scheduling KDBX password auto-load (async)");
-        glib::spawn_future_local(async move {
-            let t_kdbx = std::time::Instant::now();
-            let password = glib::spawn_future(async move { get_kdbx_password_from_keyring() })
-                .await
-                .ok()
-                .flatten();
-            tracing::debug!(
-                elapsed_ms = t_kdbx.elapsed().as_millis(),
-                "load_secret_settings — KDBX keyring COMPLETED"
-            );
+        if let Some(passphrase) = passphrase {
+            use secrecy::ExposeSecret;
+            tracing::debug!("Passbolt passphrase loaded from keyring");
+            passphrase_entry.set_text(passphrase.expose_secret());
+            tracing::info!("Passbolt passphrase restored from keyring");
+        } else {
+            tracing::debug!("No Passbolt passphrase found in keyring");
+        }
+    });
+}
 
-            if let Some(password) = password {
-                use secrecy::ExposeSecret;
-                tracing::debug!("KDBX password loaded from keyring");
-                password_entry.set_text(password.expose_secret());
-                tracing::info!("KDBX password restored from keyring");
-            } else {
-                tracing::debug!("No KDBX password found in keyring");
-            }
-        });
+/// Loads KeePassXC password from keyring.
+fn load_kdbx_credentials_from_keyring(widgets: &SecretsPageWidgets, settings: &SecretSettings) {
+    if !settings.kdbx_save_to_keyring {
+        return;
     }
+    let password_entry = widgets.kdbx_password_entry.clone();
+    tracing::debug!("Scheduling KDBX password auto-load (async)");
+    glib::spawn_future_local(async move {
+        let t_kdbx = std::time::Instant::now();
+        let password = glib::spawn_future(async move { get_kdbx_password_from_keyring() })
+            .await
+            .ok()
+            .flatten();
+        tracing::debug!(
+            elapsed_ms = t_kdbx.elapsed().as_millis(),
+            "load_secret_settings — KDBX keyring COMPLETED"
+        );
+
+        if let Some(password) = password {
+            use secrecy::ExposeSecret;
+            tracing::debug!("KDBX password loaded from keyring");
+            password_entry.set_text(password.expose_secret());
+            tracing::info!("KDBX password restored from keyring");
+        } else {
+            tracing::debug!("No KDBX password found in keyring");
+        }
+    });
 }
 
 /// Collects secret settings from UI controls

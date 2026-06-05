@@ -734,7 +734,10 @@ fn retrieve_by_vault_entry_name(
                     }
                     SecretBackendType::OnePassword => {
                         // 1Password: use `op item get "{name}" --fields password`
-                        let backend = rustconn_core::secret::OnePasswordBackend::new();
+                        let mut backend = rustconn_core::secret::OnePasswordBackend::new();
+                        if let Some(ref token) = settings.onepassword_service_account_token {
+                            backend.set_service_account_token(token.clone());
+                        }
                         let creds = backend
                             .retrieve(entry_name)
                             .await
@@ -762,7 +765,13 @@ fn retrieve_by_vault_entry_name(
                         }))
                     }
                     SecretBackendType::Passbolt => {
-                        let backend = rustconn_core::secret::PassboltBackend::new();
+                        let mut backend = rustconn_core::secret::PassboltBackend::new();
+                        if let Some(ref url) = settings.passbolt_server_url {
+                            backend = backend.with_server_address(url.clone());
+                        }
+                        if let Some(ref passphrase) = settings.passbolt_passphrase {
+                            backend = backend.with_user_password(passphrase.clone());
+                        }
                         let creds = backend
                             .retrieve(entry_name)
                             .await
@@ -1111,10 +1120,21 @@ pub fn dispatch_vault_op(
                 .map_err(|e| format!("{e}"))
             })?),
             SecretBackendType::OnePassword => {
-                std::sync::Arc::new(rustconn_core::secret::OnePasswordBackend::new())
+                let mut backend = rustconn_core::secret::OnePasswordBackend::new();
+                if let Some(ref token) = secret_settings.onepassword_service_account_token {
+                    backend.set_service_account_token(token.clone());
+                }
+                std::sync::Arc::new(backend)
             }
             SecretBackendType::Passbolt => {
-                std::sync::Arc::new(rustconn_core::secret::PassboltBackend::new())
+                let mut backend = rustconn_core::secret::PassboltBackend::new();
+                if let Some(ref url) = secret_settings.passbolt_server_url {
+                    backend = backend.with_server_address(url.clone());
+                }
+                if let Some(ref passphrase) = secret_settings.passbolt_passphrase {
+                    backend = backend.with_user_password(passphrase.clone());
+                }
+                std::sync::Arc::new(backend)
             }
             SecretBackendType::Pass => std::sync::Arc::new(
                 rustconn_core::secret::PassBackend::from_secret_settings(secret_settings),

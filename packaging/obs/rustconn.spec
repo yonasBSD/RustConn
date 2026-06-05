@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.15.8
+Version:        0.15.9
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -238,6 +238,26 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu Jun 05 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.9-0
+- Lazy init secret backends — only preferred backend initialized at startup
+- KeePass keyring failure toast at startup when password not loaded
+- Connection wizard: ComboRow model lazy init eliminates auth method flash
+- Fixed KeePass vault credentials not resolved on Flatpak after restart (#170)
+- Fixed crash (SIGSEGV) when opening new SSH tab or on screen lock/unlock (#171)
+- Fixed connection wizard auth method label overflow — ComboRow (#169)
+- Fixed Telnet connection not closed when closing the tab (#172)
+- Fixed 1Password/Passbolt credentials not passed in vault entry lookups
+- Fixed connection wizard redundant Method dropdown for non-SSH protocols
+
+* Wed Jun 04 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.8-0
+- Fixed keybinding reassignment not registering keystrokes — recorder
+  moves focus to parent ActionRow and disables PreferencesDialog search
+- Fixed sidebar right-click context menu not appearing for hosts in groups
+- Fixed secret variable with vault entry name writing duplicate to vault
+- Fixed sidebar status icon size inconsistent with custom icons
+- Variable dialog: vault entry UX hints — placeholder and tooltip
+- Updated: chrono 0.4.44→0.4.45, log 0.4.31→0.4.32, yoke 0.8.2→0.8.3
+
 * Tue Jun 03 2026 Anton Isaiev <totoshko88@gmail.com> - 0.15.7-0
 - Variable password source: discoverability — subtitle hint and "+"
   button to open Variables manager directly from connection dialog
