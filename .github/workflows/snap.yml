@@ -18,10 +18,9 @@ jobs:
 
       - name: Install Snapcraft
         run: |
-          # Ensure snapd has latest channel info, then install snapcraft 9.x
-          # (required for core26 stable — 8.x requires build-base: devel)
-          sudo snap refresh snapd
-          sudo snap install snapcraft --classic --channel=latest/stable
+          # snapcraft 9.x is in latest/candidate (latest/stable still ships 8.x on this runner)
+          # 9.x is required for core26 stable — 8.x rejects it without build-base: devel
+          sudo snap install snapcraft --classic --candidate
           snapcraft --version
 
       - name: Build Snap
