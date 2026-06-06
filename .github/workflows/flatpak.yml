@@ -36,6 +36,9 @@ jobs:
           bundle: RustConn.flatpak
           cache-key: flatpak-builder-${{ github.sha }}
           build-bundle: true
+        env:
+          # Retry network downloads up to 3 times (e.g. transient GitLab 500)
+          FLATPAK_BUILDER_N_TRIES: 3
 
       - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v6
