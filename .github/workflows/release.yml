@@ -728,6 +728,9 @@ jobs:
           sed -i "s/^DEBTRANSFORM-TAR:.*$/DEBTRANSFORM-TAR: rustconn-$VERSION.tar.xz/" "$OBS_DIR/debian.dsc"
           # AppImageBuilder.yml is the only packaging file not covered by
           # the other seds — keep its version in sync too
+          if [ ! -f "$OBS_DIR/AppImageBuilder.yml" ]; then
+            cp packaging/obs/AppImageBuilder.yml "$OBS_DIR/AppImageBuilder.yml"
+          fi
           sed -i "s/^    version: .*$/    version: $VERSION/" "$OBS_DIR/AppImageBuilder.yml"
           
           # Update debian.changelog — prepend new entry
