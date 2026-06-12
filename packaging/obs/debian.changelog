@@ -1,3 +1,24 @@
+rustconn (0.16.1-1) unstable; urgency=medium
+
+  * Settings dialog GNOME HIG pass:
+    - Secret fields migrated to adw::PasswordEntryRow (built-in peek icon,
+      caps-lock warning, focus on row click)
+    - Highlight-rules editor rebuilt: one expandable row per rule with
+      proper EntryRows, enable switch and delete button
+    - Rows with suffix controls activatable via the row itself
+    - Reset All to Defaults for shortcuts now asks for confirmation
+    - Restart to apply after settings restore is a dialog with Quit now
+    - Backup/restore failures shown to user instead of only logged
+    - Removed extra suggested-action styling from inline buttons
+  * Fixed Settings dialog taking 5+ seconds to appear with Bitwarden
+    backend (flatpak) — keyring calls moved to gio::spawn_blocking
+  * Fixed UI froze for seconds after startup with Bitwarden (flatpak) —
+    resolve_bw_cmd() moved to background thread
+  * Fixed sidebar context menu dismissed on deeply nested rows
+    (KDE Plasma, #157) — fallback/keyboard menus take grab immediately
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Fri, 12 Jun 2026 12:00:00 +0200
+
 rustconn (0.16.0-1) unstable; urgency=medium
 
   * Added batch edit for multi-selected connections — change group, tags,

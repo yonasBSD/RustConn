@@ -183,7 +183,6 @@ pub fn add_available_file_row(
     let import_btn = gtk4::Button::builder()
         .label(i18n("Import"))
         .valign(gtk4::Align::Center)
-        .css_classes(["suggested-action"])
         .build();
     import_btn.set_tooltip_text(Some(&i18n("Import this file as a new group")));
     import_btn.update_property(&[gtk4::accessible::Property::Label(&i18n("Import sync file"))]);
@@ -194,6 +193,7 @@ pub fn add_available_file_row(
     });
 
     row.add_suffix(&import_btn);
+    row.set_activatable_widget(Some(&import_btn));
     group.add(&row);
 }
 

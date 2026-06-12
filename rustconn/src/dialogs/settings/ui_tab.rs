@@ -141,6 +141,7 @@ pub fn create_ui_page() -> (
         .subtitle(i18n("Restart required to apply"))
         .build();
     language_row.add_suffix(&language_dropdown);
+    language_row.set_activatable_widget(Some(&language_dropdown));
     appearance_group.add(&language_row);
 
     // Color tabs by protocol toggle
@@ -216,6 +217,7 @@ pub fn create_ui_page() -> (
         .subtitle(i18n("Open session automatically"))
         .build();
     startup_action_row.add_suffix(&startup_action_dropdown);
+    startup_action_row.set_activatable_widget(Some(&startup_action_dropdown));
     startup_group.add(&startup_action_row);
 
     page.add(&startup_group);

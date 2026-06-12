@@ -2073,6 +2073,8 @@ impl MainWindow {
         sidebar: SharedSidebar,
         overlay_split_view: adw::OverlaySplitView,
     ) {
+        let opened_at = std::time::Instant::now();
+        tracing::debug!("settings action activated");
         let mut dialog = SettingsDialog::new(None);
 
         // Load current settings and connections
@@ -2086,6 +2088,10 @@ impl MainWindow {
             let groups: Vec<_> = state_ref.list_groups().into_iter().cloned().collect();
             dialog.populate_cloud_sync(&groups, state_ref.sync_manager(), &state);
         }
+        tracing::debug!(
+            elapsed_ms = opened_at.elapsed().as_millis() as u64,
+            "settings dialog constructed and populated"
+        );
 
         let window_clone = window.clone();
         dialog.run(Some(window), move |result| {

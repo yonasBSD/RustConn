@@ -47,6 +47,7 @@ pub fn show_context_menu_for_connection_item(
     y: f64,
     item: &ConnectionItem,
     recording_checker: &Rc<RefCell<Option<Box<dyn Fn(&str) -> bool>>>>,
+    activation: sidebar_ui::MenuActivation,
 ) {
     let is_group = item.is_group();
     let protocol = item.protocol();
@@ -81,6 +82,7 @@ pub fn show_context_menu_for_connection_item(
         &item.sync_mode(),
         item.is_root_group(),
         item.has_dynamic_folder(),
+        activation,
     );
 }
 
@@ -238,7 +240,14 @@ pub fn setup_list_item(
                 .and_then(|row| row.item())
                 .and_then(|obj| obj.downcast::<ConnectionItem>().ok())
             {
-                show_context_menu_for_connection_item(&widget, x, y, &item, &recording_checker);
+                show_context_menu_for_connection_item(
+                    &widget,
+                    x,
+                    y,
+                    &item,
+                    &recording_checker,
+                    sidebar_ui::MenuActivation::PointerRow,
+                );
             }
 
             // Claim the gesture so the event does not propagate further into

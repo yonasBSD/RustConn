@@ -8,7 +8,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 use gtk4::{
     Box as GtkBox, Button, CheckButton, DropDown, Entry, FileDialog, FileFilter, Label,
-    Orientation, PasswordEntry, StringList, Switch,
+    Orientation, StringList, Switch,
 };
 use libadwaita as adw;
 use rustconn_core::config::{SecretBackendType, SecretSettings};
@@ -36,7 +36,7 @@ pub struct SecretsPageWidgets {
     pub secret_backend_dropdown: DropDown,
     pub enable_fallback: CheckButton,
     pub kdbx_path_entry: Entry,
-    pub kdbx_password_entry: PasswordEntry,
+    pub kdbx_password_entry: adw::PasswordEntryRow,
     pub kdbx_enabled_row: adw::SwitchRow,
     /// 3-state credential storage selector for KeePassXC database password.
     pub kdbx_storage_combo: adw::ComboRow,
@@ -52,18 +52,18 @@ pub struct SecretsPageWidgets {
     pub kdbx_group: adw::PreferencesGroup,
     pub auth_group: adw::PreferencesGroup,
     pub status_group: adw::PreferencesGroup,
-    pub password_row: adw::ActionRow,
+    pub password_row: adw::PasswordEntryRow,
     pub key_file_row: adw::ActionRow,
     // Bitwarden widgets
     pub bitwarden_group: adw::PreferencesGroup,
     pub bitwarden_status_label: Label,
     pub bitwarden_unlock_button: Button,
-    pub bitwarden_password_entry: PasswordEntry,
+    pub bitwarden_password_entry: adw::PasswordEntryRow,
     /// 3-state credential storage selector for Bitwarden master password.
     pub bitwarden_storage_combo: adw::ComboRow,
     pub bitwarden_use_api_key_check: Switch,
     pub bitwarden_client_id_entry: Entry,
-    pub bitwarden_client_secret_entry: PasswordEntry,
+    pub bitwarden_client_secret_entry: adw::PasswordEntryRow,
     /// Detected Bitwarden CLI command path (updated async)
     pub bitwarden_cmd: Rc<RefCell<String>>,
     // 1Password widgets
@@ -75,11 +75,11 @@ pub struct SecretsPageWidgets {
     pub passbolt_status_label: Label,
     pub passbolt_server_url_entry: Entry,
     pub passbolt_open_vault_button: Button,
-    pub passbolt_passphrase_entry: PasswordEntry,
+    pub passbolt_passphrase_entry: adw::PasswordEntryRow,
     /// 3-state credential storage selector for Passbolt GPG passphrase.
     pub passbolt_storage_combo: adw::ComboRow,
     // 1Password credential widgets
-    pub onepassword_token_entry: PasswordEntry,
+    pub onepassword_token_entry: adw::PasswordEntryRow,
     /// 3-state credential storage selector for 1Password service account token.
     pub onepassword_storage_combo: adw::ComboRow,
     /// Cached result of `which secret-tool` (populated by background detection)
@@ -278,20 +278,13 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         .description(i18n("Configure Bitwarden CLI integration"))
         .build();
 
-    // Password entry for unlocking
-    let bitwarden_password_entry = PasswordEntry::builder()
-        .placeholder_text(i18n("Master password"))
-        .hexpand(true)
-        .show_peek_icon(true)
-        .valign(gtk4::Align::Center)
-        .build();
-    let bw_password_row = adw::ActionRow::builder()
+    // Password entry for unlocking (PasswordEntryRow: built-in peek icon,
+    // caps-lock warning and focus on row click)
+    let bitwarden_password_entry = adw::PasswordEntryRow::builder()
         .title(i18n("Master Password"))
-        .subtitle(i18n("Required to unlock vault"))
+        .tooltip_text(i18n("Required to unlock vault"))
         .build();
-    bw_password_row.add_suffix(&bitwarden_password_entry);
-    bw_password_row.set_activatable_widget(Some(&bitwarden_password_entry));
-    bitwarden_group.add(&bw_password_row);
+    bitwarden_group.add(&bitwarden_password_entry);
 
     // Save password checkbox for Bitwarden (encrypted in settings file)
     let bitwarden_status_label = Label::builder()
@@ -340,32 +333,24 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     bitwarden_group.add(&bw_client_id_row);
 
     // API Client Secret entry
-    let bitwarden_client_secret_entry = PasswordEntry::builder()
-        .placeholder_text(i18n("client_secret"))
-        .hexpand(true)
-        .show_peek_icon(true)
-        .valign(gtk4::Align::Center)
-        .build();
-    let bw_client_secret_row = adw::ActionRow::builder()
+    let bitwarden_client_secret_entry = adw::PasswordEntryRow::builder()
         .title(i18n("Client Secret"))
-        .subtitle(i18n("Keep this secret safe"))
+        .tooltip_text(i18n("Keep this secret safe"))
         .build();
-    bw_client_secret_row.add_suffix(&bitwarden_client_secret_entry);
-    bw_client_secret_row.set_activatable_widget(Some(&bitwarden_client_secret_entry));
-    bitwarden_group.add(&bw_client_secret_row);
+    bitwarden_group.add(&bitwarden_client_secret_entry);
 
     // Setup visibility for API key fields
     let bw_client_id_row_clone = bw_client_id_row.clone();
-    let bw_client_secret_row_clone = bw_client_secret_row.clone();
+    let bw_client_secret_entry_clone = bitwarden_client_secret_entry.clone();
     bitwarden_use_api_key_check.connect_state_set(move |_, state| {
         bw_client_id_row_clone.set_visible(state);
-        bw_client_secret_row_clone.set_visible(state);
+        bw_client_secret_entry_clone.set_visible(state);
         glib::Propagation::Proceed
     });
 
     // Initial visibility - hide API key fields by default
     bw_client_id_row.set_visible(false);
-    bw_client_secret_row.set_visible(false);
+    bitwarden_client_secret_entry.set_visible(false);
 
     let bitwarden_unlock_button = Button::builder()
         .label(i18n("Unlock"))
@@ -518,21 +503,13 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         .build();
 
     // Service account token entry
-    let onepassword_token_entry = PasswordEntry::builder()
-        .placeholder_text(i18n("Service account token"))
-        .hexpand(true)
-        .show_peek_icon(true)
-        .valign(gtk4::Align::Center)
-        .build();
-    let op_token_row = adw::ActionRow::builder()
+    let onepassword_token_entry = adw::PasswordEntryRow::builder()
         .title(i18n("Service Account Token"))
-        .subtitle(i18n(
+        .tooltip_text(i18n(
             "For headless/automated access (OP_SERVICE_ACCOUNT_TOKEN)",
         ))
         .build();
-    op_token_row.add_suffix(&onepassword_token_entry);
-    op_token_row.set_activatable_widget(Some(&onepassword_token_entry));
-    onepassword_group.add(&op_token_row);
+    onepassword_group.add(&onepassword_token_entry);
 
     // Save password checkbox (encrypted in settings file)
     let onepassword_status_label = Label::builder()
@@ -643,19 +620,11 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     passbolt_group.add(&pb_url_row);
 
     // GPG Passphrase entry
-    let passbolt_passphrase_entry = PasswordEntry::builder()
-        .placeholder_text(i18n("GPG private key passphrase"))
-        .hexpand(true)
-        .show_peek_icon(true)
-        .valign(gtk4::Align::Center)
-        .build();
-    let pb_passphrase_row = adw::ActionRow::builder()
+    let passbolt_passphrase_entry = adw::PasswordEntryRow::builder()
         .title(i18n("GPG Passphrase"))
-        .subtitle(i18n("Required to decrypt credentials from Passbolt"))
+        .tooltip_text(i18n("Required to decrypt credentials from Passbolt"))
         .build();
-    pb_passphrase_row.add_suffix(&passbolt_passphrase_entry);
-    pb_passphrase_row.set_activatable_widget(Some(&passbolt_passphrase_entry));
-    passbolt_group.add(&pb_passphrase_row);
+    passbolt_group.add(&passbolt_passphrase_entry);
 
     // Save passphrase checkbox (encrypted in settings file)
     let passbolt_status_label = Label::builder()
@@ -869,17 +838,13 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     use_password_row.set_activatable_widget(Some(&kdbx_use_password_check));
     auth_group.add(&use_password_row);
 
-    // Password entry
-    let kdbx_password_entry = PasswordEntry::builder()
-        .placeholder_text(i18n("Database password"))
-        .hexpand(true)
-        .show_peek_icon(true)
-        .valign(gtk4::Align::Center)
+    // Password entry (the row itself; `password_row` aliases it for the
+    // visibility toggling driven by the "Use password" switch)
+    let kdbx_password_entry = adw::PasswordEntryRow::builder()
+        .title(i18n("Database password"))
         .build();
-    let password_row = adw::ActionRow::builder().title(i18n("Password")).build();
-    password_row.add_suffix(&kdbx_password_entry);
-    password_row.set_activatable_widget(Some(&kdbx_password_entry));
-    auth_group.add(&password_row);
+    let password_row = kdbx_password_entry.clone();
+    auth_group.add(&kdbx_password_entry);
 
     // Save password checkbox
     let kdbx_status_label = Label::builder()
@@ -1068,7 +1033,7 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
                 // Bitwarden selected — trigger auto-unlock from keyring
                 let status_label = bw_status_label_switch.clone();
                 glib::spawn_future_local(async move {
-                    let result = glib::spawn_future(async move {
+                    let result = gtk4::gio::spawn_blocking(move || {
                         use secrecy::ExposeSecret;
                         let bw_cmd = rustconn_core::secret::get_bw_cmd();
                         let password = get_bw_password_from_keyring();
@@ -1113,7 +1078,7 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
                 let token_entry = op_token_entry_switch.clone();
                 let status_label = op_status_label_switch.clone();
                 glib::spawn_future_local(async move {
-                    let token = glib::spawn_future(async move { get_op_token_from_keyring() })
+                    let token = gtk4::gio::spawn_blocking(get_op_token_from_keyring)
                         .await
                         .ok()
                         .flatten();
@@ -1132,11 +1097,10 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
                 // Passbolt selected — load passphrase from keyring
                 let passphrase_entry = pb_passphrase_entry_switch.clone();
                 glib::spawn_future_local(async move {
-                    let passphrase =
-                        glib::spawn_future(async move { get_pb_passphrase_from_keyring() })
-                            .await
-                            .ok()
-                            .flatten();
+                    let passphrase = gtk4::gio::spawn_blocking(get_pb_passphrase_from_keyring)
+                        .await
+                        .ok()
+                        .flatten();
                     if let Some(passphrase) = passphrase {
                         use secrecy::ExposeSecret;
                         passphrase_entry.set_text(passphrase.expose_secret());
@@ -1147,11 +1111,10 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
                 // KeePassXC selected — load password from keyring
                 let password_entry = kdbx_password_entry_switch.clone();
                 glib::spawn_future_local(async move {
-                    let password =
-                        glib::spawn_future(async move { get_kdbx_password_from_keyring() })
-                            .await
-                            .ok()
-                            .flatten();
+                    let password = gtk4::gio::spawn_blocking(get_kdbx_password_from_keyring)
+                        .await
+                        .ok()
+                        .flatten();
                     if let Some(password) = password {
                         use secrecy::ExposeSecret;
                         password_entry.set_text(password.expose_secret());
@@ -1663,7 +1626,7 @@ fn load_bitwarden_credentials_from_keyring(
         let status_label = status_label.clone();
         async move {
             let t_bw = std::time::Instant::now();
-            let result = glib::spawn_future(async move {
+            let result = gtk4::gio::spawn_blocking(move || {
                 use secrecy::ExposeSecret;
                 let bw_cmd = rustconn_core::secret::get_bw_cmd();
                 let password = get_bw_password_from_keyring();
@@ -1736,7 +1699,7 @@ fn load_onepassword_credentials_from_keyring(
     tracing::debug!("Scheduling 1Password token auto-load from keyring (async)");
     glib::spawn_future_local(async move {
         let t_op = std::time::Instant::now();
-        let token = glib::spawn_future(async move { get_op_token_from_keyring() })
+        let token = gtk4::gio::spawn_blocking(get_op_token_from_keyring)
             .await
             .ok()
             .flatten();
@@ -1766,7 +1729,7 @@ fn load_passbolt_credentials_from_keyring(widgets: &SecretsPageWidgets, settings
     tracing::debug!("Scheduling Passbolt passphrase auto-load (async)");
     glib::spawn_future_local(async move {
         let t_pb = std::time::Instant::now();
-        let passphrase = glib::spawn_future(async move { get_pb_passphrase_from_keyring() })
+        let passphrase = gtk4::gio::spawn_blocking(get_pb_passphrase_from_keyring)
             .await
             .ok()
             .flatten();
@@ -1795,7 +1758,7 @@ fn load_kdbx_credentials_from_keyring(widgets: &SecretsPageWidgets, settings: &S
     tracing::debug!("Scheduling KDBX password auto-load (async)");
     glib::spawn_future_local(async move {
         let t_kdbx = std::time::Instant::now();
-        let password = glib::spawn_future(async move { get_kdbx_password_from_keyring() })
+        let password = gtk4::gio::spawn_blocking(get_kdbx_password_from_keyring)
             .await
             .ok()
             .flatten();

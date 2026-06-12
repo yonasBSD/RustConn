@@ -51,7 +51,7 @@ impl ConnectionDialog {
 
         glib::spawn_future_local(async move {
             // Run the blocking agent probe on a background thread
-            let keys = glib::spawn_future(async move {
+            let keys = gtk4::gio::spawn_blocking(move || {
                 match manager.get_status_timeout(AGENT_TIMEOUT) {
                     Ok(status) if status.running => status.keys,
                     _ => Vec::new(),

@@ -158,7 +158,6 @@ pub fn create_ssh_agent_page() -> (
     let ssh_agent_add_key_button = Button::builder()
         .label(i18n("Add Key"))
         .valign(gtk4::Align::Center)
-        .css_classes(["suggested-action"])
         .build();
     let add_key_row = adw::ActionRow::builder()
         .title(i18n("Add SSH Key"))
@@ -166,6 +165,7 @@ pub fn create_ssh_agent_page() -> (
         .activatable(true)
         .build();
     add_key_row.add_suffix(&ssh_agent_add_key_button);
+    add_key_row.set_activatable_widget(Some(&ssh_agent_add_key_button));
     keys_group.add(&add_key_row);
 
     page.add(&keys_group);
@@ -409,6 +409,9 @@ pub fn populate_available_keys_list(
                     });
 
                     key_row.add_suffix(&load_button);
+                    // Row activation loads the key (the only action on the
+                    // row); removal stays click-only on its own button.
+                    key_row.set_activatable_widget(Some(&load_button));
                     keys_list.append(&key_row);
                 }
             }

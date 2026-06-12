@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Fri Jun 12 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.1
+
+- Settings dialog GNOME HIG pass — secret fields to PasswordEntryRow, highlight-rules editor rebuilt, rows activatable, Reset All confirmation, restore dialog with Quit now, backup/restore failures shown to user
+- Fixed Settings dialog taking 5+ seconds to appear with Bitwarden backend (flatpak) — keyring calls moved to gio::spawn_blocking
+- Fixed UI froze for seconds after startup with Bitwarden (flatpak) — resolve_bw_cmd() moved to background thread
+- Fixed sidebar context menu dismissed on deeply nested rows (KDE Plasma, #157) — fallback/keyboard menus take grab immediately
+
+-------------------------------------------------------------------
 Thu Jun 11 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.0
 
 - Added batch edit for multi-selected connections — change group, tags, or icon for all selected connections in one pass with undo

@@ -1376,6 +1376,7 @@ impl ConnectionSidebar {
         y: f64,
         recording_checker: &Rc<RefCell<Option<Box<dyn Fn(&str) -> bool>>>>,
     ) -> bool {
+        let activation = sidebar_ui::MenuActivation::PointerFallback;
         let Some(picked) = list_view.pick(x, y, gtk4::PickFlags::DEFAULT) else {
             return false;
         };
@@ -1418,6 +1419,7 @@ impl ConnectionSidebar {
             ey,
             &item,
             recording_checker,
+            activation,
         );
         true
     }
@@ -1468,6 +1470,7 @@ impl ConnectionSidebar {
             anchor_y,
             &item,
             recording_checker,
+            sidebar_ui::MenuActivation::Keyboard,
         );
     }
 

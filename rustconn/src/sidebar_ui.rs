@@ -84,6 +84,31 @@ pub fn clear_active_popover(popover: &gtk4::Popover) {
     });
 }
 
+/// How the context menu was invoked. Determines popover grab behaviour:
+///
+/// - `PointerRow`: per-row right-click gesture. Uses `autohide=false` so a
+///   right-click on a *different* row reaches that row's gesture directly
+///   (#87). Early compositor dismissals are retried with a grab (#157).
+/// - `PointerFallback`: ListView-level right-click / touch long-press
+///   fallback used when per-row dispatch fails (deep nesting, #157). Pops
+///   up with `autohide=true` immediately: the grab is then tied to the
+///   fresh input serial of the triggering press, which KWin honours —
+///   a deferred re-popup with a stale serial is dismissed again.
+/// - `Keyboard`: Menu key / Shift+F10. Takes a grab and moves focus to the
+///   first menu item so the menu is keyboard-navigable.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum MenuActivation {
+    PointerRow,
+    PointerFallback,
+    Keyboard,
+}
+
+impl MenuActivation {
+    fn takes_grab(self) -> bool {
+        !matches!(self, Self::PointerRow)
+    }
+}
+
 /// A single item in the context menu.
 enum ContextMenuItem {
     /// A clickable action with a label and a window action name (without "win." prefix).
@@ -118,6 +143,7 @@ pub fn show_context_menu_for_item(
     sync_mode: &str,
     is_root_group: bool,
     has_dynamic_folder: bool,
+    activation: MenuActivation,
 ) {
     let Some(root) = widget.root() else { return };
     let Some(window) = root.downcast_ref::<gtk4::ApplicationWindow>() else {
@@ -241,7 +267,7 @@ pub fn show_context_menu_for_item(
         ));
     }
 
-    show_popover(widget, window, &items, x, y);
+    show_popover(widget, window, &items, x, y, activation);
 }
 
 /// Shows the context menu for empty space in the sidebar
@@ -261,7 +287,7 @@ pub fn show_empty_space_context_menu(widget: &impl IsA<gtk4::Widget>, x: f64, y:
         ContextMenuItem::action(&i18n("Export..."), "export"),
     ];
 
-    show_popover(widget, window, &items, x, y);
+    show_popover(widget, window, &items, x, y, MenuActivation::PointerRow);
 }
 
 /// Creates and shows a `Popover` with button items that directly activate
@@ -288,6 +314,7 @@ fn show_popover(
     items: &[ContextMenuItem],
     x: f64,
     y: f64,
+    activation: MenuActivation,
 ) {
     close_active_popover();
 
@@ -344,17 +371,22 @@ fn show_popover(
     )]
     let rect = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
     popover.set_pointing_to(Some(&rect));
-    // Use autohide=false so GTK4 does not grab the pointer.  With a grab,
-    // a right-click on a *different* sidebar row is consumed by the
-    // autohide mechanism and never reaches the row's GestureClick handler,
-    // causing the context menu to intermittently fail to open (issue #87).
-    //
-    // Dismissal is handled manually:
+    // PointerRow uses autohide=false so GTK4 does not grab the pointer.
+    // With a grab, a right-click on a *different* sidebar row is consumed by
+    // the autohide mechanism and never reaches the row's GestureClick
+    // handler, causing the context menu to intermittently fail to open
+    // (issue #87). Dismissal is then handled manually:
     // - Left-click dismiss gesture on ScrolledWindow (CAPTURE phase)
     // - close_active_popover() called before every new context menu
     // - Each button closes the popover before activating its action
     // - Escape key handler below
-    popover.set_autohide(false);
+    //
+    // PointerFallback / Keyboard take the grab immediately (see
+    // [`MenuActivation`]): on KDE Plasma a non-grabbing xdg_popup is
+    // cancelled by KWin on the focus change that follows the click, and a
+    // deferred re-popup cannot acquire a grab because its input serial is
+    // stale (#157, deep-nesting reports).
+    popover.set_autohide(activation.takes_grab());
     popover.set_has_arrow(false);
 
     // Escape key closes the popover (autohide=false means GTK4 won't do it)
@@ -445,7 +477,14 @@ fn show_popover(
         }
 
         let intentional = INTENTIONAL_POPDOWN.with(std::cell::Cell::get);
-        if popup_at.elapsed() < EARLY_DISMISS_WINDOW && !retried.get() && !intentional {
+        // Only the non-grabbing PointerRow popup retries: a grabbing popup
+        // that the compositor still dismissed cannot be saved by re-popping
+        // (the input serial is already stale, #157).
+        if !activation.takes_grab()
+            && popup_at.elapsed() < EARLY_DISMISS_WINDOW
+            && !retried.get()
+            && !intentional
+        {
             retried.set(true);
             tracing::debug!(
                 "Context menu dismissed {}ms after popup — retrying with autohide=true",
@@ -480,17 +519,21 @@ fn show_popover(
     set_active_popover(&popover);
     popover.popup();
 
-    // Focus the first item so the menu is immediately keyboard-navigable
-    // (essential for the Menu key / Shift+F10 path, #157). Deferred to
-    // idle so the popover is mapped before the focus grab.
-    let vbox_for_focus = vbox.downgrade();
-    gtk4::glib::idle_add_local_once(move || {
-        if let Some(menu_box) = vbox_for_focus.upgrade()
-            && let Some(first) = menu_item_buttons(&menu_box).first()
-        {
-            first.grab_focus();
-        }
-    });
+    // For keyboard invocation, focus the first item so the menu is
+    // immediately keyboard-navigable (Menu key / Shift+F10, #157). Deferred
+    // to idle so the popover is mapped before the focus grab. Pointer paths
+    // skip this: moving keyboard focus right after popup is itself a focus
+    // change that makes KWin cancel a non-grabbing popup (#157).
+    if activation == MenuActivation::Keyboard {
+        let vbox_for_focus = vbox.downgrade();
+        gtk4::glib::idle_add_local_once(move || {
+            if let Some(menu_box) = vbox_for_focus.upgrade()
+                && let Some(first) = menu_item_buttons(&menu_box).first()
+            {
+                first.grab_focus();
+            }
+        });
+    }
 }
 
 /// Collects the menu-item buttons of a context-menu box in visual order.
