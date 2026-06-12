@@ -242,7 +242,7 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
-* Fri Jun 12 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.2-0
+* Sat Jun 13 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.2-0
 - GNOME HIG follow-up audit — critical errors as blocking alert dialogs, destructive button styling removed, DnD indicators use accent color
 - Dead code cleanup — removed unused ContainerState, is_split/is_welcome, load_variable_from_vault, stale #[allow(dead_code)]
 - Fixed F10 opening application menu in keyboard passthrough mode — primary flag dropped during passthrough

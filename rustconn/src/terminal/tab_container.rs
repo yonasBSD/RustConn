@@ -54,13 +54,13 @@ impl TabPageContainer {
     ///
     /// The caller is responsible for reparenting the terminal into the
     /// bridge *before* calling this.
-    pub fn switch_to_split(&mut self, split_widget: &GtkBox) {
+    pub fn switch_to_split(&self, split_widget: &GtkBox) {
         self.clear_children();
         self.outer.append(split_widget);
     }
 
     /// Replaces the split widget with single-terminal content.
-    pub fn switch_to_single(&mut self, content: &GtkBox) {
+    pub fn switch_to_single(&self, content: &GtkBox) {
         self.clear_children();
         self.outer.append(content);
     }
