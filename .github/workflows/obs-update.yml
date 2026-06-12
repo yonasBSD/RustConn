@@ -25,7 +25,9 @@ jobs:
           ref: v${{ inputs.version }}
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        with:
+          toolchain: stable
 
       - name: Install dependencies
         run: |
@@ -38,4 +40,7 @@ jobs:
         env:
           OBS_USERNAME: ${{ secrets.OBS_USERNAME }}
           OBS_PASSWORD: ${{ secrets.OBS_PASSWORD }}
-        run: ./scripts/obs-publish.sh "${{ inputs.version }}"
+          # Passed via env (not inline interpolation) so the dispatch input
+          # can never be interpreted by the shell.
+          VERSION: ${{ inputs.version }}
+        run: ./scripts/obs-publish.sh "$VERSION"

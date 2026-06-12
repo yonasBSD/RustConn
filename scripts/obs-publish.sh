@@ -32,6 +32,8 @@ if [[ -z "$VERSION" ]]; then
     echo "::error::usage: obs-publish.sh <version> (bare semver, no leading v)" >&2
     exit 2
 fi
+# Dot-escaped form for use inside grep -E patterns (idempotency checks).
+VERSION_RE="${VERSION//./\\.}"
 
 if [[ -z "${OBS_USERNAME:-}" ]]; then
     echo "::error::OBS_USERNAME is not set" >&2
@@ -125,7 +127,7 @@ cat version_changes.txt
 # 6. Prepend OBS .changes entry (idempotent: skip if version already present)
 # ──────────────────────────────────────────────────────────────────────────────
 CHANGES_FILE="$OBS_DIR/rustconn.changes"
-if [[ -f "$CHANGES_FILE" ]] && grep -qE "^[A-Z][a-z]{2} .* - ${VERSION}$" "$CHANGES_FILE"; then
+if [[ -f "$CHANGES_FILE" ]] && grep -qE "^[A-Z][a-z]{2} .* - ${VERSION_RE}$" "$CHANGES_FILE"; then
     echo "OBS changelog already contains ${VERSION} — skipping .changes prepend"
 else
     DATE_CHANGES="$(LC_ALL=C date '+%a %b %d %Y')"
@@ -167,7 +169,7 @@ sed -i "s/^    version: .*$/    version: ${VERSION}/" "$OBS_DIR/AppImageBuilder.
 # 8. Prepend debian.changelog entry (idempotent)
 # ──────────────────────────────────────────────────────────────────────────────
 DCH_FILE="$OBS_DIR/debian.changelog"
-if [[ -f "$DCH_FILE" ]] && grep -qE "^rustconn \(${VERSION}-1\)" "$DCH_FILE"; then
+if [[ -f "$DCH_FILE" ]] && grep -qE "^rustconn \(${VERSION_RE}-1\)" "$DCH_FILE"; then
     echo "debian.changelog already contains ${VERSION} — skipping prepend"
 elif [[ -f "$DCH_FILE" ]]; then
     DATE_RFC2822="$(LC_ALL=C date -R)"
