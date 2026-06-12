@@ -48,7 +48,7 @@ Run the automated version checker:
 ./scripts/check-cli-versions.sh --json   # JSON for automation
 ```
 
-The script checks all 7 pinned CLI tools against upstream latest releases:
+The script checks the CLI tools against upstream latest releases:
 - kubectl (dl.k8s.io/release/stable.txt)
 - Tailscale (pkgs.tailscale.com/stable)
 - Teleport (GitHub API)
@@ -59,17 +59,24 @@ The script checks all 7 pinned CLI tools against upstream latest releases:
 
 Exit code 0 = all current, 1 = updates available.
 
-When the script reports updates, for each outdated component:
+**Only TigerVNC (`vncviewer`) is actually pinned** (`pinned_version` + `Static`
+checksum) and thus the only one that ever needs a manual version bump. The rest
+resolve "latest" at runtime (`pinned_version: None`, `SkipLatest`) and are shown
+as `(auto)` — no action required for them.
+
+When the script reports an update for a **pinned** component (i.e. TigerVNC):
 1. Update `pinned_version` in `DownloadableComponent`
 2. Update `download_url` and `aarch64_url` (version in URL)
-3. Update `checksum` if `ChecksumPolicy::Static` — download the `.sha256` file
+3. Update `checksum` (`ChecksumPolicy::Static`) — download the `.sha256` file
 4. Record in CHANGELOG.md (under `- Updated:` line or as a separate entry):
    ```
-   - **CLI downloads** — Tailscale 1.94.2→1.96.2, kubectl 1.35.3→1.35.4
+   - **CLI downloads** — TigerVNC 1.16.1→1.16.2
    ```
 5. `cargo build && cargo clippy --all-targets` — verify compilation
 
-Components with `SkipLatest` checksum and no `pinned_version` (AWS CLI, gcloud, cloudflared, etc.) — do not require URL updates.
+Auto-latest components (`SkipLatest`, no `pinned_version` — kubectl, Tailscale,
+Teleport, Boundary, Bitwarden, 1Password, AWS CLI, gcloud, cloudflared, etc.)
+never require URL or version updates.
 
 ## Stage 3: Finalizing the release
 

@@ -199,21 +199,24 @@ pub type SharedAppState = Rc<RefCell<AppState>>;
 
 ## CLI Downloads (`rustconn-core/src/cli_download.rs`)
 
-Pinned CLI versions for Flatpak sandbox. Run `./scripts/check-cli-versions.sh` to check for updates.
+CLI tools downloaded on demand into the Flatpak/Snap sandbox. Run
+`./scripts/check-cli-versions.sh` to verify endpoints and latest versions.
 
-| Component | ID | Current Version |
-|-----------|----|-----------------|
-| TigerVNC | `vncviewer` | 1.16.2 |
-| Teleport | `tsh` | 18.7.4 |
-| Tailscale | `tailscale` | 1.96.5 |
-| Boundary | `boundary` | 0.21.2 |
-| Bitwarden CLI | `bw` | 2026.4.1 |
-| 1Password CLI | `op` | 2.34.0 |
-| kubectl | `kubectl` | 1.36.0 |
+Two policies exist (`pinned_version` + `ChecksumPolicy` in `components.rs`):
 
-"Latest" URL (no pinned version): AWS CLI, SSM Plugin, gcloud, Azure CLI, OCI CLI, cloudflared.
+**Pinned (manual update required):** only **TigerVNC** (`vncviewer`).
+`pinned_version: Some("1.16.2")` + `ChecksumPolicy::Static(sha256)`,
+`works_in_sandbox: false` (X11 viewer). When bumping it, update `pinned_version`,
+`download_url`, `aarch64_url`, AND `checksum`.
 
-When updating a pinned version — update `pinned_version`, `download_url`, `aarch64_url`, and `checksum` (if `Static`).
+**Auto-latest (never needs a version bump):** everything else — `tsh`, `tailscale`,
+`boundary`, `hoop`, `bw`, `op`, `kubectl`, `cloudflared`, `aws`, `gcloud`, `az`,
+`oci`, `session-manager-plugin`. These have `pinned_version: None` and
+`ChecksumPolicy::SkipLatest`/`None`: the install URL resolves the latest release at
+runtime (verified by TLS only, no static checksum). `check-cli-versions.sh` reports
+these as `(auto)`.
+
+`get_pinned_versions()` therefore returns only TigerVNC.
 
 ## Clippy Troubleshooting
 
