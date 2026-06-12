@@ -5,6 +5,28 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.16.1] - 2026-06-12
+
+### Improved
+
+- **Settings dialog GNOME HIG pass** — fixes from a HIG audit of the preferences dialog:
+  - secret fields (Bitwarden master password / client secret, 1Password token, Passbolt passphrase, KeePass database password) migrated from `GtkPasswordEntry`-in-a-row to `adw::PasswordEntryRow` (built-in peek icon, caps-lock warning, focus on row click)
+  - highlight-rules editor rebuilt: one expandable row per rule with proper `EntryRow`s, enable switch and delete button — replaces the raw entry grid inside a nested scrolled area (scrolling-inside-scrolling anti-pattern); rule name/pattern are reflected live in the row title/subtitle
+  - rows with suffix controls (language, startup action, keybinding rows, SSH key rows, cloud-sync import) are now activatable via the row itself — keyboard and touch users no longer have to hit the small suffix widget; "Add SSH Key" row previously did nothing when clicked
+  - "Reset All to Defaults" for keyboard shortcuts now asks for confirmation before wiping every customized shortcut
+  - "Restart to apply" after a settings restore is a dialog with a "Quit now" option instead of a transient toast (persistent state must not auto-dismiss)
+  - backup/restore failures caused by an inaccessible configuration directory are now shown to the user instead of only being logged
+  - removed extra `suggested-action` styling from inline Add/Import buttons (one suggested action per dialog); error dialog headings unified to sentence case ("Backup failed", "Restore failed"); the "ZIP archives" file-filter name is now translatable
+
+### Fixed
+
+- **Settings dialog took 5+ seconds to appear with Bitwarden backend (flatpak)** — the Secrets tab's keyring auto-unlock chain (`bw status` / `bw unlock` / `bw sync`, each a 1–3 s Node.js cold start in the sandbox) was scheduled with `glib::spawn_future`, which runs on the GTK **main context**, not a worker thread — the dialog was mapped but its first frame waited until the whole chain finished. All blocking secret-CLI and keyring calls in the settings dialog (and the SSH-agent probe in the connection dialog) now run via `gio::spawn_blocking` on a real worker thread; measured first-frame time in flatpak dropped from ~5.3 s to the normal ~150 ms
+- **UI froze for seconds right after startup with Bitwarden backend (flatpak)** — `resolve_bw_cmd()` probes CLI candidates by running `bw --version`, a Node.js cold start that takes 1–3 s inside the flatpak sandbox, and it ran on the GTK main thread during the startup idle handler. Clicking anything (e.g. opening Settings) during that window appeared to hang. The probe now runs on the background auto-unlock thread; the result is cached process-wide as before
+
+- **Sidebar context menu dismissed on deeply nested rows (KDE Plasma)** ([#157](https://github.com/totoshko88/RustConn/issues/157)) — follow-up to the 0.16.0 fix: on rows at nesting level 3+ the menu opened via the ListView-level fallback and was cancelled by KWin ~45 ms later; the deferred `autohide=true` retry could not re-acquire a grab because its input serial was stale. Fallback- and keyboard-invoked menus now take the grab immediately (within the triggering event), and pointer-invoked menus no longer move keyboard focus into the menu (which itself triggered the compositor dismissal)
+
 ## [0.16.0] - 2026-06-11
 
 ### Added

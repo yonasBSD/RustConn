@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.16.0
+Version:        0.16.1
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -242,6 +242,12 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Fri Jun 12 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.1-0
+- Settings dialog GNOME HIG pass — secret fields to PasswordEntryRow, highlight-rules editor rebuilt, rows activatable, Reset All confirmation, restore dialog, backup/restore failures shown
+- Fixed Settings dialog taking 5+ seconds to appear with Bitwarden backend (flatpak)
+- Fixed UI froze for seconds after startup with Bitwarden (flatpak)
+- Fixed sidebar context menu dismissed on deeply nested rows (KDE Plasma, #157)
+
 * Thu Jun 11 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.0-0
 - Added batch edit for multi-selected connections — change group, tags, or icon in one pass with undo
 - Added notes badge in the sidebar — connections with description show document-edit-symbolic badge

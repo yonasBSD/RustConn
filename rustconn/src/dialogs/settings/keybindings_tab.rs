@@ -111,6 +111,7 @@ pub fn create_keybindings_page() -> (
             row.add_suffix(&accel_label);
             row.add_suffix(&record_btn);
             row.add_suffix(&reset_btn);
+            row.set_activatable_widget(Some(&record_btn));
 
             // --- Record button handler ---
             let action_name = def.action.clone();
@@ -159,9 +160,28 @@ pub fn create_keybindings_page() -> (
 
     let overrides_clone = overrides_cell.clone();
     let accel_labels_clone = accel_labels.clone();
-    reset_all_btn.connect_clicked(move |_| {
-        overrides_clone.borrow_mut().reset_all();
-        refresh_accel_labels(&accel_labels_clone);
+    reset_all_btn.connect_clicked(move |btn| {
+        // Mass reset wipes every customized shortcut at once — confirm first
+        // (GNOME HIG: destructive actions need an explicit decision).
+        let confirm = adw::AlertDialog::new(
+            Some(&i18n("Reset all shortcuts?")),
+            Some(&i18n(
+                "All keyboard shortcuts will be restored to their defaults.",
+            )),
+        );
+        confirm.add_response("cancel", &i18n("Cancel"));
+        confirm.add_response("reset", &i18n("Reset All"));
+        confirm.set_response_appearance("reset", adw::ResponseAppearance::Destructive);
+        confirm.set_default_response(Some("cancel"));
+        confirm.set_close_response("cancel");
+
+        let overrides_for_reset = overrides_clone.clone();
+        let labels_for_reset = accel_labels_clone.clone();
+        confirm.connect_response(Some("reset"), move |_, _| {
+            overrides_for_reset.borrow_mut().reset_all();
+            refresh_accel_labels(&labels_for_reset);
+        });
+        confirm.present(Some(btn));
     });
 
     reset_all_group.add(&reset_all_btn);

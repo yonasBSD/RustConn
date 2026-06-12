@@ -27,7 +27,7 @@ pub use ui_tab::*;
 
 use adw::prelude::*;
 use gtk4::prelude::*;
-use gtk4::{Box as GtkBox, Button, CheckButton, DropDown, Entry, Label, SpinButton};
+use gtk4::{Box as GtkBox, Button, DropDown, Entry, Label, SpinButton};
 use libadwaita as adw;
 use rustconn_core::config::AppSettings;
 use rustconn_core::models::Connection;
@@ -158,6 +158,20 @@ impl SettingsDialog {
     /// Creates a new settings dialog using AdwPreferencesDialog
     #[must_use]
     pub fn new(_parent: Option<&gtk4::Window>) -> Self {
+        // Timing instrumentation: the dialog builds ~6 pages synchronously,
+        // and users report slow opening — keep per-page timings at debug
+        // level so a `RUST_LOG=debug` run shows where the time goes.
+        let build_started = std::time::Instant::now();
+        let mut last_mark = build_started;
+        let mut mark = move |section: &str| {
+            let now = std::time::Instant::now();
+            tracing::debug!(
+                section,
+                elapsed_ms = last_mark.elapsed().as_millis() as u64,
+                "settings dialog build section"
+            );
+            last_mark = now;
+        };
         // On macOS the header bar ViewSwitcher shares space with traffic lights,
         // so we need extra width for 6 tab labels to display without truncation.
         #[cfg(target_os = "macos")]
@@ -191,6 +205,7 @@ impl SettingsDialog {
             close_on_clean_exit_check,
             option_is_meta_check,
         ) = create_terminal_page();
+        mark("terminal_page");
 
         let (
             _logging_page,
@@ -202,8 +217,10 @@ impl SettingsDialog {
             log_output_check,
             log_timestamps_check,
         ) = create_logging_page();
+        mark("logging_page");
 
         let secrets_widgets = create_secrets_page();
+        mark("secrets_page");
 
         let (
             ui_page,
@@ -221,6 +238,7 @@ impl SettingsDialog {
             sidebar_width_row,
             compact_ui,
         ) = create_ui_page();
+        mark("ui_page");
 
         let (
             ssh_agent_page,
@@ -235,13 +253,17 @@ impl SettingsDialog {
             ssh_agent_available_keys_list,
             ssh_agent_custom_socket_entry,
         ) = create_ssh_agent_page();
+        mark("ssh_agent_page");
 
         let clients_page = create_clients_page();
+        mark("clients_page");
 
         let (keybindings_page, keybindings_overrides, keybindings_accel_labels) =
             create_keybindings_page();
+        mark("keybindings_page");
 
         let monitoring_widgets = MonitoringPageWidgets::new();
+        mark("monitoring_page");
 
         // === GNOME HIG: 5 combined pages ===
         //
@@ -284,21 +306,20 @@ impl SettingsDialog {
         logging_group.add(&logging_expander);
         terminal_page.add(&logging_group);
 
-        // Add global highlight rules group to terminal page
-        let hl_group = adw::PreferencesGroup::builder().build();
-
-        let hl_expander = adw::ExpanderRow::builder()
+        // Add global highlight rules group to terminal page. One ExpanderRow
+        // per rule directly in the group's boxed list — no nested
+        // ScrolledWindow (scrolling inside a scrollable preferences page is
+        // a GNOME HIG anti-pattern); the page itself scrolls.
+        let hl_group = adw::PreferencesGroup::builder()
             .title(i18n("Highlight Rules"))
-            .subtitle(i18n("Global regex-based text highlighting rules"))
-            .show_enable_switch(false)
+            .description(i18n("Global regex-based text highlighting rules"))
             .build();
-        hl_group.add(&hl_expander);
 
-        let hl_scrolled = gtk4::ScrolledWindow::builder()
-            .hscrollbar_policy(gtk4::PolicyType::Never)
-            .vscrollbar_policy(gtk4::PolicyType::Automatic)
-            .min_content_height(120)
+        let add_hl_button = Button::builder()
+            .label(&i18n("Add Rule"))
+            .valign(gtk4::Align::Center)
             .build();
+        hl_group.set_header_suffix(Some(&add_hl_button));
 
         let highlight_rules_list = gtk4::ListBox::builder()
             .selection_mode(gtk4::SelectionMode::None)
@@ -306,19 +327,7 @@ impl SettingsDialog {
             .build();
         highlight_rules_list
             .set_placeholder(Some(&gtk4::Label::new(Some(&i18n("No highlight rules")))));
-        hl_scrolled.set_child(Some(&highlight_rules_list));
-        hl_expander.add_row(&adw::PreferencesRow::builder().child(&hl_scrolled).build());
-
-        let hl_btn_box = GtkBox::new(gtk4::Orientation::Horizontal, 8);
-        hl_btn_box.set_halign(gtk4::Align::End);
-        hl_btn_box.set_margin_top(12);
-
-        let add_hl_button = Button::builder()
-            .label(&i18n("Add Rule"))
-            .css_classes(["suggested-action"])
-            .build();
-        hl_btn_box.append(&add_hl_button);
-        hl_expander.add_row(&adw::PreferencesRow::builder().child(&hl_btn_box).build());
+        hl_group.add(&highlight_rules_list);
         terminal_page.add(&hl_group);
 
         let highlight_rules: Rc<RefCell<Vec<rustconn_core::models::HighlightRule>>> =
@@ -331,12 +340,11 @@ impl SettingsDialog {
             add_hl_button.connect_clicked(move |_| {
                 let new_rule =
                     rustconn_core::models::HighlightRule::new(String::new(), String::new());
-                let rule_id = new_rule.id;
                 rules_clone.borrow_mut().push(new_rule.clone());
 
-                let row = create_settings_highlight_rule_row(Some(&new_rule));
-                wire_settings_highlight_rule_row(&row, rule_id, &list_clone, &rules_clone);
+                let row = build_highlight_rule_row(&new_rule, &list_clone, &rules_clone);
                 list_clone.append(&row);
+                row.set_expanded(true);
             });
         }
 
@@ -366,6 +374,7 @@ impl SettingsDialog {
         // 6. Cloud Sync page
         let cloud_sync_widgets = create_cloud_sync_page();
         dialog.add(&cloud_sync_widgets.page);
+        mark("cloud_sync_page");
 
         // Initialize settings
         let settings: Rc<RefCell<AppSettings>> = Rc::new(RefCell::new(AppSettings::default()));
@@ -419,7 +428,7 @@ impl SettingsDialog {
                 .build();
             let filter = gtk4::FileFilter::new();
             filter.add_pattern("*.zip");
-            filter.set_name(Some("ZIP archives"));
+            filter.set_name(Some(&i18n("ZIP archives")));
             let filters = gtk4::gio::ListStore::new::<gtk4::FileFilter>();
             filters.append(&filter);
             file_dialog.set_filters(Some(&filters));
@@ -445,13 +454,21 @@ impl SettingsDialog {
                             tracing::error!(?e, "Settings backup failed");
                             crate::alert::show_error(
                                 &win_clone,
-                                &crate::i18n::i18n("Backup Error"),
+                                &crate::i18n::i18n("Backup failed"),
                                 &e.to_string(),
                             );
                         }
                     },
                     Err(e) => {
                         tracing::error!(?e, "Cannot create ConfigManager for backup");
+                        crate::alert::show_error(
+                            &win_clone,
+                            &crate::i18n::i18n("Backup failed"),
+                            &crate::i18n::i18n_f(
+                                "Cannot access the configuration directory: {}",
+                                &[&e.to_string()],
+                            ),
+                        );
                     }
                 }
             });
@@ -475,7 +492,7 @@ impl SettingsDialog {
                 .build();
             let filter = gtk4::FileFilter::new();
             filter.add_pattern("*.zip");
-            filter.set_name(Some("ZIP archives"));
+            filter.set_name(Some(&i18n("ZIP archives")));
             let filters = gtk4::gio::ListStore::new::<gtk4::FileFilter>();
             filters.append(&filter);
             file_dialog.set_filters(Some(&filters));
@@ -538,27 +555,53 @@ impl SettingsDialog {
                                 // overwrite the restored config.toml).
                                 was_restored_inner.set(true);
 
-                                let msg = crate::i18n::i18n_f(
-                                    "Restored {} files. Restart to apply.",
-                                    &[&count.to_string()],
+                                // "Restart required" is persistent state, not a
+                                // transient result — a toast would vanish before
+                                // the user reads it (GNOME HIG: toast vs dialog).
+                                let done = adw::AlertDialog::new(
+                                    Some(&crate::i18n::i18n("Settings restored")),
+                                    Some(&crate::i18n::i18n_f(
+                                        "Restored {} files. Restart RustConn to apply the restored settings.",
+                                        &[&count.to_string()],
+                                    )),
                                 );
-                                crate::toast::show_toast_on_window(
-                                    &win_inner,
-                                    &msg,
-                                    crate::toast::ToastType::Success,
+                                done.add_response("later", &crate::i18n::i18n("Restart later"));
+                                done.add_response("quit", &crate::i18n::i18n("Quit now"));
+                                done.set_response_appearance(
+                                    "quit",
+                                    adw::ResponseAppearance::Suggested,
                                 );
+                                done.set_default_response(Some("later"));
+                                done.set_close_response("later");
+                                let win_for_quit = win_inner.clone();
+                                done.connect_response(Some("quit"), move |_, _| {
+                                    let _ = gtk4::prelude::WidgetExt::activate_action(
+                                        &win_for_quit,
+                                        "app.quit",
+                                        None,
+                                    );
+                                });
+                                done.present(Some(win_inner.upcast_ref::<gtk4::Widget>()));
                             }
                             Err(e) => {
                                 tracing::error!(?e, "Settings restore failed");
                                 crate::alert::show_error(
                                     &win_inner,
-                                    &crate::i18n::i18n("Restore Error"),
+                                    &crate::i18n::i18n("Restore failed"),
                                     &e.to_string(),
                                 );
                             }
                         },
                         Err(e) => {
                             tracing::error!(?e, "Cannot create ConfigManager for restore");
+                            crate::alert::show_error(
+                                &win_inner,
+                                &crate::i18n::i18n("Restore failed"),
+                                &crate::i18n::i18n_f(
+                                    "Cannot access the configuration directory: {}",
+                                    &[&e.to_string()],
+                                ),
+                            );
                         }
                     }
                 });
@@ -567,6 +610,11 @@ impl SettingsDialog {
                 confirm.present(Some(widget));
             });
         });
+
+        tracing::debug!(
+            total_ms = build_started.elapsed().as_millis() as u64,
+            "settings dialog built"
+        );
 
         Self {
             dialog,
@@ -763,7 +811,30 @@ impl SettingsDialog {
     {
         // Present the dialog immediately so the window appears without delay.
         // Settings loading and async operations populate widgets afterwards.
+        let present_at = std::time::Instant::now();
+        self.dialog.connect_map(move |dialog| {
+            tracing::debug!(
+                elapsed_ms = present_at.elapsed().as_millis() as u64,
+                "settings dialog mapped after present"
+            );
+            // One-shot frame-clock callback: logs when the first frame after
+            // map is actually drawn — the moment the dialog becomes visible.
+            // Distinguishes "GTK mapped the widget" from "compositor showed
+            // it" when users report multi-second delays (flatpak).
+            dialog.add_tick_callback(move |_, _| {
+                tracing::debug!(
+                    elapsed_ms = present_at.elapsed().as_millis() as u64,
+                    "settings dialog first frame after present"
+                );
+                gtk4::glib::ControlFlow::Break
+            });
+        });
         self.dialog.present(parent);
+        tracing::debug!(
+            elapsed_ms = present_at.elapsed().as_millis() as u64,
+            "settings dialog present() returned"
+        );
+        let load_at = std::time::Instant::now();
 
         // Setup close handler - auto-save on close for PreferencesDialog
         let callback_rc = Rc::new(callback);
@@ -772,6 +843,10 @@ impl SettingsDialog {
         // Load settings into UI (sync widget properties + async background tasks)
         let settings = self.settings.borrow().clone();
         self.load_settings(&settings);
+        tracing::debug!(
+            elapsed_ms = load_at.elapsed().as_millis() as u64,
+            "settings dialog load_settings done"
+        );
 
         // Connect SSH Agent Add Key button handler
         {
@@ -1157,7 +1232,7 @@ impl SettingsDialog {
                 kdbx_group: adw::PreferencesGroup::new(), // dummy
                 auth_group: adw::PreferencesGroup::new(), // dummy
                 status_group: adw::PreferencesGroup::new(), // dummy
-                password_row: adw::ActionRow::new(),      // dummy
+                password_row: adw::PasswordEntryRow::new(), // dummy
                 key_file_row: adw::ActionRow::new(),      // dummy
                 bitwarden_group: adw::PreferencesGroup::new(), // dummy
                 bitwarden_status_label: Label::new(None), // dummy
@@ -1284,13 +1359,8 @@ impl SettingsDialog {
 
         for rule in rules {
             self.highlight_rules.borrow_mut().push(rule.clone());
-            let row = create_settings_highlight_rule_row(Some(rule));
-            wire_settings_highlight_rule_row(
-                &row,
-                rule.id,
-                &self.highlight_rules_list,
-                &self.highlight_rules,
-            );
+            let row =
+                build_highlight_rule_row(rule, &self.highlight_rules_list, &self.highlight_rules);
             self.highlight_rules_list.append(&row);
         }
     }
@@ -1301,47 +1371,45 @@ impl SettingsDialog {
     }
 }
 
-/// Creates a highlight rule row for the settings dialog ListBox.
-fn create_settings_highlight_rule_row(
-    rule: Option<&rustconn_core::models::HighlightRule>,
-) -> gtk4::ListBoxRow {
-    let row = gtk4::ListBoxRow::builder()
-        .activatable(false)
-        .selectable(false)
+/// Builds a fully wired highlight-rule row: an `ExpanderRow` titled by the
+/// rule name (pattern as subtitle), with an enable switch and delete button
+/// as suffixes and `EntryRow`s for name/pattern inside.
+fn build_highlight_rule_row(
+    rule: &rustconn_core::models::HighlightRule,
+    list: &gtk4::ListBox,
+    rules: &Rc<RefCell<Vec<rustconn_core::models::HighlightRule>>>,
+) -> adw::ExpanderRow {
+    let rule_id = rule.id;
+    let untitled = i18n("Untitled rule");
+
+    let row = adw::ExpanderRow::builder()
+        .show_enable_switch(false)
         .build();
+    // Title/subtitle reflect user text — never interpret it as Pango markup.
+    row.set_use_markup(false);
+    row.set_title(if rule.name.is_empty() {
+        &untitled
+    } else {
+        &rule.name
+    });
+    row.set_subtitle(&rule.pattern);
 
-    let hbox = GtkBox::new(gtk4::Orientation::Horizontal, 8);
-    hbox.set_margin_top(6);
-    hbox.set_margin_bottom(6);
-    hbox.set_margin_start(12);
-    hbox.set_margin_end(12);
-
-    let name_entry = gtk4::Entry::builder()
-        .placeholder_text(i18n("Name"))
-        .width_chars(12)
-        .tooltip_text(i18n("Rule name"))
-        .build();
-    if let Some(r) = rule {
-        name_entry.set_text(&r.name);
-    }
-    name_entry.set_widget_name("hl_name");
-
-    let pattern_entry = gtk4::Entry::builder()
-        .placeholder_text(i18n("Pattern (regex)"))
-        .hexpand(true)
-        .tooltip_text(i18n("Regex pattern to match"))
-        .build();
-    if let Some(r) = rule {
-        pattern_entry.set_text(&r.pattern);
-    }
-    pattern_entry.set_widget_name("hl_pattern");
-
-    let enabled_check = CheckButton::builder()
-        .active(rule.is_none_or(|r| r.enabled))
-        .tooltip_text(i18n("Enable rule"))
+    let enabled_switch = gtk4::Switch::builder()
+        .active(rule.enabled)
         .valign(gtk4::Align::Center)
+        .tooltip_text(i18n("Enable rule"))
         .build();
-    enabled_check.set_widget_name("hl_enabled");
+    enabled_switch.update_property(&[gtk4::accessible::Property::Label(&i18n("Enable rule"))]);
+    {
+        let rules_clone = rules.clone();
+        enabled_switch.connect_active_notify(move |s| {
+            let mut r = rules_clone.borrow_mut();
+            if let Some(rule) = r.iter_mut().find(|r| r.id == rule_id) {
+                rule.enabled = s.is_active();
+            }
+        });
+    }
+    row.add_suffix(&enabled_switch);
 
     let delete_button = Button::builder()
         .icon_name("user-trash-symbolic")
@@ -1349,86 +1417,60 @@ fn create_settings_highlight_rule_row(
         .tooltip_text(i18n("Delete rule"))
         .valign(gtk4::Align::Center)
         .build();
-    delete_button.set_widget_name("hl_delete");
     delete_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
         "Delete highlight rule",
     ))]);
-
-    hbox.append(&name_entry);
-    hbox.append(&pattern_entry);
-    hbox.append(&enabled_check);
-    hbox.append(&delete_button);
-
-    row.set_child(Some(&hbox));
-    row
-}
-
-/// Wires up a settings highlight rule row's signals to update the rules data.
-fn wire_settings_highlight_rule_row(
-    row: &gtk4::ListBoxRow,
-    rule_id: uuid::Uuid,
-    list: &gtk4::ListBox,
-    rules: &Rc<RefCell<Vec<rustconn_core::models::HighlightRule>>>,
-) {
-    // Find child widgets by name
-    let Some(hbox_widget) = row.child() else {
-        return;
-    };
-    let Some(hbox) = hbox_widget.downcast_ref::<GtkBox>() else {
-        return;
-    };
-
-    let mut child = hbox.first_child();
-    while let Some(widget) = child {
-        let name = widget.widget_name();
-        if name == "hl_name" {
-            if let Some(entry) = widget.downcast_ref::<gtk4::Entry>() {
-                let rules_clone = rules.clone();
-                let id = rule_id;
-                entry.connect_changed(move |e| {
-                    let text = e.text().to_string();
-                    let mut r = rules_clone.borrow_mut();
-                    if let Some(rule) = r.iter_mut().find(|r| r.id == id) {
-                        rule.name = text;
-                    }
-                });
+    {
+        let list_clone = list.clone();
+        let rules_clone = rules.clone();
+        let row_weak = row.downgrade();
+        delete_button.connect_clicked(move |_| {
+            if let Some(row) = row_weak.upgrade() {
+                list_clone.remove(&row);
             }
-        } else if name == "hl_pattern" {
-            if let Some(entry) = widget.downcast_ref::<gtk4::Entry>() {
-                let rules_clone = rules.clone();
-                let id = rule_id;
-                entry.connect_changed(move |e| {
-                    let text = e.text().to_string();
-                    let mut r = rules_clone.borrow_mut();
-                    if let Some(rule) = r.iter_mut().find(|r| r.id == id) {
-                        rule.pattern = text;
-                    }
-                });
-            }
-        } else if name == "hl_enabled" {
-            if let Some(check) = widget.downcast_ref::<CheckButton>() {
-                let rules_clone = rules.clone();
-                let id = rule_id;
-                check.connect_toggled(move |c| {
-                    let active = c.is_active();
-                    let mut r = rules_clone.borrow_mut();
-                    if let Some(rule) = r.iter_mut().find(|r| r.id == id) {
-                        rule.enabled = active;
-                    }
-                });
-            }
-        } else if name == "hl_delete"
-            && let Some(button) = widget.downcast_ref::<Button>()
-        {
-            let list_clone = list.clone();
-            let rules_clone = rules.clone();
-            let row_clone = row.clone();
-            let id = rule_id;
-            button.connect_clicked(move |_| {
-                list_clone.remove(&row_clone);
-                rules_clone.borrow_mut().retain(|r| r.id != id);
-            });
-        }
-        child = widget.next_sibling();
+            rules_clone.borrow_mut().retain(|r| r.id != rule_id);
+        });
     }
+    row.add_suffix(&delete_button);
+
+    let name_row = adw::EntryRow::builder().title(i18n("Name")).build();
+    name_row.set_text(&rule.name);
+    {
+        let rules_clone = rules.clone();
+        let row_weak = row.downgrade();
+        let untitled = untitled.clone();
+        name_row.connect_changed(move |e| {
+            let text = e.text().to_string();
+            if let Some(row) = row_weak.upgrade() {
+                row.set_title(if text.is_empty() { &untitled } else { &text });
+            }
+            let mut r = rules_clone.borrow_mut();
+            if let Some(rule) = r.iter_mut().find(|r| r.id == rule_id) {
+                rule.name = text;
+            }
+        });
+    }
+    row.add_row(&name_row);
+
+    let pattern_row = adw::EntryRow::builder()
+        .title(i18n("Pattern (regex)"))
+        .build();
+    pattern_row.set_text(&rule.pattern);
+    {
+        let rules_clone = rules.clone();
+        let row_weak = row.downgrade();
+        pattern_row.connect_changed(move |e| {
+            let text = e.text().to_string();
+            if let Some(row) = row_weak.upgrade() {
+                row.set_subtitle(&text);
+            }
+            let mut r = rules_clone.borrow_mut();
+            if let Some(rule) = r.iter_mut().find(|r| r.id == rule_id) {
+                rule.pattern = text;
+            }
+        });
+    }
+    row.add_row(&pattern_row);
+
+    row
 }

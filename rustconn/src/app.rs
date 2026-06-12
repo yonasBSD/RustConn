@@ -289,6 +289,18 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
     // Present window immediately — no waiting for secret backends
     window.present();
 
+    // Debug helper: RUSTCONN_OPEN_SETTINGS=1 auto-opens the Settings dialog
+    // shortly after startup, so dialog timing instrumentation can be captured
+    // hands-free (also works inside flatpak/snap where input automation is
+    // unavailable). No effect unless the variable is set.
+    if std::env::var("RUSTCONN_OPEN_SETTINGS").is_ok_and(|v| v == "1") {
+        let win_for_settings = window.gtk_window().clone();
+        gtk4::glib::timeout_add_local_once(std::time::Duration::from_secs(2), move || {
+            let _ =
+                gtk4::prelude::WidgetExt::activate_action(&win_for_settings, "win.settings", None);
+        });
+    }
+
     // Execute startup action (CLI override takes precedence over settings)
     {
         use rustconn_core::config::StartupAction;
@@ -483,14 +495,17 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
             // Clone settings for the background thread (Send + 'static)
             let secret_settings = state_for_secrets.borrow().settings().secrets.clone();
 
-            // Resolve bw CLI path before background unlock (probes Flatpak dirs, PATH)
-            let _ = rustconn_core::secret::resolve_bw_cmd();
-
             // Channel to receive the result on the GTK main thread
             let (tx, rx) = std::sync::mpsc::channel::<bool>();
 
             // Run slow Bitwarden unlock in a background thread
             std::thread::spawn(move || {
+                // Resolve bw CLI path first (probes Flatpak dirs and PATH by
+                // spawning `bw --version` — a Node.js cold start that takes
+                // seconds inside flatpak; it used to run on the GTK main
+                // thread and froze the UI right after startup). The result is
+                // cached process-wide, so later callers get it instantly.
+                let _ = rustconn_core::secret::resolve_bw_cmd();
                 let rt = match tokio::runtime::Runtime::new() {
                     Ok(rt) => rt,
                     Err(e) => {

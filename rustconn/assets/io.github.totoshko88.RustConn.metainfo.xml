@@ -140,6 +140,22 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.16.1" date="2026-06-12">
+      <description>
+        <p>Version 0.16.1 — Settings dialog GNOME HIG pass and performance fixes:</p>
+        <ul>
+          <li>Secret fields migrated to PasswordEntryRow (built-in peek icon, caps-lock warning)</li>
+          <li>Highlight-rules editor rebuilt with expandable rows and proper EntryRows</li>
+          <li>Rows with suffix controls are now activatable via the row itself</li>
+          <li>Reset All to Defaults asks for confirmation before wiping shortcuts</li>
+          <li>Settings restore shows a dialog with Quit now option instead of a transient toast</li>
+          <li>Backup/restore failures shown to the user instead of only logged</li>
+          <li>Fixed Settings dialog taking 5+ seconds to appear with Bitwarden (flatpak)</li>
+          <li>Fixed UI freeze right after startup with Bitwarden backend (flatpak)</li>
+          <li>Fixed sidebar context menu dismissed on deeply nested rows (KDE Plasma)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.16.0" date="2026-06-11">
       <description>
         <p>Version 0.16.0 — batch editing, notes badge, and structured validation:</p>
