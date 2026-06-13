@@ -278,7 +278,27 @@ impl EmbeddedRdpWidget {
         toolbar.set_margin_end(6);
         toolbar.set_margin_top(6);
         toolbar.set_margin_bottom(6);
-        toolbar.set_halign(gtk4::Align::End); // Align to right
+        // Fill the width so the leading "fit resolution" button can sit in the
+        // left corner while the clipboard/admin buttons stay right-aligned.
+        toolbar.set_hexpand(true);
+        toolbar.set_halign(gtk4::Align::Fill);
+
+        // Fit-resolution button — left-aligned. Re-requests the RDP resolution
+        // to match the current window size (same effect as resizing the window),
+        // covering servers without dynamic resolution where the session did not
+        // fill the window after connecting.
+        let fit_resolution_button = Button::from_icon_name("video-display-symbolic");
+        fit_resolution_button.add_css_class("flat");
+        fit_resolution_button.set_tooltip_text(Some(&i18n("Fit resolution to window")));
+        fit_resolution_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Fit resolution to window",
+        ))]);
+        toolbar.append(&fit_resolution_button);
+
+        // Expanding spacer pushes the remaining buttons to the right edge
+        let toolbar_spacer = GtkBox::new(Orientation::Horizontal, 0);
+        toolbar_spacer.set_hexpand(true);
+        toolbar.append(&toolbar_spacer);
 
         // Status label for reconnect indicator (hidden by default)
         let status_label = Label::new(None);
@@ -509,6 +529,7 @@ impl EmbeddedRdpWidget {
         widget.setup_drawing();
         widget.setup_input_handlers();
         widget.setup_resize_handler();
+        widget.setup_fit_resolution_button(&fit_resolution_button);
         widget.setup_clipboard_buttons(&copy_button, &paste_button);
         widget.setup_ctrl_alt_del_button(&ctrl_alt_del_button);
         #[cfg(feature = "rdp-embedded")]

@@ -1,3 +1,19 @@
+rustconn (0.16.3-1) unstable; urgency=medium
+
+  * Added RDP "Fit resolution to window" toolbar button — re-requests the
+    session resolution to match the window (servers without dynamic resolution)
+  * Added error details in Connection History — failed entries show a button
+    that opens a dialog with the captured error (the toast is transient)
+  * Fixed failed connections missing from history — pre-connection port-check
+    timeouts are now recorded across all protocols (SSH, RDP, VNC, SPICE,
+    Telnet, MOSH, SFTP)
+  * Fixed RDP connects but the desktop never appears (#177) — first-frame
+    watchdog falls back to external FreeRDP for GFX/H.264-only servers
+  * Updated: openssl 0.10.80→0.10.81, zeroize 1.8.2→1.9.0,
+    wasm-bindgen 0.2.123→0.2.125 (and js-sys/web-sys), wasip2 1.0.3→1.0.4
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Sat, 13 Jun 2026 15:30:00 +0300
+
 rustconn (0.16.2-1) unstable; urgency=medium
 
   * GNOME HIG follow-up audit:

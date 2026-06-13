@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.16.2
+Version:        0.16.3
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -242,6 +242,13 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Sat Jun 13 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.3-0
+- Added RDP "Fit resolution to window" toolbar button — re-requests session resolution to match the window
+- Added error details in Connection History for failed connections (the toast is transient)
+- Fixed failed connections missing from history — port-check timeouts now recorded for all protocols (SSH, RDP, VNC, SPICE, Telnet, MOSH, SFTP)
+- Fixed RDP connects but the desktop never appears (#177) — first-frame watchdog falls back to external FreeRDP for GFX/H.264-only servers
+- Updated openssl 0.10.80->0.10.81, zeroize 1.8.2->1.9.0, wasm-bindgen 0.2.123->0.2.125
+
 * Sat Jun 13 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.2-0
 - GNOME HIG follow-up audit — critical errors as blocking alert dialogs, destructive button styling removed, DnD indicators use accent color
 - Dead code cleanup — removed unused ContainerState, is_split/is_welcome, load_variable_from_vault, stale #[allow(dead_code)]

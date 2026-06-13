@@ -408,6 +408,13 @@ impl super::EmbeddedRdpWidget {
     ) {
         use rustconn_core::rdp_client::{RdpClientCommand, RdpClientEvent};
 
+        /// How long to wait for the first displayable frame after the server
+        /// reports the session as connected before falling back to the external
+        /// FreeRDP client. Servers that only offer GFX/H.264 (which IronRDP cannot
+        /// decode yet) connect successfully but never produce a frame; 8 s is long
+        /// enough to rule out a slow first paint on high-latency links. (Fixes #177)
+        const FIRST_FRAME_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
+
         let state = self.state.clone();
         let drawing_area = self.drawing_area.clone();
         let toolbar = self.toolbar.clone();
@@ -467,6 +474,12 @@ impl super::EmbeddedRdpWidget {
                 .as_ref()
                 .map_or(16, |c| c.polling_interval_ms),
         );
+
+        // First-frame watchdog state: tracks when the session became connected
+        // and whether any real frame has been blitted yet.
+        let first_frame_received = std::rc::Rc::new(std::cell::RefCell::new(false));
+        let connected_at: std::rc::Rc<std::cell::RefCell<Option<std::time::Instant>>> =
+            std::rc::Rc::new(std::cell::RefCell::new(None));
 
         glib::timeout_add_local(
             std::time::Duration::from_millis(polling_interval),
@@ -532,6 +545,8 @@ impl super::EmbeddedRdpWidget {
                                     "IronRDP connected"
                                 );
                                 *state.borrow_mut() = RdpConnectionState::Connected;
+                                // Arm the first-frame watchdog (see FIRST_FRAME_TIMEOUT)
+                                *connected_at.borrow_mut() = Some(std::time::Instant::now());
 
                                 // Use server's resolution for the buffer
                                 let server_w = u32::from(width);
@@ -652,6 +667,7 @@ impl super::EmbeddedRdpWidget {
                                     &data,
                                     u32::from(rect.width) * 4,
                                 );
+                                *first_frame_received.borrow_mut() = true;
                                 needs_redraw = true;
                             }
                             RdpClientEvent::FullFrameUpdate {
@@ -693,6 +709,7 @@ impl super::EmbeddedRdpWidget {
                                     &data,
                                     u32::from(width) * 4,
                                 );
+                                *first_frame_received.borrow_mut() = true;
                                 needs_redraw = true;
                             }
                             RdpClientEvent::ResolutionChanged { width, height } => {
@@ -1115,6 +1132,31 @@ impl super::EmbeddedRdpWidget {
                     drawing_area.queue_draw();
                 }
 
+                // First-frame watchdog: if the server reported the session as
+                // Connected but never produced a displayable frame within
+                // FIRST_FRAME_TIMEOUT, it almost certainly uses a graphics
+                // pipeline IronRDP cannot decode yet (GFX/H.264/AVC444). Inject a
+                // synthetic protocol error so handle_ironrdp_error falls back to
+                // the external FreeRDP client, which supports those codecs.
+                // (Fixes #177 — "connected but desktop not showing".)
+                if deferred_error.is_none()
+                    && !*first_frame_received.borrow()
+                    && let Some(connected_instant) = *connected_at.borrow()
+                    && connected_instant.elapsed() >= FIRST_FRAME_TIMEOUT
+                {
+                    tracing::warn!(
+                        protocol = "rdp",
+                        timeout_secs = FIRST_FRAME_TIMEOUT.as_secs(),
+                        "[IronRDP] Connected but no frame received — falling back to \
+                         external client (likely GFX/H.264-only server)"
+                    );
+                    deferred_error = Some(
+                        "no-frame-watchdog: server connected but sent no displayable frames"
+                            .to_string(),
+                    );
+                    should_break = true;
+                }
+
                 // Handle deferred error AFTER the client_ref.borrow() is dropped,
                 // so handle_ironrdp_error can safely call client_ref.borrow_mut()
                 if let Some(ref error_msg) = deferred_error {
@@ -1176,7 +1218,10 @@ impl super::EmbeddedRdpWidget {
             || msg.contains("negotiation failed")
             || msg.contains("NegotiationError")
             || msg.contains("decode error")
-            || msg.contains("unsupported fast-path update code");
+            || msg.contains("unsupported fast-path update code")
+            // First-frame watchdog: server connected but never sent a decodable
+            // frame (GFX/H.264-only). Treated as incompatibility → FreeRDP fallback.
+            || msg.contains("no-frame-watchdog");
 
         if is_protocol_error {
             tracing::warn!(

@@ -629,6 +629,7 @@ fn start_embedded_rdp_session(
 
     // Connect error callback — shows specific error message as toast
     let notebook_for_error = notebook.clone();
+    let state_for_error = state.clone();
     embedded_widget.connect_error(move |error_msg| {
         if let Some(window) = notebook_for_error
             .widget()
@@ -636,6 +637,17 @@ fn start_embedded_rdp_session(
             .and_then(|w| w.downcast::<gtk4::Window>().ok())
         {
             crate::toast::show_toast_on_window(&window, error_msg, crate::toast::ToastType::Error);
+        }
+
+        // Persist the real error text in connection history. The Error state
+        // handler records a generic "RDP connection error"; here we overwrite
+        // it with the specific, user-friendly message so it can be inspected
+        // later from the History dialog after the toast has disappeared.
+        if let Some(info) = notebook_for_error.get_session_info(session_id)
+            && let Some(entry_id) = info.history_entry_id
+            && let Ok(mut state_mut) = state_for_error.try_borrow_mut()
+        {
+            state_mut.record_connection_failed(entry_id, error_msg);
         }
     });
 

@@ -272,6 +272,13 @@ pub fn start_vnc_connection(
                         tracing::warn!("Port check failed for VNC connection: {e}");
                         sidebar_clone
                             .update_connection_status(&connection_id.to_string(), "failed");
+                        if let Ok(mut state_mut) = state_clone.try_borrow_mut() {
+                            state_mut.record_connection_attempt_failed(
+                                &conn_clone,
+                                conn_clone.username.as_deref(),
+                                &e.to_string(),
+                            );
+                        }
                         if let Some(root) = notebook_clone.widget().root()
                             && let Some(window) = root.downcast_ref::<gtk4::Window>()
                         {
@@ -473,6 +480,13 @@ pub fn start_spice_connection(
                         tracing::warn!("Port check failed for SPICE connection: {e}");
                         sidebar_clone
                             .update_connection_status(&connection_id.to_string(), "failed");
+                        if let Ok(mut state_mut) = state_clone.try_borrow_mut() {
+                            state_mut.record_connection_attempt_failed(
+                                &conn_clone,
+                                conn_clone.username.as_deref(),
+                                &e.to_string(),
+                            );
+                        }
                         if let Some(root) = notebook_clone.widget().root()
                             && let Some(window) = root.downcast_ref::<gtk4::Window>()
                         {
@@ -941,6 +955,13 @@ pub fn start_telnet_connection(
                         "Port check failed for Telnet connection"
                     );
                     sidebar_clone.update_connection_status(&connection_id.to_string(), "failed");
+                    if let Ok(mut state_mut) = state_clone.try_borrow_mut() {
+                        state_mut.record_connection_attempt_failed(
+                            &conn_clone,
+                            conn_clone.username.as_deref(),
+                            &e.to_string(),
+                        );
+                    }
                     if let Some(root) = notebook_clone.widget().root()
                         && let Some(window) = root.downcast_ref::<gtk4::Window>()
                     {
@@ -1735,6 +1756,13 @@ pub fn start_mosh_connection(
                         "Port check failed for MOSH connection"
                     );
                     sidebar_clone.update_connection_status(&connection_id.to_string(), "failed");
+                    if let Ok(mut state_mut) = state_clone.try_borrow_mut() {
+                        state_mut.record_connection_attempt_failed(
+                            &conn_clone,
+                            conn_clone.username.as_deref(),
+                            &e.to_string(),
+                        );
+                    }
                     if let Some(root) = notebook_clone.widget().root()
                         && let Some(window) = root.downcast_ref::<gtk4::Window>()
                     {

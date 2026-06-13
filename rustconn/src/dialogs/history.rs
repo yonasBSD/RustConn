@@ -3,7 +3,7 @@
 //! This module provides a dialog for viewing, searching, and managing
 //! connection history with per-entry deletion.
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, i18n_f};
 use adw::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Label, ListBox, ListBoxRow, Orientation, ScrolledWindow};
@@ -310,6 +310,40 @@ impl HistoryDialog {
             .css_classes(["dim-label", "caption"])
             .build();
         content.append(&time_label);
+
+        // Error details button — only for failed entries that captured a reason.
+        // The connection toast is transient; this lets the user re-read the error
+        // later for debugging (requested in the connection-history feedback).
+        if !entry.successful
+            && let Some(error_text) = entry.error_message.clone()
+            && !error_text.is_empty()
+        {
+            let info_btn = Button::builder()
+                .icon_name("dialog-information-symbolic")
+                .css_classes(["flat", "circular"])
+                .valign(gtk4::Align::Center)
+                .tooltip_text(i18n("Show error details"))
+                .build();
+            info_btn.update_property(&[gtk4::accessible::Property::Label(&i18n(
+                "Show error details",
+            ))]);
+
+            let dialog_weak = self.dialog.downgrade();
+            let conn_name = entry.connection_name.clone();
+            info_btn.connect_clicked(move |_| {
+                let alert = adw::AlertDialog::builder()
+                    .heading(i18n_f("Could not connect to {}", &[&conn_name]))
+                    .body(&error_text)
+                    .build();
+                alert.add_response("close", &i18n("Close"));
+                alert.set_default_response(Some("close"));
+                alert.set_close_response("close");
+                if let Some(dlg) = dialog_weak.upgrade() {
+                    alert.present(Some(&dlg));
+                }
+            });
+            content.append(&info_btn);
+        }
 
         // Delete button for individual entry
         let delete_btn = Button::builder()

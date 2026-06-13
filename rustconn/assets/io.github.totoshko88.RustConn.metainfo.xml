@@ -140,6 +140,17 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.16.3" date="2026-06-13">
+      <description>
+        <p>Version 0.16.3 — RDP fixes and connection history improvements:</p>
+        <ul>
+          <li>New RDP "Fit resolution to window" toolbar button</li>
+          <li>Failed connections now show error details in the History dialog</li>
+          <li>Failed connections (port-check timeouts) are now recorded in history across all protocols</li>
+          <li>Fixed RDP sessions that connected but showed a blank desktop — GFX/H.264-only servers now fall back to the external FreeRDP client</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.16.2" date="2026-06-13">
       <description>
         <p>Version 0.16.2 — GNOME HIG follow-up audit and dead code cleanup:</p>

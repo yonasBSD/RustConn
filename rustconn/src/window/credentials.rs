@@ -598,6 +598,18 @@ impl MainWindow {
                             tracing::warn!("Port check failed for RDP connection: {e}");
                             sidebar_clone
                                 .update_connection_status(&connection_id.to_string(), "failed");
+                            // Record the failed attempt in history (no session is
+                            // created on a port-check failure).
+                            if let Ok(mut state_mut) = state_clone.try_borrow_mut()
+                                && let Some(conn) = state_mut.get_connection(connection_id).cloned()
+                            {
+                                let username = conn.username.clone();
+                                state_mut.record_connection_attempt_failed(
+                                    &conn,
+                                    username.as_deref(),
+                                    &e.to_string(),
+                                );
+                            }
                             if let Some(root) = notebook_clone.widget().root()
                                 && let Some(window) = root.downcast_ref::<gtk4::Window>()
                             {
@@ -783,6 +795,18 @@ impl MainWindow {
                             tracing::warn!("Port check failed for VNC connection: {e}");
                             sidebar_clone
                                 .update_connection_status(&connection_id.to_string(), "failed");
+                            // Record the failed attempt in history (no session is
+                            // created on a port-check failure).
+                            if let Ok(mut state_mut) = state_clone.try_borrow_mut()
+                                && let Some(conn) = state_mut.get_connection(connection_id).cloned()
+                            {
+                                let username = conn.username.clone();
+                                state_mut.record_connection_attempt_failed(
+                                    &conn,
+                                    username.as_deref(),
+                                    &e.to_string(),
+                                );
+                            }
                             if let Some(root) = notebook_clone.widget().root()
                                 && let Some(window) = root.downcast_ref::<gtk4::Window>()
                             {

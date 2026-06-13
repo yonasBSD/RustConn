@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.3] - 2026-06-13
+
+### Added
+
+- **RDP "Fit resolution to window" toolbar button** — a new left-aligned button (monitor icon) in the embedded RDP toolbar re-requests the session resolution to match the current window size, the same effect as resizing the window. This covers the edge case where the window was resized between connection start and the session becoming active (so the desktop did not fill the whole window) on servers without dynamic resolution. Uses the Display Control Channel (MS-RDPEDISP) for a seamless change when available, otherwise reconnects
+- **Error details in Connection History** — failed connection entries now show an info button that opens a dialog with the captured error message. The connection toast is transient and disappears quickly; the stored error can now be re-read later for debugging. For embedded RDP sessions the specific, user-friendly error (auth failure, TLS, timeout, …) is persisted instead of a generic placeholder
+
+### Fixed
+
+- **Failed connections were missing from the history** — when a pre-connection port check timed out (host unreachable), the attempt only updated the sidebar status and showed a toast; no history entry was ever created, so the failure was lost. Failed port checks are now recorded in connection history with the reachability error, across all protocols (SSH, RDP, VNC, SPICE, Telnet, MOSH, SFTP)
+- **RDP connects but the desktop never appears** ([#177](https://github.com/totoshko88/RustConn/issues/177)) — servers that only offer the GFX graphics pipeline with H.264/AVC444 (which the embedded IronRDP client cannot decode yet) completed the handshake successfully but never produced a displayable frame, leaving a blank session. A first-frame watchdog now detects this (connected but no frame within 8 s) and automatically falls back to the external FreeRDP client, which supports those codecs
+
+### Dependencies
+
+- **Updated**: openssl 0.10.80→0.10.81, openssl-sys 0.9.116→0.9.117, zeroize 1.8.2→1.9.0, zeroize_derive 1.4.3→1.5.0, js-sys 0.3.100→0.3.102, web-sys 0.3.100→0.3.102, wasm-bindgen 0.2.123→0.2.125 (and related macro/futures crates), wasip2 1.0.3→1.0.4
+
+
 ## [0.16.2] - 2026-06-13
 
 ### Improved

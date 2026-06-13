@@ -89,6 +89,15 @@ pub fn start_ssh_connection(
                         );
                         sidebar_clone
                             .update_connection_status(&connection_id.to_string(), "failed");
+                        // Record the failed attempt in history (the session is
+                        // never created on a port-check failure, so do it here).
+                        if let Ok(mut state_mut) = state_clone.try_borrow_mut() {
+                            state_mut.record_connection_attempt_failed(
+                                &conn_clone,
+                                conn_clone.username.as_deref(),
+                                &e.to_string(),
+                            );
+                        }
                         if let Some(root) = notebook_clone.widget().root()
                             && let Some(window) = root.downcast_ref::<gtk4::Window>()
                         {

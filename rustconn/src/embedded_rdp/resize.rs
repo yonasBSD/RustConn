@@ -237,6 +237,177 @@ impl super::EmbeddedRdpWidget {
         *self.resize_handler_id.borrow_mut() = Some(handler_id);
     }
 
+    /// Forces an immediate RDP resolution change to match the current widget
+    /// size, bypassing the debounced resize handler.
+    ///
+    /// This is the action behind the toolbar "Fit resolution to window" button.
+    /// It covers the edge case where the window was resized between connection
+    /// init and the session becoming active (so the desktop is not using the
+    /// whole window), or any time the user wants to re-request the resolution.
+    ///
+    /// Uses the Display Control Channel (MS-RDPEDISP) for a seamless change
+    /// when available; otherwise falls back to a full reconnect.
+    #[cfg(feature = "rdp-embedded")]
+    pub fn request_resolution_sync(&self) {
+        Self::apply_resolution_sync(
+            &self.drawing_area,
+            &self.state,
+            &self.config,
+            &self.is_ironrdp,
+            &self.ironrdp_command_tx,
+            &self.status_label,
+            &self.on_reconnect,
+        );
+    }
+
+    /// Connects the toolbar "Fit resolution to window" button to the
+    /// resolution-sync logic.
+    #[cfg(feature = "rdp-embedded")]
+    pub(super) fn setup_fit_resolution_button(&self, button: &gtk4::Button) {
+        let drawing_area = self.drawing_area.clone();
+        let state = self.state.clone();
+        let config = self.config.clone();
+        let is_ironrdp = self.is_ironrdp.clone();
+        let ironrdp_tx = self.ironrdp_command_tx.clone();
+        let status_label = self.status_label.clone();
+        let on_reconnect = self.on_reconnect.clone();
+        button.connect_clicked(move |_| {
+            Self::apply_resolution_sync(
+                &drawing_area,
+                &state,
+                &config,
+                &is_ironrdp,
+                &ironrdp_tx,
+                &status_label,
+                &on_reconnect,
+            );
+        });
+    }
+
+    /// Fallback button setup when `rdp-embedded` is disabled (no IronRDP channel).
+    #[cfg(not(feature = "rdp-embedded"))]
+    pub(super) fn setup_fit_resolution_button(&self, _button: &gtk4::Button) {}
+
+    /// Core resolution-sync logic shared by the toolbar button and the public
+    /// [`request_resolution_sync`](Self::request_resolution_sync) API.
+    #[cfg(feature = "rdp-embedded")]
+    fn apply_resolution_sync(
+        drawing_area: &gtk4::DrawingArea,
+        state: &std::rc::Rc<std::cell::RefCell<RdpConnectionState>>,
+        config: &std::rc::Rc<std::cell::RefCell<Option<super::types::RdpConfig>>>,
+        is_ironrdp: &std::rc::Rc<std::cell::RefCell<bool>>,
+        ironrdp_tx: &std::rc::Rc<
+            std::cell::RefCell<Option<std::sync::mpsc::Sender<RdpClientCommand>>>,
+        >,
+        status_label: &gtk4::Label,
+        on_reconnect: &std::rc::Rc<std::cell::RefCell<Option<Box<dyn Fn() + 'static>>>>,
+    ) {
+        if *state.borrow() != RdpConnectionState::Connected {
+            return;
+        }
+
+        let css_width = drawing_area.width().unsigned_abs();
+        let css_height = drawing_area.height().unsigned_abs();
+
+        let effective_scale = config.borrow().as_ref().map_or_else(
+            || f64::from(drawing_area.scale_factor().max(1)),
+            |c| {
+                c.scale_override
+                    .effective_scale(drawing_area.scale_factor())
+            },
+        );
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "value range fits the target type and is non-negative by construction in this code path"
+        )]
+        let device_width = (f64::from(css_width) * effective_scale) as u32;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "value range fits the target type and is non-negative by construction in this code path"
+        )]
+        let device_height = (f64::from(css_height) * effective_scale) as u32;
+
+        // Round down to a multiple of 4 for RDP codec compatibility
+        let rounded_width = (device_width / 4) * 4;
+        let rounded_height = (device_height / 4) * 4;
+        if rounded_width < 640 || rounded_height < 480 {
+            // Widget not laid out yet — nothing sensible to request
+            return;
+        }
+
+        // Persist the new resolution in the config
+        {
+            let current_config = config.borrow().clone();
+            if let Some(mut cfg) = current_config {
+                cfg = cfg.with_resolution(rounded_width, rounded_height);
+                *config.borrow_mut() = Some(cfg);
+            }
+        }
+
+        let using_ironrdp = *is_ironrdp.borrow();
+        let force_reconnect = config
+            .borrow()
+            .as_ref()
+            .is_some_and(|c| c.reconnect_on_resize);
+
+        if using_ironrdp && !force_reconnect {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "RDP resolution is clamped well below u16::MAX in this code path"
+            )]
+            let w = rounded_width as u16;
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "RDP resolution is clamped well below u16::MAX in this code path"
+            )]
+            let h = rounded_height as u16;
+
+            if let Some(ref sender) = *ironrdp_tx.borrow() {
+                let _ = sender.send(RdpClientCommand::SetDesktopSize {
+                    width: w,
+                    height: h,
+                });
+            }
+
+            tracing::info!(
+                protocol = "rdp",
+                width = rounded_width,
+                height = rounded_height,
+                "[RDP Resize] Manual resolution sync via Display Control"
+            );
+
+            status_label.set_text(&i18n("Resizing…"));
+            status_label.set_visible(true);
+            let sl_hide = status_label.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_secs(2), move || {
+                sl_hide.set_visible(false);
+            });
+        } else {
+            tracing::info!(
+                protocol = "rdp",
+                width = rounded_width,
+                height = rounded_height,
+                "[RDP Resize] Manual resolution sync via reconnect (FreeRDP/forced)"
+            );
+
+            if let Some(ref sender) = *ironrdp_tx.borrow() {
+                let _ = sender.send(RdpClientCommand::Disconnect);
+            }
+
+            status_label.set_text(&i18n("Reconnecting..."));
+            status_label.set_visible(true);
+
+            let reconnect_cb = on_reconnect.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
+                if let Some(ref callback) = *reconnect_cb.borrow() {
+                    callback();
+                }
+            });
+        }
+    }
+
     /// Sets up the resize handler (fallback when rdp-embedded is disabled)
     #[cfg(not(feature = "rdp-embedded"))]
     pub(super) fn setup_resize_handler(&self) {
@@ -258,5 +429,14 @@ impl super::EmbeddedRdpWidget {
                 area.queue_draw();
             });
         *self.resize_handler_id.borrow_mut() = Some(handler_id);
+    }
+
+    /// Forces an RDP resolution change to match the current widget size.
+    ///
+    /// No-op fallback when the `rdp-embedded` feature is disabled (no IronRDP
+    /// command channel is available in that build).
+    #[cfg(not(feature = "rdp-embedded"))]
+    pub fn request_resolution_sync(&self) {
+        self.drawing_area.queue_draw();
     }
 }

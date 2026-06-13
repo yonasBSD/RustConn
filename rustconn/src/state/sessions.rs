@@ -251,6 +251,21 @@ impl AppState {
         }
     }
 
+    /// Records a connection attempt that failed before a session was created
+    /// (e.g. a pre-connection port check that timed out).
+    ///
+    /// Creates a history entry and immediately marks it failed with `error`, so
+    /// the attempt is visible in the History dialog instead of being lost.
+    pub fn record_connection_attempt_failed(
+        &mut self,
+        connection: &Connection,
+        username: Option<&str>,
+        error: &str,
+    ) {
+        let entry_id = self.record_connection_start(connection, username);
+        self.record_connection_failed(entry_id, error);
+    }
+
     /// Installs the sender that wakes the debounced history flusher in
     /// `app.rs`. Until installed, history changes are saved immediately.
     pub fn set_history_dirty_sender(&mut self, sender: async_channel::Sender<()>) {
