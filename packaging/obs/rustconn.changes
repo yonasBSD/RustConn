@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Jun 15 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.6
+
+- Fixed Activity Monitor doing nothing on most connections and the per-tab "Monitor" menu being stuck on Off (#180) — monitoring is now wired from a single session-creation choke point, so it works for every terminal protocol and connect path (sidebar, command palette, cluster), and for both synchronous and port-checked connections; sessions are registered even when Off so the tab menu can cycle Off -> Activity -> Silence live, and in-place reconnect re-arms monitoring
+- Fixed silence notification reporting the wrong connection name when several monitored tabs were open — the name is now resolved per session when the notification fires
+- Updated h2 0.4.14->0.4.15
+
+-------------------------------------------------------------------
 Sun Jun 14 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.5
 
 - Fixed external FreeRDP client closing immediately with no explanation (#177 follow-up) — stderr captured and forwarded to the log; a startup watchdog (~3s) detects an immediate exit and surfaces a clear error

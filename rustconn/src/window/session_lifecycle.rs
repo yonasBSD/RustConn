@@ -133,11 +133,80 @@ impl MainWindow {
         );
     }
 
-    /// Sets up activity monitoring for an SSH session.
+    /// Resolves the effective activity-monitor settings for a connection.
     ///
-    /// Resolves per-connection or global defaults, starts the coordinator,
-    /// connects VTE `contents_changed` to `on_output()`, and delivers
-    /// notifications (tab indicator, toast, desktop notification).
+    /// Returns `(mode, quiet_period_secs, silence_timeout_secs, connection_name)`
+    /// from the per-connection override layered over the global defaults.
+    ///
+    /// Returns `None` if the application state is currently borrowed or the
+    /// connection no longer exists.
+    fn resolve_activity_config(
+        state: &SharedAppState,
+        connection_id: Uuid,
+    ) -> Option<(
+        rustconn_core::activity_monitor::MonitorMode,
+        u32,
+        u32,
+        String,
+    )> {
+        let state_ref = state.try_borrow().ok()?;
+        let defaults = &state_ref.settings().activity_monitor;
+        let conn = state_ref.get_connection(connection_id)?;
+        let name = conn.name.clone();
+        Some(if let Some(ref config) = conn.activity_monitor_config {
+            (
+                config.effective_mode(defaults),
+                config.effective_quiet_period(defaults),
+                config.effective_silence_timeout(defaults),
+                name,
+            )
+        } else {
+            (
+                defaults.mode,
+                defaults.effective_quiet_period(),
+                defaults.effective_silence_timeout(),
+                name,
+            )
+        })
+    }
+
+    /// Re-registers activity monitoring for a session after an in-place reconnect.
+    ///
+    /// In-place reconnect reuses the existing VTE terminal widget, so the
+    /// `contents_changed` / `child_exited` handlers wired in
+    /// [`Self::setup_activity_monitoring`] persist. Only the coordinator's
+    /// session entry needs recreating — it was removed when the previous child
+    /// process exited. Re-wiring the handlers here would double them.
+    pub(crate) fn reactivate_activity_monitoring(
+        state: &SharedAppState,
+        activity: &types::SharedActivityCoordinator,
+        connection_id: Uuid,
+        session_id: Uuid,
+    ) {
+        let Some((mode, quiet, silence, _name)) =
+            Self::resolve_activity_config(state, connection_id)
+        else {
+            return;
+        };
+        activity.start(session_id, mode, quiet, silence);
+        tracing::debug!(
+            %session_id,
+            %connection_id,
+            ?mode,
+            "Activity monitoring re-armed after in-place reconnect"
+        );
+    }
+
+    /// Sets up activity monitoring for a terminal session.
+    ///
+    /// Called once per session from the notebook's `on_session_created` hook,
+    /// so it covers every terminal protocol (SSH, Telnet, serial, Kubernetes,
+    /// Mosh, Zero Trust) and both synchronous and async connection paths.
+    ///
+    /// Resolves per-connection or global defaults, registers the session with
+    /// the coordinator (even when the mode is Off, so the per-tab menu can
+    /// enable it later), connects VTE `contents_changed` to `on_output()`, and
+    /// delivers notifications (tab indicator, toast, desktop notification).
     /// Also wires `connect_child_exited` for cleanup.
     pub(crate) fn setup_activity_monitoring(
         state: &SharedAppState,
@@ -146,55 +215,36 @@ impl MainWindow {
         session_id: Uuid,
         connection_id: Uuid,
     ) {
-        use rustconn_core::activity_monitor::MonitorMode;
-
         // Resolve effective config from per-connection override + global defaults
-        let (mode, quiet, silence, conn_name) = {
-            let Ok(state_ref) = state.try_borrow() else {
-                return;
-            };
-            let defaults = &state_ref.settings().activity_monitor;
-            let conn = match state_ref.get_connection(connection_id) {
-                Some(c) => c,
-                None => return,
-            };
-            let name = conn.name.clone();
-            if let Some(ref config) = conn.activity_monitor_config {
-                (
-                    config.effective_mode(defaults),
-                    config.effective_quiet_period(defaults),
-                    config.effective_silence_timeout(defaults),
-                    name,
-                )
-            } else {
-                (
-                    defaults.mode,
-                    defaults.effective_quiet_period(),
-                    defaults.effective_silence_timeout(),
-                    name,
-                )
-            }
+        let Some((mode, quiet, silence, conn_name)) =
+            Self::resolve_activity_config(state, connection_id)
+        else {
+            return;
         };
 
-        // Don't start monitoring if mode is Off
-        if mode == MonitorMode::Off {
-            return;
-        }
-
-        // 4.1: Start the coordinator for this session
+        // Always register the session with the coordinator, even when the mode
+        // is Off. This lets the per-tab "Monitor" menu cycle the mode on a live
+        // session (Off → Activity → Silence) without reconnecting (issue #180).
+        // `start` only arms the silence timer for Silence mode, and `on_output`
+        // is a no-op for Off, so Off mode carries no meaningful runtime cost.
         activity.start(session_id, mode, quiet, silence);
 
-        // Set up silence callback for timer-based silence notifications
+        // Set up silence callback for timer-based silence notifications.
+        // The callback is global to the coordinator, so it resolves the session
+        // name dynamically rather than capturing a single connection's name
+        // (otherwise every session would report the most recently wired name).
         let notebook_for_silence = notebook.clone();
         let sessions_for_silence = notebook.sessions_map();
-        let conn_name_for_silence = conn_name.clone();
         activity.set_silence_callback(move |sid, ntype| {
+            let name = notebook_for_silence
+                .get_session_info(sid)
+                .map_or_else(String::new, |info| info.name);
             Self::deliver_activity_notification(
                 &notebook_for_silence,
                 &sessions_for_silence,
                 sid,
                 ntype,
-                &conn_name_for_silence,
+                &name,
             );
         });
 

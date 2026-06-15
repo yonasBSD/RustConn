@@ -303,6 +303,28 @@ impl MainWindow {
             sidebar_for_close.decrement_session_count(&connection_id.to_string(), false);
         });
 
+        // Wire activity monitoring from the single session-creation choke point.
+        // This covers every terminal protocol and both synchronous and async
+        // (port-checked) connection paths, regardless of which connect action
+        // was used (sidebar Connect, command palette, cluster, double-click).
+        {
+            let state_for_activity = state.clone();
+            let activity_for_setup = activity_coordinator.clone();
+            let notebook_weak = Rc::downgrade(&terminal_notebook);
+            terminal_notebook.set_on_session_created(move |session_id, connection_id| {
+                let Some(notebook) = notebook_weak.upgrade() else {
+                    return;
+                };
+                Self::setup_activity_monitoring(
+                    &state_for_activity,
+                    &notebook,
+                    &activity_for_setup,
+                    session_id,
+                    connection_id,
+                );
+            });
+        }
+
         // Set up reconnect callback for VTE sessions
         // When user clicks "Reconnect" in a disconnected tab, reuse the
         // existing terminal tab instead of closing and creating a new one.
@@ -356,6 +378,15 @@ impl MainWindow {
                         )
                     };
                     if success {
+                        // In-place reconnect reuses the terminal, so the VTE
+                        // signal handlers persist; only the coordinator session
+                        // entry must be recreated so monitoring/menu resume.
+                        Self::reactivate_activity_monitoring(
+                            &state_for_reconnect,
+                            &activity_for_reconnect,
+                            connection_id,
+                            session_id,
+                        );
                         return;
                     }
                     tracing::warn!(
@@ -1488,16 +1519,11 @@ impl MainWindow {
             }
         }
 
-        // Wire activity monitoring for SSH/terminal sessions
-        if let Some(activity_coord) = activity {
-            Self::setup_activity_monitoring(
-                state,
-                notebook,
-                activity_coord,
-                session_id,
-                connection_id,
-            );
-        }
+        // Activity monitoring is wired centrally via the notebook's
+        // `on_session_created` hook (see `MainWindow::new`), so it is NOT set
+        // up here. The old per-path call only covered synchronous connects and
+        // missed the async port-check path; the central hook covers both.
+        let _ = activity;
 
         Some(session_id)
     }

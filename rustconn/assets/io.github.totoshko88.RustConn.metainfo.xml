@@ -140,6 +140,16 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.16.6" date="2026-06-15">
+      <description>
+        <p>Version 0.16.6 — Activity Monitor fixes:</p>
+        <ul>
+          <li>Fixed Activity Monitor doing nothing on most connections and the per-tab Monitor menu being stuck on Off — it now works for every terminal protocol and connect path, and on both direct and port-checked connections</li>
+          <li>The per-tab Monitor menu can now switch Off, Activity and Silence on a live session, and in-place reconnect keeps monitoring active</li>
+          <li>Fixed the silence notification showing the wrong connection name when several monitored tabs were open</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.16.5" date="2026-06-14">
       <description>
         <p>Version 0.16.5 — RDP diagnostics and macOS fixes:</p>

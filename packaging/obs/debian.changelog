@@ -1,3 +1,18 @@
+rustconn (0.16.6-1) unstable; urgency=medium
+
+  * Fixed Activity Monitor doing nothing on most connections and the per-tab
+    "Monitor" menu being stuck on Off (#180) — monitoring is now wired from a
+    single session-creation choke point, so it works for every terminal
+    protocol and every connect path (sidebar, command palette, cluster) and for
+    both synchronous and port-checked connections; sessions are registered even
+    when Off so the tab menu can cycle Off -> Activity -> Silence on a live
+    session, and in-place reconnect re-arms monitoring
+  * Fixed silence notification reporting the wrong connection name when several
+    monitored tabs were open — the name is now resolved per session
+  * Updated h2 0.4.14->0.4.15
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Mon, 15 Jun 2026 12:00:00 +0300
+
 rustconn (0.16.5-1) unstable; urgency=medium
 
   * Fixed external FreeRDP client closing immediately with no explanation

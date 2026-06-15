@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.6] - 2026-06-15
+
+### Fixed
+
+- **Activity Monitor did nothing on most connections; per-tab toggle was stuck on Off** ([#180](https://github.com/totoshko88/RustConn/issues/180)) — activity/silence monitoring was only wired on one connection path (`start_connection_with_split`) and only for synchronous connects. Connecting via the sidebar's "Connect" action, the command palette, or a cluster never set it up at all, and even the split path missed the common asynchronous port-check route (where the session is created later in a background callback). On top of that, a session whose effective mode was `Off` was never registered with the coordinator, so right-clicking the tab and clicking "Monitor: Off" did nothing — the menu could not turn monitoring on. Activity monitoring is now wired from a single choke point (the notebook's session-creation hook), so it works for every terminal protocol (SSH, Telnet, serial, Kubernetes, Mosh, Zero Trust), every connect entry point, and both synchronous and port-checked connections. Sessions are always registered (even when Off) so the per-tab "Monitor" menu can cycle Off → Activity → Silence on a live session without reconnecting. In-place reconnect re-arms monitoring as well
+- **Silence notification could report the wrong connection name** — the coordinator's silence callback captured a single connection's name when it was wired, so with several monitored tabs open every silence toast/notification showed the most recently wired name. The name is now resolved per session when the notification fires
+
+### Notes
+
+- Changing a connection's Activity Monitor mode in its settings still applies to *new* sessions; for an already-open tab, use the right-click tab menu to change the mode live, or reconnect
+
+### Dependencies
+
+- **Updated**: h2 0.4.14→0.4.15
+
 ## [0.16.5] - 2026-06-14
 
 ### Fixed

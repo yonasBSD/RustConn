@@ -103,6 +103,11 @@ pub struct TerminalNotebook {
     sessions: Rc<RefCell<HashMap<Uuid, adw::TabPage>>>,
     /// Callback for when a page is closed (session_id, connection_id)
     on_page_closed: Rc<RefCell<Option<Box<dyn Fn(Uuid, Uuid)>>>>,
+    /// Callback fired when a new terminal session tab is created
+    /// (session_id, connection_id). The single choke point for per-session
+    /// setup such as activity monitoring — covers every terminal protocol
+    /// and both synchronous and async (port-checked) connection paths.
+    on_session_created: Rc<RefCell<Option<Box<dyn Fn(Uuid, Uuid)>>>>,
     /// Callback for recording start/stop (`connection_id`, recording) —
     /// drives the sidebar recording indicator
     on_recording_changed: Rc<RefCell<Option<Box<dyn Fn(Uuid, bool)>>>>,
@@ -236,6 +241,7 @@ impl TerminalNotebook {
             tab_overview,
             sessions: Rc::new(RefCell::new(HashMap::new())),
             on_page_closed: Rc::new(RefCell::new(None)),
+            on_session_created: Rc::new(RefCell::new(None)),
             on_recording_changed: Rc::new(RefCell::new(None)),
             on_split_cleanup: Rc::new(RefCell::new(None)),
             terminals: Rc::new(RefCell::new(HashMap::new())),
@@ -676,6 +682,15 @@ impl TerminalNotebook {
 
         // Resolve any pending cluster registration for this connection
         self.resolve_cluster_pending(connection_id, session_id);
+
+        // Notify listeners that a new terminal session was created.
+        // Single choke point for per-session wiring (activity monitoring):
+        // fires for every terminal protocol and for both synchronous and
+        // async (port-checked) connection paths, regardless of which connect
+        // action started the session.
+        if let Some(ref callback) = *self.on_session_created.borrow() {
+            callback(session_id, connection_id);
+        }
 
         session_id
     }
@@ -2896,6 +2911,19 @@ impl TerminalNotebook {
         F: Fn(Uuid, Uuid) + 'static,
     {
         *self.on_page_closed.borrow_mut() = Some(Box::new(callback));
+    }
+
+    /// Sets the callback invoked when a new terminal session tab is created.
+    ///
+    /// The callback receives `(session_id, connection_id)`. It fires from
+    /// [`Self::create_terminal_tab_with_settings`] — the single choke point
+    /// for all terminal protocols and for both synchronous and async
+    /// (port-checked) connection paths. Used to wire activity monitoring.
+    pub fn set_on_session_created<F>(&self, callback: F)
+    where
+        F: Fn(Uuid, Uuid) + 'static,
+    {
+        *self.on_session_created.borrow_mut() = Some(Box::new(callback));
     }
 
     /// Sets the callback invoked when session recording starts or stops.
