@@ -187,7 +187,10 @@ impl KeePassStatus {
         {
             Ok(o) => o,
             Err(e) => {
-                tracing::warn!(?e, "flatpak-spawn --host failed; cannot detect host keepassxc-cli");
+                tracing::warn!(
+                    ?e,
+                    "flatpak-spawn --host failed; cannot detect host keepassxc-cli"
+                );
                 return None;
             }
         };
