@@ -19,6 +19,10 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Mitigate transient crates.io fetch flakes ("[16] Error in the HTTP2
+  # framing layer"): force HTTP/1.1 and retry network operations.
+  CARGO_HTTP_MULTIPLEXING: 'false'
+  CARGO_NET_RETRY: '10'
 
 jobs:
   check:

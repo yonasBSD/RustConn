@@ -48,6 +48,11 @@ BuildRequires:  gcc
 BuildRequires:  make
 %if 0%{?suse_version}
 BuildRequires:  gettext-tools
+# openSUSE's Rust packaging macros (%%cargo_build) link via clang+lld by
+# default; the build root only pulls the versioned clang-NN, so the
+# unversioned `clang` linker driver must be requested explicitly or the
+# build fails with "linker `clang` not found".
+BuildRequires:  clang
 %endif
 %if 0%{?fedora} || 0%{?rhel}
 BuildRequires:  gettext-devel
