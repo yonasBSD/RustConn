@@ -304,6 +304,120 @@ fn _extract_builtin_labels() {
     i18n("CMD (Admin)");
 }
 
+/// Shared handles the mouse jiggler needs to inject keep-alive input on a timer.
+///
+/// Bundled into one cloneable struct so the jiggler can be armed from both
+/// [`EmbeddedRdpWidget::set_state`] **and** the connection-established event
+/// handlers in [`connection`], which set the state directly and never route
+/// through `set_state`. That gap is why #185 stayed broken even after the
+/// keystroke fix: the timer was only ever armed from `set_state`, which embedded
+/// mode skips on connect, so `start_jiggler` was never reached.
+///
+/// [`connection`]: self::connection
+// ponytail: 7 shared Rc handles bundled rather than passed individually; if the
+// jiggler ever grows real state, promote this into a proper controller object.
+#[derive(Clone)]
+struct JigglerHandles {
+    timer: Rc<RefCell<Option<glib::SourceId>>>,
+    state: Rc<RefCell<RdpConnectionState>>,
+    is_ironrdp: Rc<RefCell<bool>>,
+    #[cfg(feature = "rdp-embedded")]
+    ironrdp_tx: Rc<RefCell<Option<std::sync::mpsc::Sender<RdpClientCommand>>>>,
+    freerdp_thread: Rc<RefCell<Option<FreeRdpThread>>>,
+    rdp_width: Rc<RefCell<u32>>,
+    rdp_height: Rc<RefCell<u32>>,
+}
+
+impl JigglerHandles {
+    /// Arms the mouse-jiggler timer, replacing any timer already running.
+    ///
+    /// Sends a tiny ±1px mouse move **and** a no-op Scroll Lock keystroke every
+    /// `interval_secs` seconds (clamped to 10–600). The keystroke is required
+    /// because Windows does not reset its workstation lock / screensaver timer
+    /// on RDP-injected pointer motion alone ([#185]); Scroll Lock is
+    /// layout-independent, produces no character, and a make/break/make/break
+    /// sequence leaves the remote toggle state untouched.
+    ///
+    /// [#185]: https://github.com/totoshko88/RustConn/issues/185
+    fn start(&self, interval_secs: u32) {
+        self.stop();
+
+        let interval = interval_secs.clamp(10, 600);
+        let state = self.state.clone();
+        let is_ironrdp = self.is_ironrdp.clone();
+        #[cfg(feature = "rdp-embedded")]
+        let ironrdp_tx = self.ironrdp_tx.clone();
+        let freerdp_thread = self.freerdp_thread.clone();
+        let rdp_width = self.rdp_width.clone();
+        let rdp_height = self.rdp_height.clone();
+        // Toggle between +1 and -1 so the cursor oscillates in place
+        let jiggle_toggle = Rc::new(std::cell::Cell::new(false));
+
+        let source_id = glib::timeout_add_seconds_local(interval, move || {
+            // GDK keyval 0xFF14 / scancode 0x46 (set 1) are layout-independent.
+            const SCROLL_LOCK_KEYVAL: u32 = 0xFF14;
+
+            if *state.borrow() != RdpConnectionState::Connected {
+                return glib::ControlFlow::Break;
+            }
+
+            // Use center as a safe reference point but only move ±1px
+            let cx = *rdp_width.borrow() / 2;
+            let cy = *rdp_height.borrow() / 2;
+            let toggle = jiggle_toggle.get();
+            jiggle_toggle.set(!toggle);
+            let offset: i32 = if toggle { 1 } else { -1 };
+
+            let using_ironrdp = *is_ironrdp.borrow();
+            if using_ironrdp {
+                #[cfg(feature = "rdp-embedded")]
+                if let Some(ref tx) = *ironrdp_tx.borrow() {
+                    const SCROLL_LOCK_SCANCODE: u16 = 0x46;
+                    let _ = tx.send(RdpClientCommand::PointerEvent {
+                        x: (cx as i32 + offset).max(0) as u16,
+                        y: cy as u16,
+                        buttons: 0,
+                    });
+                    for pressed in [true, false, true, false] {
+                        let _ = tx.send(RdpClientCommand::KeyEvent {
+                            scancode: SCROLL_LOCK_SCANCODE,
+                            pressed,
+                            extended: false,
+                        });
+                    }
+                }
+            } else if let Some(ref thread) = *freerdp_thread.borrow() {
+                let _ = thread.send_command(RdpCommand::MouseEvent {
+                    x: cx as i32 + offset,
+                    y: cy as i32,
+                    button: 0,
+                    pressed: false,
+                });
+                for pressed in [true, false, true, false] {
+                    let _ = thread.send_command(RdpCommand::KeyEvent {
+                        keyval: SCROLL_LOCK_KEYVAL,
+                        pressed,
+                    });
+                }
+            }
+
+            tracing::trace!("Mouse jiggler tick");
+            glib::ControlFlow::Continue
+        });
+
+        *self.timer.borrow_mut() = Some(source_id);
+        tracing::debug!(interval_secs = interval, "Mouse jiggler started");
+    }
+
+    /// Stops the mouse-jiggler timer if one is running.
+    fn stop(&self) {
+        if let Some(source_id) = self.timer.borrow_mut().take() {
+            source_id.remove();
+            tracing::debug!("Mouse jiggler stopped");
+        }
+    }
+}
+
 impl EmbeddedRdpWidget {
     /// Creates a new embedded RDP widget
     #[must_use]
@@ -1341,101 +1455,32 @@ impl EmbeddedRdpWidget {
         with_callback(&self.on_state_changed, |cb| cb(new_state));
     }
 
-    /// Starts the mouse jiggler timer
+    /// Bundles the shared handles the mouse jiggler timer operates on.
     ///
-    /// Sends a tiny ±1px mouse movement **and** a no-op keyboard keystroke
-    /// every `interval_secs` seconds to keep the remote session awake.
-    ///
-    /// The mouse move alone is not enough: RDP-injected pointer motion keeps
-    /// the *session* alive (no idle disconnect) but does **not** reliably reset
-    /// the Windows workstation lock / screensaver timer, so an unattended desktop
-    /// still locked after its inactivity limit ([#185]). Windows only refreshes
-    /// `GetLastInputInfo` for the lock timer on *keyboard* input, so each tick
-    /// also taps Scroll Lock twice (toggle on, toggle off) — a layout-independent
-    /// keystroke that produces no character, triggers no action, and leaves the
-    /// lock state unchanged.
-    ///
-    /// [#185]: https://github.com/totoshko88/RustConn/issues/185
-    pub fn start_jiggler(&self, interval_secs: u32) {
-        self.stop_jiggler();
-
-        let interval = interval_secs.clamp(10, 600);
-        let state = self.state.clone();
-        let is_ironrdp = self.is_ironrdp.clone();
-        #[cfg(feature = "rdp-embedded")]
-        let ironrdp_tx = self.ironrdp_command_tx.clone();
-        let freerdp_thread = self.freerdp_thread.clone();
-        let rdp_width = self.rdp_width.clone();
-        let rdp_height = self.rdp_height.clone();
-        // Toggle between +1 and -1 so the cursor oscillates in place
-        let jiggle_toggle = Rc::new(std::cell::Cell::new(false));
-
-        let source_id = glib::timeout_add_seconds_local(interval, move || {
-            // Scroll Lock keep-alive: a make/break pair resets the Windows
-            // lock timer, and a second pair restores the toggle state so the
-            // remote Scroll Lock LED/behaviour is left untouched.
-            // GDK keyval 0xFF14 / scancode 0x46 (set 1) are layout-independent.
-            const SCROLL_LOCK_KEYVAL: u32 = 0xFF14;
-
-            let current_state = *state.borrow();
-            if current_state != RdpConnectionState::Connected {
-                return glib::ControlFlow::Break;
-            }
-
-            // Use center as a safe reference point but only move ±1px
-            let cx = *rdp_width.borrow() / 2;
-            let cy = *rdp_height.borrow() / 2;
-            let toggle = jiggle_toggle.get();
-            jiggle_toggle.set(!toggle);
-            let offset: i32 = if toggle { 1 } else { -1 };
-
-            let using_ironrdp = *is_ironrdp.borrow();
-            if using_ironrdp {
-                #[cfg(feature = "rdp-embedded")]
-                if let Some(ref tx) = *ironrdp_tx.borrow() {
-                    const SCROLL_LOCK_SCANCODE: u16 = 0x46;
-                    let _ = tx.send(RdpClientCommand::PointerEvent {
-                        x: (cx as i32 + offset).max(0) as u16,
-                        y: cy as u16,
-                        buttons: 0,
-                    });
-                    for pressed in [true, false, true, false] {
-                        let _ = tx.send(RdpClientCommand::KeyEvent {
-                            scancode: SCROLL_LOCK_SCANCODE,
-                            pressed,
-                            extended: false,
-                        });
-                    }
-                }
-            } else if let Some(ref thread) = *freerdp_thread.borrow() {
-                let _ = thread.send_command(RdpCommand::MouseEvent {
-                    x: cx as i32 + offset,
-                    y: cy as i32,
-                    button: 0,
-                    pressed: false,
-                });
-                for pressed in [true, false, true, false] {
-                    let _ = thread.send_command(RdpCommand::KeyEvent {
-                        keyval: SCROLL_LOCK_KEYVAL,
-                        pressed,
-                    });
-                }
-            }
-
-            tracing::trace!("Mouse jiggler tick");
-            glib::ControlFlow::Continue
-        });
-
-        *self.jiggler_timer.borrow_mut() = Some(source_id);
-        tracing::debug!(interval_secs = interval, "Mouse jiggler started");
+    /// Lets the jiggler be armed/disarmed from the connection event handlers
+    /// (which set the state directly, bypassing `set_state`) as well as from
+    /// `set_state` itself — see [`JigglerHandles`] and #185.
+    fn jiggler_handles(&self) -> JigglerHandles {
+        JigglerHandles {
+            timer: self.jiggler_timer.clone(),
+            state: self.state.clone(),
+            is_ironrdp: self.is_ironrdp.clone(),
+            #[cfg(feature = "rdp-embedded")]
+            ironrdp_tx: self.ironrdp_command_tx.clone(),
+            freerdp_thread: self.freerdp_thread.clone(),
+            rdp_width: self.rdp_width.clone(),
+            rdp_height: self.rdp_height.clone(),
+        }
     }
 
-    /// Stops the mouse jiggler timer
+    /// Starts the mouse jiggler timer. See [`JigglerHandles::start`].
+    pub fn start_jiggler(&self, interval_secs: u32) {
+        self.jiggler_handles().start(interval_secs);
+    }
+
+    /// Stops the mouse jiggler timer. See [`JigglerHandles::stop`].
     pub fn stop_jiggler(&self) {
-        if let Some(source_id) = self.jiggler_timer.borrow_mut().take() {
-            source_id.remove();
-            tracing::debug!("Mouse jiggler stopped");
-        }
+        self.jiggler_handles().stop();
     }
 
     /// Reports an error and notifies listeners

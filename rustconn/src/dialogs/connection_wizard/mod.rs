@@ -32,10 +32,14 @@ use protocol_page::ProtocolPage;
 
 /// Result from the connection wizard
 pub enum WizardResult {
-    /// Save the connection without connecting
-    Save(Connection),
-    /// Save and immediately connect
-    SaveAndConnect(Connection),
+    /// Save the connection without connecting.
+    ///
+    /// The optional `SecretString` is the password typed in the wizard; the
+    /// handler must persist it to the vault (the connection's
+    /// `password_source` is already set to `Vault` when this is `Some`).
+    Save(Connection, Option<SecretString>),
+    /// Save and immediately connect. See [`WizardResult::Save`] for the password.
+    SaveAndConnect(Connection, Option<SecretString>),
     /// Open the full ConnectionDialog with pre-filled data
     OpenAdvanced(PartialConnection),
 }
@@ -356,6 +360,12 @@ impl PartialConnection {
         if let Some(ref theme) = self.theme_override {
             conn.theme_override = Some(theme.clone());
         }
+        // Mark the source as Vault when a usable password was typed, so the
+        // Advanced dialog opens with the correct source pre-selected. The
+        // password value itself is transferred separately by the caller.
+        if self.has_storable_password() {
+            conn.password_source = rustconn_core::models::PasswordSource::Vault;
+        }
         // For Web protocol, store URL in host field
         if protocol == ProtocolType::Web
             && let Some(ref url) = self.url
@@ -363,6 +373,30 @@ impl PartialConnection {
             conn.host = url.clone();
         }
         conn
+    }
+
+    /// Returns the typed password if it should be stored (non-empty and the
+    /// auth method is not key/agent/security-key based).
+    #[must_use]
+    pub fn storable_password(&self) -> Option<SecretString> {
+        if matches!(
+            self.auth_method,
+            Some(SshAuthMethod::PublicKey | SshAuthMethod::Agent | SshAuthMethod::SecurityKey)
+        ) {
+            return None;
+        }
+        self.password.clone().filter(|p| {
+            use secrecy::ExposeSecret;
+            !p.expose_secret().is_empty()
+        })
+    }
+
+    /// Whether a storable password is present (see [`storable_password`]).
+    ///
+    /// [`storable_password`]: Self::storable_password
+    #[must_use]
+    pub fn has_storable_password(&self) -> bool {
+        self.storable_password().is_some()
     }
 
     /// Build a `ZeroTrustProviderConfig` from wizard fields
@@ -464,19 +498,19 @@ impl ConnectionWizard {
 
         let w = wizard.clone();
         wizard.auth_page.connect_save(move || {
-            let conn = w.build_connection();
+            let (conn, password) = w.build_connection();
             w.dialog.close();
             if let Some(ref cb) = *w.on_complete.borrow() {
-                cb(WizardResult::Save(conn));
+                cb(WizardResult::Save(conn, password));
             }
         });
 
         let w = wizard.clone();
         wizard.auth_page.connect_save_and_connect(move || {
-            let conn = w.build_connection();
+            let (conn, password) = w.build_connection();
             w.dialog.close();
             if let Some(ref cb) = *w.on_complete.borrow() {
-                cb(WizardResult::SaveAndConnect(conn));
+                cb(WizardResult::SaveAndConnect(conn, password));
             }
         });
 
@@ -606,11 +640,22 @@ impl ConnectionWizard {
         }
     }
 
-    /// Build a full Connection from wizard data
-    fn build_connection(&self) -> Connection {
-        use rustconn_core::models::ProtocolConfig;
+    /// Build a full Connection from wizard data.
+    ///
+    /// Returns the connection plus the password typed in the wizard (if any).
+    /// When a password is present it is stored in the vault by the caller and
+    /// `password_source` is set to `Vault`, mirroring the full dialog. Without
+    /// this the password was dropped and the source stayed `None` (issue #188).
+    fn build_connection(&self) -> (Connection, Option<SecretString>) {
+        use rustconn_core::models::{PasswordSource, ProtocolConfig};
 
         let partial = self.collect_partial();
+
+        // A typed password (when not key/agent-based) is persisted to the vault
+        // by the caller; mark the source accordingly. Without this the password
+        // was dropped and password_source stayed None (issue #188).
+        let stored_password = partial.storable_password();
+
         let protocol = partial.protocol.unwrap_or(ProtocolType::Ssh);
         let name = partial
             .name
@@ -727,6 +772,10 @@ impl ConnectionWizard {
         conn.username = partial.username;
         conn.domain = partial.domain;
         conn.theme_override = partial.theme_override;
+        // A typed password is persisted to the configured vault by the caller.
+        if stored_password.is_some() {
+            conn.password_source = PasswordSource::Vault;
+        }
         // Use auth_page icon if set, otherwise inherit from selected template
         let icon = self.auth_page.icon();
         conn.icon = if icon.is_some() {
@@ -734,7 +783,7 @@ impl ConnectionWizard {
         } else {
             self.connection_page.selected_template_icon()
         };
-        conn
+        (conn, stored_password)
     }
 
     /// Pre-fill the wizard from a `PartialConnection` (e.g. "Duplicate via Wizard").

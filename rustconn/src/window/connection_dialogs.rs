@@ -62,8 +62,9 @@ pub fn show_new_connection_dialog_prefilled(
     state: SharedAppState,
     sidebar: SharedSidebar,
     connection: rustconn_core::models::Connection,
+    password: Option<secrecy::SecretString>,
 ) {
-    show_new_connection_dialog_internal_prefilled(window, state, sidebar, connection);
+    show_new_connection_dialog_internal_prefilled(window, state, sidebar, connection, password);
 }
 
 /// Internal function to show the new connection dialog with optional template
@@ -224,6 +225,7 @@ fn show_new_connection_dialog_internal_prefilled(
     state: SharedAppState,
     sidebar: SharedSidebar,
     connection: rustconn_core::models::Connection,
+    password: Option<secrecy::SecretString>,
 ) {
     let dialog = ConnectionDialog::new(Some(&window.clone().upcast()), state.clone());
     dialog.setup_key_file_chooser(Some(&window.clone().upcast()));
@@ -283,7 +285,17 @@ fn show_new_connection_dialog_internal_prefilled(
 
     // Pre-fill dialog with the connection data from wizard
     dialog.set_connection(&connection);
-    dialog.dialog().set_title(&i18n("New Connection"));
+    // Restore the password typed in the wizard (set_connection only restores
+    // the source, not the secret value).
+    if let Some(ref pwd) = password {
+        dialog.set_password(pwd);
+    }
+    // set_connection() titled this "Edit Connection"; this is a new connection
+    // handed off from the wizard, so use the Advanced editor's own title rather
+    // than the plain "New Connection" of the simplified wizard.
+    dialog
+        .dialog()
+        .set_title(&i18n("New Connection (Advanced)"));
 
     let window_clone = window.clone();
     dialog.run(move |result| {

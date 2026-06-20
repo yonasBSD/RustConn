@@ -1807,11 +1807,25 @@ impl MainWindow {
         let toast_for_cb = toast_overlay;
         wizard.connect_complete(move |result| {
             match result {
-                WizardResult::Save(conn) => {
+                WizardResult::Save(conn, password) => {
                     let conn_name = conn.name.clone();
+                    let conn_host = conn.host.clone();
+                    let conn_username = conn.username.clone();
+                    let password_source = conn.password_source.clone();
+                    let protocol = conn.protocol;
                     if let Ok(mut state_mut) = state_for_cb.try_borrow_mut()
-                        && let Ok(_conn_id) = state_mut.create_connection(conn)
+                        && let Ok(conn_id) = state_mut.create_connection(conn)
                     {
+                        Self::persist_wizard_password(
+                            &mut state_mut,
+                            conn_id,
+                            &password_source,
+                            password.as_ref(),
+                            &conn_name,
+                            &conn_host,
+                            conn_username.as_deref().unwrap_or(""),
+                            protocol,
+                        );
                         drop(state_mut);
                         let state_c = state_for_cb.clone();
                         let sidebar_c = sidebar_for_cb.clone();
@@ -1826,11 +1840,26 @@ impl MainWindow {
                         });
                     }
                 }
-                WizardResult::SaveAndConnect(conn) => {
-                    let conn_id = conn.id;
+                WizardResult::SaveAndConnect(conn, password) => {
+                    let conn_id_outer = conn.id;
+                    let conn_name = conn.name.clone();
+                    let conn_host = conn.host.clone();
+                    let conn_username = conn.username.clone();
+                    let password_source = conn.password_source.clone();
+                    let protocol = conn.protocol;
                     if let Ok(mut state_mut) = state_for_cb.try_borrow_mut()
-                        && state_mut.create_connection(conn).is_ok()
+                        && let Ok(conn_id) = state_mut.create_connection(conn)
                     {
+                        Self::persist_wizard_password(
+                            &mut state_mut,
+                            conn_id,
+                            &password_source,
+                            password.as_ref(),
+                            &conn_name,
+                            &conn_host,
+                            conn_username.as_deref().unwrap_or(""),
+                            protocol,
+                        );
                         drop(state_mut);
                         let state_c = state_for_cb.clone();
                         let sidebar_c = sidebar_for_cb.clone();
@@ -1839,7 +1868,7 @@ impl MainWindow {
                             Self::reload_sidebar_preserving_state(&state_c, &sidebar_c);
                             // Connect after sidebar refresh
                             if let Some(win) = window_w.upgrade() {
-                                let variant = conn_id.to_string().to_variant();
+                                let variant = conn_id_outer.to_string().to_variant();
                                 gio::prelude::ActionGroupExt::activate_action(
                                     &win,
                                     "connect-by-id",
@@ -1852,12 +1881,14 @@ impl MainWindow {
                 WizardResult::OpenAdvanced(partial) => {
                     // Open full dialog pre-filled with wizard data
                     if let Some(win) = window_weak.upgrade() {
+                        let password = partial.storable_password();
                         let conn = partial.to_connection();
                         connection_dialogs::show_new_connection_dialog_prefilled(
                             win.upcast_ref(),
                             state_for_cb.clone(),
                             sidebar_for_cb.clone(),
                             conn,
+                            password,
                         );
                     }
                 }
@@ -1865,6 +1896,47 @@ impl MainWindow {
         });
 
         wizard.present(window);
+    }
+
+    /// Persists a wizard-entered password to the configured vault.
+    ///
+    /// No-op unless `password_source` is `Vault` and a password is present.
+    /// Mirrors the full connection dialog so connections created via the
+    /// wizard resolve their credentials correctly (issue #188).
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "mirrors save_password_to_vault parameters 1:1; a struct would only restate them"
+    )]
+    fn persist_wizard_password(
+        state_mut: &mut crate::state::AppState,
+        conn_id: uuid::Uuid,
+        password_source: &rustconn_core::models::PasswordSource,
+        password: Option<&secrecy::SecretString>,
+        conn_name: &str,
+        conn_host: &str,
+        username: &str,
+        protocol: rustconn_core::models::ProtocolType,
+    ) {
+        if *password_source != rustconn_core::models::PasswordSource::Vault {
+            return;
+        }
+        let Some(pwd) = password else {
+            return;
+        };
+        let settings = state_mut.settings().clone();
+        let groups: Vec<_> = state_mut.list_groups().into_iter().cloned().collect();
+        let conn_for_path = state_mut.get_connection(conn_id).cloned();
+        crate::state::save_password_to_vault(
+            &settings,
+            &groups,
+            conn_for_path.as_ref(),
+            conn_name,
+            conn_host,
+            protocol,
+            username,
+            pwd,
+            conn_id,
+        );
     }
 
     /// Opens the Connection Wizard pre-filled with data from the selected connection.
@@ -1911,11 +1983,25 @@ impl MainWindow {
         let window_weak = window.downgrade();
         let toast_for_cb = toast_overlay.clone();
         wizard.connect_complete(move |result| match result {
-            WizardResult::Save(new_conn) => {
+            WizardResult::Save(new_conn, password) => {
                 let conn_name = new_conn.name.clone();
+                let conn_host = new_conn.host.clone();
+                let conn_username = new_conn.username.clone();
+                let password_source = new_conn.password_source.clone();
+                let protocol = new_conn.protocol;
                 if let Ok(mut state_mut) = state_for_cb.try_borrow_mut()
-                    && let Ok(_conn_id) = state_mut.create_connection(new_conn)
+                    && let Ok(conn_id) = state_mut.create_connection(new_conn)
                 {
+                    Self::persist_wizard_password(
+                        &mut state_mut,
+                        conn_id,
+                        &password_source,
+                        password.as_ref(),
+                        &conn_name,
+                        &conn_host,
+                        conn_username.as_deref().unwrap_or(""),
+                        protocol,
+                    );
                     drop(state_mut);
                     let state_c = state_for_cb.clone();
                     let sidebar_c = sidebar_for_cb.clone();
@@ -1929,11 +2015,26 @@ impl MainWindow {
                     });
                 }
             }
-            WizardResult::SaveAndConnect(new_conn) => {
-                let conn_id = new_conn.id;
+            WizardResult::SaveAndConnect(new_conn, password) => {
+                let conn_id_outer = new_conn.id;
+                let conn_name = new_conn.name.clone();
+                let conn_host = new_conn.host.clone();
+                let conn_username = new_conn.username.clone();
+                let password_source = new_conn.password_source.clone();
+                let protocol = new_conn.protocol;
                 if let Ok(mut state_mut) = state_for_cb.try_borrow_mut()
-                    && state_mut.create_connection(new_conn).is_ok()
+                    && let Ok(conn_id) = state_mut.create_connection(new_conn)
                 {
+                    Self::persist_wizard_password(
+                        &mut state_mut,
+                        conn_id,
+                        &password_source,
+                        password.as_ref(),
+                        &conn_name,
+                        &conn_host,
+                        conn_username.as_deref().unwrap_or(""),
+                        protocol,
+                    );
                     drop(state_mut);
                     let state_c = state_for_cb.clone();
                     let sidebar_c = sidebar_for_cb.clone();
@@ -1941,7 +2042,7 @@ impl MainWindow {
                     glib::idle_add_local_once(move || {
                         Self::reload_sidebar_preserving_state(&state_c, &sidebar_c);
                         if let Some(win) = window_w.upgrade() {
-                            let variant = conn_id.to_string().to_variant();
+                            let variant = conn_id_outer.to_string().to_variant();
                             gio::prelude::ActionGroupExt::activate_action(
                                 &win,
                                 "connect-by-id",
@@ -1953,12 +2054,14 @@ impl MainWindow {
             }
             WizardResult::OpenAdvanced(new_partial) => {
                 if let Some(win) = window_weak.upgrade() {
+                    let password = new_partial.storable_password();
                     let new_conn = new_partial.to_connection();
                     connection_dialogs::show_new_connection_dialog_prefilled(
                         win.upcast_ref(),
                         state_for_cb.clone(),
                         sidebar_for_cb.clone(),
                         new_conn,
+                        password,
                     );
                 }
             }

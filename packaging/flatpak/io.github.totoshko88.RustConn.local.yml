@@ -210,6 +210,33 @@ modules:
       - chmod 755 /app/bin/clear
     sources: []
 
+  # cJSON — required so FreeRDP's WinPR builds with JSON support
+  # (WITH_WINPR_JSON=ON). Without a JSON backend WinPR falls back to
+  # json-stub.c and silently ignores sdl-freerdp.json, so the SDL client's
+  # hotkey configuration (e.g. disabling Right Shift + D) has no effect (#183).
+  # Built static and linked privately into libwinpr; no runtime .so needed.
+  - name: cjson
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DENABLE_CJSON_TEST=OFF
+      - -DENABLE_CJSON_UTILS=OFF
+      - -DBUILD_SHARED_LIBS=OFF
+      - -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+    sources:
+      - type: archive
+        url: https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.18.tar.gz
+        sha256: 3aa806844a03442c00769b83e99970be70fbef03735ff898f4811dd03b9f5ee5
+        x-checker-data:
+          type: anitya
+          project-id: 21330
+          stable-only: true
+          url-template: https://github.com/DaveGamble/cJSON/archive/refs/tags/v$version.tar.gz
+    cleanup:
+      - /include
+      - /lib/cmake
+      - /lib/pkgconfig
+      - '*.a'
+
   - name: freerdp
     buildsystem: cmake-ninja
     config-opts:

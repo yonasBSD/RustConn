@@ -213,7 +213,17 @@ impl super::EmbeddedRdpWidget {
             .as_ref()
             .is_some_and(|p| !p.is_empty());
 
-        if Self::detect_wlfreerdp() && !is_remote_app {
+        // Skip embedded wlfreerdp when an RD Gateway is configured. The embedded
+        // thread (see `thread.rs`) does not emit `/g:` gateway arguments, so it
+        // would connect straight to the gateway host on 3389 without tunnelling
+        // and render a broken session. Only the external launcher
+        // (`launcher::add_connection_args`) wires up gateway routing.
+        let has_gateway = config
+            .gateway_hostname
+            .as_ref()
+            .is_some_and(|h| !h.is_empty());
+
+        if Self::detect_wlfreerdp() && !is_remote_app && !has_gateway {
             match self.connect_embedded(config) {
                 Ok(()) => {
                     // Check if fallback was triggered by the thread
@@ -536,6 +546,10 @@ impl super::EmbeddedRdpWidget {
         let config = self.config.clone();
         let file_dnd_cb = self.file_dnd_circuit_breaker.clone();
 
+        // Mouse jiggler handles — armed on Connected here because the embedded
+        // connection path sets the state directly and never calls set_state (#185).
+        let jiggler = self.jiggler_handles();
+
         // Capture effective scale for cursor size correction
         let cursor_scale = effective_scale;
 
@@ -690,10 +704,23 @@ impl super::EmbeddedRdpWidget {
                                 if let Some(ref callback) = *on_state_changed.borrow() {
                                     callback(RdpConnectionState::Connected);
                                 }
+
+                                // Arm the mouse jiggler now: embedded mode never
+                                // routes a Connected transition through set_state,
+                                // so this is the only place it can start (#185).
+                                if let Some(interval) = config
+                                    .borrow()
+                                    .as_ref()
+                                    .filter(|c| c.jiggler_enabled)
+                                    .map(|c| c.jiggler_interval_secs)
+                                {
+                                    jiggler.start(interval);
+                                }
                                 needs_redraw = true;
                             }
                             RdpClientEvent::Disconnected => {
                                 tracing::debug!(protocol = "rdp", generation, "Disconnected event");
+                                jiggler.stop();
                                 // Clean up clipboard monitor
                                 if let Some(handler_id) = clipboard_handler_id.borrow_mut().take() {
                                     let display = drawing_area.display();
@@ -722,6 +749,7 @@ impl super::EmbeddedRdpWidget {
                                 // Defer error handling — handle_ironrdp_error calls
                                 // client_ref.borrow_mut().take() which would panic
                                 // while client_ref.borrow() is held by this loop
+                                jiggler.stop();
                                 deferred_error = Some(msg);
                                 needs_redraw = true;
                                 should_break = true;
@@ -1720,6 +1748,11 @@ impl super::EmbeddedRdpWidget {
         let is_embedded = self.is_embedded.clone();
         let freerdp_thread_ref = self.freerdp_thread.clone();
 
+        // Mouse jiggler handles + config — armed on Connected here because this
+        // event path sets the state directly, bypassing set_state (#185).
+        let jiggler = self.jiggler_handles();
+        let jiggler_config = self.config.clone();
+
         glib::timeout_add_local(std::time::Duration::from_millis(33), move || {
             // Check if we're still in embedded mode
             if !*is_embedded.borrow() {
@@ -1736,10 +1769,19 @@ impl super::EmbeddedRdpWidget {
                             if let Some(ref callback) = *on_state_changed.borrow() {
                                 callback(RdpConnectionState::Connected);
                             }
+                            if let Some(interval) = jiggler_config
+                                .borrow()
+                                .as_ref()
+                                .filter(|c| c.jiggler_enabled)
+                                .map(|c| c.jiggler_interval_secs)
+                            {
+                                jiggler.start(interval);
+                            }
                             drawing_area.queue_draw();
                         }
                         RdpEvent::Disconnected => {
                             tracing::debug!(protocol = "rdp", "FreeRDP disconnected");
+                            jiggler.stop();
                             *state.borrow_mut() = RdpConnectionState::Disconnected;
                             if let Some(ref callback) = *on_state_changed.borrow() {
                                 callback(RdpConnectionState::Disconnected);
@@ -1749,6 +1791,7 @@ impl super::EmbeddedRdpWidget {
                         }
                         RdpEvent::Error(msg) => {
                             tracing::error!(protocol = "rdp", error = %msg, "FreeRDP error");
+                            jiggler.stop();
                             *state.borrow_mut() = RdpConnectionState::Error;
                             if let Some(ref callback) = *on_error.borrow() {
                                 callback(&msg);

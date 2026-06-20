@@ -63,8 +63,11 @@ impl ConnectionDialog {
     pub(super) fn create_window_with_header(
         _parent: Option<&gtk4::Window>,
     ) -> (adw::Dialog, adw::HeaderBar, Button, Button) {
+        // Distinct title from the simplified wizard (also "New Connection"),
+        // so the full multi-tab editor is recognizable. Edit mode overrides
+        // this later via set_connection().
         let dialog = adw::Dialog::builder()
-            .title(i18n("New Connection"))
+            .title(i18n("New Connection (Advanced)"))
             .content_width(600)
             .content_height(730)
             .build();

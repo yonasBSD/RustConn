@@ -26,6 +26,9 @@ struct ProtocolDef {
     label: &'static str,
     subtitle: &'static str,
     icon: &'static str,
+    /// `true` for the "Custom Command" card, which shares `ProtocolType::ZeroTrust`
+    /// with the "Zero Trust" card but opens the wizard in custom-command mode.
+    is_custom_command: bool,
 }
 
 impl ProtocolPage {
@@ -60,18 +63,21 @@ impl ProtocolPage {
                     label: "SSH",
                     subtitle: "Secure remote shell",
                     icon: "utilities-terminal-symbolic",
+                    is_custom_command: false,
                 },
                 ProtocolDef {
                     protocol: ProtocolType::Sftp,
                     label: "SFTP",
                     subtitle: "File transfer",
                     icon: "folder-remote-symbolic",
+                    is_custom_command: false,
                 },
                 ProtocolDef {
                     protocol: ProtocolType::Mosh,
                     label: "MOSH",
                     subtitle: "Mobile shell",
                     icon: "network-cellular-signal-excellent-symbolic",
+                    is_custom_command: false,
                 },
             ],
         );
@@ -84,18 +90,21 @@ impl ProtocolPage {
                     label: "RDP",
                     subtitle: "Windows desktop",
                     icon: "computer-symbolic",
+                    is_custom_command: false,
                 },
                 ProtocolDef {
                     protocol: ProtocolType::Vnc,
                     label: "VNC",
                     subtitle: "Screen sharing",
                     icon: "preferences-desktop-remote-desktop-symbolic",
+                    is_custom_command: false,
                 },
                 ProtocolDef {
                     protocol: ProtocolType::Spice,
                     label: "SPICE",
                     subtitle: "VM display",
                     icon: "video-display-symbolic",
+                    is_custom_command: false,
                 },
             ],
         );
@@ -108,18 +117,21 @@ impl ProtocolPage {
                     label: "Telnet",
                     subtitle: "Unencrypted",
                     icon: "network-wired-symbolic",
+                    is_custom_command: false,
                 },
                 ProtocolDef {
                     protocol: ProtocolType::Serial,
                     label: "Serial",
                     subtitle: "Console port",
                     icon: "media-removable-symbolic",
+                    is_custom_command: false,
                 },
                 ProtocolDef {
                     protocol: ProtocolType::ZeroTrust,
                     label: "Custom Command",
                     subtitle: "Run any CLI tool",
                     icon: "system-run-symbolic",
+                    is_custom_command: true,
                 },
             ],
         );
@@ -132,18 +144,21 @@ impl ProtocolPage {
                     label: "Kubernetes",
                     subtitle: "Pod shell",
                     icon: "application-x-executable-symbolic",
+                    is_custom_command: false,
                 },
                 ProtocolDef {
                     protocol: ProtocolType::ZeroTrust,
                     label: "Zero Trust",
                     subtitle: "Cloud access",
                     icon: "channel-secure-symbolic",
+                    is_custom_command: false,
                 },
                 ProtocolDef {
                     protocol: ProtocolType::Web,
                     label: "Web",
                     subtitle: "Browser URL",
                     icon: "web-browser-symbolic",
+                    is_custom_command: false,
                 },
             ],
         );
@@ -256,7 +271,7 @@ impl ProtocolPage {
         btn.set_child(Some(&btn_content));
 
         let protocol = proto_def.protocol;
-        let is_custom_cmd = proto_def.label == "Custom Command";
+        let is_custom_cmd = proto_def.is_custom_command;
         let tooltip = i18n_f("{} connection", &[proto_def.label]);
         btn.set_tooltip_text(Some(&tooltip));
         btn.update_property(&[gtk4::accessible::Property::Label(&tooltip)]);

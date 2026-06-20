@@ -242,6 +242,33 @@ modules:
         url: https://gitlab.freedesktop.org/mstoeckl/waypipe/-/archive/v0.11.0/waypipe-v0.11.0.tar.gz
         sha256: dc4741bd4435666b4b45ef9b8354c9f742e9c2c5fb99bb49b2ac4f32a371bcd7
 
+  # cJSON — required so FreeRDP's WinPR builds with JSON support
+  # (WITH_WINPR_JSON=ON). Without a JSON backend WinPR falls back to
+  # json-stub.c and silently ignores sdl-freerdp.json, so the SDL client's
+  # hotkey configuration (e.g. disabling Right Shift + D) has no effect (#183).
+  # Built static and linked privately into libwinpr; no runtime .so needed.
+  - name: cjson
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DENABLE_CJSON_TEST=OFF
+      - -DENABLE_CJSON_UTILS=OFF
+      - -DBUILD_SHARED_LIBS=OFF
+      - -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+    sources:
+      - type: archive
+        url: https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.18.tar.gz
+        sha256: 3aa806844a03442c00769b83e99970be70fbef03735ff898f4811dd03b9f5ee5
+        x-checker-data:
+          type: anitya
+          project-id: 21330
+          stable-only: true
+          url-template: https://github.com/DaveGamble/cJSON/archive/refs/tags/v$version.tar.gz
+    cleanup:
+      - /include
+      - /lib/cmake
+      - /lib/pkgconfig
+      - '*.a'
+
   - name: freerdp
     buildsystem: cmake-ninja
     config-opts:
@@ -313,5 +340,5 @@ modules:
     sources:
       - type: git
         url: https://github.com/totoshko88/RustConn.git
-        tag: v0.16.10
+        tag: v0.16.11
       - cargo-sources.json
