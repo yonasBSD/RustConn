@@ -140,6 +140,20 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.16.11" date="2026-06-20">
+      <description>
+        <p>Version 0.16.11 — RDP fixes for the jiggler, gateway, wizard passwords and external-client config:</p>
+        <ul>
+          <li>Fixed the connection wizard's "Zero Trust" card showing only a custom-command field instead of the provider list — it now restores the full provider picker (AWS SSM, GCP IAP, Azure, Cloudflare, Teleport, Tailscale, Boundary, Hoop.dev) and defaults to AWS Session Manager, like the Advanced editor</li>
+          <li>Fixed the RDP Mouse Jiggler never actually running in Embedded (IronRDP) mode — the timer was only armed from a code path embedded connections bypass, so neither the mouse-move nor the Scroll Lock keep-alive was ever sent; it is now armed directly from the embedded connection events</li>
+          <li>Fixed External RDP (sdl-freerdp) ignoring its sdl-freerdp.json configuration in the Flatpak build — the bundled FreeRDP had no JSON backend, so its SDL hotkeys could not be disabled or remapped; a static cJSON module is now built ahead of FreeRDP</li>
+          <li>Fixed RDP connections created through the New Connection wizard never storing the typed password, which caused an immediate NLA authentication failure; the wizard now persists the password to the vault like the full editor</li>
+          <li>Fixed RDP through an RD Gateway rendering a broken, black session in embedded mode — gateway connections now go directly to the external client, which wires up gateway routing correctly</li>
+          <li>The Advanced connection editor now has a distinct "New Connection (Advanced)" window title through every entry point</li>
+          <li>Updated bundled dependencies (cJSON, arrayvec)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.16.10" date="2026-06-19">
       <description>
         <p>Version 0.16.10 — RDP Mouse Jiggler lock-screen fix:</p>

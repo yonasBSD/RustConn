@@ -586,9 +586,22 @@ impl ConnectionPage {
                 self.host_row.set_visible(false);
                 self.port_row.set_visible(false);
                 self.zt_group.set_visible(true);
+                // Restore the full provider picker: a prior "Custom Command"
+                // card selection in the same wizard session runs
+                // set_custom_command_mode(), which hides the provider dropdown
+                // and retitles the group. The "Zero Trust" card must always
+                // offer the provider list (AWS, Tailscale, …) like the Advanced
+                // editor, so re-assert it here. The templates grid is a
+                // Custom-Command-only affordance and was hidden above.
+                self.zt_group.set_title(&i18n("Zero Trust"));
+                self.zt_provider_row.set_visible(true);
+                // Open on a real provider (AWS SSM = index 1) rather than the
+                // "Custom Command" entry (index 0), so the card lands on
+                // provider mode instead of a bare command field.
+                self.zt_provider_row.set_selected(1);
                 self.next_button.set_sensitive(true);
                 Self::update_zt_fields(
-                    0,
+                    1,
                     &self.zt_command_row,
                     &self.zt_field1_row,
                     &self.zt_field2_row,
@@ -633,6 +646,11 @@ impl ConnectionPage {
         // ZT group: only command row, rename to "Custom Command"
         self.zt_group.set_title(&i18n("Custom Command"));
         self.zt_group.set_description(None);
+        // Reset the provider to "Custom Command" (index 0 → Generic): the
+        // ZeroTrust arm of configure_for_protocol now defaults to AWS SSM, and
+        // the hidden dropdown's selection is what collect_partial reads, so
+        // without this the Custom Command card would persist a real provider.
+        self.zt_provider_row.set_selected(0);
         self.zt_provider_row.set_visible(false);
         self.zt_command_row.set_visible(true);
         self.zt_field1_row.set_visible(false);

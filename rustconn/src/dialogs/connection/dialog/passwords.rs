@@ -29,6 +29,15 @@ impl ConnectionDialog {
         self.script_row.set_visible(selected == 5);
     }
 
+    /// Pre-fills the password entry from a wizard-typed secret.
+    ///
+    /// Used when transferring partial data into the full Advanced dialog so the
+    /// password typed in the wizard is not lost (issue #188).
+    pub fn set_password(&self, password: &secrecy::SecretString) {
+        use secrecy::ExposeSecret;
+        self.password_entry.set_text(password.expose_secret());
+    }
+
     /// Connects password visibility toggle button
     pub fn connect_password_visibility_toggle(&self) {
         use std::cell::Cell;

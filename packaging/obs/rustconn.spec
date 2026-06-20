@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.16.10
+Version:        0.16.11
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -247,6 +247,15 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Sat Jun 20 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.11-0
+- Fixed the connection wizard's "Zero Trust" card showing only a custom-command field instead of the provider list — it now restores the full provider picker (AWS SSM, GCP IAP, Azure, Cloudflare, Teleport, Tailscale, Boundary, Hoop.dev) and defaults to AWS Session Manager, like the Advanced editor
+- Fixed the RDP Mouse Jiggler never actually running in Embedded (IronRDP) mode (#185) — the timer was only ever armed from set_state, which embedded connections bypass, so neither the mouse-move nor the Scroll Lock keep-alive was ever sent; it is now armed directly from the embedded connection events
+- Fixed External RDP (sdl-freerdp) ignoring its sdl-freerdp.json in the Flatpak build (#183) — the bundled FreeRDP had no JSON backend, so WinPR silently discarded the config and its SDL hotkeys could not be remapped; a static cJSON module is now built ahead of FreeRDP
+- Fixed RDP connections created through the New Connection wizard never storing the typed password (#188) — they were created with no usable credential, causing an immediate NLA authentication failure; the wizard now persists the password to the vault, mirroring the full editor
+- Fixed RDP through an RD Gateway rendering a broken/black session in embedded mode (#187) — gateway connections now go directly to the external client, which wires up gateway routing, instead of falling through to embedded wlfreerdp which never emits the gateway arguments
+- The Advanced connection editor now has a distinct "New Connection (Advanced)" window title through every entry point, including the wizard's Advanced hand-off
+- Updated bundled dependencies — cJSON (Flatpak) 1.7.18->1.7.19, arrayvec 0.7.6->0.7.7
+
 * Fri Jun 19 2026 Anton Isaiev <totoshko88@gmail.com> - 0.16.10-0
 - Fixed RDP Mouse Jiggler not preventing the remote desktop from locking (#185) — in Embedded (IronRDP) mode the jiggler only moved the mouse, which keeps the session alive but does not reset the Windows workstation lock timer; each tick now also taps Scroll Lock (a no-op, state-preserving keystroke) so unattended desktops stay unlocked
 - Documented that the Mouse Jiggler works in Embedded mode only (the External FreeRDP client has no input channel from RustConn)
