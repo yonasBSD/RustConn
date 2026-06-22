@@ -174,7 +174,10 @@ jobs:
   property-tests:
     name: Property Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Property tests alone run ~5 min (argon2 is slow); cold/restored-cache
+    # compilation of rustconn-core --all-features adds several more. 10 min
+    # was too tight and canceled the step mid-run despite tests passing.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
 
