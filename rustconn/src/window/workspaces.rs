@@ -11,9 +11,7 @@ use crate::dialogs::WorkspaceManagerDialog;
 use crate::i18n::{i18n, i18n_f};
 use crate::state::SharedAppState;
 use crate::toast::{ToastType, show_toast_on_window};
-use crate::window::types::{
-    SessionSplitBridges, SharedMonitoring, SharedNotebook, SharedSidebar,
-};
+use crate::window::types::{SessionSplitBridges, SharedMonitoring, SharedNotebook, SharedSidebar};
 
 use rustconn_core::models::{WorkspaceEntry, WorkspaceProfile, WorkspaceSplitLayout};
 
