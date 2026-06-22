@@ -100,7 +100,7 @@ impl PlaybackController {
 
     /// Returns the current playback state.
     #[must_use]
-    #[allow(dead_code, reason = "Public API for external state queries")]
+    #[expect(dead_code, reason = "Public API for external state queries")]
     pub fn state(&self) -> PlaybackState {
         self.state.get()
     }
@@ -234,7 +234,7 @@ pub struct PlaybackToolbar {
     /// Status label shown after playback completes.
     pub status_label: Label,
     /// Quick search entry for filtering recordings.
-    #[allow(dead_code, reason = "Kept for future programmatic access")]
+    #[expect(dead_code, reason = "Kept for future programmatic access")]
     pub search_entry: SearchEntry,
     /// Popover containing the filtered recording list.
     pub search_popover: Popover,

@@ -79,7 +79,7 @@ fn klid_to_dropdown_index(klid: u32) -> u32 {
 }
 
 /// Connection dialog for creating/editing connections
-#[allow(
+#[expect(
     dead_code,
     reason = "Many fields kept for GTK widget lifecycle and signal handlers"
 )]
@@ -362,7 +362,7 @@ pub struct ConnectionDialog {
 }
 
 /// Represents a local variable row in the connection dialog
-#[allow(dead_code, reason = "Fields kept for GTK widget lifecycle")]
+#[expect(dead_code, reason = "Fields kept for GTK widget lifecycle")]
 struct LocalVariableRow {
     /// The row widget
     row: ListBoxRow,

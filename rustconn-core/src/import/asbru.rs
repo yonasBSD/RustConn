@@ -56,11 +56,9 @@ struct AsbruEntry {
     /// Asbru-CM stores passwords as "pass" in YAML
     /// Currently parsed for YAML completeness but not imported by default for security
     #[serde(default)]
-    #[allow(dead_code, reason = "Reserved for future password import feature")]
     pass: Option<String>,
     /// Alternative password field name used in some Asbru versions
     #[serde(default)]
-    #[allow(dead_code, reason = "Reserved for future password import feature")]
     password: Option<String>,
     #[serde(default, rename = "type")]
     protocol_type: Option<String>,
@@ -87,7 +85,7 @@ struct AsbruEntry {
     /// with parent references rather than nested objects. This field must be
     /// present to correctly deserialize the YAML structure.
     #[serde(default)]
-    #[allow(dead_code, reason = "Required for YAML deserialization completeness")]
+    #[expect(dead_code, reason = "Required for YAML deserialization completeness")]
     children: Option<HashMap<String, serde_yaml::Value>>,
 }
 

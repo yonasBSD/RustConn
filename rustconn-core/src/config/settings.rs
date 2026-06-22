@@ -13,7 +13,6 @@ use crate::variables::Variable;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Application-wide settings
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -726,30 +725,12 @@ const SETTINGS_SALT_LEN: usize = 16;
 /// Nonce length for AES-256-GCM
 const SETTINGS_NONCE_LEN: usize = 12;
 
-/// Counts credentials migrated from legacy XOR to AES-256-GCM during this session.
-/// Read by the GUI to show a one-time toast after settings load.
-static LEGACY_XOR_MIGRATION_COUNT: AtomicUsize = AtomicUsize::new(0);
-
-/// Returns the number of credentials migrated from legacy XOR encryption
-/// during this session. The GUI uses this to show a one-time toast.
-#[must_use]
-pub fn legacy_migration_count() -> usize {
-    LEGACY_XOR_MIGRATION_COUNT.load(Ordering::Relaxed)
-}
-
-/// Resets the legacy migration counter (call after showing the toast).
-pub fn reset_legacy_migration_count() {
-    LEGACY_XOR_MIGRATION_COUNT.store(0, Ordering::Relaxed);
-}
-
 /// Header length: magic(4) + version(1) + salt(16) + nonce(12)
 const SETTINGS_HEADER_LEN: usize = 4 + 1 + SETTINGS_SALT_LEN + SETTINGS_NONCE_LEN;
 
 /// Password encryption utilities for credential persistence
 ///
 /// Uses AES-256-GCM with Argon2id key derivation from a machine-specific key.
-/// Legacy XOR-encrypted data is transparently decrypted and re-encrypted
-/// in the new format on the next save.
 impl SecretSettings {
     /// Reads the canonical credential storage choice for the KDBX backend
     /// from the legacy `kdbx_password_encrypted` + `kdbx_save_to_keyring`
@@ -885,7 +866,7 @@ impl SecretSettings {
 
     /// Decrypts the stored KDBX password
     ///
-    /// Transparently handles both AES-256-GCM (new) and XOR (legacy) formats.
+    /// Decrypts AES-256-GCM (RCSC) credentials.
     /// Returns true if decryption was successful.
     pub fn decrypt_password(&mut self) -> bool {
         if let Some(ref encrypted) = self.kdbx_password_encrypted
@@ -923,7 +904,7 @@ impl SecretSettings {
 
     /// Decrypts the stored Bitwarden master password
     ///
-    /// Transparently handles both AES-256-GCM (new) and XOR (legacy) formats.
+    /// Decrypts AES-256-GCM (RCSC) credentials.
     /// Returns true if decryption was successful.
     pub fn decrypt_bitwarden_password(&mut self) -> bool {
         if let Some(ref encrypted) = self.bitwarden_password_encrypted
@@ -965,7 +946,7 @@ impl SecretSettings {
 
     /// Decrypts the stored Bitwarden API credentials (client_id + client_secret)
     ///
-    /// Transparently handles both AES-256-GCM (new) and XOR (legacy) formats.
+    /// Decrypts AES-256-GCM (RCSC) credentials.
     /// Returns true if at least one credential was decrypted successfully.
     pub fn decrypt_bitwarden_api_credentials(&mut self) -> bool {
         let key = Self::get_machine_key();
@@ -1006,7 +987,7 @@ impl SecretSettings {
 
     /// Decrypts the stored 1Password service account token
     ///
-    /// Transparently handles both AES-256-GCM (new) and XOR (legacy) formats.
+    /// Decrypts AES-256-GCM (RCSC) credentials.
     /// Returns true if decryption was successful.
     pub fn decrypt_onepassword_token(&mut self) -> bool {
         if let Some(ref encrypted) = self.onepassword_service_account_token_encrypted
@@ -1038,7 +1019,7 @@ impl SecretSettings {
 
     /// Decrypts the stored Passbolt GPG passphrase
     ///
-    /// Transparently handles both AES-256-GCM (new) and XOR (legacy) formats.
+    /// Decrypts AES-256-GCM (RCSC) credentials.
     /// Returns true if decryption was successful.
     pub fn decrypt_passbolt_passphrase(&mut self) -> bool {
         if let Some(ref encrypted) = self.passbolt_passphrase_encrypted
@@ -1122,14 +1103,6 @@ impl SecretSettings {
         );
         Vec::new()
     }
-
-    /// Legacy XOR cipher for decrypting old-format credentials
-    fn xor_cipher_legacy(data: &[u8], key: &[u8]) -> Vec<u8> {
-        data.iter()
-            .enumerate()
-            .map(|(i, &byte)| byte ^ key[i % key.len()])
-            .collect()
-    }
 }
 
 /// Encrypts credential data using AES-256-GCM with Argon2id key derivation
@@ -1170,18 +1143,23 @@ fn encrypt_credential(plaintext: &[u8], machine_key: &[u8]) -> Result<Vec<u8>, S
     Ok(result)
 }
 
-/// Decrypts credential data; falls back to legacy XOR if no magic header
+/// Decrypts AES-256-GCM credential data.
+///
+/// # Errors
+/// Returns an error if the data lacks the `RCSC` magic header (e.g. the
+/// long-removed legacy XOR format) or if AES-GCM decryption fails. The legacy
+/// XOR fallback was removed in 0.17.0 — it provided no real protection and the
+/// transparent migration window (since v0.12) has long passed.
 fn decrypt_credential(data: &[u8], machine_key: &[u8]) -> Result<Vec<u8>, String> {
     if data.len() >= SETTINGS_HEADER_LEN && data[..4] == *SETTINGS_CRYPTO_MAGIC {
         decrypt_credential_aes(data, machine_key)
     } else {
-        // Legacy XOR format — decrypt transparently; re-encrypted on next save
         tracing::warn!(
-            "Legacy XOR encryption detected — migrating to AES-256-GCM. \
-             XOR support will be removed in v0.12."
+            "Stored credential is not in AES-256-GCM (RCSC) format and cannot be \
+             decrypted; legacy XOR support was removed in 0.17.0 — re-enter the \
+             credential in Settings."
         );
-        LEGACY_XOR_MIGRATION_COUNT.fetch_add(1, Ordering::Relaxed);
-        Ok(SecretSettings::xor_cipher_legacy(data, machine_key))
+        Err("unrecognized credential format (legacy XOR no longer supported)".to_string())
     }
 }
 

@@ -393,10 +393,6 @@ impl ConnectionDialog {
             newline_btn.connect_clicked(move |btn| {
                 let pos = entry_clone.position();
                 entry_clone.insert_text("\\n", &mut pos.clone());
-                #[allow(
-    clippy::cast_possible_wrap,
-    reason = "value range fits the target signed type by construction in this code path"
-)]
                 entry_clone.set_position(pos + 2);
                 if let Some(popover) = btn
                     .ancestor(gtk4::Popover::static_type())

@@ -64,7 +64,7 @@ pub struct RustConnRdpdrBackend {
 
 /// Pending directory change notification
 #[derive(Debug, Clone)]
-#[allow(dead_code, reason = "Fields read via Debug in trace! logging")]
+#[expect(dead_code, reason = "Fields read via Debug in trace! logging")]
 struct PendingNotification {
     /// Device IO request header
     device_io_request: ironrdp::rdpdr::pdu::efs::DeviceIoRequest,
@@ -177,13 +177,11 @@ impl RustConnRdpdrBackend {
                     change.file_id, change.action, change.file_name
                 );
 
-                // Build FILE_NOTIFY_INFORMATION structure (ready for when ironrdp supports it)
-                let file_notify_info = build_file_notify_info(&change);
-
-                // TODO: Send actual response when ironrdp adds ClientDriveNotifyChangeDirectoryResponse
+                // TODO: Send actual response when ironrdp adds ClientDriveNotifyChangeDirectoryResponse.
                 // The response format per MS-RDPEFS 2.2.3.4.11:
                 // - DeviceIoResponse with original DeviceIoRequest and NtStatus::SUCCESS
-                // - Buffer containing FILE_NOTIFY_INFORMATION structures
+                // - Buffer containing FILE_NOTIFY_INFORMATION structures, built by
+                //   `build_file_notify_info` (kept ready below).
                 //
                 // Example (when available):
                 // responses.push(SvcMessage::from(RdpdrPdu::ClientDriveNotifyChangeDirectoryResponse(
@@ -192,16 +190,15 @@ impl RustConnRdpdrBackend {
                 //             notification.device_io_request.clone(),
                 //             NtStatus::SUCCESS,
                 //         ),
-                //         buffer: Some(file_notify_info),
+                //         buffer: Some(build_file_notify_info(&change)),
                 //     },
                 // )));
 
                 trace!(
                     "Directory change notification ready (awaiting ironrdp support): \
-                     file_id={}, action={:?}, data_len={}, device_id={}, completion_id={}",
+                     file_id={}, action={:?}, device_id={}, completion_id={}",
                     change.file_id,
                     change.action,
-                    file_notify_info.len(),
                     notification.device_io_request.device_id,
                     notification.device_io_request.completion_id,
                 );
@@ -958,18 +955,18 @@ fn get_disk_stats(path: &str) -> (i64, i64) {
             // nix::sys::statvfs returns platform-dependent integer types:
             // u64 on 64-bit (x86_64, aarch64), u32 on 32-bit targets.
             // u64::from() is needed for 32-bit compatibility but is identity on 64-bit.
-            #[allow(
+            #[expect(
                 clippy::useless_conversion,
                 reason = "u64::from needed on 32-bit targets where statvfs fields are u32"
             )]
             let frag_size = u64::from(stat.fragment_size());
             // Convert from filesystem blocks to 4096-byte allocation units
-            #[allow(
+            #[expect(
                 clippy::useless_conversion,
                 reason = "u64::from needed on 32-bit targets where statvfs fields are u32"
             )]
             let total_bytes = u64::from(stat.blocks()).saturating_mul(frag_size);
-            #[allow(
+            #[expect(
                 clippy::useless_conversion,
                 reason = "u64::from needed on 32-bit targets where statvfs fields are u32"
             )]
@@ -1004,6 +1001,11 @@ const fn unix_to_filetime(unix_secs: i64) -> i64 {
 /// - Action: u32 (`FILE_ACTION_*`)
 /// - `FileNameLength`: u32 (in bytes)
 /// - `FileName`: \[u16\] (UTF-16LE, not null-terminated)
+#[expect(
+    dead_code,
+    reason = "FILE_NOTIFY_INFORMATION builder kept ready for when ironrdp adds \
+              ClientDriveNotifyChangeDirectoryResponse (MS-RDPEFS 2.2.3.4.11)"
+)]
 fn build_file_notify_info(change: &DirectoryChange) -> Vec<u8> {
     let file_name_utf16: Vec<u16> = change.file_name.encode_utf16().collect();
     let file_name_bytes = file_name_utf16.len() * 2;

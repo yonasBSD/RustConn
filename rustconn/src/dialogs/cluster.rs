@@ -36,7 +36,7 @@ pub struct ClusterDialog {
 }
 
 /// Represents a connection selection row in the cluster dialog
-#[allow(
+#[expect(
     dead_code,
     reason = "Fields kept for GTK widget lifecycle and future use"
 )]
@@ -342,7 +342,7 @@ pub struct ClusterListDialog {
 }
 
 /// Represents a cluster row in the list dialog
-#[allow(
+#[expect(
     dead_code,
     reason = "Fields kept for GTK widget lifecycle and future dynamic updates"
 )]

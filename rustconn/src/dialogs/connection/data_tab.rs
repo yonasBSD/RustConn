@@ -12,10 +12,6 @@ use libadwaita as adw;
 /// Creates the Data tab combining Variables and Custom Properties.
 ///
 /// Uses libadwaita components following GNOME HIG.
-#[allow(
-    clippy::type_complexity,
-    reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-)]
 pub(super) fn create_data_tab() -> (GtkBox, ListBox, Button, ListBox, Button) {
     let scrolled = ScrolledWindow::builder()
         .hscrollbar_policy(gtk4::PolicyType::Never)

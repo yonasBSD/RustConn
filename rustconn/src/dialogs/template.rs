@@ -34,10 +34,6 @@ use crate::i18n::i18n;
 pub type TemplateCallback = Rc<RefCell<Option<Box<dyn Fn(Option<ConnectionTemplate>)>>>>;
 
 /// Template dialog for creating/editing templates
-#[allow(
-    clippy::similar_names,
-    reason = "names follow a deliberate naming scheme for paired inputs/outputs; renaming hurts readability"
-)]
 pub struct TemplateDialog {
     dialog: adw::Dialog,
     parent: Option<gtk4::Widget>,
@@ -594,10 +590,6 @@ impl TemplateDialog {
         )
     }
 
-    #[allow(
-        clippy::type_complexity,
-        reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-    )]
     fn create_ssh_options() -> (
         GtkBox,
         DropDown,
@@ -785,10 +777,6 @@ impl TemplateDialog {
         )
     }
 
-    #[allow(
-        clippy::type_complexity,
-        reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-    )]
     fn create_rdp_options() -> (
         GtkBox,
         DropDown,
@@ -971,10 +959,6 @@ impl TemplateDialog {
         )
     }
 
-    #[allow(
-        clippy::type_complexity,
-        reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-    )]
     fn create_vnc_options() -> (
         GtkBox,
         DropDown,
@@ -1153,10 +1137,6 @@ impl TemplateDialog {
         )
     }
 
-    #[allow(
-        clippy::type_complexity,
-        reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-    )]
     fn create_spice_options() -> (
         GtkBox,
         adw::SwitchRow,
@@ -2214,10 +2194,9 @@ impl TemplateDialog {
         });
     }
 
-    #[allow(
+    #[expect(
         clippy::similar_names,
         clippy::too_many_arguments,
-        clippy::too_many_lines,
         reason = "long builder takes paired widgets and dispatches over many protocol kinds; restructuring would only relocate the parameter list"
     )]
     fn build_protocol_config(

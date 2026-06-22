@@ -129,7 +129,7 @@ impl DirectoryWatcher {
         let (event_tx, event_rx) = mpsc::channel();
         let watches: Arc<Mutex<HashMap<PathBuf, Vec<WatchRequest>>>> =
             Arc::new(Mutex::new(HashMap::new()));
-        let watches_clone = watches.clone();
+        let watches_clone = Arc::clone(&watches);
 
         // Create the watcher with a callback that processes events
         let fs_watcher = RecommendedWatcher::new(

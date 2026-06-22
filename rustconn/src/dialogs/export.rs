@@ -33,7 +33,6 @@ use crate::i18n::{i18n, i18n_f};
 pub type ExportCallback = Rc<RefCell<Option<Box<dyn Fn(Option<ExportResult>)>>>>;
 
 /// Export dialog for exporting connections to external formats
-#[allow(dead_code, reason = "Fields kept for GTK widget lifecycle")]
 pub struct ExportDialog {
     dialog: adw::Dialog,
     stack: Stack,

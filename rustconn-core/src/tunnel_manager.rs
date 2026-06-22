@@ -186,7 +186,7 @@ impl TunnelManager {
         // Capture stderr in background thread
         let stderr_output = Arc::new(Mutex::new(String::new()));
         if let Some(stderr_handle) = child.stderr.take() {
-            let stderr_buf = stderr_output.clone();
+            let stderr_buf = Arc::clone(&stderr_output);
             let tunnel_name = tunnel.name.clone();
             std::thread::spawn(move || {
                 use std::io::{BufRead, BufReader};

@@ -140,7 +140,6 @@ impl TerminalNotebook {
     /// the tab title and generates the metadata sidecar. For remote sessions,
     /// retrieves the recording files from the remote host via SCP in a
     /// background thread to avoid blocking the GTK main loop.
-    #[allow(dead_code, reason = "Called by connection flow on session end")]
     pub fn stop_recording(&self, session_id: Uuid) {
         if !self.active_recordings.borrow_mut().remove(&session_id) {
             return;
@@ -295,7 +294,6 @@ impl TerminalNotebook {
 
     /// Returns whether a session is currently being recorded.
     #[must_use]
-    #[allow(dead_code, reason = "Public API for recording status checks")]
     pub fn is_recording(&self, session_id: Uuid) -> bool {
         self.active_recordings.borrow().contains(&session_id)
     }

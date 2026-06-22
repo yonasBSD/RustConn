@@ -117,10 +117,6 @@ impl ConnectionDialog {
     /// * `kdbx_key_file` - Key file for the KeePass database
     /// * `groups` - List of connection groups for building hierarchical paths
     /// * `secret_settings` - Secret backend settings for backend dispatch
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-    )]
     pub fn connect_password_load_button_with_groups(
         &self,
         kdbx_enabled: bool,
@@ -444,10 +440,6 @@ impl ConnectionDialog {
     /// host, protocol, and group — then shows a success/failure dialog with
     /// the lookup key used. Helps users verify their vault configuration
     /// before connecting.
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-    )]
     pub fn connect_vault_test_button(
         &self,
         kdbx_enabled: bool,

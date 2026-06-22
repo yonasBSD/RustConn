@@ -330,7 +330,14 @@ impl SecureCrtImporter {
                 // Serial connections don't have a meaningful host/port for RustConn
                 return Err("Serial connections are not supported".to_string());
             }
-            ScrtProtocol::Rlogin | ScrtProtocol::Raw => unreachable!(),
+            ScrtProtocol::Rlogin | ScrtProtocol::Raw => {
+                // Defensive: Rlogin/Raw are already filtered out earlier with
+                // `Ok(None)` (see the protocol guard above). Return Ok(None)
+                // rather than panicking, so a future change to that guard can
+                // never make this branch reachable and crash on a (possibly
+                // imported, untrusted) session file.
+                return Ok(None);
+            }
         };
 
         Ok(Some(connection))

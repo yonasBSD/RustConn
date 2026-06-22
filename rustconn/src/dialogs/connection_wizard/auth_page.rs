@@ -15,7 +15,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 /// Authentication page — Step 3 of the wizard
-#[allow(dead_code, reason = "Fields kept for GTK widget lifecycle")]
 pub struct AuthPage {
     pub page: adw::NavigationPage,
     // Auth widgets

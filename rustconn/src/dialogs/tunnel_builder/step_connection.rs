@@ -22,7 +22,7 @@ use super::TunnelPathDiagram;
 ///
 /// Displays tunnel name entry, SSH connection combo with search filter,
 /// jump host override, "New SSH Connection" button, and a live path diagram.
-#[allow(dead_code, reason = "Fields kept for GTK widget lifecycle")]
+#[expect(dead_code, reason = "Fields kept for GTK widget lifecycle")]
 pub struct StepConnectionPage {
     pub page: adw::NavigationPage,
     state: SharedAppState,

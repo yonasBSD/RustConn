@@ -1585,17 +1585,7 @@ impl super::EmbeddedRdpWidget {
                 reason = "value range fits the target type and is non-negative by construction in this code path"
             )]
             let logical_h = (crop_h as f64 / scale).round().max(1.0) as u16;
-            #[allow(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                reason = "value range fits the target type and is non-negative by construction in this code path"
-            )]
             let hotspot_logical_x = (f64::from(hotspot_x) / scale).round() as i32;
-            #[allow(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                reason = "value range fits the target type and is non-negative by construction in this code path"
-            )]
             let hotspot_logical_y = (f64::from(hotspot_y) / scale).round() as i32;
 
             let src_w = crop_w;

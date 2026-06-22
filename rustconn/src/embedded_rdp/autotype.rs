@@ -10,6 +10,8 @@
 use gtk4::glib;
 use gtk4::prelude::*;
 use gtk4::{Button, Label};
+use libadwaita as adw;
+use libadwaita::prelude::*;
 
 use crate::i18n::{i18n, i18n_f};
 
@@ -142,18 +144,25 @@ impl super::EmbeddedRdpWidget {
             let tx = ironrdp_tx.clone();
             let status = status_label.clone();
 
-            // Build the autotype dialog
-            let dialog = gtk4::Window::new();
-            dialog.set_title(Some(&i18n("Type Text into Remote Session")));
-            dialog.set_default_size(400, 200);
-            dialog.set_modal(true);
-            dialog.set_resizable(true);
+            // Build the autotype dialog as an adw::Dialog (libadwaita pattern:
+            // ToolbarView + HeaderBar). On Wayland a raw modal gtk4::Window
+            // renders as a separate window — adw::Dialog stays attached.
+            let dialog = adw::Dialog::new();
+            dialog.set_title(&i18n("Type Text into Remote Session"));
+            dialog.set_content_width(420);
+            dialog.set_content_height(240);
 
-            if let Some(root) = container.root()
-                && let Some(parent_window) = root.downcast_ref::<gtk4::Window>()
-            {
-                dialog.set_transient_for(Some(parent_window));
-            }
+            let toolbar_view = adw::ToolbarView::new();
+            let header = adw::HeaderBar::new();
+
+            // Action buttons live in the header bar (HIG): cancel at the
+            // start, the suggested primary action at the end.
+            let cancel_btn = Button::with_label(&i18n("Cancel"));
+            let type_btn = Button::with_label(&i18n("Type Now"));
+            type_btn.add_css_class("suggested-action");
+            header.pack_start(&cancel_btn);
+            header.pack_end(&type_btn);
+            toolbar_view.add_top_bar(&header);
 
             let content = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
             content.set_margin_start(12);
@@ -199,19 +208,8 @@ impl super::EmbeddedRdpWidget {
             });
             content.append(&password_check);
 
-            // Action buttons
-            let button_box = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
-            button_box.set_halign(gtk4::Align::End);
-
-            let cancel_btn = Button::with_label(&i18n("Cancel"));
-            let type_btn = Button::with_label(&i18n("Type Now"));
-            type_btn.add_css_class("suggested-action");
-
-            button_box.append(&cancel_btn);
-            button_box.append(&type_btn);
-            content.append(&button_box);
-
-            dialog.set_child(Some(&content));
+            toolbar_view.set_content(Some(&content));
+            dialog.set_child(Some(&toolbar_view));
 
             // Cancel closes dialog
             let dialog_cancel = dialog.clone();
@@ -262,7 +260,7 @@ impl super::EmbeddedRdpWidget {
                 dialog_type.close();
             });
 
-            dialog.present();
+            dialog.present(Some(&container));
         });
     }
 }

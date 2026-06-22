@@ -70,7 +70,7 @@ fn collect_groups(widget: &gtk4::Widget, groups: &mut Vec<adw::PreferencesGroup>
 }
 
 /// Main settings dialog using AdwPreferencesDialog (libadwaita 1.5+)
-#[allow(dead_code, reason = "Fields kept for GTK widget lifecycle")]
+#[expect(dead_code, reason = "Fields kept for GTK widget lifecycle")]
 pub struct SettingsDialog {
     dialog: adw::PreferencesDialog,
     // Terminal settings

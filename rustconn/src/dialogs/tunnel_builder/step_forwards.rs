@@ -31,9 +31,9 @@ struct ForwardRuleWidgets {
     local_port_spin: adw::SpinRow,
     remote_host_entry: adw::EntryRow,
     remote_port_spin: adw::SpinRow,
-    #[allow(dead_code, reason = "Kept alive for GTK widget lifecycle")]
+    #[expect(dead_code, reason = "Kept alive for GTK widget lifecycle")]
     local_port_warning: gtk4::Label,
-    #[allow(dead_code, reason = "Kept alive for GTK widget lifecycle")]
+    #[expect(dead_code, reason = "Kept alive for GTK widget lifecycle")]
     remote_host_error: gtk4::Label,
 }
 

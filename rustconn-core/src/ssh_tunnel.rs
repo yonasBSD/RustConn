@@ -298,7 +298,7 @@ pub fn create_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunnel> {
     // (auth failures, port unreachable, etc.) are available for logging.
     let stderr_output = Arc::new(Mutex::new(String::new()));
     if let Some(stderr_handle) = child.stderr.take() {
-        let stderr_buf = stderr_output.clone();
+        let stderr_buf = Arc::clone(&stderr_output);
         std::thread::spawn(move || {
             use std::io::{BufRead, BufReader};
             let reader = BufReader::new(stderr_handle);

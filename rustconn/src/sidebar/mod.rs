@@ -49,7 +49,7 @@ use std::rc::Rc;
 use uuid::Uuid;
 
 /// Sidebar widget for connection tree display
-#[allow(dead_code, reason = "Many fields kept for GTK widget lifecycle")]
+#[expect(dead_code, reason = "Many fields kept for GTK widget lifecycle")]
 pub struct ConnectionSidebar {
     container: GtkBox,
     search_entry: SearchEntry,
@@ -1023,7 +1023,7 @@ impl ConnectionSidebar {
 
     /// Checks if a connection has an active recording session
     #[must_use]
-    #[allow(dead_code, reason = "Public API for recording status checks")]
+    #[expect(dead_code, reason = "Public API for recording status checks")]
     pub fn is_connection_recording(&self, connection_id: &str) -> bool {
         self.recording_checker
             .borrow()
@@ -1033,7 +1033,7 @@ impl ConnectionSidebar {
 
     /// Returns a clone of the recording checker Rc for use in closures
     #[must_use]
-    #[allow(dead_code, reason = "Public API for recording checker access")]
+    #[expect(dead_code, reason = "Public API for recording checker access")]
     pub fn recording_checker_rc(&self) -> Rc<RefCell<Option<Box<dyn Fn(&str) -> bool>>>> {
         Rc::clone(&self.recording_checker)
     }
@@ -1815,10 +1815,6 @@ impl ConnectionSidebar {
     /// Selects an item by its UUID
     ///
     /// Searches through the tree model to find and select the item with the given ID.
-    #[allow(
-        dead_code,
-        reason = "Public API — used by restore_state inline, kept for external callers"
-    )]
     pub fn select_item_by_id(&self, item_id: Uuid) {
         let tree_model = self.tree_model.clone();
         let selection_model = self.selection_model.clone();
@@ -2127,10 +2123,6 @@ impl ConnectionItem {
 
     /// Creates a new group item with all properties including dynamic folder flag
     #[must_use]
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-    )]
     pub fn new_group_full_with_dynamic(
         id: &str,
         name: &str,

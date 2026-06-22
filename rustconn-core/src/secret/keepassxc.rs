@@ -41,6 +41,9 @@ struct KeePassXcRequest {
     url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     login: Option<String>,
+    // Plain String: serde `Serialize` cannot derive over `Zeroizing`/`SecretString`.
+    // The plaintext is inlined at the call site (no extra variable) and the
+    // request struct is dropped immediately after `send_request` returns.
     #[serde(skip_serializing_if = "Option::is_none")]
     password: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -75,7 +78,7 @@ struct KeePassXcEntry {
     /// preserved for potential future use in entry display or logging.
     /// Required for correct JSON deserialization of `KeePassXC` responses.
     #[serde(default)]
-    #[allow(dead_code, reason = "Required for JSON deserialization completeness")]
+    #[expect(dead_code, reason = "Required for JSON deserialization completeness")]
     name: Option<String>,
     /// Entry UUID from `KeePassXC`
     ///
@@ -83,7 +86,7 @@ struct KeePassXcEntry {
     /// preserved for potential future use in entry identification or updates.
     /// Required for correct JSON deserialization of `KeePassXC` responses.
     #[serde(default)]
-    #[allow(dead_code, reason = "Required for JSON deserialization completeness")]
+    #[expect(dead_code, reason = "Required for JSON deserialization completeness")]
     uuid: Option<String>,
 }
 

@@ -5,6 +5,43 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-06-22
+
+A hardening release: targeted security, performance, and tech-debt fixes following a full codebase audit. No major new functionality.
+
+### Security
+
+- **kubectl / Zero Trust Generic command injection** — Kubernetes and Zero Trust Generic sessions now spawn their command argv directly instead of through `sh -c`, so shell metacharacters in (possibly imported, untrusted) configs can no longer be interpreted as commands
+- **Legacy XOR credential format removed** — the obsolete XOR fallback for credentials without the `RCSC` header has been removed; it provided no real protection and its migration window (since v0.12) has long passed. Only AES-256-GCM credentials are read
+- **Credential threat model documented** — `SECURITY.md` now explains the machine-key encryption model (obfuscation at rest, not protection against same-user read) and recommends keyring/vault backends for real secrets
+- **Passbolt passphrase exposure documented** — added a Known Issue noting that `go-passbolt-cli` accepts the passphrase only as a command-line argument, with mitigations and upstream status
+- **Transient secret hardening** — Bitwarden and KeePassXC serialized item buffers are now wrapped in `Zeroizing` so plaintext is wiped on drop
+
+### Added
+
+- **Workspace split layout restore** — opening a saved workspace now restores its split-pane layout, not just the connections
+
+### Fixed
+
+- **RDPDR dead notify computation** — removed an unused `FILE_NOTIFY_INFORMATION` computation on the directory-watch path (the builder is kept ready for when IronRDP exposes the response type)
+
+### Improved
+
+- **Terminal highlight rendering** — highlight colours are pre-parsed once at rule-compile time instead of on every repaint; match values are now `Copy` and allocation-free on the hot path, and column offsets are computed as a single-scan delta
+- **Connection sorting** — group sort caches lowercase keys (`sort_by_cached_key`) instead of recomputing them on every comparison
+- **Autotype dialog** — the embedded-RDP "type text" dialog is now an `adw::Dialog` (ToolbarView + HeaderBar) instead of a raw window, so it stays attached on Wayland
+- **Touch targets** — header-bar icon buttons now meet the GNOME HIG 44×44px minimum tap target
+- **Lint hygiene** — migrated `#[allow]` overrides to `#[expect]` (warns when a lint stops firing) and added the `clone_on_ref_ptr` restriction lint
+- **IronRDP panic guard re-evaluated** — confirmed the `connect_finalize` catch_unwind wrapper is still needed (0.16 remains the latest release; upstream panic reports stay open) and refreshed the inline note
+
+### Changed
+
+- **Build** — narrowed the workspace `tokio` feature set from `full` to the exact features used, trimming compile time
+
+### Dependencies
+
+- **Updated**: rustls 0.23.40→0.23.41
+
 ## [0.16.13] - 2026-06-22
 
 ### Added

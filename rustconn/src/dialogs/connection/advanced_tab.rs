@@ -800,12 +800,6 @@ pub(super) fn hex_to_rgba(hex: &str) -> Option<gtk4::gdk::RGBA> {
 }
 
 /// Converts a GDK RGBA value to a hex color string (`#RRGGBB`).
-#[allow(
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    reason = "value range fits the target type and is non-negative by construction; explicit `as` cast is intentional alongside .round()"
-)]
 pub(super) fn rgba_to_hex(rgba: &gtk4::gdk::RGBA) -> String {
     let r = (rgba.red() * 255.0).round() as u8;
     let g = (rgba.green() * 255.0).round() as u8;

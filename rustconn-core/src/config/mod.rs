@@ -15,6 +15,6 @@ pub use manager::ConfigManager;
 pub use settings::{
     AppSettings, ColorScheme, ConnectionSettings, LoggingSettings, QuickConnectHistoryItem,
     SavedSession, SecretBackendType, SecretSettings, SessionRestoreSettings, StartupAction,
-    TerminalSettings, UiSettings, legacy_migration_count, reset_legacy_migration_count,
+    TerminalSettings, UiSettings,
 };
 // MonitoringSettings is re-exported from the monitoring module, not config

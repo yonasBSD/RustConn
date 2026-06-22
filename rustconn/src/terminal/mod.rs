@@ -48,7 +48,6 @@ use crate::embedded_rdp::EmbeddedRdpWidget;
 use crate::embedded_spice::EmbeddedSpiceWidget;
 use crate::i18n::{i18n, i18n_f};
 use crate::session::{SessionState, SessionWidget, VncSessionWidget};
-use crate::split_view::TabSplitManager;
 use crate::terminal::highlight_overlay::HighlightOverlay;
 use crate::terminal::tab_container::TabPageContainer;
 use rustconn_core::automation::{KeyElement, KeySequence};
@@ -56,7 +55,6 @@ use rustconn_core::highlight::CompiledHighlightRules;
 use rustconn_core::models::HighlightRule;
 use rustconn_core::session::SanitizeConfig;
 use rustconn_core::session::recording::{RecordingMetadata, metadata_path, write_metadata};
-use rustconn_core::split::TabId;
 use rustconn_core::split::tab_groups::TabGroupManager;
 
 /// SSH connection parameters needed for remote recording file retrieval.
@@ -88,7 +86,6 @@ struct RemoteRecordingInfo {
 
 /// Terminal notebook widget for managing multiple terminal sessions
 /// Now using adw::TabView for modern GNOME HIG compliance
-#[allow(dead_code, reason = "Many fields kept for GTK widget lifecycle")]
 pub struct TerminalNotebook {
     /// Main container with TabView and TabBar
     container: GtkBox,
@@ -120,11 +117,6 @@ pub struct TerminalNotebook {
     automation_sessions: Rc<RefCell<HashMap<Uuid, AutomationSession>>>,
     /// Session metadata
     session_info: Rc<RefCell<HashMap<Uuid, TerminalSession>>>,
-    /// Tab split manager for managing split layouts per tab
-    /// Requirements 3.1, 3.3, 3.4: Each tab maintains its own split container
-    split_manager: Rc<RefCell<TabSplitManager>>,
-    /// Map of session IDs to their TabId (for split layout tracking)
-    session_tab_ids: Rc<RefCell<HashMap<Uuid, TabId>>>,
     /// Whether to color tab indicators by protocol type
     color_tabs_by_protocol: Rc<RefCell<bool>>,
     /// Direct tracking of split view colors per session (session_id → color_index).
@@ -245,8 +237,6 @@ impl TerminalNotebook {
             session_widgets: Rc::new(RefCell::new(HashMap::new())),
             automation_sessions: Rc::new(RefCell::new(HashMap::new())),
             session_info: Rc::new(RefCell::new(HashMap::new())),
-            split_manager: Rc::new(RefCell::new(TabSplitManager::new())),
-            session_tab_ids: Rc::new(RefCell::new(HashMap::new())),
             color_tabs_by_protocol: Rc::new(RefCell::new(false)),
             split_session_colors: Rc::new(RefCell::new(HashMap::new())),
             tab_group_manager: Rc::new(RefCell::new(TabGroupManager::new())),
@@ -282,8 +272,6 @@ impl TerminalNotebook {
         let session_widgets = self.session_widgets.clone();
         let session_info = self.session_info.clone();
         let tab_view = self.tab_view.clone();
-        let split_manager = self.split_manager.clone();
-        let session_tab_ids = self.session_tab_ids.clone();
         let split_session_colors_close = self.split_session_colors.clone();
         let on_page_closed = self.on_page_closed.clone();
         let on_split_cleanup = self.on_split_cleanup.clone();
@@ -337,11 +325,6 @@ impl TerminalNotebook {
                     callback(session_id, conn_id);
                 }
 
-                // Clean up split layout for this session's tab
-                // Requirement 3.4: Split_Container is destroyed when tab is closed
-                if let Some(tab_id) = session_tab_ids.borrow_mut().remove(&session_id) {
-                    split_manager.borrow_mut().remove(tab_id);
-                }
                 split_session_colors_close.borrow_mut().remove(&session_id);
 
                 // Clean up session data
@@ -490,7 +473,7 @@ impl TerminalNotebook {
     }
 
     /// Creates a new terminal tab for an SSH session with default settings
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -961,7 +944,7 @@ impl TerminalNotebook {
 
     /// Gets the session widget (VNC) for a session
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -980,7 +963,7 @@ impl TerminalNotebook {
 
     /// Gets the GTK widget for a session (for display in split view)
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -1006,7 +989,7 @@ impl TerminalNotebook {
 
     /// Gets the session state for a VNC session
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -1996,48 +1979,6 @@ impl TerminalNotebook {
         }
     }
 
-    /// Sets a color indicator on a tab using the new ColorId system.
-    ///
-    /// This method is used by the new split view system to show color indicators
-    /// on tabs that contain split containers.
-    ///
-    /// # Requirements
-    /// - 6.2: Tab header shows color indicator when tab contains Split_Container
-    ///
-    /// # Arguments
-    ///
-    /// * `session_id` - The session UUID
-    /// * `color_id` - The ColorId from the split layout model
-    #[allow(dead_code, reason = "Will be used in window integration tasks")]
-    pub fn set_tab_split_color_id(
-        &self,
-        session_id: Uuid,
-        color_id: rustconn_core::split::ColorId,
-    ) {
-        self.set_tab_split_color(session_id, color_id.index() as usize);
-    }
-
-    /// Updates the tab color indicator based on the session's split state.
-    ///
-    /// This method checks if the session's tab has a split layout and updates
-    /// the color indicator accordingly. If the tab is split, it shows the
-    /// assigned color; otherwise, it clears the indicator.
-    ///
-    /// # Requirements
-    /// - 6.2: Tab header shows color indicator when tab contains Split_Container
-    ///
-    /// # Arguments
-    ///
-    /// * `session_id` - The session UUID
-    #[allow(dead_code, reason = "Will be used in window integration tasks")]
-    pub fn update_tab_color_indicator(&self, session_id: Uuid) {
-        if let Some(color_index) = self.get_session_split_color(session_id) {
-            self.set_tab_split_color(session_id, color_index);
-        } else {
-            self.clear_tab_split_color(session_id);
-        }
-    }
-
     /// Removes the split color indicator from a tab
     pub fn clear_tab_split_color(&self, session_id: Uuid) {
         // Remove from split color tracking
@@ -2254,10 +2195,6 @@ impl TerminalNotebook {
 
     /// Gets all active sessions
     #[must_use]
-    #[allow(
-        dead_code,
-        reason = "kept alive for GTK widget lifecycle / future API exposure"
-    )]
     pub fn get_all_sessions(&self) -> Vec<TerminalSession> {
         self.session_info.borrow().values().cloned().collect()
     }
@@ -2377,13 +2314,6 @@ impl TerminalNotebook {
         &self.tab_view
     }
 
-    /// Returns the per-session tab containers map.
-    #[must_use]
-    #[allow(dead_code, reason = "Public API for Phase 2 split view integration")]
-    pub fn tab_containers(&self) -> &Rc<RefCell<HashMap<Uuid, TabPageContainer>>> {
-        &self.tab_containers
-    }
-
     /// Returns the global split session colors map (session_id → color_index).
     ///
     /// Used by split view popover to show color indicators for sessions
@@ -2451,7 +2381,7 @@ impl TerminalNotebook {
     /// Switches a session's tab page back to single-terminal mode.
     ///
     /// Removes the split widget and restores the single-terminal content.
-    #[allow(
+    #[expect(
         dead_code,
         reason = "Used when unsplitting restores single-terminal mode"
     )]
@@ -2500,7 +2430,7 @@ impl TerminalNotebook {
 
     /// Returns the number of open tabs
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -2510,10 +2440,6 @@ impl TerminalNotebook {
 
     /// Returns the number of active sessions (excluding Welcome tab)
     #[must_use]
-    #[allow(
-        dead_code,
-        reason = "kept alive for GTK widget lifecycle / future API exposure"
-    )]
     pub fn session_count(&self) -> usize {
         self.sessions.borrow().len()
     }
@@ -2669,7 +2595,7 @@ impl TerminalNotebook {
     }
 
     /// Hides TabView content area (legacy — kept for backward compatibility)
-    #[allow(dead_code, reason = "Legacy method, TabView now always visible")]
+    #[expect(dead_code, reason = "Legacy method, TabView now always visible")]
     pub fn hide_tab_view_content(&self) {
         self.tab_view.set_visible(false);
         self.tab_view.set_vexpand(false);
@@ -2677,103 +2603,12 @@ impl TerminalNotebook {
 
     /// Returns whether the TabView content is currently visible
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
     pub fn is_tab_view_content_visible(&self) -> bool {
         self.tab_view.is_visible()
-    }
-
-    // ========================================================================
-    // Split Layout Management
-    // ========================================================================
-
-    /// Returns a reference to the split manager.
-    ///
-    /// The split manager handles tab-scoped split layouts, allowing each tab
-    /// to have its own independent panel configuration.
-    ///
-    /// # Requirements
-    /// - 3.1: Each Root_Tab maintains its own Split_Container
-    #[must_use]
-    #[allow(dead_code, reason = "Will be used in window integration tasks")]
-    pub fn split_manager(&self) -> Rc<RefCell<TabSplitManager>> {
-        Rc::clone(&self.split_manager)
-    }
-
-    /// Gets or creates a TabId for a session.
-    ///
-    /// This associates a session with a TabId for split layout tracking.
-    /// If the session doesn't have a TabId yet, one is created.
-    ///
-    /// # Arguments
-    ///
-    /// * `session_id` - The session UUID
-    ///
-    /// # Returns
-    ///
-    /// The TabId associated with this session
-    #[allow(dead_code, reason = "Will be used in window integration tasks")]
-    pub fn get_or_create_tab_id(&self, session_id: Uuid) -> TabId {
-        let mut tab_ids = self.session_tab_ids.borrow_mut();
-        *tab_ids.entry(session_id).or_default()
-    }
-
-    /// Gets the TabId for a session if it exists.
-    ///
-    /// # Arguments
-    ///
-    /// * `session_id` - The session UUID
-    ///
-    /// # Returns
-    ///
-    /// The TabId if the session has one, None otherwise
-    #[must_use]
-    #[allow(dead_code, reason = "Will be used in window integration tasks")]
-    pub fn get_tab_id(&self, session_id: Uuid) -> Option<TabId> {
-        self.session_tab_ids.borrow().get(&session_id).copied()
-    }
-
-    /// Checks if a session's tab has a split layout.
-    ///
-    /// # Arguments
-    ///
-    /// * `session_id` - The session UUID
-    ///
-    /// # Returns
-    ///
-    /// `true` if the session's tab has splits, `false` otherwise
-    #[must_use]
-    #[allow(dead_code, reason = "Will be used in window integration tasks")]
-    pub fn is_session_split(&self, session_id: Uuid) -> bool {
-        if let Some(tab_id) = self.get_tab_id(session_id) {
-            self.split_manager.borrow().is_split(tab_id)
-        } else {
-            false
-        }
-    }
-
-    /// Gets the color for a session's split container.
-    ///
-    /// # Arguments
-    ///
-    /// * `session_id` - The session UUID
-    ///
-    /// # Returns
-    ///
-    /// The color index if the session has a split container with a color
-    #[must_use]
-    #[allow(dead_code, reason = "Will be used in window integration tasks")]
-    pub fn get_session_split_color(&self, session_id: Uuid) -> Option<usize> {
-        if let Some(tab_id) = self.get_tab_id(session_id) {
-            self.split_manager
-                .borrow()
-                .get_tab_color(tab_id)
-                .map(|c| c.index() as usize)
-        } else {
-            None
-        }
     }
 
     // ========================================================================
@@ -2784,7 +2619,7 @@ impl TerminalNotebook {
     ///
     /// The group is assigned a color from the palette. The tab indicator is
     /// updated to show the group color (unless a split color is active).
-    #[allow(dead_code, reason = "Public API for window-level tab group operations")]
+    #[expect(dead_code, reason = "Public API for window-level tab group operations")]
     pub fn set_tab_group(&self, session_id: Uuid, group_name: &str) {
         let color_index = self
             .tab_group_manager
@@ -2813,7 +2648,7 @@ impl TerminalNotebook {
     }
 
     /// Removes a session from its tab group.
-    #[allow(dead_code, reason = "Public API for window-level tab group operations")]
+    #[expect(dead_code, reason = "Public API for window-level tab group operations")]
     pub fn remove_tab_group(&self, session_id: Uuid) {
         if let Some(info) = self.session_info.borrow_mut().get_mut(&session_id) {
             info.tab_group = None;
@@ -2837,7 +2672,7 @@ impl TerminalNotebook {
 
     /// Returns the group name for a session, if any.
     #[must_use]
-    #[allow(dead_code, reason = "Public API for window-level tab group operations")]
+    #[expect(dead_code, reason = "Public API for window-level tab group operations")]
     pub fn get_tab_group(&self, session_id: Uuid) -> Option<String> {
         self.session_info
             .borrow()
@@ -2847,7 +2682,7 @@ impl TerminalNotebook {
 
     /// Returns all known group names from the tab group manager.
     #[must_use]
-    #[allow(dead_code, reason = "Public API for window-level tab group operations")]
+    #[expect(dead_code, reason = "Public API for window-level tab group operations")]
     pub fn known_group_names(&self) -> Vec<String> {
         self.tab_group_manager.borrow().group_names()
     }
@@ -3070,7 +2905,7 @@ impl TerminalNotebook {
     }
 
     /// Checks if a cluster has any active terminal sessions
-    #[allow(dead_code, reason = "Public API for future cluster status UI")]
+    #[expect(dead_code, reason = "Public API for future cluster status UI")]
     pub fn has_active_cluster_sessions(&self, cluster_id: Uuid) -> bool {
         self.cluster_sessions
             .borrow()

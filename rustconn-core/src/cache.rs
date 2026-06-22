@@ -243,7 +243,8 @@ mod tests {
     #[tokio::test]
     async fn test_cache_returns_value() {
         let call_count = Arc::new(AtomicU32::new(0));
-        let cache: Cached<Counter> = Cached::with_ttl(call_count.clone(), Duration::from_mins(1));
+        let cache: Cached<Counter> =
+            Cached::with_ttl(Arc::clone(&call_count), Duration::from_mins(1));
 
         let val = cache.get().await.unwrap();
         assert_eq!(val.value, 1);
@@ -254,7 +255,8 @@ mod tests {
     #[tokio::test]
     async fn test_cache_reuses_within_ttl() {
         let call_count = Arc::new(AtomicU32::new(0));
-        let cache: Cached<Counter> = Cached::with_ttl(call_count.clone(), Duration::from_mins(1));
+        let cache: Cached<Counter> =
+            Cached::with_ttl(Arc::clone(&call_count), Duration::from_mins(1));
 
         let val1 = cache.get().await.unwrap();
         assert_eq!(val1.value, 1);
@@ -274,7 +276,8 @@ mod tests {
     #[tokio::test]
     async fn test_cache_refreshes_after_ttl() {
         let call_count = Arc::new(AtomicU32::new(0));
-        let cache: Cached<Counter> = Cached::with_ttl(call_count.clone(), Duration::from_millis(1));
+        let cache: Cached<Counter> =
+            Cached::with_ttl(Arc::clone(&call_count), Duration::from_millis(1));
 
         let val1 = cache.get().await.unwrap();
         assert_eq!(val1.value, 1);
@@ -297,7 +300,8 @@ mod tests {
     #[tokio::test]
     async fn test_cache_invalidate() {
         let call_count = Arc::new(AtomicU32::new(0));
-        let cache: Cached<Counter> = Cached::with_ttl(call_count.clone(), Duration::from_mins(1));
+        let cache: Cached<Counter> =
+            Cached::with_ttl(Arc::clone(&call_count), Duration::from_mins(1));
 
         let val1 = cache.get().await.unwrap();
         assert_eq!(val1.value, 1);

@@ -577,7 +577,7 @@ mod resolution_chain_tests {
 
         let secret_manager = Arc::new(SecretManager::empty());
         let settings = SecretSettings::default();
-        let resolver = CredentialResolver::new(secret_manager.clone(), settings.clone());
+        let resolver = CredentialResolver::new(Arc::clone(&secret_manager), settings.clone());
 
         let result = rt.block_on(resolver.resolve(&connection_prompt));
         assert!(
@@ -600,7 +600,7 @@ mod resolution_chain_tests {
 
         let secret_manager = Arc::new(SecretManager::empty());
         let settings = SecretSettings::default();
-        let resolver = CredentialResolver::new(secret_manager.clone(), settings.clone());
+        let resolver = CredentialResolver::new(Arc::clone(&secret_manager), settings.clone());
 
         let result = rt.block_on(resolver.resolve(&connection_vault));
         // Vault without backend should return None (no credentials found)
@@ -699,7 +699,7 @@ mod resolution_chain_tests {
         settings.kdbx_enabled = false;
         settings.kdbx_path = Some(PathBuf::from("/path/to/db.kdbx"));
 
-        let resolver = CredentialResolver::new(secret_manager.clone(), settings);
+        let resolver = CredentialResolver::new(Arc::clone(&secret_manager), settings);
         assert!(
             !resolver.is_keepass_active(),
             "KeePass should not be active when disabled"
@@ -710,7 +710,7 @@ mod resolution_chain_tests {
         settings.kdbx_enabled = true;
         settings.kdbx_path = None;
 
-        let resolver = CredentialResolver::new(secret_manager.clone(), settings);
+        let resolver = CredentialResolver::new(Arc::clone(&secret_manager), settings);
         assert!(
             !resolver.is_keepass_active(),
             "KeePass should not be active without path"

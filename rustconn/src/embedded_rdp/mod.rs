@@ -163,10 +163,6 @@ fn with_callback<T>(cell: &RefCell<Option<T>>, f: impl FnOnce(&T)) {
 /// // Connect
 /// widget.connect(&config)?;
 /// ```
-#[allow(
-    dead_code,
-    reason = "Many fields kept for GTK widget lifecycle and signal handlers"
-)]
 pub struct EmbeddedRdpWidget {
     /// Main container widget
     container: GtkBox,
@@ -274,8 +270,7 @@ pub struct EmbeddedRdpWidget {
 /// `&'static str` constants that are passed to `i18n()` at runtime.
 /// xgettext cannot extract them from the loop, so we list them here as literals.
 /// This function is never called; it exists solely for `po/update-pot.sh`.
-#[allow(
-    dead_code,
+#[expect(
     unreachable_code,
     reason = "kept alive for GTK widget lifecycle / future API exposure"
 )]

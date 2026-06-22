@@ -596,10 +596,6 @@ pub use legacy::ShortcutsDialog;
 /// Marker function for xgettext to discover shortcut descriptions and categories.
 /// These strings are defined as static `&str` in the `SHORTCUTS` array and wrapped
 /// in `i18n()` when building the UI, but xgettext cannot trace this indirection.
-#[allow(
-    dead_code,
-    reason = "xgettext marker function; never called, only scanned for translatable string literals"
-)]
 fn _i18n_markers() {
     use crate::i18n::i18n;
     // Categories

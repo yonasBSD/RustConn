@@ -71,8 +71,6 @@ impl TerminalNotebook {
         let session_info = self.session_info.clone();
         let sessions = self.sessions.clone();
         let tab_group_manager = self.tab_group_manager.clone();
-        let _split_manager = self.split_manager.clone();
-        let _session_tab_ids = self.session_tab_ids.clone();
 
         set_group_action.connect_activate(move |_, _| {
             let target_page = context_page_set.borrow().clone();

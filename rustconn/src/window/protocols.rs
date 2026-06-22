@@ -849,10 +849,13 @@ pub fn reconnect_generic_vte_in_place(
             let cmd_msg = format_command_message(&command.join(" "));
             notebook.display_output(session_id, &format!("{conn_msg}\r\n{cmd_msg}\r\n\r\n"));
 
-            let spawn_cmd = command.join(" ");
-            let wrapped = rustconn_core::flatpak::wrap_host_command(&spawn_cmd);
-            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-            notebook.spawn_command(session_id, &[&shell, "-c", &wrapped], None, None, None);
+            // Spawn argv directly (no `sh -c`) so namespace/pod/container fields
+            // are never shell-interpreted. This prevents command injection from
+            // shell metachars in (possibly imported, untrusted) kubectl configs.
+            // kubectl runs in-sandbox under Flatpak (Flatpak Components), so the
+            // old flatpak-spawn wrapper is no longer needed — same as Mosh below.
+            let argv: Vec<&str> = command.iter().map(String::as_str).collect();
+            notebook.spawn_command(session_id, &argv, None, None, None);
         }
         rustconn_core::ProtocolConfig::Mosh(_) => {
             let mosh = MoshProtocol::new();
@@ -907,10 +910,6 @@ pub fn reconnect_generic_vte_in_place(
 /// Starts a Telnet connection
 ///
 /// Creates a terminal tab and spawns the telnet process.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-)]
 pub fn start_telnet_connection(
     state: &SharedAppState,
     notebook: &SharedNotebook,
@@ -990,10 +989,6 @@ pub fn start_telnet_connection(
 /// Internal function to start Telnet connection (after port check).
 ///
 /// Creates a terminal tab and spawns the telnet process.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-)]
 fn start_telnet_connection_internal(
     state: &SharedAppState,
     notebook: &SharedNotebook,
@@ -1154,10 +1149,6 @@ fn start_telnet_connection_internal(
 /// Starts a Zero Trust connection
 ///
 /// Creates a terminal tab and spawns the Zero Trust provider command.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-)]
 pub fn start_zerotrust_connection(
     state: &SharedAppState,
     notebook: &SharedNotebook,
@@ -1348,10 +1339,6 @@ pub fn start_zerotrust_connection(
 ///
 /// Creates a terminal tab and spawns picocom with the serial configuration.
 /// Shows user-friendly toasts when picocom is not found or device access fails.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-)]
 pub fn start_serial_connection(
     state: &SharedAppState,
     notebook: &SharedNotebook,
@@ -1508,10 +1495,6 @@ pub fn start_serial_connection(
 /// Creates a terminal tab and spawns `kubectl exec` or `kubectl run`
 /// with the Kubernetes configuration. Uses `Protocol::build_command()`
 /// from `KubernetesProtocol` to generate the command.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-)]
 pub fn start_kubernetes_connection(
     state: &SharedAppState,
     notebook: &SharedNotebook,
@@ -1658,16 +1641,12 @@ pub fn start_kubernetes_connection(
     let feedback = format!("{conn_msg}\r\n{cmd_msg}\r\n\r\n");
     notebook.display_output(session_id, &feedback);
 
-    // Spawn kubectl via shell
-    let spawn_command = rustconn_core::flatpak::wrap_host_command(&kubectl_command);
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-    notebook.spawn_command(
-        session_id,
-        &[&shell, "-c", &spawn_command],
-        None,
-        None,
-        None,
-    );
+    // Spawn argv directly (no `sh -c`) so namespace/pod/container fields are
+    // never shell-interpreted — prevents command injection from shell metachars
+    // in (possibly imported, untrusted) kubectl configs. kubectl runs in-sandbox
+    // under Flatpak (Flatpak Components), so no host wrapper is needed.
+    let argv: Vec<&str> = command.iter().map(String::as_str).collect();
+    notebook.spawn_command(session_id, &argv, None, None, None);
 
     // --- Auto-recording for Kubernetes ---
     if conn.session_recording_enabled {
@@ -1706,10 +1685,6 @@ pub fn start_kubernetes_connection(
 /// Creates a terminal tab and spawns the `mosh` process with SSH port,
 /// predict mode, server binary, and port range from `MoshConfig`.
 /// Uses `MoshProtocol::build_command()` to generate the argv.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-)]
 pub fn start_mosh_connection(
     state: &SharedAppState,
     notebook: &SharedNotebook,

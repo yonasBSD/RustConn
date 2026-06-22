@@ -27,7 +27,7 @@ pub struct SmartFoldersSidebar {
     /// The list box holding smart folder rows.
     list_box: ListBox,
     /// Header label (kept alive for updates).
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]

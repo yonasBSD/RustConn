@@ -175,10 +175,6 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
 }
 
 /// Creates the Authentication preferences group
-#[allow(
-    clippy::type_complexity,
-    reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-)]
 fn create_authentication_group() -> (
     adw::PreferencesGroup,
     DropDown,
@@ -433,10 +429,6 @@ fn connect_auth_method_visibility(
 }
 
 /// Creates the Connection preferences group
-#[allow(
-    clippy::type_complexity,
-    reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-)]
 fn create_connection_group() -> (
     adw::PreferencesGroup,
     DropDown,
@@ -524,10 +516,6 @@ fn create_connection_group() -> (
 }
 
 /// Creates the Session preferences group
-#[allow(
-    clippy::type_complexity,
-    reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-)]
 fn create_session_group() -> (
     adw::PreferencesGroup,
     CheckButton,

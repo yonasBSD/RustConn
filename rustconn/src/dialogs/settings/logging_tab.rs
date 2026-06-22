@@ -11,10 +11,6 @@ use crate::i18n::i18n;
 ///
 /// Returns the individual widgets for embedding into a collapsible expander
 /// on the Terminal page.
-#[allow(
-    clippy::type_complexity,
-    reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-)]
 pub fn create_logging_page() -> (
     adw::PreferencesPage,
     adw::SwitchRow,

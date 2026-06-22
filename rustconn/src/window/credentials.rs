@@ -531,10 +531,6 @@ impl MainWindow {
     }
 
     /// Handles RDP credential resolution and connection start
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-    )]
     fn handle_rdp_credentials(
         state: SharedAppState,
         notebook: SharedNotebook,
@@ -638,10 +634,6 @@ impl MainWindow {
     }
 
     /// Internal RDP credential handling (after port check)
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-    )]
     fn handle_rdp_credentials_internal(
         state: SharedAppState,
         notebook: SharedNotebook,

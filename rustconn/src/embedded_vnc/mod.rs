@@ -79,10 +79,6 @@ use std::sync::{Arc, Mutex as StdMutex};
 /// // Connect
 /// widget.connect(&config)?;
 /// ```
-#[allow(
-    dead_code,
-    reason = "Many fields kept for GTK widget lifecycle and signal handlers"
-)]
 pub struct EmbeddedVncWidget {
     /// Main container widget
     container: GtkBox,

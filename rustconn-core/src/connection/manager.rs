@@ -1221,19 +1221,13 @@ impl ConnectionManager {
             .map(|c| c.id)
             .collect();
 
-        // Sort by name (case-insensitive)
-        group_connections.sort_by(|a, b| {
-            let name_a = self
-                .connections
-                .get(a)
+        // Sort by name (case-insensitive). sort_by_cached_key computes each
+        // lowercase key once instead of on every comparator call.
+        group_connections.sort_by_cached_key(|id| {
+            self.connections
+                .get(id)
                 .map(|c| c.name.to_lowercase())
-                .unwrap_or_default();
-            let name_b = self
-                .connections
-                .get(b)
-                .map(|c| c.name.to_lowercase())
-                .unwrap_or_default();
-            name_a.cmp(&name_b)
+                .unwrap_or_default()
         });
 
         // Update sort_order for each connection

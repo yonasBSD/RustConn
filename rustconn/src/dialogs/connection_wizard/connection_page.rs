@@ -15,7 +15,7 @@ use std::rc::Rc;
 use uuid::Uuid;
 
 /// Connection details page — Step 2 of the wizard
-#[allow(dead_code, reason = "Fields kept for GTK widget lifecycle")]
+#[expect(dead_code, reason = "Fields kept for GTK widget lifecycle")]
 pub struct ConnectionPage {
     pub page: adw::NavigationPage,
     state: SharedAppState,

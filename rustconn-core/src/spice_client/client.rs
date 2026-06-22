@@ -170,8 +170,8 @@ impl SpiceClient {
         self.command_tx = Some(command_tx);
 
         let config = self.config.clone();
-        let connected = self.connected.clone();
-        let shutdown_signal = self.shutdown_signal.clone();
+        let connected = Arc::clone(&self.connected);
+        let shutdown_signal = Arc::clone(&self.shutdown_signal);
 
         self.connected.store(true, Ordering::SeqCst);
 

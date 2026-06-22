@@ -17,10 +17,6 @@ use std::rc::Rc;
 use uuid::Uuid;
 
 /// Creates a terminal tab and spawns the SSH process with the given configuration.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-)]
 pub fn start_ssh_connection(
     state: &SharedAppState,
     notebook: &SharedNotebook,
@@ -130,10 +126,6 @@ pub fn start_ssh_connection(
 /// Internal function to start SSH connection (after port check).
 ///
 /// Creates a terminal tab and spawns the SSH process with the given configuration.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-)]
 fn start_ssh_connection_internal(
     state: &SharedAppState,
     notebook: &SharedNotebook,
@@ -771,10 +763,6 @@ fn start_ssh_connection_internal(
 }
 
 /// Returns `true` if reconnect was initiated, `false` if the tab no longer exists.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-)]
 pub fn reconnect_ssh_in_place(
     state: &SharedAppState,
     notebook: &SharedNotebook,

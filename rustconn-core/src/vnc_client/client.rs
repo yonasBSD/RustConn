@@ -72,7 +72,7 @@ impl VncClient {
         self.command_tx = Some(command_tx);
 
         let config = self.config.clone();
-        let connected = self.connected.clone();
+        let connected = Arc::clone(&self.connected);
 
         self.connected.store(true, Ordering::SeqCst);
 
@@ -247,6 +247,12 @@ async fn run_vnc_client(
         .map_err(|e| VncClientError::ConnectionFailed(e.to_string()))?;
 
     // Build the VNC connector
+    //
+    // The vnc connector's auth setter consumes an owned plain `String`; the
+    // copy's lifetime (and zeroization) is owned by the connector, so wrapping
+    // the intermediate in `Zeroizing` would not protect the stored copy — same
+    // rationale as the SPICE client. Re-check on vnc crate bumps for a
+    // secrecy-aware setter.
     let password = config
         .password
         .as_ref()

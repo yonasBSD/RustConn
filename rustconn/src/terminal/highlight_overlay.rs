@@ -53,22 +53,6 @@ pub struct HighlightOverlay {
     drawing_area: DrawingArea,
 }
 
-/// Parses a CSS hex color string (`#RRGGBB`) into `(r, g, b)` floats in 0.0–1.0.
-fn parse_hex_color(hex: &str) -> Option<(f64, f64, f64)> {
-    let hex = hex.strip_prefix('#')?;
-    if hex.len() != 6 {
-        return None;
-    }
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-    Some((
-        f64::from(r) / 255.0,
-        f64::from(g) / 255.0,
-        f64::from(b) / 255.0,
-    ))
-}
-
 impl HighlightOverlay {
     /// Creates a new highlight overlay and attaches it to the given `Overlay` widget.
     ///
@@ -172,16 +156,16 @@ impl HighlightOverlay {
                     let y = visible_row as f64 * cell_h;
 
                     for m in &matches {
-                        // Convert byte offsets to column positions
+                        // Convert byte offsets to column positions. col_end is
+                        // computed as a delta from col_start so we scan each
+                        // line slice once instead of twice from the start.
                         let col_start = line[..m.start].chars().count();
-                        let col_end = line[..m.end].chars().count();
+                        let col_end = col_start + line[m.start..m.end].chars().count();
                         let x = col_start as f64 * cell_w;
                         let w = (col_end - col_start) as f64 * cell_w;
 
-                        // Draw background highlight rectangle
-                        if let Some(ref bg) = m.background_color
-                            && let Some((r, g, b)) = parse_hex_color(bg)
-                        {
+                        // Draw background highlight rectangle (colour pre-parsed)
+                        if let Some((r, g, b)) = m.background_rgb {
                             cr.set_source_rgba(r, g, b, 0.35);
                             cr.rectangle(x, y, w, cell_h);
                             if cr.fill().is_err() {
@@ -190,9 +174,7 @@ impl HighlightOverlay {
                         }
 
                         // Draw foreground colored underline (2px thick)
-                        if let Some(ref fg) = m.foreground_color
-                            && let Some((r, g, b)) = parse_hex_color(fg)
-                        {
+                        if let Some((r, g, b)) = m.foreground_rgb {
                             cr.set_source_rgba(r, g, b, 0.9);
                             cr.set_line_width(2.0);
                             cr.move_to(x, y + cell_h - 1.0);
@@ -257,7 +239,7 @@ impl HighlightOverlay {
 
     /// Returns the underlying `DrawingArea` widget.
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -266,52 +248,11 @@ impl HighlightOverlay {
     }
 
     /// Triggers a manual redraw of the overlay.
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
     pub fn queue_redraw(&self) {
         self.drawing_area.queue_draw();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_hex_color_valid_colors() {
-        assert_eq!(parse_hex_color("#FF0000"), Some((1.0, 0.0, 0.0)));
-        assert_eq!(parse_hex_color("#00FF00"), Some((0.0, 1.0, 0.0)));
-        assert_eq!(parse_hex_color("#0000FF"), Some((0.0, 0.0, 1.0)));
-        assert_eq!(parse_hex_color("#000000"), Some((0.0, 0.0, 0.0)));
-        assert_eq!(parse_hex_color("#FFFFFF"), Some((1.0, 1.0, 1.0)));
-    }
-
-    #[test]
-    fn parse_hex_color_mixed_case() {
-        let (r, g, b) = parse_hex_color("#aaBBcc").unwrap();
-        let expected_r = f64::from(0xAA) / 255.0;
-        let expected_g = f64::from(0xBB) / 255.0;
-        let expected_b = f64::from(0xCC) / 255.0;
-        assert!((r - expected_r).abs() < f64::EPSILON);
-        assert!((g - expected_g).abs() < f64::EPSILON);
-        assert!((b - expected_b).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn parse_hex_color_invalid_inputs() {
-        // Missing hash
-        assert_eq!(parse_hex_color("FF0000"), None);
-        // Too short
-        assert_eq!(parse_hex_color("#FFF"), None);
-        // Too long
-        assert_eq!(parse_hex_color("#FF000000"), None);
-        // Invalid hex chars
-        assert_eq!(parse_hex_color("#GGHHII"), None);
-        // Empty
-        assert_eq!(parse_hex_color(""), None);
-        // Only hash
-        assert_eq!(parse_hex_color("#"), None);
     }
 }

@@ -189,6 +189,23 @@ pub fn create_header_bar() -> (
     passthrough_indicator.set_visible(false);
     header_bar.pack_end(&passthrough_indicator);
 
+    // GNOME HIG (Pointer & Touch): icon-only buttons must meet the 44×44px
+    // minimum tap target. Buttons with a text label (Shell, Broadcast,
+    // Passthrough) already exceed it via their content.
+    for icon_button in [
+        &sidebar_toggle,
+        &quick_connect_button,
+        &add_button,
+        &remove_button,
+        &add_group_button,
+        &settings_button,
+        &split_vertical_button,
+        &split_horizontal_button,
+    ] {
+        icon_button.set_size_request(44, 44);
+    }
+    menu_button.set_size_request(44, 44);
+
     (
         header_bar,
         busy_spinner,

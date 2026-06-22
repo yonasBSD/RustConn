@@ -12,20 +12,50 @@ use uuid::Uuid;
 use crate::models::HighlightRule;
 
 // ---------------------------------------------------------------------------
+// Rgb / colour parsing
+// ---------------------------------------------------------------------------
+
+/// Pre-parsed RGB colour with each channel in the `0.0..=1.0` range, ready to
+/// pass straight to cairo without re-parsing on every repaint.
+pub type Rgb = (f64, f64, f64);
+
+/// Parses a CSS hex colour string (`#RRGGBB`) into [`Rgb`] floats in `0.0..=1.0`.
+///
+/// Returns `None` when the input is not a `#` followed by exactly six hex digits.
+#[must_use]
+pub fn parse_hex_color(hex: &str) -> Option<Rgb> {
+    let hex = hex.strip_prefix('#')?;
+    if hex.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+    Some((
+        f64::from(r) / 255.0,
+        f64::from(g) / 255.0,
+        f64::from(b) / 255.0,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // HighlightMatch
 // ---------------------------------------------------------------------------
 
 /// A single highlighted region within a line of text.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Colours are pre-parsed into [`Rgb`] at compile time, so the value is `Copy`
+/// and `find_matches` does not allocate on the hot repaint path.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HighlightMatch {
     /// Byte offset of the match start within the line.
     pub start: usize,
     /// Byte offset of the match end (exclusive) within the line.
     pub end: usize,
-    /// Optional foreground (text) colour in CSS hex format (`#RRGGBB`).
-    pub foreground_color: Option<String>,
-    /// Optional background colour in CSS hex format (`#RRGGBB`).
-    pub background_color: Option<String>,
+    /// Optional pre-parsed foreground (text) colour.
+    pub foreground_rgb: Option<Rgb>,
+    /// Optional pre-parsed background colour.
+    pub background_rgb: Option<Rgb>,
 }
 
 // ---------------------------------------------------------------------------
@@ -37,8 +67,8 @@ struct CompiledRule {
     regex: Regex,
     name: String,
     pattern: String,
-    foreground_color: Option<String>,
-    background_color: Option<String>,
+    foreground_rgb: Option<Rgb>,
+    background_rgb: Option<Rgb>,
 }
 
 // ---------------------------------------------------------------------------
@@ -102,8 +132,9 @@ impl CompiledHighlightRules {
                         regex,
                         name: rule.name.clone(),
                         pattern: rule.pattern.clone(),
-                        foreground_color: rule.foreground_color.clone(),
-                        background_color: rule.background_color.clone(),
+                        // Parse colours once at compile time, not on every repaint.
+                        foreground_rgb: rule.foreground_color.as_deref().and_then(parse_hex_color),
+                        background_rgb: rule.background_color.as_deref().and_then(parse_hex_color),
                     });
                 }
                 Err(e) => {
@@ -142,8 +173,8 @@ impl CompiledHighlightRules {
                 matches.push(HighlightMatch {
                     start: m.start(),
                     end: m.end(),
-                    foreground_color: rule.foreground_color.clone(),
-                    background_color: rule.background_color.clone(),
+                    foreground_rgb: rule.foreground_rgb,
+                    background_rgb: rule.background_rgb,
                 });
             }
         }
@@ -151,7 +182,7 @@ impl CompiledHighlightRules {
         matches
     }
 
-    /// Returns the source pattern strings, names, and colors of all compiled rules.
+    /// Returns the source pattern strings and names of all compiled rules.
     ///
     /// Useful for registering patterns with external regex engines (e.g. VTE
     /// PCRE2) that cannot reuse the Rust [`Regex`] objects directly.
@@ -162,24 +193,18 @@ impl CompiledHighlightRules {
             .map(|r| SourcePattern {
                 name: &r.name,
                 pattern: &r.pattern,
-                foreground_color: r.foreground_color.as_deref(),
-                background_color: r.background_color.as_deref(),
             })
             .collect()
     }
 }
 
-/// A borrowed view of a compiled rule's name, regex pattern, and colors.
+/// A borrowed view of a compiled rule's name and regex pattern.
 #[derive(Debug)]
 pub struct SourcePattern<'a> {
     /// Human-readable rule name.
     pub name: &'a str,
     /// The regex pattern string.
     pub pattern: &'a str,
-    /// Optional foreground color in CSS hex format (`#RRGGBB`).
-    pub foreground_color: Option<&'a str>,
-    /// Optional background color in CSS hex format (`#RRGGBB`).
-    pub background_color: Option<&'a str>,
 }
 
 // ---------------------------------------------------------------------------
@@ -247,4 +272,43 @@ pub fn builtin_defaults() -> Vec<HighlightRule> {
             enabled: true,
         },
     ]
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::parse_hex_color;
+
+    #[test]
+    fn parse_hex_color_valid_colors() {
+        assert_eq!(parse_hex_color("#FF0000"), Some((1.0, 0.0, 0.0)));
+        assert_eq!(parse_hex_color("#00FF00"), Some((0.0, 1.0, 0.0)));
+        assert_eq!(parse_hex_color("#0000FF"), Some((0.0, 0.0, 1.0)));
+        assert_eq!(parse_hex_color("#000000"), Some((0.0, 0.0, 0.0)));
+        assert_eq!(parse_hex_color("#FFFFFF"), Some((1.0, 1.0, 1.0)));
+    }
+
+    #[test]
+    fn parse_hex_color_mixed_case() {
+        let (r, g, b) = parse_hex_color("#aaBBcc").unwrap();
+        let expected_r = f64::from(0xAA) / 255.0;
+        let expected_g = f64::from(0xBB) / 255.0;
+        let expected_b = f64::from(0xCC) / 255.0;
+        assert!((r - expected_r).abs() < f64::EPSILON);
+        assert!((g - expected_g).abs() < f64::EPSILON);
+        assert!((b - expected_b).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn parse_hex_color_invalid_inputs() {
+        assert_eq!(parse_hex_color("FF0000"), None); // missing hash
+        assert_eq!(parse_hex_color("#FFF"), None); // too short
+        assert_eq!(parse_hex_color("#FF000000"), None); // too long
+        assert_eq!(parse_hex_color("#GGHHII"), None); // invalid hex chars
+        assert_eq!(parse_hex_color(""), None); // empty
+        assert_eq!(parse_hex_color("#"), None); // only hash
+    }
 }

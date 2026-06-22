@@ -8,7 +8,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.16.13"
+version = "0.17.0"
 edition = "2024"
 authors = ["Anton Isaiev <totoshko88@gmail.com>"]
 license = "GPL-3.0-or-later"
@@ -16,7 +16,20 @@ rust-version = "1.95"
 
 [workspace.dependencies]
 # Async runtime
-tokio = { version = "1.50", features = ["full"] }
+# Precise feature set (was "full"): the union of what the workspace actually
+# uses. Cargo unifies tokio features across all crates, so listing the real
+# set here drops unused features (test-util, io-std, signal, parking_lot, …)
+# and trims tokio's own compile. Verify with `cargo build` after changing.
+tokio = { version = "1.50", features = [
+    "rt-multi-thread", # Runtime::new() in GUI/CLI + tokio::spawn workers in core
+    "macros",          # tokio::select! in the debounce worker
+    "net",             # TcpStream / lookup_host (host & port checks)
+    "time",            # tokio::time::timeout across vault ops
+    "sync",            # mpsc / watch channels in managers
+    "fs",              # async config writes + CLI-download installs
+    "process",         # tokio::process::Command (CLI downloads, secret backends)
+    "io-util",         # AsyncWriteExt / AsyncReadExt
+] }
 futures = "0.3"
 
 # Serialization
@@ -117,5 +130,6 @@ assigning_clones = "allow"
 # / #[expect] override to carry a `reason = "..."` so future readers
 # understand why the lint is suppressed.
 allow_attributes_without_reason = "warn"
+clone_on_ref_ptr = "warn"   # catches .clone() on Rc/Arc — prefer Rc::clone(&x)
 
 

@@ -21,7 +21,6 @@ const TIMESTAMP_FORMATS: [&str; 5] = [
 ];
 
 /// Logging tab widget group
-#[allow(dead_code, reason = "Fields kept for GTK widget lifecycle")]
 pub struct LoggingTab {
     pub enabled_switch: adw::SwitchRow,
     pub path_entry: Entry,

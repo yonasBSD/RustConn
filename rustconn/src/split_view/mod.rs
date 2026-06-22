@@ -18,7 +18,6 @@
 //! - `adapter` - `SplitViewAdapter` bridging core models to GTK widgets
 //! - `types` - GUI-specific types (`DropSource`, `ConnectionId`)
 //! - `bridge` - `SplitViewBridge` providing legacy-compatible API over new system
-//! - `manager` - `TabSplitManager` for tab-scoped layouts
 //!
 //! # Example
 //!
@@ -43,7 +42,6 @@
 
 mod adapter;
 mod bridge;
-mod manager;
 pub mod types;
 
 // Re-export the new adapter
@@ -56,8 +54,35 @@ pub use bridge::{
     get_split_indicator_class, get_tab_color_class,
 };
 
-// Re-export the tab split manager
-pub use manager::TabSplitManager;
-
 // Re-export GUI-specific types
 pub use types::{ConnectionId, DropOutcome, DropSource, EvictionAction, SourceCleanup};
+
+use gtk4::prelude::*;
+use rustconn_core::models::WorkspaceSplitLayout;
+
+/// Restores a saved workspace split layout onto the active window.
+///
+/// `WorkspaceSplitLayout` captures a single split (direction only), so this reuses
+/// the working per-session split machinery by activating the window's `split-*`
+/// action instead of duplicating the bridge/adapter wiring. The split is deferred
+/// to the next main-loop iteration so freshly-opened session tabs are registered
+/// before the active session is split.
+///
+/// ponytail: restores split direction only, not `split_ratio` (panes open 50/50);
+/// upgrade path: expose a ratio setter on `SplitViewBridge` and apply it post-split.
+pub fn apply_layout(window: &gtk4::Window, layout: &WorkspaceSplitLayout) {
+    if !layout.is_split {
+        return;
+    }
+    let action = if layout.horizontal {
+        "win.split-horizontal"
+    } else {
+        "win.split-vertical"
+    };
+    let window_weak = window.downgrade();
+    gtk4::glib::idle_add_local_once(move || {
+        if let Some(win) = window_weak.upgrade() {
+            let _ = WidgetExt::activate_action(&win, action, None);
+        }
+    });
+}

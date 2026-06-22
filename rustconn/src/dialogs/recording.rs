@@ -25,7 +25,7 @@ use std::rc::Rc;
 // ---------------------------------------------------------------------------
 
 /// A single row in the recordings list.
-#[allow(dead_code, reason = "Fields kept for GTK widget lifecycle")]
+#[expect(dead_code, reason = "Fields kept for GTK widget lifecycle")]
 struct RecordingListRow {
     row: ListBoxRow,
     data_path: PathBuf,
@@ -555,10 +555,6 @@ impl RecordingsDialog {
     // -----------------------------------------------------------------------
 
     /// Shows a confirmation dialog and deletes the recording from disk.
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "function parameters mirror upstream API or struct fields 1:1; bundling into a struct only restates the field list"
-    )]
     fn handle_delete(
         dlg: &adw::Dialog,
         data_path: &std::path::Path,

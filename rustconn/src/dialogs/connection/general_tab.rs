@@ -16,7 +16,7 @@ use gtk4::{
 use libadwaita as adw;
 
 /// Widgets created by the General tab, replacing the previous 30-element tuple.
-#[allow(
+#[expect(
     dead_code,
     reason = "kept alive for GTK widget lifecycle / future API exposure"
 )]

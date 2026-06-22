@@ -92,7 +92,7 @@ fn acquire_busy_guard() -> Option<rustconn_core::BusyGuard> {
 /// Main application window wrapper
 ///
 /// Provides access to the main window and its components.
-#[allow(
+#[expect(
     dead_code,
     reason = "Fields kept for GTK widget lifecycle and future use"
 )]
@@ -1215,7 +1215,7 @@ impl MainWindow {
     }
 
     /// Public method to refresh KeePass button status (called after settings change)
-    #[allow(
+    #[expect(
         dead_code,
         reason = "Part of KeePass integration API, called from settings dialog"
     )]
@@ -2596,7 +2596,7 @@ impl MainWindow {
     ///
     /// Note: Part of public API for accessing sidebar from external code.
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -2793,7 +2793,7 @@ impl MainWindow {
     ///
     /// Note: Part of public API for accessing notebook from external code.
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -2861,7 +2861,7 @@ impl MainWindow {
     /// Saves the current expanded groups state to settings
     ///
     /// Note: Part of tree state persistence API.
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]

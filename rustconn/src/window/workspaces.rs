@@ -39,23 +39,21 @@ pub fn show_workspace_manager(
         }
     });
 
-    // Open callback: connect all entries in the workspace
-    // ponytail: split_layout is saved but not restored on Open — only entries are reconnected;
-    // upgrade path: read ws.split_layout and call split_view::apply_layout() after connecting
+    // Open callback: connect all entries in the workspace, then restore the
+    // saved split layout (if any) via the active window's split machinery.
     let state_for_open = state.clone();
     let notebook_for_open = notebook.clone();
     let sidebar_for_open = sidebar.clone();
     let monitoring_for_open = monitoring.clone();
+    let window_for_open = window.downgrade();
     dialog.set_on_open(move |workspace_id| {
-        let entries = if let Ok(state_ref) = state_for_open.try_borrow() {
-            state_ref
-                .get_workspace_profile(workspace_id)
-                .map(|ws| ws.entries.clone())
+        let profile = if let Ok(state_ref) = state_for_open.try_borrow() {
+            state_ref.get_workspace_profile(workspace_id).cloned()
         } else {
             None
         };
-        if let Some(entries) = entries {
-            for entry in &entries {
+        if let Some(profile) = profile {
+            for entry in &profile.entries {
                 let _ = super::MainWindow::start_connection(
                     &state_for_open,
                     &notebook_for_open,
@@ -63,6 +61,9 @@ pub fn show_workspace_manager(
                     &monitoring_for_open,
                     entry.connection_id,
                 );
+            }
+            if let Some(win) = window_for_open.upgrade() {
+                crate::split_view::apply_layout(&win, &profile.split_layout);
             }
         }
     });

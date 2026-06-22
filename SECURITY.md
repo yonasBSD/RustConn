@@ -2,42 +2,61 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in RustConn, please report it responsibly.
+Please report security issues privately via GitHub Security Advisories
+(<https://github.com/totoshko88/RustConn/security/advisories/new>) rather than
+in public issues. We aim to acknowledge reports within a few days.
 
-**Do NOT open a public GitHub issue for security vulnerabilities.**
+## Credential Storage — Threat Model
 
-Instead, please email: **totoshko88@gmail.com**
+RustConn supports several backends for storing connection credentials. They
+differ in the level of protection they provide; choose the one that matches
+your threat model.
 
-Include:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Any suggested fixes (optional)
+### Recommended: keyring / vault backends
 
-## Response Timeline
+For real secrets, use one of the integrated secret backends:
 
-- **Acknowledgment**: Within 48 hours
-- **Initial assessment**: Within 7 days
-- **Fix timeline**: Depends on severity, typically 30-90 days
+- **System keyring** (libsecret / GNOME Keyring / KWallet via `secret-tool`)
+- **Vault managers**: Bitwarden, KeePassXC, 1Password, Passbolt
 
-## Scope
+These keep secrets encrypted at rest under a key that is **not** stored next to
+the data, and (for the system keyring) unlocked together with your login
+session. This is the appropriate choice when defending against an attacker who
+can read your files.
 
-Security issues in the following areas are in scope:
-- Credential handling and storage
-- Network communication security
-- Local file access vulnerabilities
-- Authentication bypass
-- Remote code execution
+### Machine-key encryption — obfuscation at rest, not strong protection
 
-## Out of Scope
+When no vault/keyring backend is configured, the `*_encrypted` fields in the
+configuration are encrypted with AES-256-GCM using a **machine key** stored at
+`~/.local/share/rustconn/.machine-key` (file mode `0600`).
 
-- Issues requiring physical access to the machine
-- Social engineering attacks
-- Denial of service attacks
-- Issues in third-party dependencies (report to upstream)
+**What this protects against:** casual disk inspection, shoulder-surfing the
+plaintext config, and secrets leaking into backups or synced dotfiles.
 
-## Recognition
+**What this does NOT protect against:** an attacker who can read files as the
+**same user** — the decryption key sits next to the data by design, so anyone
+with read access to your home directory can decrypt these fields. Treat
+machine-key encryption as **obfuscation at rest**, not as a security boundary.
 
-Contributors who report valid security issues will be acknowledged in the release notes (unless they prefer to remain anonymous).
+> If you store sensitive credentials, use a keyring or vault backend instead of
+> relying on machine-key encryption.
 
-Thank you for helping keep RustConn secure!
+## Known Issues
+
+### Passbolt: passphrase passed as a command-line argument
+
+The Passbolt backend shells out to the community `go-passbolt-cli` tool, which
+currently accepts the GPG passphrase only via the `--userPassword` argument
+(no stdin or environment-variable input). While the command runs, the
+passphrase is therefore visible in `/proc/<pid>/cmdline` to other processes
+running under the **same user**.
+
+- **Scope:** only during the short-lived `go-passbolt-cli` invocation, and only
+  to processes of the same UID. The passphrase is never written to logs or to
+  disk by RustConn.
+- **Upstream limitation:** this is a constraint of `go-passbolt-cli`, not of
+  RustConn. We will switch to environment-variable or stdin input (as already
+  done for SSH `ASKPASS`) once upstream supports it.
+- **Mitigation:** on a multi-user host, prefer the system keyring or another
+  vault backend for Passbolt-stored secrets, or avoid running untrusted
+  processes under the same user account while connecting.

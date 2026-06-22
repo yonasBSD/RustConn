@@ -245,11 +245,11 @@ pub async fn establish_connection(
         // Wrap in catch_unwind: IronRDP may panic on unexpected server
         // responses in edge cases. Convert the panic into an error
         // so the GUI can fall back to FreeRDP instead of crashing.
-        // TODO(0.17): re-evaluate on the next ironrdp bump (>0.16). As of
-        // 0.16.0 upstream has not confirmed that panics on malformed PDUs are
-        // gone (connect_finalize issues still reported, e.g.
-        // https://github.com/Devolutions/IronRDP/issues/1016), so the wrapper
-        // stays. Remove only when upstream confirms no more panics.
+        // TODO(0.18): re-evaluate on the next ironrdp bump (>0.16). Checked for
+        // 0.17.0: 0.16.0 is still the latest published release (no >0.16 bump
+        // happened), and connect_finalize panic reports remain open upstream
+        // (e.g. https://github.com/Devolutions/IronRDP/issues/1016), so the
+        // wrapper stays. Remove only when upstream confirms no more panics.
         let finalize_future = AssertUnwindSafe(ironrdp_tokio::connect_finalize(
             upgraded,
             connector,

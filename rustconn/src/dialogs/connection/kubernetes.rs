@@ -24,10 +24,6 @@ use crate::i18n::i18n;
 /// - Busybox toggle
 /// - Busybox image entry
 /// - Custom args entry
-#[allow(
-    clippy::type_complexity,
-    reason = "internal helper signature documents the exact tuple layout used by the caller; aliasing would obscure the data flow"
-)]
 pub type KubernetesOptionsWidgets = (
     GtkBox,
     Entry,

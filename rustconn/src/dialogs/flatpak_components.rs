@@ -37,7 +37,7 @@ pub struct FlatpakComponentsDialog {
     toast_overlay: adw::ToastOverlay,
     /// List of component rows for updating status
     /// Note: This field appears unused but is required to keep GTK widgets alive
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]

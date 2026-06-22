@@ -866,10 +866,6 @@ impl ConnectionDialog {
             let domain_btn_for_update = domain_load_button.clone();
             let update_buttons = Rc::new(move |selected_idx: u32| {
                 let sensitive = selected_idx > 0; // 0 is Root
-                #[allow(
-                    clippy::cast_possible_truncation,
-                    reason = "value range fits the target type by construction in this code path"
-                )]
                 {
                     user_btn_for_update.set_sensitive(sensitive);
                     domain_btn_for_update.set_sensitive(sensitive);

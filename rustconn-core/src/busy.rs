@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn test_single_guard() {
         let is_busy = Arc::new(AtomicBool::new(false));
-        let is_busy_clone = is_busy.clone();
+        let is_busy_clone = Arc::clone(&is_busy);
 
         let stack = BusyStack::new(move |busy| {
             is_busy_clone.store(busy, Ordering::SeqCst);
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn test_nested_guards() {
         let change_count = Arc::new(AtomicUsize::new(0));
-        let change_count_clone = change_count.clone();
+        let change_count_clone = Arc::clone(&change_count);
 
         let stack = BusyStack::new(move |_busy| {
             change_count_clone.fetch_add(1, Ordering::SeqCst);
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn test_guard_drop_order_independent() {
         let is_busy = Arc::new(AtomicBool::new(false));
-        let is_busy_clone = is_busy.clone();
+        let is_busy_clone = Arc::clone(&is_busy);
 
         let stack = BusyStack::new(move |busy| {
             is_busy_clone.store(busy, Ordering::SeqCst);

@@ -216,7 +216,7 @@ pub fn show_new_connection_dialog_internal(
 ///
 /// Similar to `show_new_connection_dialog_internal` but uses `set_connection` directly
 /// instead of applying a template.
-#[allow(
+#[expect(
     clippy::too_many_lines,
     reason = "long match/dispatch over many enum variants; splitting per variant only relocates the boilerplate"
 )]

@@ -75,10 +75,6 @@ pub fn show_new_snippet_dialog(
 }
 
 /// Shows the snippets manager dialog
-#[allow(
-    clippy::too_many_lines,
-    reason = "long match/dispatch over many enum variants; splitting per variant only relocates the boilerplate"
-)]
 pub fn show_snippets_manager(
     window: &gtk4::Window,
     state: SharedAppState,

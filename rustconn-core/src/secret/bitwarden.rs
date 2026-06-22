@@ -269,6 +269,9 @@ struct BitwardenItemTemplate {
 #[derive(Debug, Serialize)]
 struct BitwardenLoginTemplate {
     username: Option<String>,
+    // Plain String: serde `Serialize` cannot derive over `Zeroizing`/`SecretString`.
+    // The plaintext lifetime is bounded — the serialized JSON is wrapped in
+    // `Zeroizing` at the call site and the template is dropped right after.
     password: Option<String>,
     uris: Vec<BitwardenUri>,
 }
@@ -293,7 +296,7 @@ struct BitwardenFolder {
 pub struct BitwardenStatus {
     status: String,
     #[serde(rename = "userEmail")]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "Deserialized from `bw status` JSON but not used directly"
     )]
@@ -651,8 +654,12 @@ impl SecretBackend for BitwardenBackend {
                 folder_id,
             };
 
-            let json = serde_json::to_string(&item_template)
-                .map_err(|e| SecretError::StoreFailed(format!("Failed to serialize: {e}")))?;
+            // Wrap the serialized item in Zeroizing: the JSON buffer holds the
+            // plaintext password and is wiped on drop instead of lingering.
+            let json = zeroize::Zeroizing::new(
+                serde_json::to_string(&item_template)
+                    .map_err(|e| SecretError::StoreFailed(format!("Failed to serialize: {e}")))?,
+            );
             let encoded = base64_encode(json.as_bytes());
 
             let edit_result = self
@@ -695,8 +702,12 @@ impl SecretBackend for BitwardenBackend {
                 folder_id,
             };
 
-            let json = serde_json::to_string(&item_template)
-                .map_err(|e| SecretError::StoreFailed(format!("Failed to serialize: {e}")))?;
+            // Wrap the serialized item in Zeroizing: the JSON buffer holds the
+            // plaintext password and is wiped on drop instead of lingering.
+            let json = zeroize::Zeroizing::new(
+                serde_json::to_string(&item_template)
+                    .map_err(|e| SecretError::StoreFailed(format!("Failed to serialize: {e}")))?,
+            );
             let encoded = base64_encode(json.as_bytes());
 
             self.run_command(&["create", "item", &encoded]).await?;

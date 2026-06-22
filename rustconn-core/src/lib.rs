@@ -142,7 +142,9 @@ pub use flatpak::{
     copy_key_to_flatpak_ssh, get_flatpak_known_hosts_path, get_flatpak_ssh_dir, is_flatpak,
     is_portal_path, resolve_key_path,
 };
-pub use highlight::{CompiledHighlightRules, HighlightMatch, builtin_defaults};
+pub use highlight::{
+    CompiledHighlightRules, HighlightMatch, Rgb, builtin_defaults, parse_hex_color,
+};
 // Deprecated flatpak-spawn functions (host_command, host_exec, host_has_command,
 // host_spawn, host_which) are no longer re-exported since Flathub policy change in v0.7.7.
 pub use import::{

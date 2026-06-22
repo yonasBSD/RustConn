@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-22 15:35+0300\n"
+"POT-Creation-Date: 2026-06-22 19:02+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Swedish\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Generated-By: Babel 2.10.3\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
-#: rustconn/src/app.rs:1185 rustconn/src/toast.rs:246
+#: rustconn/src/app.rs:1172 rustconn/src/toast.rs:246
 msgid "OK"
 msgstr "OK"
 
@@ -37,15 +37,15 @@ msgstr "OK"
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:526
 #: rustconn/src/dialogs/tunnel.rs:489 rustconn/src/dialogs/variable_setup.rs:85
 #: rustconn/src/dialogs/workspace.rs:211
-#: rustconn/src/embedded_rdp/autotype.rs:206
-#: rustconn/src/terminal/tab_menu.rs:156 rustconn/src/terminal/tab_menu.rs:359
+#: rustconn/src/embedded_rdp/autotype.rs:160
+#: rustconn/src/terminal/tab_menu.rs:154 rustconn/src/terminal/tab_menu.rs:357
 #: rustconn/src/window/batch_edit.rs:62
 #: rustconn/src/window/connection_dialogs.rs:1027
 #: rustconn/src/window/edit_group.rs:1752
 #: rustconn/src/window/edit_group.rs:1800 rustconn/src/window/mod.rs:2502
 #: rustconn/src/window/operations.rs:81 rustconn/src/window/operations.rs:414
 #: rustconn/src/window/operations.rs:582 rustconn/src/window/sessions.rs:325
-#: rustconn/src/window/workspaces.rs:146
+#: rustconn/src/window/workspaces.rs:147
 msgid "Cancel"
 msgstr "Avbryt"
 
@@ -68,7 +68,7 @@ msgstr "Spara inte"
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:178
 #: rustconn/src/dialogs/variables.rs:121 rustconn/src/dialogs/widgets.rs:460
 #: rustconn/src/window/edit_group.rs:47 rustconn/src/window/edit_group.rs:48
-#: rustconn/src/window/workspaces.rs:147
+#: rustconn/src/window/workspaces.rs:148
 msgid "Save"
 msgstr "Spara"
 
@@ -77,28 +77,21 @@ msgid "Initialization Error"
 msgstr "Initieringsfel"
 
 #: rustconn/src/app.rs:476
-msgid "{} credentials migrated from legacy encryption to AES-256-GCM"
-msgstr ""
-"{} autentiseringsuppgifter migrerade från legacy-kryptering till AES-256-"
-"GCM{} autentiseringsuppgifter migrerade från äldre kryptering till AES-256-"
-"GCM"
-
-#: rustconn/src/app.rs:489
 msgid "KeePass password not loaded from keyring — re-enter it in Settings"
 msgstr ""
 "KeePass-lösenordet laddades inte från nyckelringen — ange det igen i "
 "Inställningar"
 
-#: rustconn/src/app.rs:494 rustconn/src/embedded_rdp/mod.rs:286
-#: rustconn/src/split_view/bridge.rs:1739 rustconn/src/window/ui.rs:112
+#: rustconn/src/app.rs:481 rustconn/src/embedded_rdp/mod.rs:286
+#: rustconn/src/split_view/bridge.rs:1738 rustconn/src/window/ui.rs:112
 msgid "Settings"
 msgstr "Inställningar"
 
-#: rustconn/src/app.rs:932
+#: rustconn/src/app.rs:919
 msgid "{} backend unavailable. Using fallback."
 msgstr "Backend {} otillgänglig. Använder reserv."
 
-#: rustconn/src/app.rs:1081
+#: rustconn/src/app.rs:1068
 msgid ""
 "Modern connection manager for Linux with a GTK4/Wayland-native interface. "
 "Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust "
@@ -109,35 +102,35 @@ msgstr ""
 "Trust-anslutningar från en enda applikation."
 
 #. Translators: Replace this with your name and language, e.g. "John Doe (German)"
-#: rustconn/src/app.rs:1117
+#: rustconn/src/app.rs:1104
 msgid "translator-credits"
 msgstr "RustConn-teamet (Svenska)"
 
-#: rustconn/src/app.rs:1124
+#: rustconn/src/app.rs:1111
 msgid "User Guide"
 msgstr "Användarhandbok"
 
-#: rustconn/src/app.rs:1128
+#: rustconn/src/app.rs:1115
 msgid "Installation"
 msgstr "Installation"
 
-#: rustconn/src/app.rs:1132
+#: rustconn/src/app.rs:1119
 msgid "Releases"
 msgstr "Utgåvor"
 
-#: rustconn/src/app.rs:1136
+#: rustconn/src/app.rs:1123
 msgid "Changelog"
 msgstr "Ändringslogg"
 
-#: rustconn/src/app.rs:1146
+#: rustconn/src/app.rs:1133
 msgid "Special Thanks"
 msgstr "Särskilt tack"
 
-#: rustconn/src/app.rs:1161
+#: rustconn/src/app.rs:1148
 msgid "Made in Ukraine"
 msgstr "Made in Ukraine"
 
-#: rustconn/src/app.rs:1162
+#: rustconn/src/app.rs:1149
 msgid "All contributors and supporters"
 msgstr "Alla bidragsgivare och supportrar"
 
@@ -1117,7 +1110,7 @@ msgstr "Testa anslutning"
 #: rustconn/src/dialogs/connection/general_tab.rs:121
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:71
 #: rustconn/src/dialogs/export.rs:402 rustconn/src/dialogs/template.rs:196
-#: rustconn/src/dialogs/template.rs:534 rustconn/src/split_view/bridge.rs:1323
+#: rustconn/src/dialogs/template.rs:534 rustconn/src/split_view/bridge.rs:1322
 #: rustconn/src/window/edit_dialogs.rs:710
 msgid "Protocol"
 msgstr "Protokoll"
@@ -1140,7 +1133,7 @@ msgstr "https://example.com"
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:740
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:746
 #: rustconn/src/dialogs/export.rs:390 rustconn/src/dialogs/template.rs:551
-#: rustconn/src/dialogs/template.rs:1787 rustconn/src/split_view/bridge.rs:1330
+#: rustconn/src/dialogs/template.rs:1787 rustconn/src/split_view/bridge.rs:1329
 #: rustconn/src/window/edit_dialogs.rs:720
 msgid "Host"
 msgstr "Värd"
@@ -1629,7 +1622,7 @@ msgstr "Autentisering"
 #: rustconn/src/dialogs/connection/general_tab.rs:208
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:116
 #: rustconn/src/dialogs/export.rs:408 rustconn/src/dialogs/template.rs:567
-#: rustconn/src/split_view/bridge.rs:1338
+#: rustconn/src/split_view/bridge.rs:1337
 #: rustconn/src/window/connection_dialogs.rs:485
 #: rustconn/src/window/edit_dialogs.rs:742
 #: rustconn/src/window/edit_group.rs:253
@@ -2109,7 +2102,7 @@ msgstr "Inbäddat läge anpassas automatiskt till fönsterstorlek"
 #: rustconn/src/dialogs/connection/spice.rs:130
 #: rustconn/src/dialogs/connection/vnc.rs:211
 #: rustconn/src/dialogs/template.rs:910 rustconn/src/dialogs/template.rs:1097
-#: rustconn/src/dialogs/template.rs:1236 rustconn/src/split_view/bridge.rs:1651
+#: rustconn/src/dialogs/template.rs:1236 rustconn/src/split_view/bridge.rs:1650
 msgid "Features"
 msgstr "Funktioner"
 
@@ -3442,8 +3435,8 @@ msgstr "Dina mallar"
 #: rustconn/src/dialogs/connection_wizard/mod.rs:437
 #: rustconn/src/dialogs/connection_wizard/protocol_page.rs:222
 #: rustconn/src/sidebar_ui.rs:253 rustconn/src/sidebar_ui.rs:282
-#: rustconn/src/split_view/bridge.rs:1546 rustconn/src/window/ui.rs:75
-#: rustconn/src/window/ui.rs:216
+#: rustconn/src/split_view/bridge.rs:1545 rustconn/src/window/ui.rs:75
+#: rustconn/src/window/ui.rs:233
 msgid "New Connection"
 msgstr "Ny anslutning"
 
@@ -4035,7 +4028,7 @@ msgstr ""
 #: rustconn/src/dialogs/recording.rs:806 rustconn/src/dialogs/recording.rs:818
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:586
-#: rustconn/src/dialogs/widgets.rs:459 rustconn/src/terminal/tab_menu.rs:360
+#: rustconn/src/dialogs/widgets.rs:459 rustconn/src/terminal/tab_menu.rs:358
 #: rustconn/src/window/mod.rs:2503
 msgid "Close"
 msgstr "Stäng"
@@ -4209,7 +4202,7 @@ msgstr "Importera anslutningar"
 
 #: rustconn/src/dialogs/import/mod.rs:60 rustconn/src/dialogs/import/mod.rs:61
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:184
-#: rustconn/src/dialogs/widgets.rs:463 rustconn/src/split_view/bridge.rs:1560
+#: rustconn/src/dialogs/widgets.rs:463 rustconn/src/split_view/bridge.rs:1559
 #: rustconn/src/window/edit_group.rs:812
 msgid "Import"
 msgstr "Importera"
@@ -5137,7 +5130,7 @@ msgid "Keybindings"
 msgstr "Tangentbordsgenvägar"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:57
-#: rustconn/src/dialogs/shortcuts.rs:414 rustconn/src/split_view/bridge.rs:1727
+#: rustconn/src/dialogs/shortcuts.rs:414 rustconn/src/split_view/bridge.rs:1726
 msgid "Keyboard Shortcuts"
 msgstr "Tangentbordsgenvägar"
 
@@ -6255,7 +6248,7 @@ msgstr "Skicka Escape-prefix istället för sammansatta tecken (för vim/emacs)"
 #: rustconn/src/dialogs/settings/terminal_tab.rs:462
 #: rustconn/src/dialogs/settings/ui_tab.rs:213
 #: rustconn/src/dialogs/settings/ui_tab.rs:433 rustconn/src/tray.rs:225
-#: rustconn/src/tray.rs:582 rustconn/src/window/ui.rs:223
+#: rustconn/src/tray.rs:582 rustconn/src/window/ui.rs:240
 msgid "Local Shell"
 msgstr "Lokalt skal"
 
@@ -6512,7 +6505,7 @@ msgstr "Navigering"
 msgid "Application"
 msgstr "Applikation"
 
-#: rustconn/src/dialogs/shortcuts.rs:612 rustconn/src/split_view/bridge.rs:1731
+#: rustconn/src/dialogs/shortcuts.rs:612 rustconn/src/split_view/bridge.rs:1730
 msgid "New connection"
 msgstr "Ny anslutning"
 
@@ -6524,11 +6517,11 @@ msgstr "Ny anslutning (avancerad)"
 msgid "New group"
 msgstr "Ny grupp"
 
-#: rustconn/src/dialogs/shortcuts.rs:615 rustconn/src/split_view/bridge.rs:1732
+#: rustconn/src/dialogs/shortcuts.rs:615 rustconn/src/split_view/bridge.rs:1731
 msgid "Quick connect"
 msgstr "Snabbanslutning"
 
-#: rustconn/src/dialogs/shortcuts.rs:616 rustconn/src/split_view/bridge.rs:1738
+#: rustconn/src/dialogs/shortcuts.rs:616 rustconn/src/split_view/bridge.rs:1737
 msgid "Import connections"
 msgstr "Importera anslutningar"
 
@@ -6632,7 +6625,7 @@ msgstr "Stäng panel"
 msgid "Focus next pane"
 msgstr "Fokusera nästa panel"
 
-#: rustconn/src/dialogs/shortcuts.rs:642 rustconn/src/split_view/bridge.rs:1735
+#: rustconn/src/dialogs/shortcuts.rs:642 rustconn/src/split_view/bridge.rs:1734
 msgid "Search"
 msgstr "Sök"
 
@@ -6644,7 +6637,7 @@ msgstr "Fokusera sidofältet"
 msgid "Focus terminal"
 msgstr "Fokusera terminal"
 
-#: rustconn/src/dialogs/shortcuts.rs:645 rustconn/src/split_view/bridge.rs:1733
+#: rustconn/src/dialogs/shortcuts.rs:645 rustconn/src/split_view/bridge.rs:1732
 msgid "Command palette"
 msgstr "Kommandopalett"
 
@@ -7782,30 +7775,34 @@ msgstr ""
 msgid "Save your current sessions to create one"
 msgstr ""
 
-#: rustconn/src/embedded_rdp/autotype.rs:89
-#: rustconn/src/embedded_rdp/autotype.rs:255
+#: rustconn/src/embedded_rdp/autotype.rs:91
+#: rustconn/src/embedded_rdp/autotype.rs:253
 msgid "Typing {} chars..."
 msgstr "Skriver {} tecken…"
 
-#: rustconn/src/embedded_rdp/autotype.rs:93
+#: rustconn/src/embedded_rdp/autotype.rs:95
 msgid "Autotype channel not ready"
 msgstr "Autoskrivkanal inte redo"
 
-#: rustconn/src/embedded_rdp/autotype.rs:97
+#: rustconn/src/embedded_rdp/autotype.rs:99
 #: rustconn/src/embedded_rdp/clipboard.rs:215
 msgid "Local clipboard is empty"
 msgstr "Lokalt urklipp är tomt"
 
-#: rustconn/src/embedded_rdp/autotype.rs:105
+#: rustconn/src/embedded_rdp/autotype.rs:107
 #: rustconn/src/embedded_rdp/clipboard.rs:223
 msgid "Cannot read clipboard"
 msgstr "Kan inte läsa urklipp"
 
-#: rustconn/src/embedded_rdp/autotype.rs:147
+#: rustconn/src/embedded_rdp/autotype.rs:151
 msgid "Type Text into Remote Session"
 msgstr "Skriv text i fjärrsession"
 
-#: rustconn/src/embedded_rdp/autotype.rs:166
+#: rustconn/src/embedded_rdp/autotype.rs:161
+msgid "Type Now"
+msgstr "Skriv nu"
+
+#: rustconn/src/embedded_rdp/autotype.rs:175
 msgid ""
 "Text entered here will be sent as keystrokes to the remote session. It will "
 "not be placed in the system clipboard."
@@ -7813,15 +7810,11 @@ msgstr ""
 "Text som skrivs in här skickas som tangenttryckningar till fjärrsessionen. "
 "Den placeras inte i systemets urklipp."
 
-#: rustconn/src/embedded_rdp/autotype.rs:187
+#: rustconn/src/embedded_rdp/autotype.rs:196
 msgid "Hide text (password mode)"
 msgstr "Dölj text (lösenordsläge)"
 
-#: rustconn/src/embedded_rdp/autotype.rs:207
-msgid "Type Now"
-msgstr "Skriv nu"
-
-#: rustconn/src/embedded_rdp/autotype.rs:234
+#: rustconn/src/embedded_rdp/autotype.rs:232
 msgid "No text to type"
 msgstr "Ingen text att skriva"
 
@@ -8054,20 +8047,20 @@ msgid "Save files from remote clipboard"
 msgstr "Spara filer från fjärrurklipp"
 
 #: rustconn/src/embedded_rdp/mod.rs:598 rustconn/src/embedded_spice.rs:288
-#: rustconn/src/embedded_vnc/ui.rs:102 rustconn/src/terminal/mod.rs:1794
+#: rustconn/src/embedded_vnc/ui.rs:102 rustconn/src/terminal/mod.rs:1778
 msgid "Session disconnected"
 msgstr "Session frånkopplad"
 
 #: rustconn/src/embedded_rdp/mod.rs:601 rustconn/src/embedded_spice.rs:291
 #: rustconn/src/embedded_trait.rs:234 rustconn/src/embedded_vnc/ui.rs:105
-#: rustconn/src/terminal/mod.rs:1311 rustconn/src/terminal/mod.rs:1400
-#: rustconn/src/terminal/mod.rs:1807
+#: rustconn/src/terminal/mod.rs:1295 rustconn/src/terminal/mod.rs:1384
+#: rustconn/src/terminal/mod.rs:1791
 msgid "Reconnect"
 msgstr "Återanslut"
 
 #: rustconn/src/embedded_rdp/mod.rs:603 rustconn/src/embedded_spice.rs:293
-#: rustconn/src/embedded_vnc/ui.rs:107 rustconn/src/terminal/mod.rs:1313
-#: rustconn/src/terminal/mod.rs:1402 rustconn/src/terminal/mod.rs:1809
+#: rustconn/src/embedded_vnc/ui.rs:107 rustconn/src/terminal/mod.rs:1297
+#: rustconn/src/terminal/mod.rs:1386 rustconn/src/terminal/mod.rs:1793
 msgid "Reconnect to this session"
 msgstr "Återanslut till denna session"
 
@@ -8502,15 +8495,15 @@ msgstr "Stoppa inspelning"
 msgid "Start Recording"
 msgstr "Starta inspelning"
 
-#: rustconn/src/sidebar_ui.rs:281 rustconn/src/split_view/bridge.rs:1553
+#: rustconn/src/sidebar_ui.rs:281 rustconn/src/split_view/bridge.rs:1552
 #: rustconn/src/window/edit_dialogs.rs:654 rustconn/src/window/ui.rs:68
-#: rustconn/src/window/ui.rs:222
+#: rustconn/src/window/ui.rs:239
 msgid "Quick Connect"
 msgstr "Snabbanslutning"
 
 #: rustconn/src/sidebar_ui.rs:283 rustconn/src/sidebar_ui.rs:585
 #: rustconn/src/window/connection_dialogs.rs:377 rustconn/src/window/ui.rs:89
-#: rustconn/src/window/ui.rs:221
+#: rustconn/src/window/ui.rs:238
 msgid "New Group"
 msgstr "Ny grupp"
 
@@ -8702,96 +8695,96 @@ msgstr "Stäng panel"
 msgid "Close split view panel"
 msgstr "Stäng delad vypanel"
 
-#: rustconn/src/split_view/bridge.rs:1318
+#: rustconn/src/split_view/bridge.rs:1317
 msgid "Basic Information"
 msgstr "Grundläggande information"
 
-#: rustconn/src/split_view/bridge.rs:1530
+#: rustconn/src/split_view/bridge.rs:1529
 #: rustconn/assets/io.github.totoshko88.RustConn.desktop:3
 msgid "Manage remote connections easily"
 msgstr "Hantera fjärranslutningar enkelt"
 
-#: rustconn/src/split_view/bridge.rs:1633
+#: rustconn/src/split_view/bridge.rs:1632
 msgid "Double-click a connection in the sidebar to get started"
 msgstr "Dubbelklicka på en anslutning i sidopanelen för att komma igång"
 
-#: rustconn/src/split_view/bridge.rs:1657
+#: rustconn/src/split_view/bridge.rs:1656
 msgid "Embedded SSH, RDP, VNC, SPICE"
 msgstr "Inbyggd SSH, RDP, VNC, SPICE"
 
-#: rustconn/src/split_view/bridge.rs:1659
+#: rustconn/src/split_view/bridge.rs:1658
 msgid "Secure credential storage"
 msgstr "Säker lagring av autentiseringsuppgifter"
 
-#: rustconn/src/split_view/bridge.rs:1662
+#: rustconn/src/split_view/bridge.rs:1661
 msgid "Remote host monitoring"
 msgstr "Övervakning av fjärrvärdar"
 
-#: rustconn/src/split_view/bridge.rs:1666
+#: rustconn/src/split_view/bridge.rs:1665
 msgid "Cloud Sync across devices"
 msgstr "Molnsynkronisering mellan enheter"
 
-#: rustconn/src/split_view/bridge.rs:1668
+#: rustconn/src/split_view/bridge.rs:1667
 msgid "Expect automation & tasks"
 msgstr "Expect-automatisering och uppgifter"
 
-#: rustconn/src/split_view/bridge.rs:1669
+#: rustconn/src/split_view/bridge.rs:1668
 msgid "Groups, tags, and templates"
 msgstr "Grupper, taggar och mallar"
 
-#: rustconn/src/split_view/bridge.rs:1670
+#: rustconn/src/split_view/bridge.rs:1669
 msgid "Zero Trust tunnels"
 msgstr "Zero Trust-tunnlar"
 
-#: rustconn/src/split_view/bridge.rs:1671
+#: rustconn/src/split_view/bridge.rs:1670
 msgid "Command snippets & clusters"
 msgstr "Kommandosnuttar och kluster"
 
-#: rustconn/src/split_view/bridge.rs:1674
+#: rustconn/src/split_view/bridge.rs:1673
 msgid "Drag & drop files to sessions"
 msgstr "Dra och släpp filer till sessioner"
 
-#: rustconn/src/split_view/bridge.rs:1734
+#: rustconn/src/split_view/bridge.rs:1733
 msgid "Local shell"
 msgstr "Lokalt skal"
 
-#: rustconn/src/split_view/bridge.rs:1736
+#: rustconn/src/split_view/bridge.rs:1735
 msgid "Split vertical / horizontal"
 msgstr "Dela vertikalt/horisontellt"
 
-#: rustconn/src/split_view/bridge.rs:1737
+#: rustconn/src/split_view/bridge.rs:1736
 msgid "Disable shortcuts"
 msgstr "Inaktivera genvägar"
 
-#: rustconn/src/split_view/bridge.rs:1763
+#: rustconn/src/split_view/bridge.rs:1762
 msgid "Quick Access"
 msgstr "Snabbåtkomst"
 
-#: rustconn/src/split_view/bridge.rs:1767
+#: rustconn/src/split_view/bridge.rs:1766
 msgid "Fuzzy search & command palette"
 msgstr "Fuzzy-sökning och kommandopalett"
 
-#: rustconn/src/split_view/bridge.rs:1768
+#: rustconn/src/split_view/bridge.rs:1767
 msgid "Pin favorites to sidebar"
 msgstr "Fäst favoriter i sidofältet"
 
-#: rustconn/src/split_view/bridge.rs:1769
+#: rustconn/src/split_view/bridge.rs:1768
 msgid "Split view for terminals"
 msgstr "Delad vy för terminaler"
 
-#: rustconn/src/split_view/bridge.rs:1772
+#: rustconn/src/split_view/bridge.rs:1771
 msgid "Tab Overview grid (Ctrl+Shift+O)"
 msgstr "Fliköversiktsrutnät (Ctrl+Shift+O)"
 
-#: rustconn/src/split_view/bridge.rs:1787
+#: rustconn/src/split_view/bridge.rs:1786
 msgid "Import Formats"
 msgstr "Importformat"
 
-#: rustconn/src/split_view/bridge.rs:1928
+#: rustconn/src/split_view/bridge.rs:1927
 msgid "All tabs are already displayed in this split view"
 msgstr "Alla flikar visas redan i denna delade vy"
 
-#: rustconn/src/split_view/bridge.rs:1967
+#: rustconn/src/split_view/bridge.rs:1966
 msgid "Select a tab to display"
 msgstr "Välj en flik att visa"
 
@@ -8799,52 +8792,52 @@ msgstr "Välj en flik att visa"
 msgid "Execute Snippet…"
 msgstr "Kör kodsnutt…"
 
-#: rustconn/src/terminal/mod.rs:215
+#: rustconn/src/terminal/mod.rs:208
 msgid "Tab Overview (Ctrl+Shift+O)"
 msgstr "Fliköversikt (Ctrl+Shift+O)"
 
-#: rustconn/src/terminal/mod.rs:219
+#: rustconn/src/terminal/mod.rs:212
 msgid "Tab Overview"
 msgstr "Fliköversikt"
 
-#: rustconn/src/terminal/mod.rs:231 rustconn/src/terminal/mod.rs:453
-#: rustconn/src/terminal/mod.rs:484
+#: rustconn/src/terminal/mod.rs:224 rustconn/src/terminal/mod.rs:437
+#: rustconn/src/terminal/mod.rs:468
 msgid "Welcome"
 msgstr "Välkommen"
 
-#: rustconn/src/terminal/mod.rs:1275 rustconn/src/terminal/mod.rs:1396
+#: rustconn/src/terminal/mod.rs:1259 rustconn/src/terminal/mod.rs:1380
 msgid "Command not found: {}"
 msgstr "Kommandot hittades inte: {}"
 
-#: rustconn/src/terminal/mod.rs:1277
+#: rustconn/src/terminal/mod.rs:1261
 msgid "Failed to start '{}'"
 msgstr "Det gick inte att starta ”{}”"
 
-#: rustconn/src/terminal/mod.rs:1330 rustconn/src/terminal/mod.rs:1418
+#: rustconn/src/terminal/mod.rs:1314 rustconn/src/terminal/mod.rs:1402
 msgid "'{}' is not installed"
 msgstr "”{}” är inte installerat"
 
-#: rustconn/src/terminal/mod.rs:1332
+#: rustconn/src/terminal/mod.rs:1316
 msgid "Failed to start '{}': {}"
 msgstr "Det gick inte att starta ”{}”: {}"
 
-#: rustconn/src/terminal/mod.rs:1801 rustconn/src/terminal/mod.rs:1866
+#: rustconn/src/terminal/mod.rs:1785 rustconn/src/terminal/mod.rs:1850
 msgid "Auto-reconnecting…"
 msgstr "Återansluter automatiskt…"
 
-#: rustconn/src/terminal/mod.rs:1916 rustconn/src/terminal/mod.rs:1926
+#: rustconn/src/terminal/mod.rs:1900 rustconn/src/terminal/mod.rs:1910
 msgid "Auto-reconnecting (attempt {}/{})"
 msgstr "Återansluter automatiskt (försök {}/{})"
 
-#: rustconn/src/terminal/mod.rs:2424
+#: rustconn/src/terminal/mod.rs:2359
 msgid "Displayed in Split View"
 msgstr "Visas i delad vy"
 
-#: rustconn/src/terminal/mod.rs:2425
+#: rustconn/src/terminal/mod.rs:2360
 msgid "This session is shown in another tab's split layout"
 msgstr "Denna session visas i en annan fliks delade layout"
 
-#: rustconn/src/terminal/mod.rs:2430
+#: rustconn/src/terminal/mod.rs:2365
 msgid "Go to Split View"
 msgstr "Gå till delad vy"
 
@@ -8892,75 +8885,75 @@ msgstr "Uppspelning: {}"
 msgid "●REC"
 msgstr "●INS"
 
-#: rustconn/src/terminal/tab_menu.rs:95
+#: rustconn/src/terminal/tab_menu.rs:93
 msgid "Set Tab Group"
 msgstr "Ange flikgrupp"
 
-#: rustconn/src/terminal/tab_menu.rs:103
+#: rustconn/src/terminal/tab_menu.rs:101
 msgid "New group name..."
 msgstr "Nytt gruppnamn..."
 
-#: rustconn/src/terminal/tab_menu.rs:108
+#: rustconn/src/terminal/tab_menu.rs:106
 msgid "Enter a group name for this tab"
 msgstr "Ange ett gruppnamn för denna flik"
 
-#: rustconn/src/terminal/tab_menu.rs:113
+#: rustconn/src/terminal/tab_menu.rs:111
 msgid "Existing groups:"
 msgstr "Befintliga grupper:"
 
-#: rustconn/src/terminal/tab_menu.rs:141
+#: rustconn/src/terminal/tab_menu.rs:139
 msgid "or enter a new name:"
 msgstr "eller ange ett nytt namn:"
 
-#: rustconn/src/terminal/tab_menu.rs:157 rustconn/src/window/batch_edit.rs:64
+#: rustconn/src/terminal/tab_menu.rs:155 rustconn/src/window/batch_edit.rs:64
 msgid "Apply"
 msgstr "Tillämpa"
 
-#: rustconn/src/terminal/tab_menu.rs:353 rustconn/src/terminal/tab_menu.rs:585
+#: rustconn/src/terminal/tab_menu.rs:351 rustconn/src/terminal/tab_menu.rs:583
 msgid "Close All in Group"
 msgstr "Stäng alla i grupp"
 
-#: rustconn/src/terminal/tab_menu.rs:355
+#: rustconn/src/terminal/tab_menu.rs:353
 msgid "Close {} tabs in group '{}'?"
 msgstr "Stäng {} flikar i gruppen '{}'?"
 
-#: rustconn/src/terminal/tab_menu.rs:573
+#: rustconn/src/terminal/tab_menu.rs:571
 msgid "Unpin Tab"
 msgstr "Lossa flik"
 
-#: rustconn/src/terminal/tab_menu.rs:575
+#: rustconn/src/terminal/tab_menu.rs:573
 msgid "Pin Tab"
 msgstr "Fäst flik"
 
-#: rustconn/src/terminal/tab_menu.rs:581
+#: rustconn/src/terminal/tab_menu.rs:579
 msgid "Set Group..."
 msgstr "Ange grupp..."
 
-#: rustconn/src/terminal/tab_menu.rs:583
+#: rustconn/src/terminal/tab_menu.rs:581
 msgid "Remove from Group"
 msgstr "Ta bort från grupp"
 
-#: rustconn/src/terminal/tab_menu.rs:594
+#: rustconn/src/terminal/tab_menu.rs:592
 msgid "Monitor: {}"
 msgstr "Övervakning: {}"
 
-#: rustconn/src/terminal/tab_menu.rs:600
+#: rustconn/src/terminal/tab_menu.rs:598
 msgid "Close Others"
 msgstr "Stäng övriga"
 
-#: rustconn/src/terminal/tab_menu.rs:601
+#: rustconn/src/terminal/tab_menu.rs:599
 msgid "Close to the Left"
 msgstr "Stäng till vänster"
 
-#: rustconn/src/terminal/tab_menu.rs:602
+#: rustconn/src/terminal/tab_menu.rs:600
 msgid "Close to the Right"
 msgstr "Stäng till höger"
 
-#: rustconn/src/terminal/tab_menu.rs:605
+#: rustconn/src/terminal/tab_menu.rs:603
 msgid "Close All Ungrouped"
 msgstr "Stäng alla ogrupperade"
 
-#: rustconn/src/terminal/tab_menu.rs:609
+#: rustconn/src/terminal/tab_menu.rs:607
 msgid "Close All Tabs"
 msgstr "Stäng alla flikar"
 
@@ -9005,12 +8998,12 @@ msgid "{} Active Session(s)"
 msgstr "{} aktiv(a) session(er)"
 
 #: rustconn/src/tray.rs:247 rustconn/src/tray.rs:589
-#: rustconn/src/window/ui.rs:295
+#: rustconn/src/window/ui.rs:312
 msgid "About RustConn"
 msgstr "Om RustConn"
 
 #: rustconn/src/tray.rs:254 rustconn/src/tray.rs:595
-#: rustconn/src/window/ui.rs:296
+#: rustconn/src/window/ui.rs:313
 msgid "Quit"
 msgstr "Avsluta"
 
@@ -9934,19 +9927,19 @@ msgstr "Flyttade {} objekt."
 msgid "Failed to move {} item(s):"
 msgstr "Kunde inte flytta {} objekt:"
 
-#: rustconn/src/window/protocols.rs:1381
+#: rustconn/src/window/protocols.rs:1384
 msgid "Install picocom for Serial connections"
 msgstr "Installera picocom för seriella anslutningar"
 
-#: rustconn/src/window/protocols.rs:1548
+#: rustconn/src/window/protocols.rs:1551
 msgid "Install kubectl for Kubernetes connections"
 msgstr "Installera kubectl för Kubernetes-anslutningar"
 
-#: rustconn/src/window/protocols.rs:1566
+#: rustconn/src/window/protocols.rs:1569
 msgid "Configure pod and container for Kubernetes"
 msgstr "Konfigurera pod och container för Kubernetes"
 
-#: rustconn/src/window/protocols.rs:1818
+#: rustconn/src/window/protocols.rs:1817
 msgid "Install mosh for MOSH connections"
 msgstr "Installera mosh för MOSH-anslutningar"
 
@@ -10228,123 +10221,123 @@ msgstr "Genomströmning"
 msgid "Keyboard passthrough active — click to disable"
 msgstr "Tangentbordsgenomströmning aktiv — klicka för att inaktivera"
 
-#: rustconn/src/window/ui.rs:218
+#: rustconn/src/window/ui.rs:235
 msgid "New Connection (Advanced)\\u{2026}"
 msgstr "Ny anslutning (avancerad)\\u{2026}"
 
-#: rustconn/src/window/ui.rs:228
+#: rustconn/src/window/ui.rs:245
 msgid "Snippets..."
 msgstr "Snippets…"
 
-#: rustconn/src/window/ui.rs:229
+#: rustconn/src/window/ui.rs:246
 msgid "Clusters..."
 msgstr "Kluster…"
 
-#: rustconn/src/window/ui.rs:230
+#: rustconn/src/window/ui.rs:247
 msgid "Workspaces..."
 msgstr ""
 
-#: rustconn/src/window/ui.rs:231
+#: rustconn/src/window/ui.rs:248
 msgid "Templates..."
 msgstr "Mallar…"
 
-#: rustconn/src/window/ui.rs:232
+#: rustconn/src/window/ui.rs:249
 msgid "Variables..."
 msgstr "Variabler…"
 
-#: rustconn/src/window/ui.rs:236
+#: rustconn/src/window/ui.rs:253
 msgid "Password Generator..."
 msgstr "Lösenordsgenerator…"
 
-#: rustconn/src/window/ui.rs:240
+#: rustconn/src/window/ui.rs:257
 msgid "Wake On LAN..."
 msgstr "Wake On LAN…"
 
-#: rustconn/src/window/ui.rs:243
+#: rustconn/src/window/ui.rs:260
 msgid "SSH Tunnels..."
 msgstr "SSH-tunnlar..."
 
-#: rustconn/src/window/ui.rs:247
+#: rustconn/src/window/ui.rs:264
 msgid "Tools"
 msgstr "Verktyg"
 
-#: rustconn/src/window/ui.rs:252
+#: rustconn/src/window/ui.rs:269
 msgid "Active Sessions..."
 msgstr "Aktiva sessioner..."
 
-#: rustconn/src/window/ui.rs:254
+#: rustconn/src/window/ui.rs:271
 msgid "Connection History..."
 msgstr "Anslutningshistorik…"
 
-#: rustconn/src/window/ui.rs:257
+#: rustconn/src/window/ui.rs:274
 msgid "Statistics..."
 msgstr "Statistik…"
 
-#: rustconn/src/window/ui.rs:258
+#: rustconn/src/window/ui.rs:275
 msgid "Recordings..."
 msgstr "Inspelningar..."
 
-#: rustconn/src/window/ui.rs:261
+#: rustconn/src/window/ui.rs:278
 msgid "Sessions"
 msgstr "Sessioner"
 
-#: rustconn/src/window/ui.rs:266
+#: rustconn/src/window/ui.rs:283
 msgid "Import Connections..."
 msgstr "Importera anslutningar…"
 
-#: rustconn/src/window/ui.rs:267
+#: rustconn/src/window/ui.rs:284
 msgid "Export Connections..."
 msgstr "Exportera anslutningar…"
 
-#: rustconn/src/window/ui.rs:268
+#: rustconn/src/window/ui.rs:285
 msgid "Copy Connection"
 msgstr "Kopiera anslutning"
 
-#: rustconn/src/window/ui.rs:270
+#: rustconn/src/window/ui.rs:287
 msgid "Paste Connection"
 msgstr "Klistra in anslutning"
 
-#: rustconn/src/window/ui.rs:277
+#: rustconn/src/window/ui.rs:294
 msgid "Settings..."
 msgstr "Inställningar..."
 
-#: rustconn/src/window/ui.rs:283
+#: rustconn/src/window/ui.rs:300
 msgid "Components..."
 msgstr "komponenter…"
 
-#: rustconn/src/window/ui.rs:289
+#: rustconn/src/window/ui.rs:306
 msgid "Fullscreen"
 msgstr "Helskärm"
 
-#: rustconn/src/window/ui.rs:291
+#: rustconn/src/window/ui.rs:308
 msgid "Keyboard Passthrough"
 msgstr "Tangentbords-passthrough"
 
-#: rustconn/src/window/ui.rs:294
+#: rustconn/src/window/ui.rs:311
 msgid "Keyboard Shortcuts..."
 msgstr "Tangentbordsgenvägar..."
 
-#: rustconn/src/window/workspaces.rs:133
+#: rustconn/src/window/workspaces.rs:134
 msgid "No active sessions to save"
 msgstr ""
 
-#: rustconn/src/window/workspaces.rs:143
+#: rustconn/src/window/workspaces.rs:144
 msgid "Save Workspace"
 msgstr ""
 
-#: rustconn/src/window/workspaces.rs:144
+#: rustconn/src/window/workspaces.rs:145
 msgid "Enter a name for this workspace profile:"
 msgstr ""
 
-#: rustconn/src/window/workspaces.rs:153
+#: rustconn/src/window/workspaces.rs:154
 msgid "Workspace name"
 msgstr ""
 
-#: rustconn/src/window/workspaces.rs:178
+#: rustconn/src/window/workspaces.rs:179
 msgid "Workspace '{}' saved"
 msgstr ""
 
-#: rustconn/src/window/workspaces.rs:187
+#: rustconn/src/window/workspaces.rs:188
 msgid "Failed to save workspace"
 msgstr ""
 
@@ -10355,6 +10348,12 @@ msgstr "RustConn"
 #: rustconn/assets/io.github.totoshko88.RustConn.desktop:15
 msgid "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
 msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;anslutning;terminal;fjärr;kubernetes;k8s;serial;sftp;"
+
+#~ msgid "{} credentials migrated from legacy encryption to AES-256-GCM"
+#~ msgstr ""
+#~ "{} autentiseringsuppgifter migrerade från legacy-kryptering till AES-256-"
+#~ "GCM{} autentiseringsuppgifter migrerade från äldre kryptering till "
+#~ "AES-256-GCM"
 
 #~ msgid "Failed to save password to vault"
 #~ msgstr "Kunde inte spara lösenord i valvet"

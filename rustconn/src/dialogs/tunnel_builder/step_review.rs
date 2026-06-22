@@ -35,7 +35,7 @@ pub struct StepReviewPage {
     command_buffer: gtk4::TextBuffer,
     no_forwards_label: gtk4::Label,
     save_button: gtk4::Button,
-    #[allow(
+    #[expect(
         dead_code,
         reason = "Kept alive for GTK widget lifecycle (ToastOverlay must outlive Toasts)"
     )]

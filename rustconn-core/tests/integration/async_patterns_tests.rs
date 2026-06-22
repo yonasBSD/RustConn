@@ -77,7 +77,7 @@ fn create_test_resolver() -> AsyncCredentialResolver {
 fn callback_is_invoked_on_completion() {
     let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
     let callback_invoked = Arc::new(AtomicBool::new(false));
-    let callback_invoked_clone = callback_invoked.clone();
+    let callback_invoked_clone = Arc::clone(&callback_invoked);
 
     rt.block_on(async {
         let resolver = Arc::new(create_test_resolver());
@@ -86,7 +86,7 @@ fn callback_is_invoked_on_completion() {
         // Spawn the resolution with a callback
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        let resolver_clone = resolver.clone();
+        let resolver_clone = Arc::clone(&resolver);
         tokio::spawn(async move {
             let result = resolver_clone.resolve_async(&connection).await;
             callback_invoked_clone.store(true, Ordering::SeqCst);
@@ -116,8 +116,8 @@ fn concurrent_resolutions_complete_independently() {
 
         // Spawn 5 concurrent resolutions
         for i in 0..5 {
-            let resolver_clone = resolver.clone();
-            let completed_clone = completed_count.clone();
+            let resolver_clone = Arc::clone(&resolver);
+            let completed_clone = Arc::clone(&completed_count);
             let connection = create_test_connection(&format!("server-{i}"), &format!("10.0.0.{i}"));
 
             let handle = tokio::spawn(async move {

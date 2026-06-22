@@ -58,7 +58,6 @@ impl TerminalSession {
 }
 
 /// Session widget storage for non-SSH sessions
-#[allow(dead_code, reason = "Enum variants store widgets for GTK lifecycle")]
 pub enum SessionWidgetStorage {
     /// VNC session widget
     Vnc(Rc<VncSessionWidget>),

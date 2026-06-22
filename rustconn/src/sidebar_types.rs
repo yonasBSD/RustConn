@@ -55,7 +55,7 @@ pub enum DropPosition {
 /// This struct is used by `invoke_drag_drop()` and `set_drag_drop_callback()` methods
 /// to pass drag-drop operation details to registered callbacks.
 #[derive(Debug, Clone)]
-#[allow(dead_code, reason = "Fields used by drag-drop callback system")]
+#[expect(dead_code, reason = "Fields used by drag-drop callback system")]
 pub struct DragDropData {
     /// Type of the dragged item ("conn" or "group")
     pub item_type: String,
@@ -119,7 +119,7 @@ impl DropIndicator {
     ///
     /// Note: Part of drag-drop API, used internally by drop target handlers.
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -295,7 +295,7 @@ impl DropIndicator {
     ///
     /// Note: Part of drag-drop API for determining drop position.
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]
@@ -307,7 +307,7 @@ impl DropIndicator {
     ///
     /// Note: Part of drag-drop API for visual feedback state.
     #[must_use]
-    #[allow(
+    #[expect(
         dead_code,
         reason = "kept alive for GTK widget lifecycle / future API exposure"
     )]

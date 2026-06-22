@@ -311,16 +311,16 @@ fn test_vnc_display_signal_callbacks() {
     let auth_called = Rc::new(Cell::new(false));
     let auth_failure_called = Rc::new(Cell::new(false));
 
-    let cc = connected_called.clone();
+    let cc = Rc::clone(&connected_called);
     display.connect_vnc_connected(move |_| cc.set(true));
 
-    let dc = disconnected_called.clone();
+    let dc = Rc::clone(&disconnected_called);
     display.connect_vnc_disconnected(move |_| dc.set(true));
 
-    let ac = auth_called.clone();
+    let ac = Rc::clone(&auth_called);
     display.connect_vnc_auth_credential(move |_, _| ac.set(true));
 
-    let afc = auth_failure_called.clone();
+    let afc = Rc::clone(&auth_failure_called);
     display.connect_vnc_auth_failure(move |_, _| afc.set(true));
 
     assert!(!connected_called.get());

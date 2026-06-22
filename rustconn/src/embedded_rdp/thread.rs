@@ -62,10 +62,6 @@ impl FileDownloadState {
     }
 
     /// Returns download progress as fraction (0.0 to 1.0)
-    #[allow(
-        dead_code,
-        reason = "kept alive for GTK widget lifecycle / future API exposure"
-    )]
     pub fn progress(&self) -> f64 {
         if self.total_size == 0 {
             return if self.complete { 1.0 } else { 0.0 };
@@ -181,10 +177,6 @@ impl ClipboardFileTransfer {
     }
 
     /// Clears all state
-    #[allow(
-        dead_code,
-        reason = "kept alive for GTK widget lifecycle / future API exposure"
-    )]
     pub fn clear(&mut self) {
         self.available_files.clear();
         self.downloads.clear();
@@ -256,10 +248,6 @@ impl FreeRdpSharedState {
 /// This struct runs FreeRDP operations in a dedicated thread to avoid
 /// Qt/GTK threading conflicts that cause QSocketNotifier and Wayland
 /// requestActivate errors.
-#[allow(
-    dead_code,
-    reason = "kept alive for GTK widget lifecycle / future API exposure"
-)]
 pub struct FreeRdpThread {
     /// Consolidated process, state, and fallback flag (single lock)
     shared: Arc<Mutex<FreeRdpSharedState>>,

@@ -467,19 +467,6 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
             });
         }
 
-        // Show toast if any credentials were migrated from legacy XOR encryption
-        let migrated = rustconn_core::config::legacy_migration_count();
-        if migrated > 0 {
-            rustconn_core::config::reset_legacy_migration_count();
-            if let Some(win) = window_for_secrets.upgrade() {
-                let msg = crate::i18n::i18n_f(
-                    "{} credentials migrated from legacy encryption to AES-256-GCM",
-                    &[&migrated.to_string()],
-                );
-                crate::toast::show_toast_on_window(&win, &msg, crate::toast::ToastType::Info);
-            }
-        }
-
         // Show toast if KeePass keyring load failed at startup
         if let Ok(mut state_mut) = state_for_secrets.try_borrow_mut()
             && state_mut.take_kdbx_keyring_failed()

@@ -560,7 +560,7 @@ mod tests {
     fn test_vnc_display_connected_signal() {
         let display = VncDisplay::new();
         let connected = Rc::new(Cell::new(false));
-        let connected_clone = connected.clone();
+        let connected_clone = Rc::clone(&connected);
 
         display.connect_vnc_connected(move |_| {
             connected_clone.set(true);
@@ -577,7 +577,7 @@ mod tests {
     fn test_vnc_display_disconnected_signal() {
         let display = VncDisplay::new();
         let disconnected = Rc::new(Cell::new(false));
-        let disconnected_clone = disconnected.clone();
+        let disconnected_clone = Rc::clone(&disconnected);
 
         display.connect_vnc_disconnected(move |_| {
             disconnected_clone.set(true);
@@ -595,7 +595,7 @@ mod tests {
     fn test_vnc_display_auth_credential_signal() {
         let display = VncDisplay::new();
         let auth_requested = Rc::new(Cell::new(false));
-        let auth_requested_clone = auth_requested.clone();
+        let auth_requested_clone = Rc::clone(&auth_requested);
 
         display.connect_vnc_auth_credential(move |_, creds| {
             auth_requested_clone.set(true);
@@ -613,7 +613,7 @@ mod tests {
     fn test_vnc_display_auth_failure_signal() {
         let display = VncDisplay::new();
         let auth_failed = Rc::new(Cell::new(false));
-        let auth_failed_clone = auth_failed.clone();
+        let auth_failed_clone = Rc::clone(&auth_failed);
 
         display.connect_vnc_auth_failure(move |_, msg| {
             auth_failed_clone.set(true);

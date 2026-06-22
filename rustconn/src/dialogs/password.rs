@@ -29,7 +29,7 @@ pub struct PasswordDialogResult {
 }
 
 /// Password prompt dialog
-#[allow(dead_code, reason = "Fields kept for GTK widget lifecycle")]
+#[expect(dead_code, reason = "Fields kept for GTK widget lifecycle")]
 pub struct PasswordDialog {
     dialog: adw::Dialog,
     username_entry: Entry,
