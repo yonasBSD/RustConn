@@ -6,13 +6,14 @@ inclusion: always
 
 Communication language: Ukrainian.
 
-## Architecture (3 crates)
+## Architecture (4 crates)
 
 | Crate | Purpose | Restrictions |
 |-------|---------|-------------|
 | `rustconn-core` | Business logic, models, protocols | **FORBIDDEN**: gtk4, adw, vte4 |
 | `rustconn-cli` | CLI interface | Only rustconn-core |
 | `rustconn` | GTK4/libadwaita GUI | May import everything |
+| `rustconn-pty-sys` | Isolated FFI helper (macOS PTY controlling terminal, `setsid`+`TIOCSCTTY`) | **Only** sanctioned `unsafe` location (M-UNSAFE); `libc` only, no gtk4/adw/vte4 |
 
 ## Code Philosophy (YAGNI / lazy-senior)
 
@@ -37,7 +38,7 @@ Before writing any code, stop at the first rung that holds:
 
 ## Absolute Rules
 
-- `unsafe_code = "forbid"` — no unsafe whatsoever
+- `unsafe_code = "forbid"` in all crates **except** `rustconn-pty-sys` — the single sanctioned FFI location (M-UNSAFE). Never write `unsafe` anywhere else.
 - Passwords/keys → `secrecy::SecretString`, never plain String
 - Intermediate `expose_secret().to_string()` → wrap in `zeroize::Zeroizing::new()`
 - Errors → `thiserror::Error`, never `unwrap()`/`expect()`
@@ -67,7 +68,7 @@ For quick single-file validation → `getDiagnostics`.
 
 When writing `.rs` files, verify BEFORE writing:
 - **Crate boundary**: `rustconn-core/` and `rustconn-cli/` must NOT contain `use gtk4`, `use adw`, `use vte4`, `gtk4::`, `adw::`, `vte4::`. Move GUI code to `rustconn/`.
-- **No unsafe**: never write `unsafe {`, `unsafe fn`, `unsafe impl`, `unsafe trait`.
+- **No unsafe**: never write `unsafe {`, `unsafe fn`, `unsafe impl`, `unsafe trait` — **except** in `rustconn-pty-sys` (the sole sanctioned FFI crate, M-UNSAFE). New `unsafe` outside it is forbidden.
 
 After writing `.rs` files in `rustconn/src/`, verify:
 - **i18n**: all user-facing strings (`.set_label()`, `.set_title()`, `.set_tooltip_text()`, `Button::with_label()`) wrapped in `i18n()` or `i18n_f()`. Ignore: tracing, CSS, icons, action names.

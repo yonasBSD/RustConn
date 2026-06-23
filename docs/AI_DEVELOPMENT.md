@@ -6,18 +6,20 @@ This document describes the Kiro AI agent infrastructure used to automate
 development workflows, enforce architectural constraints, and streamline the
 release cycle of RustConn.
 
+> **Single source of truth:** the authoritative, always-current inventory is the
+> set of files in `.kiro/hooks/` (one file per hook) and `.kiro/steering/`
+> (one file per steering rule). This document explains the *approach* and
+> *rationale* — it intentionally does **not** duplicate every prompt or pattern,
+> because hand-maintained inventories drift out of sync. When in doubt, read the
+> `.kiro/` files.
+
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Steering Files](#steering-files)
-- [Hook Inventory](#hook-inventory)
-- [Hook Details](#hook-details)
-- [Hook Interaction Map](#hook-interaction-map)
-- [Workflow: Full Release](#workflow-full-release)
-- [Workflow: Adding a New Protocol](#workflow-adding-a-new-protocol)
-- [Workflow: Daily Development](#workflow-daily-development)
+- [Hooks](#hooks)
 - [Design Decisions](#design-decisions)
 - [Known Limitations](#known-limitations)
 - [Maintenance](#maintenance)
@@ -26,486 +28,169 @@ release cycle of RustConn.
 
 ## Overview
 
-RustConn uses Kiro hooks and steering files to create a layered automation
-system.  The layers are designed so that each concern is handled exactly once
-and feedback loops are short.
+RustConn uses Kiro **steering files** and **hooks** in two complementary layers:
+
+- **Steering = knowledge.** Persistent context injected into agent sessions so
+  the agent always knows project conventions without being re-told. Located in
+  `.kiro/steering/`.
+- **Hooks = action.** React to IDE events (file save, tool use, manual trigger)
+  to run checks or commands automatically. Located in `.kiro/hooks/`.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   Developer                         │
-│          (writes code, triggers releases)           │
+│                     Developer                       │
 └──────────────┬──────────────────────────────────────┘
                │
-       ┌───────▼────────┐
-       │  Steering Files │  ← persistent context injected into sessions
-       │  (3 files)      │     release-reminder, commit-checklist,
-       │                 │     test-patterns
+       ┌───────▼─────────┐    knowledge, always present
+       │  Steering Files │ ── (project rules, guides, standards)
        └───────┬─────────┘
                │
-       ┌───────▼────────┐
-       │  Event Hooks    │  ← react to IDE events automatically
-       │  (8 hooks)      │     file edits, tool use, task lifecycle
-       └───────┬─────────┘
-               │
-       ┌───────▼────────┐
-       │  Manual Hooks   │  ← developer-triggered on demand
-       │  (2 hooks)      │     quality checks, dependency audit
+       ┌───────▼─────────┐    automatic + on-demand actions
+       │      Hooks      │ ── (checks, syncs, quality gates)
        └─────────────────┘
 ```
-
-Total: 3 steering files + 10 hooks.
 
 ---
 
 ## Steering Files
 
-Located in `.kiro/steering/`.  These inject context into agent sessions
-so the agent always knows project conventions without being told each time.
+`.kiro/steering/` currently holds **14** files. The agent loads them according
+to each file's `inclusion:` front-matter (`always`, `fileMatch`, or `manual`).
 
-| File | Inclusion | Activates When | Purpose |
-|------|-----------|----------------|---------|
-| `release-reminder.md` | `fileMatch` | Agent reads `Cargo.toml` | Reminds of mandatory release steps when version is bumped |
-| `commit-checklist.md` | `manual` | Developer adds `#commit-checklist` to chat | Pre-commit fmt + clippy checklist |
-| `test-patterns.md` | `fileMatch` | Agent reads `rustconn-core/tests/**/*.rs` | Test conventions: proptest, integration, fixtures, rules |
+| Group | Files | Purpose |
+|-------|-------|---------|
+| Core rules | `project-rules.md` (always), `rust-pragmatic-guidelines.md`, `error-resolution.md` | Architecture, absolute rules, lazy-senior philosophy, Microsoft pragmatic guidelines, compiler-error remedies |
+| UI / GNOME | `gnome-hig.md`, `window-guide.md`, `dialogs-guide.md` | HIG compliance, window and dialog patterns |
+| Domain guides | `protocol-guide.md`, `secrets-guide.md` | Adding protocols; credential/secret handling |
+| Process | `release-reminder.md`, `verification-checklist.md`, `bugfix-workflow.md`, `spec-templates.md`, `test-patterns.md` | Release steps, verification, bugfix flow, spec scaffolding, test conventions |
+| Tooling | `kirograph.md` | When/how to use the KiroGraph code-graph tools |
 
-### Steering vs Hooks
-
-Steering files provide **knowledge** — they tell the agent what conventions
-exist.  Hooks provide **action** — they automatically run checks or commands.
-The `release-reminder` steering tells the agent *what* to do during a release;
-the `changelog-propagator` and `sync-package-versions` hooks *do* parts of it
-automatically.
+The exact inclusion mode and content of each file is in the file itself — that
+is the canonical source.
 
 ---
 
-## Hook Inventory
-
-### Summary Table (10 hooks)
-
-| # | Hook | Trigger | Type | Action |
-|---|------|---------|------|--------|
-| 1 | `pre-write-guard` | `preToolUse: write` | Gate | Blocks GTK imports in core/cli + blocks unsafe code |
-| 2 | `post-write-review` | `postToolUse: write` | Review | i18n + protocol architecture + credential security |
-| 3 | `pre-commit-checks` | `preToolUse: shell` | Gate | fmt + clippy before git commit/push |
-| 4 | `sync-package-versions` | `fileEdited: Cargo.toml` | Auto | Syncs version to 11 packaging/docs files |
-| 5 | `changelog-propagator` | `fileEdited: CHANGELOG.md` | Auto | Propagates release notes to 5 changelog files |
-| 6 | `translation-sync` | `fileEdited: rustconn/src/**/*.rs` | Auto | Updates POTFILES.in when new i18n() calls appear |
-| 7 | `flatpak-manifest-check` | `fileEdited: Cargo.lock` | Warn | Warns about stale cargo-sources.json |
-| 8 | `post-task-tests` | `postTaskExecution` | Auto | Runs `cargo test --workspace` after spec tasks |
-| 9 | `rustconn-checks` | `userTriggered` | Manual | Full quality gate: fmt → clippy → tests |
-| 10 | `dependency-audit` | `userTriggered` | Manual | Crate updates, CLI versions, security audit |
-
-### By Trigger Type
-
-**preToolUse** (block before action):
-- `pre-write-guard` — every file write (`.rs` only)
-- `pre-commit-checks` — every shell command (git commit/push only)
-
-**postToolUse** (review after action):
-- `post-write-review` — every file write (`.rs` only)
-
-**fileEdited** (react to file saves):
-- `sync-package-versions` — `Cargo.toml`
-- `changelog-propagator` — `CHANGELOG.md`
-- `translation-sync` — `rustconn/src/**/*.rs`
-- `flatpak-manifest-check` — `Cargo.lock`
-
-**postTaskExecution** (after spec task completes):
-- `post-task-tests`
-
-**userTriggered** (manual button click):
-- `rustconn-checks`
-- `dependency-audit`
-
----
-
-## Hook Details
-
-### 1. pre-write-guard
-
-**Trigger:** `preToolUse: write` (every file write)
-**Action:** `askAgent` — blocks the write if violations found
-**Skips:** Non-`.rs` files (immediate pass-through)
-
-Runs two checks on every `.rs` file write:
-
-| Check | Scope | What it blocks |
-|-------|-------|----------------|
-| Crate boundary | `rustconn-core/` and `rustconn-cli/` | `use gtk4`, `use adw`, `use vte4`, `use libadwaita`, `gtk4::`, `adw::`, `vte4::` |
-| Unsafe code | All `.rs` files | `unsafe {`, `unsafe fn`, `unsafe impl`, `unsafe trait`, `#[allow(unsafe_code)]` |
-
-**Why blocking (pre)?** These violations would fail compilation anyway
-(`unsafe_code = "forbid"` in workspace lints, missing GTK deps in core/cli).
-Catching them before write saves a compile-fail-fix cycle.
-
-### 2. post-write-review
-
-**Trigger:** `postToolUse: write` (every file write)
-**Action:** `askAgent` — reviews and reports findings
-**Skips:** Non-`.rs` files (silent)
-
-Runs up to three checks depending on file path:
-
-| Check | Activates for | What it reviews |
-|-------|---------------|-----------------|
-| A: i18n | `rustconn/src/**` | `.set_label("...")`, `.set_title("...")`, `Button::with_label("...")` etc. without `i18n()` wrapper |
-| B: Protocol | `rustconn-core/src/protocol/`, `rustconn-core/src/connection/`, `rustconn/src/dialogs/connection/`, `rustconn/src/embedded_*.rs`, `rustconn/src/session/` | Crate boundary, ProtocolType enum, capabilities, default_port, CLI parity |
-| C: Credentials | `rustconn-core/src/secret/`, `rustconn-core/src/credentials/`, `rustconn/src/dialogs/password*.rs`, or content with `SecretString`/`password`/`credential`/`keyring`/`kdbx`/`bitwarden`/`onepassword`/`passbolt` | SecretString usage, zeroize, no logging of secrets, no CLI arg exposure, no secrets in error messages |
-
-**Why reviewing (post)?** These are advisory — the code may be correct but
-worth a second look.  Blocking would be too aggressive for style/pattern checks.
-
-### 3. pre-commit-checks
-
-**Trigger:** `preToolUse: shell` (every shell command)
-**Action:** `askAgent` — intercepts git commit/push
-**Skips:** Non-git commands (immediate pass-through)
-
-Before `git commit` or `git push`, runs:
-1. `cargo fmt --all` — auto-fixes formatting
-2. `cargo clippy --all-targets -- -D warnings` — must pass clean
-
-If either fails, the agent fixes issues before allowing the git command.
-Mirrors the CI `fmt` and `clippy` jobs to prevent push-then-fail cycles.
-
-### 4. sync-package-versions
-
-**Trigger:** `fileEdited: Cargo.toml`
-**Action:** `askAgent` — updates version numbers
-**Skips:** If `[workspace.package] version` didn't change
-
-Updates the version number (NOT changelog content) in 11 files:
-
-| # | File | What changes |
-|---|------|-------------|
-| 1 | `packaging/obs/AppImageBuilder.yml` | `version:` field |
-| 2 | `packaging/flatpak/io.github.totoshko88.RustConn.yml` | `tag: vX.Y.Z` |
-| 3 | `packaging/flathub/io.github.totoshko88.RustConn.yml` | `tag: vX.Y.Z` |
-| 4 | `packaging/obs/rustconn.dsc` | `Version:` + filenames |
-| 5 | `packaging/obs/debian.dsc` | `Version:` + `DEBTRANSFORM-TAR` |
-| 6 | `packaging/obs/rustconn.spec` | `Version:` header only |
-| 7 | `packaging/obs/_service` | `<param name="revision">` |
-| 8 | `docs/USER_GUIDE.md` | Version in first line |
-| 9 | `docs/ARCHITECTURE.md` | Version in first line |
-| 10 | `docs/INSTALL.md` | Flatpak bundle version |
-| 11 | `docs/AI_DEVELOPMENT.md` | Version in first line |
-
-**Explicitly excluded** (need actual changelog content):
-CHANGELOG.md, debian/changelog, packaging/obs/debian.changelog,
-packaging/obs/rustconn.changes, packaging/obs/rustconn.spec %changelog,
-metainfo.xml, flatpak local manifest.
-
-### 5. changelog-propagator
-
-**Trigger:** `fileEdited: CHANGELOG.md`
-**Action:** `askAgent` — propagates release notes
-**Skips:** If no new `## [X.Y.Z] - YYYY-MM-DD` section was added
-
-Propagates the new release section to 5 files, each in its own format:
-
-| # | File | Format |
-|---|------|--------|
-| 1 | `debian/changelog` | Debian changelog (RFC 2822 date) |
-| 2 | `packaging/obs/debian.changelog` | Same Debian format |
-| 3 | `packaging/obs/rustconn.changes` | OBS changes format |
-| 4 | `packaging/obs/rustconn.spec` | RPM `%changelog` section |
-| 5 | `rustconn/assets/...metainfo.xml` | AppStream `<release>` element |
-
-**Relationship with sync-package-versions:** These two hooks are complementary.
-`sync-package-versions` handles version *numbers* in packaging configs.
-`changelog-propagator` handles release *notes* in changelog files.
-They never touch the same files.
-
-### 6. translation-sync
-
-**Trigger:** `fileEdited: rustconn/src/**/*.rs`
-**Action:** `askAgent` — updates POTFILES.in
-**Skips:** If the file has no `i18n()` calls
-
-When a GUI source file is saved with `i18n()` calls:
-1. Checks if the file is listed in `po/POTFILES.in`
-2. If missing, adds it in alphabetical order
-3. Reminds developer to run `po/update-pot.sh` and `po/fill_translations.py`
-
-Does NOT auto-run the scripts — they modify 15+ `.po` files and should be
-run intentionally.
-
-### 7. flatpak-manifest-check
-
-**Trigger:** `fileEdited: Cargo.lock`
-**Action:** `askAgent` — warns developer
-**Skips:** Never (always warns when Cargo.lock changes)
-
-Warns that `packaging/flatpak/cargo-sources.json` and
-`packaging/flathub/cargo-sources.json` may be stale.  Provides the
-regeneration command but does NOT run it automatically — these are large
-generated files.
-
-### 8. post-task-tests
-
-**Trigger:** `postTaskExecution` (after any spec task completes)
-**Action:** `runCommand`
-**Timeout:** 300 seconds
-
-Runs `cargo test --workspace --no-fail-fast 2>&1 | tail -20`.
-
-The 300s timeout accounts for property tests with argon2 key derivation
-that take ~120s in debug mode.  This is normal and not a failure.
-
-### 9. rustconn-checks
-
-**Trigger:** `userTriggered` (manual button click)
-**Action:** `askAgent` — runs checks and auto-fixes
-
-Full quality gate, run on demand:
-1. `cargo fmt --check` → auto-fix with `cargo fmt --all` if needed
-2. `cargo clippy --all-targets -- -D warnings` → fix warnings and re-run
-3. `cargo test --workspace` (300s) → report summary
-
-The agent fixes clippy warnings automatically and re-runs to confirm.
-Test failures are reported to the developer without auto-fix.
-
-### 10. dependency-audit
-
-**Trigger:** `userTriggered` (manual button click)
-**Action:** `askAgent` — reports findings
-
-Read-only audit, never auto-applies changes:
-1. `cargo update --dry-run` — groups updates by patch/minor/major
-2. `cargo deny check advisories` — security advisories (reads `deny.toml`; falls back to `cargo audit`)
-3. CLI version check — `rustconn-core/src/cli_download.rs` (only TigerVNC is
-   pinned; the rest resolve latest at runtime)
-   vs latest available (kubectl, tailscale, cloudflared, boundary, teleport,
-   bitwarden-cli, 1password-cli, hoop, tigervnc)
-4. Summary with recommended actions
-
-Note: A weekly GitHub Action (`check-cli-versions.yml`) also monitors CLI
-versions independently.
-
----
-
-## Hook Interaction Map
-
-### Per-Write Cost
-
-Every file write triggers exactly 2 hook evaluations:
-
-```
-Any file write
-  ├─► pre-write-guard   (preToolUse: write)
-  └─► post-write-review (postToolUse: write)
-```
-
-Both hooks skip non-`.rs` files immediately (first line of prompt).
-For `.rs` files, `pre-write-guard` runs 2 checks, `post-write-review`
-runs 0–3 checks depending on file path.
-
-**Previous cost:** 5 separate hooks = 5 LLM evaluations per write.
-**Current cost:** 2 merged hooks = 2 LLM evaluations per write.
-
-### Per-Shell-Command Cost
-
-```
-Any shell command
-  └─► pre-commit-checks (preToolUse: shell)
-```
-
-Skips immediately if the command is not `git commit` or `git push`.
-
----
-
-## Workflow: Full Release
-
-Step-by-step release process showing which hooks and steering files activate.
-
-```
-Step 1: Bump version in Cargo.toml
-  ├─► [steering] release-reminder.md activates (fileMatch: Cargo.toml)
-  │     → Agent sees full release checklist
-  ├─► [hook] sync-package-versions fires (fileEdited: Cargo.toml)
-  │     → Updates version in 11 packaging/docs files automatically
-  │
-Step 2: Write CHANGELOG.md with new ## [X.Y.Z] section
-  ├─► [hook] changelog-propagator fires (fileEdited: CHANGELOG.md)
-  │     → Propagates release notes to 5 changelog files automatically
-  │
-Step 3: Update dependencies
-  ├─► [hook] dependency-audit (userTriggered, optional)
-  │     → Reports available updates before applying
-  ├─► Run: cargo update
-  ├─► Run: cargo check --all-targets
-  ├─► [hook] flatpak-manifest-check fires (fileEdited: Cargo.lock)
-  │     → Warns about stale cargo-sources.json
-  │
-Step 4: CLI version check (if scripts/check-cli-versions.sh exists)
-  ├─► Run: ./scripts/check-cli-versions.sh
-  │     → Update rustconn-core/src/cli_download.rs if needed
-  │
-Step 5: Quality gate
-  ├─► [hook] rustconn-checks (userTriggered)
-  │     → fmt + clippy + tests
-  │
-Step 6: Commit and tag
-  ├─► [hook] pre-commit-checks fires (preToolUse: shell)
-  │     → Final fmt + clippy before git commit
-  └─► git tag vX.Y.Z → triggers GitHub release workflow
-```
-
-**What's automated:** Steps 1 (version sync), 2 (changelog propagation),
-3 (Cargo.lock warning), 5 (quality checks), 6 (pre-commit checks).
-
-**What's manual:** Writing CHANGELOG.md content, deciding which deps to
-update, CLI version updates, the actual git commit/tag.
-
----
-
-## Workflow: Adding a New Protocol
-
-```
-Step 1: Add protocol type in rustconn-core/src/connection/types.rs
-  ├─► pre-write-guard: crate boundary (no GTK) + no unsafe
-  └─► post-write-review: Check B (protocol architecture)
-        → Verifies ProtocolType enum, capabilities, default_port
-
-Step 2: Add protocol logic in rustconn-core/src/protocol/new_proto.rs
-  ├─► pre-write-guard: crate boundary + no unsafe
-  └─► post-write-review: Check B (protocol architecture)
-
-Step 3: Add connection dialog in rustconn/src/dialogs/connection/new_proto.rs
-  ├─► pre-write-guard: no unsafe
-  └─► post-write-review: Check A (i18n) + Check B (protocol)
-        → Verifies all labels/tooltips use i18n()
-
-Step 4: Add CLI handler in rustconn-cli/src/new_proto.rs
-  ├─► pre-write-guard: crate boundary (no GTK) + no unsafe
-
-Step 5: Add tests in rustconn-core/tests/
-  ├─► [steering] test-patterns.md activates
-  │     → Agent knows proptest conventions, module registration
-  ├─► post-task-tests fires after spec task
-  │     → Runs cargo test --workspace
-
-Step 6: Update translations
-  ├─► translation-sync fires (fileEdited: rustconn/src/**/*.rs)
-  │     → Adds new file to POTFILES.in if i18n() calls present
-```
-
----
-
-## Workflow: Daily Development
-
-```
-Write code in any .rs file
-  ├─► pre-write-guard: boundary + unsafe checks
-  └─► post-write-review: i18n / protocol / credential checks
-
-Save GUI source file (rustconn/src/)
-  └─► translation-sync: checks POTFILES.in
-
-Run spec task
-  └─► post-task-tests: cargo test --workspace
-
-Ready to commit
-  ├─► rustconn-checks (optional, manual): full quality gate
-  └─► pre-commit-checks: fmt + clippy before git commit
-```
+## Hooks
+
+`.kiro/hooks/` currently holds **16** hooks. Grouped by trigger:
+
+### `fileEdited` — react to saves
+| Hook | Watches | Enabled | Action |
+|------|---------|---------|--------|
+| `cargo-security-scan` | `Cargo.lock` | ✅ | `cargo deny`/`cargo audit` advisories |
+| `flatpak-manifest-check` | `Cargo.lock` | ✅ | Warn if `cargo-sources.json` is stale |
+| `translation-sync` | `rustconn/src/**/*.rs` | ✅ | Add file to `POTFILES.in` when new `i18n()` appears |
+| `uk-translation-review` | `po/uk.po` | ✅ | Invoke `uk-translation-reviewer` sub-agent |
+| `sync-package-versions` | `Cargo.toml` | ❌ disabled | Superseded by `release-version` (see below) |
+
+### KiroGraph index upkeep (`fileCreated` / `fileEdited` / `fileDeleted` / `agentStop`)
+| Hook | Trigger | Action |
+|------|---------|--------|
+| `kirograph-mark-dirty-on-create` | file created | `kirograph mark-dirty` |
+| `kirograph-mark-dirty-on-save` | file edited | `kirograph mark-dirty` |
+| `kirograph-sync-if-dirty` | (deferred sync) | `kirograph sync-if-dirty` |
+| `kirograph-sync-on-delete` | file deleted | `kirograph sync-if-dirty` |
+
+### `preToolUse` — gate before an action
+| Hook | Scope | Action |
+|------|-------|--------|
+| `pre-commit-checks` | shell commands | Before `git commit`/`push`: `fmt` + `clippy` must pass |
+
+### `userTriggered` — manual buttons
+| Hook | Action |
+|------|--------|
+| `rustconn-checks` | Full quality gate: `fmt` → `clippy` → `cargo test --workspace` |
+| `post-task-tests` ("Run Tests") | On-demand `cargo test --workspace` with duplicate-process guard |
+| `dependency-audit` | Read-only: crate updates, advisories, CLI version drift |
+| `commit-message-helper` | Generate a conventional-commit message from the diff |
+| `release-version` | **Release finalize**: bump version in all packaging files, propagate changelog, regenerate `cargo-sources.json`, verify consistency (no git) |
+
+### Session lifecycle
+| Hook | Trigger | Action |
+|------|---------|--------|
+| `post-session-diagnostics` | `agentStop` | Post-session diagnostics on touched files |
+
+> **Release note:** version-string propagation is done by the manual
+> `release-version` hook at finalize time, **not** automatically on every
+> `Cargo.toml` save. The old auto `sync-package-versions` hook is disabled to
+> avoid an agent call on every dependency edit. Changelog *content* is always
+> written by hand; `release-version` only *propagates* it to packaging formats.
 
 ---
 
 ## Design Decisions
 
-### Why merged hooks instead of separate ones?
+### Steering vs hooks
 
-`preToolUse` and `postToolUse` with `toolTypes: ["write"]` fire on EVERY
-write — including `.md`, `.toml`, `.json`, `.yml` files.  With separate hooks:
+Steering provides the *mental model* (what conventions exist and why); hooks
+perform the *mechanical work* (run a command, edit a file). For releases this
+pairing matters: `release-reminder.md` tells the agent the correct sequence
+(write `CHANGELOG.md` before bumping the version, update deps after), while the
+`release-version` hook executes the propagation. Without the steering, the agent
+might run the hook in the wrong order.
 
-- 3 postToolUse hooks × 1 write = 3 LLM evaluations, all saying "not .rs, skip"
-- 2 preToolUse hooks × 1 write = 2 LLM evaluations, all saying "not .rs, skip"
+### Pre (blocking) vs post/advisory checks
 
-Merged hooks reduce this to 1+1 = 2 evaluations total.  The routing logic
-("is this file in path X?") moves inside the prompt instead of being
-duplicated across hook configs.
+- **Blocking (`preToolUse`)** is reserved for things that would otherwise fail
+  the build or CI anyway — formatting and clippy before a commit. Catching them
+  early avoids a push-then-fail cycle. These are binary checks.
+- **Advisory** checks (i18n coverage, credential patterns, protocol architecture)
+  are nuanced — a missing `i18n()` wrapper does not break compilation and a
+  pattern may be intentional. These are enforced via the **Self-Check Rules** in
+  `project-rules.md` (applied mentally by the agent) rather than as blocking
+  hooks, which keeps per-write LLM cost low.
 
-### Why preToolUse for boundary/unsafe but postToolUse for i18n/protocol/credentials?
+### Why a 180s budget for tests
 
-- **Pre (blocking):** Crate boundary violations and unsafe code will always
-  fail compilation.  Blocking the write prevents a write-compile-fail-rewrite
-  cycle.  These are binary checks — either the code has GTK imports or it
-  doesn't.
+Property tests in `rustconn-core` use argon2 key derivation, intentionally slow
+(~120s in debug mode). Test-running hooks allow up to 180s and guard against
+launching a second `cargo test` while one is already running (shared terminal).
 
-- **Post (advisory):** i18n coverage, protocol architecture, and credential
-  patterns are nuanced.  A missing `i18n()` wrapper doesn't break compilation.
-  A credential pattern might be intentional.  These checks inform rather than
-  block.
+### Why KiroGraph upkeep hooks
 
-### Why steering + hooks for releases instead of just hooks?
-
-The `release-reminder` steering provides the full mental model of the release
-process.  The `sync-package-versions` and `changelog-propagator` hooks
-automate the mechanical parts.  The steering ensures the agent knows the
-*sequence* and *why*, while hooks handle the *what*.
-
-Without steering, the agent would execute hooks but might not know to write
-CHANGELOG.md *before* bumping the version, or to run dependency updates
-*after* writing the changelog.
-
-### Why 300s timeout for tests?
-
-Property tests in `rustconn-core/tests/property_tests.rs` use argon2 key
-derivation which is intentionally slow (~120s in debug mode).  The previous
-180s timeout was too close to the actual runtime, causing false timeout
-failures under load.  300s provides comfortable headroom.
+The `kirograph-*` hooks keep the code-graph index fresh (mark dirty on
+create/edit, sync on delete) so `kirograph` queries stay accurate without a
+manual re-index. They fail silently (`|| true`) when KiroGraph is absent.
 
 ---
 
 ## Known Limitations
 
-1. **postToolUse hooks cannot filter by file path** — `toolTypes` is the only
-   filter available.  The `post-write-review` hook must evaluate its prompt
-   for every write, even non-`.rs` files.  The prompt's first line handles
-   this ("if not .rs, do nothing") but the LLM call still happens.
-
-2. **preToolUse hooks fire on deleteFile too** — The `pre-write-guard` hook
-   triggers on file deletions because `deleteFile` is categorized as a write
-   tool.  The prompt handles this (non-`.rs` files pass through) but it's
-   unnecessary overhead.
-
-3. **changelog-propagator requires well-formed CHANGELOG.md** — The hook
-   parses `## [X.Y.Z] - YYYY-MM-DD` headers.  Non-standard formatting
-   (e.g., missing date, different header level) will cause it to skip
-   propagation silently.
-
-4. **translation-sync doesn't run update-pot.sh** — It only updates
-   POTFILES.in and reminds the developer to run the scripts.  Full automation
-   would modify 15+ `.po` files which is too invasive for an automatic hook.
-
-5. **flatpak-manifest-check is advisory only** — Regenerating cargo-sources.json
-   requires Python and produces large diffs.  The hook warns but doesn't act.
-
-6. **No hook for rustconn-cli/ i18n** — The CLI crate doesn't use gettext
-   (it uses plain English strings).  If CLI i18n is added in the future,
-   `post-write-review` Check A scope should be expanded.
+1. **Advisory checks are not enforced by tooling.** i18n / credential / protocol
+   conventions live in `project-rules.md` Self-Check Rules and rely on the agent
+   applying them. A determined mistake can slip through to `cargo clippy` / review.
+2. **Shared terminal.** The main agent and sub-agents share one bash session;
+   concurrent cargo runs interleave. Hooks and rules centralize cargo through a
+   single `rust-quality-check` invocation to avoid collisions.
+3. **`translation-sync` does not run `update-pot.sh`.** It only updates
+   `POTFILES.in` and reminds the developer — regenerating 16 `.po` files is too
+   invasive for an automatic hook.
+4. **`flatpak-manifest-check` is advisory only.** Regenerating `cargo-sources.json`
+   needs Python and produces large diffs; the hook warns but does not act.
+5. **KiroGraph semantic search may be unavailable.** The embedding model can fail
+   to load in some Node environments; structural queries (search, callers,
+   architecture) still work. See `kirograph.md`.
 
 ---
 
 ## Maintenance
 
-### Adding a new hook
+### Adding or changing a hook
+1. Edit/create `.kiro/hooks/<name>.kiro.hook` (JSON schema below).
+2. Bump its `"version"` field.
+3. If it changes a *group* of behaviour above, update the relevant table in this
+   file — but keep per-hook detail in the hook file, not here.
 
-1. Create `.kiro/hooks/<name>.kiro.hook` with the JSON schema
-2. Add it to the Hook Inventory table in this document
-3. Add it to the relevant Workflow sections
-4. If it's a `preToolUse`/`postToolUse` write hook, consider merging it into
-   `pre-write-guard` or `post-write-review` instead of creating a new one
+### Adding or changing a steering file
+1. Edit/create `.kiro/steering/<name>.md` with the right `inclusion:` front-matter.
+2. If it adds a new *group* of knowledge, add a row to the Steering table above.
 
-### Modifying an existing hook
-
-1. Update the `.kiro.hook` file
-2. Bump the `"version"` field
-3. Update the corresponding Hook Details section in this document
+### Keeping this document honest
+When the hook/steering counts in this file no longer match `ls .kiro/hooks/`
+and `ls .kiro/steering/`, the document has drifted — fix the counts and the
+group tables, and resist the urge to inline every prompt.
 
 ### Hook file schema
-
 ```json
 {
   "enabled": true,
@@ -514,7 +199,7 @@ failures under load.  300s provides comfortable headroom.
   "shortName": "kebab-case-id",
   "version": "1",
   "when": {
-    "type": "preToolUse | postToolUse | fileEdited | ...",
+    "type": "preToolUse | postToolUse | fileEdited | fileCreated | fileDeleted | userTriggered | promptSubmit | agentStop | preTaskExecution | postTaskExecution",
     "toolTypes": ["write"],
     "patterns": ["*.rs"]
   },
@@ -527,9 +212,5 @@ failures under load.  300s provides comfortable headroom.
 }
 ```
 
-Valid event types: `fileEdited`, `fileCreated`, `fileDeleted`,
-`userTriggered`, `promptSubmit`, `agentStop`, `preToolUse`, `postToolUse`,
-`preTaskExecution`, `postTaskExecution`.
-
-Valid tool categories for `toolTypes`: `read`, `write`, `shell`, `web`,
-`spec`, `*`.  Regex patterns also supported (e.g., `".*sql.*"`).
+Valid tool categories for `toolTypes`: `read`, `write`, `shell`, `web`, `spec`,
+`*`. Regex patterns are also supported (e.g., `".*sql.*"`).

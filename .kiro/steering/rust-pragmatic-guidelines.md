@@ -76,8 +76,12 @@ Library functions in `rustconn-core` MUST still use `thiserror::Error`
 
 ### M-UNSAFE — `unsafe_code = "forbid"` already applied
 
-Workspace `[lints.rust] unsafe_code = "forbid"`. If FFI is ever needed — create a
-separate small crate `rustconn-*-sys` with documented safety contracts and Miri tests.
+Workspace `[lints.rust] unsafe_code = "forbid"` in every crate **except** the
+sanctioned `rustconn-pty-sys` (FFI for the macOS PTY controlling terminal). If
+further FFI is ever needed — create a separate small crate `rustconn-*-sys` with
+a documented `// SAFETY:` contract on every `unsafe` block. Miri cannot execute
+the syscalls/FFI used here (`pre_exec`, `ioctl`), so prefer a contract unit test
+(asserting preconditions/behaviour where observable) over a Miri job.
 Do not allow unsafe to "spread" across the main crates.
 
 ## Documentation

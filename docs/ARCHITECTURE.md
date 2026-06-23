@@ -6,26 +6,27 @@ This document describes the internal architecture of RustConn for contributors a
 
 ## Crate Structure
 
-RustConn is a three-crate Cargo workspace (Rust 2024 edition) with strict separation of concerns:
+RustConn is a four-crate Cargo workspace (Rust 2024 edition) with strict separation of concerns:
 
 ```
 rustconn/           # GTK4 GUI application
 rustconn-core/      # Business logic library (GUI-free)
 rustconn-cli/       # Command-line interface
+rustconn-pty-sys/   # Isolated FFI helper (macOS PTY controlling terminal)
 ```
 
 ### Dependency Graph
 
 ```
-┌─────────────┐     ┌─────────────────┐
-│ rustconn    │────▶│  rustconn-core  │
-│ (GUI)       │     │  (Library)      │
-└─────────────┘     └─────────────────┘
-                            ▲
-┌─────────────┐             │
-│ rustconn-cli│─────────────┘
-│ (CLI)       │
-└─────────────┘
+┌─────────────┐     ┌─────────────────┐     ┌────────────────────┐
+│ rustconn    │────▶│  rustconn-core  │     │  rustconn-pty-sys  │
+│ (GUI)       │──┐  │  (Library)      │     │  (FFI, libc only)  │
+└─────────────┘  │  └─────────────────┘     └────────────────────┘
+                 │          ▲                        ▲
+┌─────────────┐  │          │                        │
+│ rustconn-cli│──┼──────────┘                        │
+│ (CLI)       │  └───────────────────────────────────┘
+└─────────────┘   (rustconn → rustconn-pty-sys, macOS PTY only)
 ```
 
 ### Crate Boundaries
@@ -33,10 +34,21 @@ rustconn-cli/       # Command-line interface
 | Crate | Purpose | Allowed Dependencies |
 |-------|---------|---------------------|
 | `rustconn-core` | Business logic, protocols, credentials, import/export | `tokio`, `serde`, `secrecy`, `thiserror` — NO GTK |
-| `rustconn` | GTK4 UI, dialogs, terminal integration | `gtk4`, `vte4`, `libadwaita`, `rustconn-core` |
+| `rustconn` | GTK4 UI, dialogs, terminal integration | `gtk4`, `vte4`, `libadwaita`, `rustconn-core`, `rustconn-pty-sys` |
 | `rustconn-cli` | CLI interface | `clap`, `rustconn-core` — NO GTK |
+| `rustconn-pty-sys` | FFI helper: give a spawned child its PTY slave as a controlling terminal (`setsid` + `TIOCSCTTY`) for the macOS native PTY ([#175](https://github.com/totoshko88/RustConn/issues/175)) | `libc` only — NO GTK |
 
 **Decision Rule:** "Does this code need GTK widgets?" → No → `rustconn-core` / Yes → `rustconn`
+
+### The `unsafe` Exception
+
+The workspace sets `unsafe_code = "forbid"` in every crate **except** `rustconn-pty-sys`.
+That crate is the single sanctioned location for `unsafe`, following the M-UNSAFE
+guideline (isolate FFI in a small `-sys` crate with a documented safety contract)
+instead of relaxing the lint in the main crates. It exposes one safe function,
+`set_controlling_terminal()`, which registers a `pre_exec` hook calling only
+async-signal-safe `libc` functions. See `rustconn-pty-sys/src/lib.rs` and its
+usage in `rustconn/src/macos_pty.rs`.
 
 ### Why This Separation?
 
