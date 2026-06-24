@@ -121,6 +121,7 @@ impl ConnectionDialog {
         let mosh_predict_dropdown = ssh_widgets.mosh_predict_dropdown;
         let mosh_server_binary_entry = ssh_widgets.mosh_server_binary_entry;
         let ssh_agent_socket_entry = ssh_widgets.ssh_agent_socket_entry;
+        let ssh_pkcs11_entry = ssh_widgets.ssh_pkcs11_entry;
         let ssh_keep_alive_interval = ssh_widgets.keep_alive_interval;
         let ssh_keep_alive_count_max = ssh_widgets.keep_alive_count_max;
 
@@ -474,6 +475,7 @@ impl ConnectionDialog {
             &ssh_startup_entry,
             &ssh_options_entry,
             &ssh_agent_socket_entry,
+            &ssh_pkcs11_entry,
             &ssh_keep_alive_interval,
             &ssh_keep_alive_count_max,
             &ssh_port_forwards,
@@ -677,6 +679,7 @@ impl ConnectionDialog {
             ssh_startup_entry,
             ssh_options_entry,
             ssh_agent_socket_entry,
+            ssh_pkcs11_entry,
             ssh_keep_alive_interval,
             ssh_keep_alive_count_max,
             ssh_port_forwards,

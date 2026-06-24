@@ -257,6 +257,7 @@ impl SecureCrtImporter {
                     jump_host_id: None,
                     proxy_jump: None,
                     proxy_command: None,
+                    pkcs11_provider: None,
                     use_control_master: false,
                     agent_forwarding: session.agent_forwarding,
                     x11_forwarding: session.x11_forwarding,

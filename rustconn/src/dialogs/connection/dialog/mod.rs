@@ -145,6 +145,7 @@ pub struct ConnectionDialog {
     ssh_startup_entry: Entry,
     ssh_options_entry: Entry,
     ssh_agent_socket_entry: adw::EntryRow,
+    ssh_pkcs11_entry: adw::EntryRow,
     ssh_keep_alive_interval: adw::SpinRow,
     ssh_keep_alive_count_max: adw::SpinRow,
     ssh_port_forwards: Rc<RefCell<Vec<rustconn_core::models::PortForward>>>,

@@ -1,31 +1,32 @@
 # RustConn Architecture Guide
 
-**Version 0.17.0** | Last updated: June 2026
+**Version 0.17.1** | Last updated: June 2026
 
 This document describes the internal architecture of RustConn for contributors and maintainers.
 
 ## Crate Structure
 
-RustConn is a three-crate Cargo workspace (Rust 2024 edition) with strict separation of concerns:
+RustConn is a four-crate Cargo workspace (Rust 2024 edition) with strict separation of concerns:
 
 ```
 rustconn/           # GTK4 GUI application
 rustconn-core/      # Business logic library (GUI-free)
 rustconn-cli/       # Command-line interface
+rustconn-pty-sys/   # Isolated FFI helper (macOS PTY controlling terminal)
 ```
 
 ### Dependency Graph
 
 ```
-┌─────────────┐     ┌─────────────────┐
-│ rustconn    │────▶│  rustconn-core  │
-│ (GUI)       │     │  (Library)      │
-└─────────────┘     └─────────────────┘
-                            ▲
-┌─────────────┐             │
-│ rustconn-cli│─────────────┘
-│ (CLI)       │
-└─────────────┘
+┌─────────────┐     ┌─────────────────┐     ┌────────────────────┐
+│ rustconn    │────▶│  rustconn-core  │     │  rustconn-pty-sys  │
+│ (GUI)       │──┐  │  (Library)      │     │  (FFI, libc only)  │
+└─────────────┘  │  └─────────────────┘     └────────────────────┘
+                 │          ▲                        ▲
+┌─────────────┐  │          │                        │
+│ rustconn-cli│──┼──────────┘                        │
+│ (CLI)       │  └───────────────────────────────────┘
+└─────────────┘   (rustconn → rustconn-pty-sys, macOS PTY only)
 ```
 
 ### Crate Boundaries
@@ -33,10 +34,21 @@ rustconn-cli/       # Command-line interface
 | Crate | Purpose | Allowed Dependencies |
 |-------|---------|---------------------|
 | `rustconn-core` | Business logic, protocols, credentials, import/export | `tokio`, `serde`, `secrecy`, `thiserror` — NO GTK |
-| `rustconn` | GTK4 UI, dialogs, terminal integration | `gtk4`, `vte4`, `libadwaita`, `rustconn-core` |
+| `rustconn` | GTK4 UI, dialogs, terminal integration | `gtk4`, `vte4`, `libadwaita`, `rustconn-core`, `rustconn-pty-sys` |
 | `rustconn-cli` | CLI interface | `clap`, `rustconn-core` — NO GTK |
+| `rustconn-pty-sys` | FFI helper: give a spawned child its PTY slave as a controlling terminal (`setsid` + `TIOCSCTTY`) for the macOS native PTY ([#175](https://github.com/totoshko88/RustConn/issues/175)) | `libc` only — NO GTK |
 
 **Decision Rule:** "Does this code need GTK widgets?" → No → `rustconn-core` / Yes → `rustconn`
+
+### The `unsafe` Exception
+
+The workspace sets `unsafe_code = "forbid"` in every crate **except** `rustconn-pty-sys`.
+That crate is the single sanctioned location for `unsafe`, following the M-UNSAFE
+guideline (isolate FFI in a small `-sys` crate with a documented safety contract)
+instead of relaxing the lint in the main crates. It exposes one safe function,
+`set_controlling_terminal()`, which registers a `pre_exec` hook calling only
+async-signal-safe `libc` functions. See `rustconn-pty-sys/src/lib.rs` and its
+usage in `rustconn/src/macos_pty.rs`.
 
 ### Why This Separation?
 
@@ -727,6 +739,7 @@ pub struct ProtocolCapabilities {
 - `KubernetesProtocol`: Kubernetes via external `kubectl exec` (capabilities: terminal, split_view)
 - `SftpProtocol`: SFTP file transfer via file manager/mc (capabilities: file_transfer, external_fallback, split_view when mc mode is active)
 - `MoshProtocol`: MOSH mobile shell via external `mosh` client (capabilities: terminal, split_view)
+- `WebProtocol`: Web URLs opened in the system browser via `UriLauncher`/`xdg-open` (capabilities: external_fallback)
 
 ### Adding a New Protocol
 
@@ -976,7 +989,16 @@ rustconn/src/
 │   ├── widgets.rs         # Shared widget builders (CheckboxRow, EntryRow, SwitchRow, etc.)
 │   ├── connection/        # Connection dialog (modular)
 │   │   ├── mod.rs         # Module exports
-│   │   ├── dialog.rs      # Main ConnectionDialog (~7000 lines, coordination + set/build methods)
+│   │   ├── dialog/        # ConnectionDialog (split from the old ~7000-line dialog.rs)
+│   │   │   ├── mod.rs         # ConnectionDialog struct + public API
+│   │   │   ├── construction.rs # Widget construction / wiring
+│   │   │   ├── build.rs       # build_* methods (assemble Connection from UI)
+│   │   │   ├── populate.rs    # populate_* methods (fill UI from Connection)
+│   │   │   ├── rows.rs        # Reusable row builders
+│   │   │   ├── passwords.rs   # Credential/password row handling
+│   │   │   ├── save.rs        # Save / validation flow
+│   │   │   └── agent_variables.rs # SSH agent + variable rows
+│   │   ├── builders.rs    # Shared field/section builders for tabs
 │   │   ├── general_tab.rs # General tab: name, host, port, group, credentials
 │   │   ├── data_tab.rs    # Data tab: variables, custom properties
 │   │   ├── automation_tab.rs # Automation tab: expect rules, pre/post tasks
@@ -992,6 +1014,7 @@ rustconn/src/
 │   │   ├── telnet.rs      # Telnet options
 │   │   ├── serial.rs      # Serial options
 │   │   ├── kubernetes.rs  # Kubernetes options
+│   │   ├── web.rs         # Web (browser) options
 │   │   └── zerotrust.rs   # Zero Trust provider options
 │   ├── keyboard.rs        # Keyboard navigation helpers
 │   ├── command_palette.rs # Command palette dialog (Ctrl+P)
@@ -1014,7 +1037,6 @@ rustconn/src/
 │   ├── types.rs           # Shared types
 │   └── ui.rs              # Status overlay rendering
 ├── monitoring.rs           # MonitoringBar widget, MonitoringCoordinator
-├── broadcast.rs           # BroadcastController — ad-hoc keystroke broadcast to multiple terminals
 ├── smart_folder_ui.rs     # Smart Folders sidebar section and dialogs
 └── utils.rs               # Async helpers, utilities
 
@@ -1082,6 +1104,8 @@ rustconn-core/src/
 ├── sftp.rs                # SFTP URI/command builders, ssh-add, mc FISH VFS
 ├── flatpak.rs             # Flatpak sandbox detection, portal key path resolution, stable key copy
 ├── snap.rs                # Snap environment detection and paths
+├── performance/           # String interner (connection-string dedup) + search debouncer
+├── tracing/               # Structured tracing setup, span name constants
 └── ...
 ```
 

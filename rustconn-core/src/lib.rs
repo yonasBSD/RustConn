@@ -13,7 +13,7 @@
 //! - [`secret`] - Credential backends (`KeePassXC`, libsecret)
 //! - [`search`] - Fuzzy search with caching and debouncing
 //! - [`automation`] - Expect scripts, key sequences, tasks
-//! - [`performance`] - Memory optimization, metrics, pooling
+//! - [`performance`] - Connection-string interner (dedup) + search debouncer
 //!
 //! # Feature Flags
 //!
@@ -39,7 +39,6 @@ pub mod dynamic_folder;
 pub mod embedded_client_error;
 pub mod error;
 pub mod export;
-pub mod ffi;
 pub mod flatpak;
 pub mod highlight;
 pub mod host_check;
@@ -135,9 +134,6 @@ pub use export::{
     DEFAULT_EXPORT_BATCH_SIZE, ExportError, ExportFormat, ExportOptions, ExportResult,
     ExportTarget, NATIVE_FILE_EXTENSION, NATIVE_FORMAT_VERSION, NativeExport, NativeImportError,
 };
-pub use ffi::{
-    ConnectionState, FfiDisplay, FfiError, FfiResult, VncCredentialType, VncDisplay, VncError,
-};
 pub use flatpak::{
     copy_key_to_flatpak_ssh, get_flatpak_known_hosts_path, get_flatpak_ssh_dir, is_flatpak,
     is_portal_path, resolve_key_path,
@@ -170,13 +166,7 @@ pub use password_generator::{
     CharacterSet, PasswordGenerator, PasswordGeneratorConfig, PasswordGeneratorError,
     PasswordGeneratorResult, PasswordStrength, estimate_crack_time,
 };
-pub use performance::{
-    AllocationStats, BatchProcessor, CompactString, Debouncer, InternerStats, LazyInit,
-    MemoryBreakdown, MemoryEstimate, MemoryOptimizer, MemoryPressure, MemorySnapshot,
-    MemoryTracker, ObjectPool, OperationStats, OptimizationCategory, OptimizationRecommendation,
-    PerformanceMetrics, PoolStats, ShrinkableVec, StringInterner, TimingGuard, VirtualScroller,
-    format_bytes, memory_optimizer, metrics,
-};
+pub use performance::{Debouncer, InternerStats, StringInterner, interner};
 pub use progress::{
     CallbackProgressReporter, CancelHandle, LocalProgressReporter, NoOpProgressReporter,
     ProgressReporter,

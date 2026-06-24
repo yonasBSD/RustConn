@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::config::ConfigManager;
 use crate::error::{ConfigError, ConfigResult};
 use crate::models::{Connection, ConnectionGroup, ProtocolConfig};
-use crate::performance::memory_optimizer;
+use crate::performance::interner;
 use crate::sync::SyncMode;
 
 /// Tuple containing validation/creation, timestamp
@@ -1176,7 +1176,7 @@ impl ConnectionManager {
     /// This method interns protocol names, hostnames, and usernames which are
     /// often repeated across many connections.
     fn intern_connection_strings(conn: &Connection) {
-        let interner = memory_optimizer().interner();
+        let interner = interner();
 
         // Intern protocol names (frequently repeated)
         let _ = interner.intern(conn.protocol.as_str());

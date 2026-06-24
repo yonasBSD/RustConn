@@ -44,6 +44,8 @@ Use after completing a feature or before merge. Adapted from AI-DLC methodology.
 - [ ] CHANGELOG.md updated (if user-facing change)
 - [ ] `/// # Errors` section for new `Result` functions
 - [ ] Comments for non-obvious logic
+- [ ] If a module was removed/renamed → crate-level `//!` doc in `lib.rs` still matches
+- [ ] If a public trait/signature changed → its example in `docs/ARCHITECTURE.md` re-verified
 
 ## 7. Cleanup
 

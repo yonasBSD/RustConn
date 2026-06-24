@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use crate::performance::memory_optimizer;
+use crate::performance::interner;
 
 /// Interns a protocol name string for memory efficiency
 ///
@@ -22,7 +22,7 @@ use crate::performance::memory_optimizer;
 /// An `Arc<str>` pointing to the interned string
 #[must_use]
 pub fn intern_protocol_name(protocol_name: &str) -> Arc<str> {
-    memory_optimizer().interner().intern(protocol_name)
+    interner().intern(protocol_name)
 }
 
 /// Interns a hostname string for memory efficiency
@@ -39,7 +39,7 @@ pub fn intern_protocol_name(protocol_name: &str) -> Arc<str> {
 /// An `Arc<str>` pointing to the interned string
 #[must_use]
 pub fn intern_hostname(hostname: &str) -> Arc<str> {
-    memory_optimizer().interner().intern(hostname)
+    interner().intern(hostname)
 }
 
 /// Interns a username string for memory efficiency
@@ -56,7 +56,7 @@ pub fn intern_hostname(hostname: &str) -> Arc<str> {
 /// An `Arc<str>` pointing to the interned string
 #[must_use]
 pub fn intern_username(username: &str) -> Arc<str> {
-    memory_optimizer().interner().intern(username)
+    interner().intern(username)
 }
 
 /// Interns multiple connection-related strings at once
@@ -79,7 +79,7 @@ pub fn intern_connection_strings(
     hostname: &str,
     username: Option<&str>,
 ) -> (Arc<str>, Arc<str>, Option<Arc<str>>) {
-    let interner = memory_optimizer().interner();
+    let interner = interner();
     (
         interner.intern(protocol_name),
         interner.intern(hostname),
@@ -101,7 +101,7 @@ pub fn intern_connection_strings(
 /// `Some(warning_message)` if hit rate is below threshold, `None` otherwise
 #[must_use]
 pub fn check_interning_stats(threshold: f64) -> Option<String> {
-    let stats = memory_optimizer().interner().stats();
+    let stats = interner().stats();
     let intern_count = stats
         .intern_count
         .load(std::sync::atomic::Ordering::Relaxed);
@@ -142,7 +142,7 @@ pub fn check_interning_stats(threshold: f64) -> Option<String> {
 /// A tuple of (`intern_count`, `hit_count`, `hit_rate`, `bytes_saved`)
 #[must_use]
 pub fn get_interning_stats() -> (usize, usize, f64, usize) {
-    let stats = memory_optimizer().interner().stats();
+    let stats = interner().stats();
     let intern_count = stats
         .intern_count
         .load(std::sync::atomic::Ordering::Relaxed);

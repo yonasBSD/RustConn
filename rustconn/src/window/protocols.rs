@@ -126,6 +126,8 @@ pub fn resolve_jump_chain_for_tunnel(
     // Then resolve reference-based jump hosts recursively
     // Also resolve the identity file for the first hop (needed for ProxyCommand)
     let mut first_hop_identity: Option<String> = None;
+    // PKCS#11 provider of the first hop (not inherited via -J — inject into ProxyCommand)
+    let mut first_hop_pkcs11: Option<String> = None;
     if let Some(parent_jump_id) = ssh_config.jump_host_id {
         let mut current_id = Some(parent_jump_id);
         let mut visited = std::collections::HashSet::new();
@@ -149,6 +151,14 @@ pub fn resolve_jump_chain_for_tunnel(
                             )
                             .and_then(|p| rustconn_core::resolve_key_path(&p))
                             .map(|p| p.to_string_lossy().to_string());
+                        if let rustconn_core::ProtocolConfig::Ssh(parent_cfg) =
+                            &parent_conn.protocol_config
+                        {
+                            first_hop_pkcs11 = parent_cfg
+                                .pkcs11_provider
+                                .clone()
+                                .filter(|p| !p.trim().is_empty());
+                        }
                         is_first = false;
                     }
 
@@ -187,11 +197,16 @@ pub fn resolve_jump_chain_for_tunnel(
     }
 
     // In Flatpak, use ProxyCommand so the nested SSH inherits known_hosts
-    if let Some(kh_path) = rustconn_core::get_flatpak_known_hosts_path() {
-        // Build ProxyCommand for the first hop in the chain
+    let flatpak_kh = rustconn_core::get_flatpak_known_hosts_path();
+    if flatpak_kh.is_some() || first_hop_pkcs11.is_some() {
+        // Build ProxyCommand for the first hop in the chain. `-J` does not pass
+        // -o/-i to the nested SSH, so Flatpak known_hosts and PKCS#11 tokens must
+        // be injected explicitly here.
         let mut proxy_parts = vec!["ssh".to_string(), "-W".to_string(), "%h:%p".to_string()];
-        proxy_parts.push("-o".to_string());
-        proxy_parts.push(format!("UserKnownHostsFile={}", kh_path.display()));
+        if let Some(ref kh_path) = flatpak_kh {
+            proxy_parts.push("-o".to_string());
+            proxy_parts.push(format!("UserKnownHostsFile={}", kh_path.display()));
+        }
 
         // Pass identity file for the first hop if available
         if let Some(ref key) = first_hop_identity {
@@ -201,7 +216,14 @@ pub fn resolve_jump_chain_for_tunnel(
             proxy_parts.push("IdentitiesOnly=yes".to_string());
         }
 
-        // If multiple hops, pass remaining via -J inside ProxyCommand
+        // Pass PKCS#11 provider for the first hop (token also auths the bastion)
+        if let Some(ref provider) = first_hop_pkcs11 {
+            proxy_parts.push("-o".to_string());
+            proxy_parts.push(format!("PKCS11Provider={}", provider.trim()));
+        }
+
+        // ponytail: PKCS#11/identity reach only the first hop; deeper hops in
+        // `-J` still don't inherit -o. Fine for the common single-bastion case.
         if chain.len() > 1 {
             let inner_chain = chain[1..].join(",");
             proxy_parts.push("-J".to_string());
@@ -214,7 +236,7 @@ pub fn resolve_jump_chain_for_tunnel(
         let proxy_cmd = proxy_parts.join(" ");
         tracing::debug!(
             proxy_command = %proxy_cmd,
-            "Tunnel: using ProxyCommand for jump host chain in Flatpak"
+            "Tunnel: using ProxyCommand for jump host chain (Flatpak known_hosts or PKCS#11)"
         );
         vec!["-o".to_string(), format!("ProxyCommand={proxy_cmd}")]
     } else {
@@ -1316,8 +1338,19 @@ pub fn start_zerotrust_connection(
         // Escape single quotes for safe embedding in '...' shell string:
         // replace ' with '\'' (end quote, escaped quote, start quote)
         let escaped = template.replace('\'', "'\\''");
+        // Run on the host through a *login* shell (`sh -lc`) so the host PATH is
+        // used to resolve binaries. `script` (util-linux) allocates a host PTY
+        // for interactive TUI tools, but it is not present on every host
+        // (atomic distros, or `script` outside the sandbox PATH) and GUI tools
+        // (e.g. WinBox, #190) do not need a PTY at all. So we probe the host for
+        // `script` and fall back to a plain `sh -c` when it is missing — this
+        // fixes both the "Failed to start command: script" portal error and
+        // launching GUI programs from a Generic command.
+        // ponytail: single login-shell probe per launch; fine for one-shot
+        // command spawn (not in a hot path).
+        let host_runner = "if command -v script >/dev/null 2>&1; then exec script -qfc \"$1\" /dev/null; else exec sh -c \"$1\"; fi";
         let spawn_cmd = format!(
-            "flatpak-spawn --host --env=TERM=xterm-256color -- script -qfc '{escaped}' /dev/null"
+            "flatpak-spawn --host --env=TERM=xterm-256color -- sh -lc '{host_runner}' rustconn '{escaped}'"
         );
         notebook.spawn_command(session_id, &["/bin/sh", "-c", &spawn_cmd], None, None, None);
     } else {

@@ -140,6 +140,17 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.17.1" date="2026-06-24">
+      <description>
+        <p>Version 0.17.1 — WinBox preset, YubiKey SSH, and a Flatpak Generic-command fix:</p>
+        <ul>
+          <li>Added a WinBox connection preset (Remote Desktop) for MikroTik RouterOS management</li>
+          <li>Added native PKCS#11 / YubiKey SSH authentication, also imported from ssh config and applied to ProxyJump hops</li>
+          <li>Fixed Flatpak Generic commands failing on hosts without script, and GUI tools such as WinBox not launching</li>
+          <li>Internal: removed the dead VNC FFI stub and unused performance scaffolding</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.17.0" date="2026-06-23">
       <description>
         <p>Version 0.17.0 — a hardening release focused on security, performance, and tech-debt cleanup:</p>

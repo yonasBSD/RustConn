@@ -62,3 +62,32 @@ mod imp {
 
 #[cfg(unix)]
 pub use imp::set_controlling_terminal;
+
+#[cfg(all(unix, test))]
+mod tests {
+    use std::process::{Command, Stdio};
+
+    /// Contract test (M-UNSAFE): proves the `pre_exec` hook is actually
+    /// registered and runs in the forked child.
+    ///
+    /// Miri cannot execute `setsid`/`ioctl`, so we verify the contract
+    /// observably instead: with stdin redirected to `/dev/null` (never a
+    /// terminal), the hook's `setsid()` succeeds but `ioctl(0, TIOCSCTTY)`
+    /// fails with `ENOTTY`, returning `Err` from the closure — which makes
+    /// `spawn()` fail. If the hook were not wired, `true` would spawn fine.
+    #[test]
+    fn pre_exec_hook_runs_and_fails_without_a_tty() {
+        let mut cmd = Command::new("true");
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        super::set_controlling_terminal(&mut cmd);
+
+        let result = cmd.spawn();
+        assert!(
+            result.is_err(),
+            "spawn should fail: TIOCSCTTY on a /dev/null stdin returns an error, \
+             proving the pre_exec hook executed in the child",
+        );
+    }
+}

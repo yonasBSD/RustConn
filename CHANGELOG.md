@@ -5,6 +5,29 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2026-06-24
+
+### Added
+
+- **WinBox connection preset** ([#190](https://github.com/totoshko88/RustConn/issues/190)) — added a ready-made template (Remote Desktop category) for MikroTik's WinBox GUI: `WinBox ${host} ${user} ${password}`
+- **Native PKCS#11 / YubiKey SSH authentication** ([#189](https://github.com/totoshko88/RustConn/issues/189)) — a new "PKCS#11 Provider" field in the SSH connection editor (Session group) lets you point at a hardware-token library (e.g. `/usr/lib64/libykcs11.so.2`); it maps to `-o PKCS11Provider=<path>`, so YubiKey/PIV/smart-card keys are offered without the SSH-agent workaround. The directive is also imported from `~/.ssh/config` (`PKCS11Provider`).
+  - **Works through SSH tunnels** — because `-o PKCS11Provider` is *not* inherited by `ProxyJump` child connections, the provider of a jump-host connection is now injected explicitly into the first hop's `ProxyCommand` (terminal SSH and RDP/VNC/SPICE tunnels). Enable PKCS#11 on the bastion connection to authenticate the jump itself with the token.
+  - PKCS#11 does not force `IdentitiesOnly`, so the token's keys are always offered. The PIN/touch prompt appears in the session terminal. Note: with a jump host the token may prompt once per hop (separate SSH processes).
+
+### Fixed
+
+- **Flatpak: GUI / non-`script` Generic commands now launch** ([#190](https://github.com/totoshko88/RustConn/issues/190)) — a Generic Zero Trust command failed with `Portal call failed: Failed to start command: "script"` whenever the host had no reachable `script` (util-linux) binary — atomic distros, or `script` outside the sandbox PATH the `flatpak-spawn` portal resolves against. GUI tools such as WinBox also do not need the PTY that `script` allocates. The host command is now run through a login shell (`sh -lc`, so the host PATH resolves binaries) that probes for `script` and falls back to a plain `sh -c` when it is absent
+
+### Changed
+
+- **Removed dead VNC FFI stub** (internal) — deleted `rustconn-core/src/ffi/` (`VncDisplay`, `FfiDisplay`, `ConnectionState`, `FfiError`). Despite documenting itself as a safe wrapper around the `gtk-vnc` C library, it had no `gtk-vnc` dependency, opened no connection (`open_host` only mutated in-memory state), and its signal callbacks were never invoked — so the `VncSessionWidget` "native" path it backed could never connect. Embedded VNC already runs through the native `vnc-rs` client (`EmbeddedVncWidget`) with an external-viewer fallback; the stub and its now-unreachable `VncSessionWidget` methods (`connect`, `provide_credentials`, `set_scaling`, `display`, `connect_auth_required`) were removed (YAGNI). Synced `docs/ARCHITECTURE.md` (dropped the stale `broadcast.rs` entry) and bumped the doc version headers.
+- **Removed archived-spec traceability comments** (internal) — stripped dangling `// Requirement X.Y` / `# Requirements Coverage` doc-comment references (~225 lines across 30 source files) that pointed at specs now under `.kiro/specs/_archive/`. Descriptive text was preserved (the requirement prefix removed), pure traceability sections deleted.
+- **Removed unused `performance` scaffolding** (internal) — deleted dead utilities from `rustconn-core` that had no production callers: object pool, compact string, batch processor, lazy init, shrinkable vec, virtual scroller, the performance-metrics timer, and the `MemoryOptimizer`/`MemoryTracker` machinery (~1900 LOC). The only live functionality — the connection string interner and the search debouncer — is retained; the global interner is now exposed directly as `performance::interner()`. Also synced `docs/ARCHITECTURE.md` (connection-dialog `dialog/` split, `builders.rs`/`web.rs`, `WebProtocol`, `performance/`, `tracing/`).
+
+### Dependencies
+
+- **Updated**: chacha20 0.10.0→0.10.1
+
 ## [0.17.0] - 2026-06-23
 
 A hardening release: targeted security, performance, and tech-debt fixes following a full codebase audit. No major new functionality.

@@ -68,6 +68,7 @@ impl ConnectionDialog {
         ssh_startup_entry: &Entry,
         ssh_options_entry: &Entry,
         ssh_agent_socket_entry: &adw::EntryRow,
+        ssh_pkcs11_entry: &adw::EntryRow,
         ssh_keep_alive_interval: &adw::SpinRow,
         ssh_keep_alive_count_max: &adw::SpinRow,
         ssh_port_forwards: &Rc<RefCell<Vec<rustconn_core::models::PortForward>>>,
@@ -254,6 +255,7 @@ impl ConnectionDialog {
         let ssh_startup_entry = ssh_startup_entry.clone();
         let ssh_options_entry = ssh_options_entry.clone();
         let ssh_agent_socket_entry = ssh_agent_socket_entry.clone();
+        let ssh_pkcs11_entry = ssh_pkcs11_entry.clone();
         let ssh_keep_alive_interval = ssh_keep_alive_interval.clone();
         let ssh_keep_alive_count_max = ssh_keep_alive_count_max.clone();
         let ssh_port_forwards = ssh_port_forwards.clone();
@@ -453,6 +455,7 @@ impl ConnectionDialog {
                 ssh_startup_entry: &ssh_startup_entry,
                 ssh_options_entry: &ssh_options_entry,
                 ssh_agent_socket_entry: &ssh_agent_socket_entry,
+                ssh_pkcs11_entry: &ssh_pkcs11_entry,
                 ssh_keep_alive_interval: &ssh_keep_alive_interval,
                 ssh_keep_alive_count_max: &ssh_keep_alive_count_max,
                 ssh_port_forwards: &ssh_port_forwards,

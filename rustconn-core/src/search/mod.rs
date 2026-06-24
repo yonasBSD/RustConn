@@ -792,21 +792,6 @@ impl SearchEngine {
 
         match_ratio.mul_add(0.4, consecutive_bonus).min(0.49)
     }
-
-    /// Searches connections with performance profiling
-    ///
-    /// This method records timing metrics for the search operation.
-    /// Use `crate::performance::metrics()` to retrieve the recorded timings.
-    #[must_use]
-    pub fn search_profiled(
-        &self,
-        query: &SearchQuery,
-        connections: &[Connection],
-        groups: &[ConnectionGroup],
-    ) -> Vec<ConnectionSearchResult> {
-        let _guard = crate::performance::metrics().time_operation("search");
-        self.search(query, connections, groups)
-    }
 }
 
 /// Debounced search engine for rate-limiting search operations

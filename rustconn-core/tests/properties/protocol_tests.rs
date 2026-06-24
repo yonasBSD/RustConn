@@ -50,6 +50,7 @@ fn arb_ssh_config() -> impl Strategy<Value = SshConfig> {
                     identities_only: false,
                     proxy_jump,
                     proxy_command: None,
+                    pkcs11_provider: None,
                     use_control_master,
                     agent_forwarding: false,
                     x11_forwarding: false,
@@ -824,6 +825,7 @@ fn arb_ssh_config_with_identities_only() -> impl Strategy<Value = SshConfig> {
                     identities_only,
                     proxy_jump,
                     proxy_command: None,
+                    pkcs11_provider: None,
                     use_control_master,
                     agent_forwarding: false,
                     x11_forwarding: false,
@@ -866,6 +868,7 @@ fn arb_ssh_config_with_agent_fingerprint() -> impl Strategy<Value = SshConfig> {
                 identities_only: false,
                 proxy_jump: None,
                 proxy_command: None,
+                pkcs11_provider: None,
                 use_control_master: false,
                 agent_forwarding: false,
                 x11_forwarding: false,
@@ -1028,6 +1031,7 @@ fn arb_ssh_config_with_file_key_source() -> impl Strategy<Value = SshConfig> {
                     identities_only: false, // Should be auto-enabled for File auth
                     proxy_jump,
                     proxy_command: None,
+                    pkcs11_provider: None,
                     use_control_master,
                     agent_forwarding: false,
                     x11_forwarding: false,
@@ -1069,6 +1073,7 @@ fn arb_ssh_config_with_agent_key_source() -> impl Strategy<Value = SshConfig> {
                     identities_only: false, // Should NOT be enabled for Agent auth
                     proxy_jump,
                     proxy_command: None,
+                    pkcs11_provider: None,
                     use_control_master,
                     agent_forwarding: false,
                     x11_forwarding: false,
@@ -1153,8 +1158,62 @@ proptest! {
 }
 
 // ============================================================================
-// Property Tests for Cloud Provider Icon Detection
+// Unit Tests for PKCS#11 provider command generation (issue #189)
 // ============================================================================
+
+/// When a PKCS#11 provider is set, `build_command_args` must emit
+/// `-o PKCS11Provider=<path>` and must NOT force `IdentitiesOnly` (the
+/// provider is its own configured identity source, so its keys are offered
+/// regardless — forcing IdentitiesOnly is unnecessary and only hides keys).
+#[test]
+fn pkcs11_provider_emitted_without_forced_identities_only() {
+    let config = SshConfig {
+        pkcs11_provider: Some("/usr/lib64/libykcs11.so.2".to_string()),
+        ..Default::default()
+    };
+    let args = config.build_command_args();
+
+    let joined = args.join(" ");
+    assert!(
+        args.windows(2)
+            .any(|w| w[0] == "-o" && w[1] == "PKCS11Provider=/usr/lib64/libykcs11.so.2"),
+        "expected '-o PKCS11Provider=...'; got: {joined}"
+    );
+    assert!(
+        !args.iter().any(|a| a.contains("IdentitiesOnly")),
+        "PKCS#11 must not force IdentitiesOnly; got: {joined}"
+    );
+}
+
+/// Empty or whitespace-only provider paths must not emit the option.
+#[test]
+fn pkcs11_provider_empty_is_skipped() {
+    for value in ["", "   "] {
+        let config = SshConfig {
+            pkcs11_provider: Some(value.to_string()),
+            ..Default::default()
+        };
+        let args = config.build_command_args();
+        assert!(
+            !args.iter().any(|a| a.contains("PKCS11Provider")),
+            "empty provider {value:?} should emit nothing; got: {args:?}"
+        );
+    }
+}
+
+/// The value is trimmed before being placed on the command line.
+#[test]
+fn pkcs11_provider_value_is_trimmed() {
+    let config = SshConfig {
+        pkcs11_provider: Some("  /opt/lib.so  ".to_string()),
+        ..Default::default()
+    };
+    let args = config.build_command_args();
+    assert!(
+        args.iter().any(|a| a == "PKCS11Provider=/opt/lib.so"),
+        "value should be trimmed; got: {args:?}"
+    );
+}
 
 use rustconn_core::protocol::icons::{CloudProvider, detect_provider};
 
@@ -1604,6 +1663,7 @@ fn arb_ssh_config_with_port_forwards() -> impl Strategy<Value = SshConfig> {
             identities_only: false,
             proxy_jump: None,
             proxy_command: None,
+            pkcs11_provider: None,
             use_control_master: false,
             agent_forwarding: false,
             x11_forwarding: false,
@@ -1664,6 +1724,7 @@ proptest! {
             identities_only: false,
             proxy_jump: None,
             proxy_command: None,
+            pkcs11_provider: None,
             use_control_master: false,
             agent_forwarding: false,
             x11_forwarding: x11,

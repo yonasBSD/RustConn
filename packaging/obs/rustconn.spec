@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.17.0
+Version:        0.17.1
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -259,6 +259,13 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Wed Jun 24 2026 Anton Isaiev <totoshko88@gmail.com> - 0.17.1-0
+- Added a WinBox connection preset (Remote Desktop category) for MikroTik RouterOS management (#190)
+- Added native PKCS#11 / YubiKey SSH authentication via a "PKCS#11 Provider" field, also imported from ~/.ssh/config and injected into ProxyJump hops (#189)
+- Fixed Flatpak Generic commands failing with "Failed to start command: script" on hosts without a reachable script binary, and GUI tools (e.g. WinBox) not launching (#190)
+- Internal: removed the dead VNC FFI stub, archived-spec traceability comments, and unused performance scaffolding (~1900 LOC)
+- Updated chacha20 0.10.0->0.10.1
+
 * Tue Jun 23 2026 Anton Isaiev <totoshko88@gmail.com> - 0.17.0-0
 - Packaging (openSUSE): pin the cargo linker to gcc in %prep to fix "linker `clang` not found" — the bare /usr/bin/clang symlink is not reliably present in the OBS build root
 - Security: kubectl and Zero Trust Generic sessions now spawn argv directly instead of via sh -c, preventing shell-metacharacter command injection from imported/untrusted configs

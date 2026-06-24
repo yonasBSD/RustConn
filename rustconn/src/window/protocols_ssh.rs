@@ -245,6 +245,10 @@ fn start_ssh_connection_internal(
 
             // Resolve jump host chain from connection references (needs state access)
             let mut jump_hosts = Vec::new();
+            // PKCS#11 provider of the immediate (first) jump hop, if it opts in.
+            // `-o PKCS11Provider` is NOT inherited by ProxyJump child connections,
+            // so it must be injected into the first hop's ProxyCommand explicitly.
+            let mut first_hop_pkcs11: Option<String> = None;
 
             // Handle string-based proxy jump (legacy/manual or inherited from group)
             if let Some(proxy) = ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups) {
@@ -268,6 +272,8 @@ fn start_ssh_connection_internal(
                         visited.insert(jid);
 
                         if let Some(jump_conn) = state_ref.get_connection(jid) {
+                            // The immediate hop is the one we ProxyCommand into.
+                            let is_first_hop = jump_hosts.is_empty();
                             // Format: [user@]host[:port]
                             let mut host_str = jump_conn.host.clone();
                             if let Some(user) = &jump_conn.username {
@@ -282,6 +288,13 @@ fn start_ssh_connection_internal(
                             if let rustconn_core::ProtocolConfig::Ssh(jump_config) =
                                 &jump_conn.protocol_config
                             {
+                                // Opt-in PKCS#11 for the first hop (token to reach the bastion)
+                                if is_first_hop {
+                                    first_hop_pkcs11 = jump_config
+                                        .pkcs11_provider
+                                        .clone()
+                                        .filter(|p| !p.trim().is_empty());
+                                }
                                 // Prepend manual proxy if exists on jump host (unlikely but possible)
                                 if let Some(p) = &jump_config.proxy_jump {
                                     jump_hosts.insert(jump_hosts.len() - 1, p.clone());
@@ -345,9 +358,12 @@ fn start_ssh_connection_internal(
                 }
                 let chain = jump_hosts.join(",");
 
-                if flatpak_known_hosts.is_some() {
-                    // Flatpak: use ProxyCommand so jump host SSH inherits known_hosts
-                    // and identity file. Build a ProxyCommand for the first hop;
+                // `-J` spawns a nested SSH process that does NOT inherit -o/-i
+                // from the outer command. When the jump host needs Flatpak
+                // known_hosts/identity OR a PKCS#11 token, switch to an explicit
+                // ProxyCommand that passes those to the first hop.
+                if flatpak_known_hosts.is_some() || first_hop_pkcs11.is_some() {
+                    // Build a ProxyCommand for the first hop;
                     // if there are multiple hops, nest them via -J within ProxyCommand.
                     let mut proxy_parts =
                         vec!["ssh".to_string(), "-W".to_string(), "%h:%p".to_string()];
@@ -362,13 +378,21 @@ fn start_ssh_connection_internal(
                         proxy_parts.push("IdentitiesOnly=yes".to_string());
                     }
 
-                    // Pass UserKnownHostsFile to jump host
+                    // Pass PKCS#11 provider to the first hop (token also auths the bastion)
+                    if let Some(ref provider) = first_hop_pkcs11 {
+                        proxy_parts.push("-o".to_string());
+                        proxy_parts.push(format!("PKCS11Provider={}", provider.trim()));
+                    }
+
+                    // Pass UserKnownHostsFile to jump host (Flatpak only)
                     if let Some(ref kh_path) = flatpak_known_hosts {
                         proxy_parts.push("-o".to_string());
                         proxy_parts.push(format!("UserKnownHostsFile={}", kh_path.display()));
                     }
 
-                    // For multi-hop chains, pass remaining hops via -J inside ProxyCommand
+                    // ponytail: PKCS#11/identity reach only the first hop; deeper
+                    // hops in `-J b,c` still don't inherit -o. Fine for the common
+                    // single-bastion case; per-hop ProxyCommand nesting if needed.
                     if jump_hosts.len() > 1 {
                         let inner_chain = jump_hosts[1..].join(",");
                         proxy_parts.push("-J".to_string());
@@ -382,7 +406,7 @@ fn start_ssh_connection_internal(
                     tracing::debug!(
                         protocol = "ssh",
                         proxy_command = %proxy_cmd,
-                        "Using ProxyCommand instead of -J for Flatpak known_hosts compatibility"
+                        "Using ProxyCommand instead of -J (Flatpak known_hosts or PKCS#11 jump host)"
                     );
                     args.push("-o".to_string());
                     args.push(format!("ProxyCommand={proxy_cmd}"));
@@ -863,6 +887,8 @@ pub fn reconnect_ssh_in_place(
             }
 
             let mut jump_hosts = Vec::new();
+            // PKCS#11 of the first jump hop (not inherited via -J — see start path).
+            let mut first_hop_pkcs11: Option<String> = None;
             // Handle string-based proxy jump (legacy/manual or inherited from group)
             if let Some(proxy) = ssh_inheritance::resolve_ssh_proxy_jump(&conn, &groups) {
                 jump_hosts.push(proxy);
@@ -880,6 +906,7 @@ pub fn reconnect_ssh_in_place(
                         }
                         visited.insert(jid);
                         if let Some(jump_conn) = state_ref.get_connection(jid) {
+                            let is_first_hop = jump_hosts.is_empty();
                             let mut host_str = jump_conn.host.clone();
                             if let Some(user) = &jump_conn.username {
                                 host_str = format!("{}@{}", user, host_str);
@@ -891,6 +918,12 @@ pub fn reconnect_ssh_in_place(
                             if let rustconn_core::ProtocolConfig::Ssh(jump_config) =
                                 &jump_conn.protocol_config
                             {
+                                if is_first_hop {
+                                    first_hop_pkcs11 = jump_config
+                                        .pkcs11_provider
+                                        .clone()
+                                        .filter(|p| !p.trim().is_empty());
+                                }
                                 if let Some(p) = &jump_config.proxy_jump {
                                     jump_hosts.insert(jump_hosts.len() - 1, p.clone());
                                 }
@@ -935,7 +968,7 @@ pub fn reconnect_ssh_in_place(
                     }
                 }
                 let chain = jump_hosts.join(",");
-                if flatpak_known_hosts.is_some() {
+                if flatpak_known_hosts.is_some() || first_hop_pkcs11.is_some() {
                     let mut proxy_parts =
                         vec!["ssh".to_string(), "-W".to_string(), "%h:%p".to_string()];
                     if let Some(pos) = args.iter().position(|a| a == "-i")
@@ -945,6 +978,10 @@ pub fn reconnect_ssh_in_place(
                         proxy_parts.push(key_path.clone());
                         proxy_parts.push("-o".to_string());
                         proxy_parts.push("IdentitiesOnly=yes".to_string());
+                    }
+                    if let Some(ref provider) = first_hop_pkcs11 {
+                        proxy_parts.push("-o".to_string());
+                        proxy_parts.push(format!("PKCS11Provider={}", provider.trim()));
                     }
                     if let Some(ref kh_path) = flatpak_known_hosts {
                         proxy_parts.push("-o".to_string());

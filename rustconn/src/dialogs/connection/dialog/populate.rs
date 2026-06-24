@@ -983,6 +983,11 @@ impl ConnectionDialog {
             self.ssh_agent_socket_entry.set_text(socket);
         }
 
+        // Load PKCS#11 provider library path
+        if let Some(ref provider) = ssh.pkcs11_provider {
+            self.ssh_pkcs11_entry.set_text(provider);
+        }
+
         // Load keep-alive settings
         if let Some(interval) = ssh.keep_alive_interval {
             self.ssh_keep_alive_interval.set_value(f64::from(interval));

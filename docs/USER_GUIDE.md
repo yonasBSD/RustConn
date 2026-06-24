@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.17.0** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.17.1** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes, Web protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -210,6 +210,16 @@ SSH connections support hardware security keys (YubiKey, SoloKey, etc.) via the 
 - An `ed25519-sk` or `ecdsa-sk` key generated with `ssh-keygen -t ed25519-sk`
 - The key file path configured in the connection's SSH key field
 
+**PKCS#11 / Smart-Card Authentication (SSH):**
+For hardware tokens that expose keys through a PKCS#11 library (YubiKey PIV, OpenSC smart cards, etc.), set the **PKCS#11 Provider** field in the connection editor (**SSH options → Session** group) to the path of the provider library, for example `/usr/lib64/libykcs11.so.2`. RustConn maps this to `ssh -o PKCS11Provider=<path>`, so the token's keys are offered automatically without loading them into the SSH agent first.
+
+- Works alongside any auth method — the provider simply offers the token's keys.
+- The PIN/touch prompt appears directly in the session terminal.
+- `IdentitiesOnly` is **not** forced, so the token keys are always offered. Leave the field empty (or set `none`) to disable it, including an inherited provider.
+- The directive is imported automatically from `~/.ssh/config` (`PKCS11Provider …`).
+
+> **Through a jump host:** OpenSSH does **not** pass `-o PKCS11Provider` to `ProxyJump` child connections. To authenticate the bastion itself with the token, enable the **PKCS#11 Provider** field on the *jump-host connection* — RustConn injects it into the first hop's `ProxyCommand` for terminal SSH and for RDP/VNC/SPICE tunnels. With a jump host the token may prompt once per hop, because each hop is a separate SSH process.
+
 **Advanced Tabs:**
 - **Advanced** — Window mode (Embedded/External/Fullscreen), remember window position, hide local cursor (embedded RDP/VNC/SPICE), Wake-on-LAN configuration (MAC address, broadcast, port, wait time), monitoring override (enable/disable per connection, overrides global setting)
 - **Automation** — Expect rules for auto-responding to terminal patterns, pattern tester with built-in templates (Sudo, SSH Host Key, Login, etc.), pre-connect task, post-disconnect task (with conditions: first/last connection only)
@@ -393,7 +403,7 @@ Protocol-specific options are configured in the connection dialog's protocol tab
 
 | Protocol | Options |
 |----------|---------|
-| SSH | Auth method (password, publickey, keyboard-interactive, agent, security-key/FIDO2), key source (default/file/agent), proxy jump (Jump Host), ProxyJump, IdentitiesOnly, ControlMaster, agent forwarding, Waypipe (Wayland forwarding), X11 forwarding, compression, startup command, verbose mode, custom SSH options, port forwarding (local/remote/dynamic) |
+| SSH | Auth method (password, publickey, keyboard-interactive, agent, security-key/FIDO2), key source (default/file/agent), PKCS#11 provider (hardware token/smart card), proxy jump (Jump Host), ProxyJump, IdentitiesOnly, ControlMaster, agent forwarding, Waypipe (Wayland forwarding), X11 forwarding, compression, startup command, verbose mode, custom SSH options, port forwarding (local/remote/dynamic) |
 | RDP | Client mode (embedded/external), performance mode (quality/balanced/speed), resolution, color depth, display scale override, audio redirection, RDP gateway (host, port, username), keyboard layout, disable NLA, clipboard sharing, shared folders, mouse jiggler (prevent idle disconnect, configurable interval 10–600s), autotype (send text as keystrokes, configurable inter-character and initial delay), custom FreeRDP arguments |
 | VNC | Client mode (embedded/external), performance mode (quality/balanced/speed), encoding (Auto/Tight/ZRLE/Hextile/Raw/CopyRect), compression level, quality level, display scale override, view-only mode, scaling, clipboard sharing, custom arguments |
 | SPICE | TLS encryption, CA certificate (with inline validation), skip certificate verification, USB redirection, clipboard sharing, image compression (Auto/Off/GLZ/LZ/QUIC), proxy URL, shared folders |

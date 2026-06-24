@@ -821,6 +821,15 @@ pub struct SshConfig {
     /// Example: `ncat --proxy 127.0.0.1:9050 --proxy-type socks5 %h %p`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy_command: Option<String>,
+    /// Path to a PKCS#11 provider library for hardware-token authentication
+    /// (YubiKey/PIV/smart cards). Maps to `-o PKCS11Provider=<path>`.
+    /// Example: `/usr/lib64/libykcs11.so.2`.
+    ///
+    /// Works alongside any auth method — the provider offers the token's keys.
+    /// Empty/`None` means no token. The literal `none` disables an inherited
+    /// provider (OpenSSH 8.1+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pkcs11_provider: Option<String>,
     /// SSH keep-alive interval in seconds (`ServerAliveInterval`).
     /// Sends a keep-alive packet every N seconds to prevent idle disconnects.
     /// `None` means no keep-alive (SSH default behavior).
@@ -924,6 +933,17 @@ impl SshConfig {
         if let Some(ref proxy_cmd) = self.proxy_command {
             args.push("-o".to_string());
             args.push(format!("ProxyCommand={proxy_cmd}"));
+        }
+
+        // Add PKCS#11 provider for hardware-token auth (YubiKey/PIV/smart cards).
+        // The provider offers the token's keys independently of auth_method; no
+        // -i and no IdentitiesOnly are forced (PKCS11Provider is its own
+        // configured identity source, so its keys are offered regardless).
+        if let Some(provider) = self.pkcs11_provider.as_deref()
+            && !provider.trim().is_empty()
+        {
+            args.push("-o".to_string());
+            args.push(format!("PKCS11Provider={}", provider.trim()));
         }
 
         // Add control master options if enabled

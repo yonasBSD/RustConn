@@ -52,6 +52,7 @@ pub struct SshOptionsWidgets {
     pub mosh_predict_dropdown: DropDown,
     pub mosh_server_binary_entry: Entry,
     pub ssh_agent_socket_entry: adw::EntryRow,
+    pub ssh_pkcs11_entry: adw::EntryRow,
     pub keep_alive_interval: adw::SpinRow,
     pub keep_alive_count_max: adw::SpinRow,
 }
@@ -102,6 +103,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         startup_entry,
         options_entry,
         ssh_agent_socket_entry,
+        ssh_pkcs11_entry,
     ) = create_session_group();
     content.append(&session_group);
 
@@ -169,6 +171,7 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         mosh_predict_dropdown,
         mosh_server_binary_entry,
         ssh_agent_socket_entry,
+        ssh_pkcs11_entry,
         keep_alive_interval,
         keep_alive_count_max,
     }
@@ -526,6 +529,7 @@ fn create_session_group() -> (
     Entry,
     Entry,
     adw::EntryRow,
+    adw::EntryRow,
 ) {
     let session_group = adw::PreferencesGroup::builder()
         .title(i18n("Session"))
@@ -606,6 +610,34 @@ fn create_session_group() -> (
     });
     session_group.add(&ssh_agent_socket_entry);
 
+    // PKCS#11 provider library path (hardware-token auth: YubiKey/PIV/smart cards)
+    let ssh_pkcs11_entry = adw::EntryRow::builder()
+        .title(i18n("PKCS#11 Provider"))
+        .build();
+    ssh_pkcs11_entry.set_tooltip_text(Some(&i18n(
+        "Path to a PKCS#11 library for hardware-token login (e.g. /usr/lib64/libykcs11.so.2)",
+    )));
+
+    // Real-time validation: warn if the path is not an existing absolute file
+    ssh_pkcs11_entry.connect_changed(|entry| {
+        let text = entry.text();
+        let path = text.trim();
+        entry.remove_css_class("success");
+        entry.remove_css_class("warning");
+        entry.remove_css_class("error");
+        if path.is_empty() || path.eq_ignore_ascii_case("none") {
+            // Empty or the literal `none` (disables an inherited provider) — neutral
+        } else if !std::path::Path::new(path).is_absolute() {
+            entry.add_css_class("error");
+        } else if std::path::Path::new(path).is_file() {
+            entry.add_css_class("success");
+        } else {
+            // Absolute but not found — may exist only inside a sandbox/container
+            entry.add_css_class("warning");
+        }
+    });
+    session_group.add(&ssh_pkcs11_entry);
+
     (
         session_group,
         agent_forwarding,
@@ -616,6 +648,7 @@ fn create_session_group() -> (
         startup_entry,
         options_entry,
         ssh_agent_socket_entry,
+        ssh_pkcs11_entry,
     )
 }
 

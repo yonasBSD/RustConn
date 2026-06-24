@@ -1,3 +1,19 @@
+rustconn (0.17.1-1) unstable; urgency=medium
+
+  * Added a WinBox connection preset (Remote Desktop category) for MikroTik
+    RouterOS management (#190)
+  * Added native PKCS#11 / YubiKey SSH authentication via a "PKCS#11 Provider"
+    field, also imported from ~/.ssh/config and injected into ProxyJump hops (#189)
+  * Fixed Flatpak Generic commands failing with "Failed to start command: script"
+    on hosts without a reachable script binary, and GUI tools (e.g. WinBox) not
+    launching — the host command now runs through a login shell that falls back
+    to a plain sh -c when script is absent (#190)
+  * Internal: removed the dead VNC FFI stub, archived-spec traceability comments,
+    and unused performance scaffolding (~1900 LOC)
+  * Updated chacha20 0.10.0->0.10.1
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Wed, 24 Jun 2026 00:00:00 +0300
+
 rustconn (0.17.0-1) unstable; urgency=medium
 
   * Security: kubectl and Zero Trust Generic sessions now spawn argv directly

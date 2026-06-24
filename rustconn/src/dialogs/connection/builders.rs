@@ -68,6 +68,7 @@ pub(super) struct ConnectionDialogData<'a> {
     pub ssh_startup_entry: &'a Entry,
     pub ssh_options_entry: &'a Entry,
     pub ssh_agent_socket_entry: &'a adw::EntryRow,
+    pub ssh_pkcs11_entry: &'a adw::EntryRow,
     pub ssh_keep_alive_interval: &'a adw::SpinRow,
     pub ssh_keep_alive_count_max: &'a adw::SpinRow,
     pub ssh_port_forwards: &'a Rc<RefCell<Vec<rustconn_core::models::PortForward>>>,
@@ -1196,6 +1197,16 @@ impl ConnectionDialogData<'_> {
             Some(proxy_command.trim().to_string())
         };
 
+        // PKCS#11 provider library path (hardware-token auth)
+        let pkcs11_provider = {
+            let text = self.ssh_pkcs11_entry.text();
+            if text.trim().is_empty() {
+                None
+            } else {
+                Some(text.trim().to_string())
+            }
+        };
+
         let custom_options = Self::parse_custom_options(&self.ssh_options_entry.text());
 
         let ssh_agent_socket = {
@@ -1242,6 +1253,7 @@ impl ConnectionDialogData<'_> {
             identities_only: self.ssh_identities_only.is_active(),
             proxy_jump: proxy_jump_opt,
             proxy_command: proxy_command_opt,
+            pkcs11_provider,
             jump_host_id, // Add this field
             use_control_master: self.ssh_control_master.is_active(),
             agent_forwarding: self.ssh_agent_forwarding.is_active(),

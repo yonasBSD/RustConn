@@ -99,6 +99,14 @@ pub const PREDEFINED_TEMPLATES: &[PredefinedTemplate] = &[
         command: "remmina -c ${file}",
         category: TemplateCategory::RemoteDesktop,
     },
+    PredefinedTemplate {
+        id: "winbox",
+        name: "WinBox",
+        description: "MikroTik RouterOS management GUI",
+        icon: "📡",
+        command: "WinBox ${host} ${user} ${password}",
+        category: TemplateCategory::RemoteDesktop,
+    },
     // === Containers ===
     PredefinedTemplate {
         id: "docker-exec",
