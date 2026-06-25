@@ -111,7 +111,7 @@ impl FullMergeEngine {
         Self::merge_entity_type(
             SyncEntityType::Group,
             &local.groups,
-            &remote.groups.iter().map(|g| (g.id, g.created_at)).collect(),
+            &remote.groups.iter().map(|g| (g.id, g.updated_at)).collect(),
             &local_tombstone_map,
             &remote_tombstone_map,
             &mut result,
@@ -303,6 +303,48 @@ mod tests {
         assert_eq!(result.to_create.len(), 1);
         assert_eq!(result.to_create[0].entity_type, SyncEntityType::Connection);
         assert_eq!(result.to_create[0].id, conn_id);
+    }
+
+    #[test]
+    fn newer_remote_group_updates_local() {
+        // Guards the group edit-sync fix: a renamed/edited group bumps
+        // `updated_at`, so the merge must produce an update action. (Before the
+        // fix groups keyed on `created_at`, which never changes on edit.)
+        let now = Utc::now();
+        let mut local = empty_local();
+        let group_id = Uuid::new_v4();
+        local.groups.insert(group_id, now - Duration::hours(1));
+
+        let mut remote = empty_remote(Uuid::new_v4());
+        let mut group = crate::models::ConnectionGroup::new("prod".to_owned());
+        group.id = group_id;
+        group.updated_at = now;
+        remote.groups.push(group);
+
+        let result = FullMergeEngine::merge(&local, &remote);
+
+        assert_eq!(result.to_update.len(), 1);
+        assert_eq!(result.to_update[0].entity_type, SyncEntityType::Group);
+        assert_eq!(result.to_update[0].id, group_id);
+    }
+
+    #[test]
+    fn equal_remote_group_produces_no_action() {
+        let ts = Utc::now();
+        let mut local = empty_local();
+        let group_id = Uuid::new_v4();
+        local.groups.insert(group_id, ts);
+
+        let mut remote = empty_remote(Uuid::new_v4());
+        let mut group = crate::models::ConnectionGroup::new("prod".to_owned());
+        group.id = group_id;
+        group.updated_at = ts;
+        remote.groups.push(group);
+
+        let result = FullMergeEngine::merge(&local, &remote);
+
+        assert!(result.to_create.is_empty());
+        assert!(result.to_update.is_empty());
     }
 
     #[test]

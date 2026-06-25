@@ -74,6 +74,10 @@ impl SmartFolderManager {
 }
 
 /// Returns `true` if the folder has at least one active filter criterion.
+///
+// audit-note: empty filter criteria → empty result is intentional (AND semantics
+// with zero predicates). "Match all" without criteria would duplicate the sidebar
+// and is never what users expect from a Smart Folder. See AUDIT_0.17.2.md FP-6.
 fn has_any_filter(folder: &SmartFolder) -> bool {
     folder.filter_protocol.is_some()
         || !folder.filter_tags.is_empty()

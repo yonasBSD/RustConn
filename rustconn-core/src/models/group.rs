@@ -26,6 +26,14 @@ pub struct ConnectionGroup {
     pub expanded: bool,
     /// Timestamp when the group was created
     pub created_at: DateTime<Utc>,
+    /// Timestamp when the group's synced content was last modified.
+    ///
+    /// Drives Simple Sync conflict resolution (newer wins). Groups loaded from
+    /// configurations written before this field existed deserialize to the Unix
+    /// epoch (see [`group_updated_at_default`]), so any genuine later edit wins
+    /// the merge while two un-edited copies tie and never overwrite each other.
+    #[serde(default = "group_updated_at_default")]
+    pub updated_at: DateTime<Utc>,
     /// Sort order for manual ordering (lower values appear first)
     #[serde(default)]
     pub sort_order: i32,
@@ -87,16 +95,28 @@ pub struct ConnectionGroup {
     pub post_login_scripts: Vec<String>,
 }
 
+/// Default `updated_at` for groups written before edit-tracking existed.
+///
+/// Returns the Unix epoch so a genuine later edit (which bumps `updated_at` to
+/// "now") always wins the Simple Sync merge, while two un-edited legacy copies
+/// on different devices tie and never spuriously overwrite each other.
+fn group_updated_at_default() -> DateTime<Utc> {
+    // 0 is always a valid timestamp; the fallback is unreachable in practice.
+    DateTime::from_timestamp(0, 0).unwrap_or_else(Utc::now)
+}
+
 impl ConnectionGroup {
     /// Creates a new root-level group
     #[must_use]
     pub fn new(name: String) -> Self {
+        let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
             name,
             parent_id: None,
             expanded: true,
-            created_at: Utc::now(),
+            created_at: now,
+            updated_at: now,
             sort_order: 0,
             username: None,
             domain: None,
@@ -120,12 +140,14 @@ impl ConnectionGroup {
     /// Creates a new group with a parent
     #[must_use]
     pub fn with_parent(name: String, parent_id: Uuid) -> Self {
+        let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
             name,
             parent_id: Some(parent_id),
             expanded: true,
-            created_at: Utc::now(),
+            created_at: now,
+            updated_at: now,
             sort_order: 0,
             username: None,
             domain: None,
@@ -150,6 +172,15 @@ impl ConnectionGroup {
     #[must_use]
     pub const fn is_root(&self) -> bool {
         self.parent_id.is_none()
+    }
+
+    /// Updates the `updated_at` timestamp to now.
+    ///
+    /// Call this on genuine user edits to a group's synced content so Simple
+    /// Sync propagates the change. Do not call it for sync bookkeeping (e.g.
+    /// `last_synced_at`) — that would churn the merge clock.
+    pub fn touch(&mut self) {
+        self.updated_at = Utc::now();
     }
 }
 

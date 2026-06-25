@@ -1424,6 +1424,7 @@ impl TerminalNotebook {
         use_waypipe: bool,
         ssh_agent_socket: Option<&str>,
         startup_command: Option<&str>,
+        extra_env: Option<&[&str]>,
     ) -> bool {
         let mut argv = if use_waypipe {
             vec!["waypipe", "ssh"]
@@ -1505,7 +1506,7 @@ impl TerminalNotebook {
             argv.push(&startup_wrapped);
         }
 
-        self.spawn_command(session_id, &argv, None, None, ssh_agent_socket)
+        self.spawn_command(session_id, &argv, extra_env, None, ssh_agent_socket)
     }
 
     /// Spawns a Telnet command in the terminal
@@ -2637,7 +2638,6 @@ impl TerminalNotebook {
     ///
     /// The group is assigned a color from the palette. The tab indicator is
     /// updated to show the group color (unless a split color is active).
-    #[expect(dead_code, reason = "Public API for window-level tab group operations")]
     pub fn set_tab_group(&self, session_id: Uuid, group_name: &str) {
         let color_index = self
             .tab_group_manager
@@ -2690,7 +2690,6 @@ impl TerminalNotebook {
 
     /// Returns the group name for a session, if any.
     #[must_use]
-    #[expect(dead_code, reason = "Public API for window-level tab group operations")]
     pub fn get_tab_group(&self, session_id: Uuid) -> Option<String> {
         self.session_info
             .borrow()

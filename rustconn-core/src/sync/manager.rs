@@ -120,6 +120,13 @@ impl SyncManager {
         &self.settings
     }
 
+    /// Replaces the sync settings in place, preserving the export channel and
+    /// per-group state. Call this when the user changes sync settings so the
+    /// manager picks up a new `sync_dir`, device identity, or retention.
+    pub fn set_settings(&mut self, settings: SyncSettings) {
+        self.settings = settings;
+    }
+
     /// Returns a reference to the per-group sync state map.
     #[must_use]
     pub fn state(&self) -> &HashMap<Uuid, GroupSyncState> {
@@ -765,64 +772,49 @@ impl SyncManager {
     // Simple Sync methods (tasks 8.7–8.9)
     // =========================================================================
 
-    /// Enables Simple Sync: sets all root groups to Master mode and prepares
-    /// the `full-sync.rcn` extras file.
+    /// Writes the full Simple Sync export to `<sync_dir>/full-sync.rcn`.
     ///
-    /// This is a convenience wrapper that auto-configures Group Sync for
-    /// personal multi-device use.
-    ///
-    /// # Arguments
-    ///
-    /// * `groups` — all groups (mutated: root groups get `sync_mode = Master`)
-    /// * `connections` — all connections
-    /// * `variables` — all variables
-    /// * `app_version` — current app version
+    /// Builds a [`FullSyncExport`](super::full_export::FullSyncExport) from all
+    /// app data plus deletion tombstones, stamped with this device's identity
+    /// so other devices skip self-sync. Secret variable values and local-only
+    /// connection fields are stripped by the builder.
     ///
     /// # Errors
     ///
-    /// Returns [`SyncError`] if sync_dir is not configured or not writable.
-    pub fn enable_simple_sync(
-        &mut self,
-        groups: &mut [ConnectionGroup],
-        connections: &[Connection],
+    /// Returns [`SyncError`] if the sync directory is not configured/writable
+    /// or the file cannot be written.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "parameters mirror the FullSyncExport entity set 1:1; a struct would only restate the field list"
+    )]
+    pub fn export_simple_sync(
+        &self,
+        connections: Vec<Connection>,
+        groups: Vec<ConnectionGroup>,
+        templates: Vec<crate::models::ConnectionTemplate>,
+        snippets: Vec<crate::models::Snippet>,
+        clusters: Vec<crate::cluster::Cluster>,
         variables: &[Variable],
+        tombstones: Vec<super::tombstone::Tombstone>,
         app_version: &str,
-    ) -> Result<Vec<SyncReport>, SyncError> {
-        let _sync_dir = self.validate_sync_dir()?;
+    ) -> Result<(), SyncError> {
+        let sync_dir = self.validate_sync_dir()?;
 
-        let mut reports = Vec::new();
+        let export = super::full_export::FullSyncExport::build(
+            app_version.to_owned(),
+            self.settings.device_id,
+            self.settings.device_name.clone(),
+            connections,
+            groups,
+            templates,
+            snippets,
+            clusters,
+            variables,
+            tombstones,
+        );
 
-        // Set all root groups to Master mode
-        for group in groups.iter_mut() {
-            if group.is_root() && group.sync_mode == SyncMode::None {
-                group.sync_mode = SyncMode::Master;
-                if group.sync_file.is_none() {
-                    group.sync_file = Some(group_name_to_filename(&group.name));
-                }
-            }
-        }
-
-        // Export each Master root group
-        let root_group_ids: Vec<Uuid> = groups
-            .iter()
-            .filter(|g| g.is_root() && g.sync_mode == SyncMode::Master)
-            .map(|g| g.id)
-            .collect();
-
-        for group_id in root_group_ids {
-            match self.export_group(group_id, groups, connections, variables, app_version) {
-                Ok(report) => reports.push(report),
-                Err(e) => {
-                    tracing::warn!(
-                        %group_id,
-                        error = %e,
-                        "Failed to export group during Simple Sync enable"
-                    );
-                }
-            }
-        }
-
-        Ok(reports)
+        let file_path = sync_dir.join("full-sync.rcn");
+        export.to_file(&file_path)
     }
 
     /// Imports Simple Sync data: runs UUID-based merge with tombstone support.
@@ -967,6 +959,68 @@ mod tests {
     fn new_creates_empty_state() {
         let mgr = SyncManager::new(test_settings(None));
         assert!(mgr.state().is_empty());
+    }
+
+    #[test]
+    fn export_simple_sync_writes_readable_full_sync_file() {
+        use crate::models::Connection;
+
+        let dir = TempDir::new().unwrap();
+        let settings = test_settings(Some(dir.path().to_owned()));
+        let device_id = settings.device_id;
+        let mgr = SyncManager::new(settings);
+
+        let conn = Connection::new_ssh("web".to_owned(), "host".to_owned(), 22);
+        let conn_id = conn.id;
+
+        mgr.export_simple_sync(
+            vec![conn],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            &[],
+            Vec::new(),
+            "0.17.2",
+        )
+        .expect("export should succeed");
+
+        let path = dir.path().join("full-sync.rcn");
+        assert!(path.exists(), "full-sync.rcn should be written");
+
+        let loaded = super::super::full_export::FullSyncExport::from_file(&path).unwrap();
+        assert_eq!(loaded.sync_type, "full");
+        assert_eq!(loaded.device_id, device_id);
+        assert_eq!(loaded.connections.len(), 1);
+        assert_eq!(loaded.connections[0].id, conn_id);
+    }
+
+    #[test]
+    fn should_import_simple_sync_false_for_same_device() {
+        use crate::models::Connection;
+
+        let dir = TempDir::new().unwrap();
+        let settings = test_settings(Some(dir.path().to_owned()));
+        let device_id = settings.device_id;
+        let mgr = SyncManager::new(settings);
+
+        mgr.export_simple_sync(
+            vec![Connection::new_ssh("a".to_owned(), "h".to_owned(), 22)],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            &[],
+            Vec::new(),
+            "0.17.2",
+        )
+        .unwrap();
+
+        // The file we just wrote carries our own device_id, so we must not
+        // re-import it.
+        assert!(!mgr.should_import_simple_sync(device_id));
+        // A different device would import it.
+        assert!(mgr.should_import_simple_sync(Uuid::new_v4()));
     }
 
     #[test]

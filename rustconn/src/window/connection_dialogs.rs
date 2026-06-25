@@ -919,14 +919,11 @@ pub fn show_new_group_dialog_with_parent(
                         // Set the selected password source
                         updated.password_source = Some(new_password_source.clone());
 
-                        if let Err(e) = state_mut
-                            .connection_manager()
-                            .update_group(group_id, updated)
-                        {
+                        if let Err(e) = state_mut.update_group(group_id, updated) {
                             alert::show_error(
                                 &window_clone,
                                 &i18n("Error Updating Group"),
-                                &e.to_string(),
+                                &e.clone(),
                             );
                             // Don't return, allow closing window since group was created
                         }

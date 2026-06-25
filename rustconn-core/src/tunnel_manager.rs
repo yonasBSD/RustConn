@@ -373,7 +373,13 @@ fn create_askpass_script() -> Result<std::path::PathBuf, String> {
     use std::io::Write;
 
     let dir = std::env::temp_dir();
-    let path = dir.join(format!("rc_tun_askpass_{}", std::process::id()));
+    // Unique per-tunnel filename: concurrent tunnels must not share one path, or a
+    // second `File::create` truncates the script while the first ssh is still reading it.
+    let path = dir.join(format!(
+        "rc_tun_askpass_{}_{}",
+        std::process::id(),
+        Uuid::new_v4()
+    ));
 
     let script = format!("#!/bin/sh\necho \"${ASKPASS_ENV_VAR}\"\n");
 

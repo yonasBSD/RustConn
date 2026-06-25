@@ -4,8 +4,6 @@
 //! [`DynamicConnectionEntry`] objects that become read-only connections
 //! inside a group.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::process::Stdio;
 use std::time::Instant;
 
@@ -13,8 +11,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::models::{
-    Connection, DynamicConnectionEntry, DynamicConnectionId, DynamicFolderConfig,
-    DynamicFolderResult, ProtocolType,
+    Connection, DynamicConnectionEntry, DynamicFolderConfig, DynamicFolderResult, ProtocolType,
 };
 
 /// Errors from dynamic folder operations
@@ -187,30 +184,13 @@ pub fn entry_to_connection(entry: &DynamicConnectionEntry, group_id: Uuid) -> Co
 /// so the same entry always gets the same ID across refreshes.
 #[must_use]
 pub fn stable_connection_id(group_id: Uuid, entry: &DynamicConnectionEntry) -> Uuid {
-    let dynamic_id = DynamicConnectionId {
-        group_id,
-        entry_hash: compute_entry_hash(entry),
-    };
-
-    // Create a deterministic UUID v5 from the hash
-    let mut bytes = [0u8; 16];
-    let group_bytes = group_id.as_bytes();
-    let hash_bytes = dynamic_id.entry_hash.to_le_bytes();
-    bytes[..8].copy_from_slice(&group_bytes[..8]);
-    bytes[8..16].copy_from_slice(&hash_bytes);
-    // Set version 4 bits to make it a valid UUID
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    Uuid::from_bytes(bytes)
-}
-
-/// Computes a hash for an entry based on name + host + protocol.
-fn compute_entry_hash(entry: &DynamicConnectionEntry) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    entry.name.hash(&mut hasher);
-    entry.host.hash(&mut hasher);
-    entry.protocol.hash(&mut hasher);
-    hasher.finish()
+    // UUID v5 (SHA-1, namespaced) is spec-defined and stable across Rust
+    // versions and toolchains — unlike DefaultHasher, whose output may change
+    // between releases. The group acts as the namespace; the entry's
+    // identity-defining fields form the name. NUL separators keep fields from
+    // bleeding into each other (e.g. "ab"+"c" vs "a"+"bc").
+    let key = format!("{}\u{0}{}\u{0}{}", entry.name, entry.host, entry.protocol);
+    Uuid::new_v5(&group_id, key.as_bytes())
 }
 
 #[cfg(test)]

@@ -388,10 +388,29 @@ pub fn show_password_generator_dialog(parent: Option<&impl IsA<gtk4::Widget>>) {
     copy_btn.connect_clicked(move |_| {
         let text = password_entry_clone.text().to_string();
         if !text.is_empty() {
-            let display = gtk4::prelude::WidgetExt::display(&dialog_clone);
-            display.clipboard().set_text(&text);
-            let toast = adw::Toast::new(&i18n("Password copied to clipboard"));
+            let clipboard = gtk4::prelude::WidgetExt::display(&dialog_clone).clipboard();
+            clipboard.set_text(&text);
+            let toast = adw::Toast::new(&i18n("Password copied (auto-clears in 30s)"));
             toast_overlay_clone.add_toast(toast);
+
+            // Auto-clear after 30s, but only if the clipboard still holds this
+            // password (don't clobber whatever the user copied since). Mirrors
+            // the "Copy Password" action in edit_actions.rs.
+            let clipboard_weak = clipboard.downgrade();
+            gtk4::glib::timeout_add_seconds_local_once(30, move || {
+                if let Some(cb) = clipboard_weak.upgrade() {
+                    let expected = text.clone();
+                    let cb_for_clear = clipboard_weak.clone();
+                    cb.read_text_async(gtk4::gio::Cancellable::NONE, move |result| {
+                        if let Ok(Some(current)) = result
+                            && current.as_str() == expected
+                            && let Some(cb2) = cb_for_clear.upgrade()
+                        {
+                            cb2.set_text("");
+                        }
+                    });
+                }
+            });
         }
     });
 

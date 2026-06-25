@@ -138,6 +138,13 @@ impl super::EmbeddedRdpWidget {
                             let rounded_width = (device_width / 4) * 4;
                             let rounded_height = (device_height / 4) * 4;
 
+                            // Guard against degenerate sizes (widget mid-layout
+                            // or collapsed): never request a sub-640x480 desktop,
+                            // matching apply_resolution_sync.
+                            if rounded_width < 640 || rounded_height < 480 {
+                                return;
+                            }
+
                             // Update config with new resolution
                             {
                                 let current_config = cfg.borrow().clone();

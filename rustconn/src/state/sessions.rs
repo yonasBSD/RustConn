@@ -31,20 +31,25 @@ impl AppState {
         self.snippet_manager
             .create_snippet_from(snippet)
             .map_err(|e| format!("Failed to create snippet: {e}"))
+            .inspect(|_| self.mark_simple_sync_dirty())
     }
 
     /// Updates a snippet
     pub fn update_snippet(&mut self, id: Uuid, snippet: Snippet) -> Result<(), String> {
         self.snippet_manager
             .update_snippet(id, snippet)
-            .map_err(|e| format!("Failed to update snippet: {e}"))
+            .map_err(|e| format!("Failed to update snippet: {e}"))?;
+        self.mark_simple_sync_dirty();
+        Ok(())
     }
 
     /// Deletes a snippet
     pub fn delete_snippet(&mut self, id: Uuid) -> Result<(), String> {
         self.snippet_manager
             .delete_snippet(id)
-            .map_err(|e| format!("Failed to delete snippet: {e}"))
+            .map_err(|e| format!("Failed to delete snippet: {e}"))?;
+        self.record_tombstone(rustconn_core::sync::SyncEntityType::Snippet, id);
+        Ok(())
     }
 
     /// Gets a snippet by ID
@@ -193,6 +198,7 @@ impl AppState {
             .create_template(template)
             .map(|_| ())
             .map_err(|e| format!("Failed to add template: {e}"))
+            .inspect(|()| self.mark_simple_sync_dirty())
     }
 
     /// Updates a template and persists via `TemplateManager`
@@ -211,7 +217,7 @@ impl AppState {
         }
 
         // Persist via template manager (create if not found, update if exists)
-        if self.template_manager.get_template(id).is_some() {
+        let result = if self.template_manager.get_template(id).is_some() {
             self.template_manager
                 .update_template(id, template)
                 .map_err(|e| format!("Failed to update template: {e}"))
@@ -220,7 +226,8 @@ impl AppState {
                 .create_template(template)
                 .map(|_| ())
                 .map_err(|e| format!("Failed to add template: {e}"))
-        }
+        };
+        result.inspect(|()| self.mark_simple_sync_dirty())
     }
 
     /// Deletes a template and persists via `TemplateManager`
@@ -236,7 +243,9 @@ impl AppState {
         if self.template_manager.get_template(template_id).is_some() {
             self.template_manager
                 .delete_template(template_id)
-                .map_err(|e| format!("Failed to delete template: {e}"))
+                .map_err(|e| format!("Failed to delete template: {e}"))?;
+            self.record_tombstone(rustconn_core::sync::SyncEntityType::Template, template_id);
+            Ok(())
         } else {
             Ok(())
         }

@@ -28,6 +28,7 @@ impl AppState {
         self.connection_manager
             .create_connection_from(connection)
             .map_err(|e| format!("Failed to create connection: {e}"))
+            .inspect(|_| self.mark_simple_sync_dirty())
     }
 
     /// Checks if a connection with the given name exists
@@ -154,7 +155,9 @@ impl AppState {
     pub fn update_connection(&mut self, id: Uuid, connection: Connection) -> Result<(), String> {
         self.connection_manager
             .update_connection(id, connection)
-            .map_err(|e| format!("Failed to update connection: {e}"))
+            .map_err(|e| format!("Failed to update connection: {e}"))?;
+        self.mark_simple_sync_dirty();
+        Ok(())
     }
 
     /// Soft-deletes a connection (moves to trash).
@@ -166,7 +169,10 @@ impl AppState {
     pub fn delete_connection(&mut self, id: Uuid) -> Result<(), String> {
         self.connection_manager
             .delete_connection(id)
-            .map_err(|e| format!("Failed to delete connection: {e}"))
+            .map_err(|e| format!("Failed to delete connection: {e}"))?;
+        // Simple Sync: record the deletion so it propagates to other devices.
+        self.record_tombstone(rustconn_core::sync::SyncEntityType::Connection, id);
+        Ok(())
     }
 
     /// Gets a connection by ID
@@ -212,6 +218,7 @@ impl AppState {
         self.connection_manager
             .create_group(name)
             .map_err(|e| format!("Failed to create group: {e}"))
+            .inspect(|_| self.mark_simple_sync_dirty())
     }
 
     /// Creates a group with a parent
@@ -223,20 +230,102 @@ impl AppState {
         self.connection_manager
             .create_group_with_parent(name, parent_id)
             .map_err(|e| format!("Failed to create group: {e}"))
+            .inspect(|_| self.mark_simple_sync_dirty())
+    }
+
+    /// Updates a group's content and marks Simple Sync dirty.
+    ///
+    /// Bumps the group's `updated_at` (via [`ConnectionGroup::touch`]) so the
+    /// edit wins the Simple Sync merge on other devices. Use this for genuine
+    /// user edits; sync bookkeeping must call `ConnectionManager::update_group`
+    /// directly to avoid churning the merge clock.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error string if validation or persistence fails.
+    pub fn update_group(
+        &mut self,
+        id: Uuid,
+        mut group: rustconn_core::models::ConnectionGroup,
+    ) -> Result<(), String> {
+        group.touch();
+        self.connection_manager
+            .update_group(id, group)
+            .map_err(|e| format!("Failed to update group: {e}"))?;
+        self.mark_simple_sync_dirty();
+        Ok(())
     }
 
     /// Deletes a group (connections become ungrouped)
     pub fn delete_group(&mut self, id: Uuid) -> Result<(), String> {
         self.connection_manager
             .delete_group(id)
-            .map_err(|e| format!("Failed to delete group: {e}"))
+            .map_err(|e| format!("Failed to delete group: {e}"))?;
+        // Simple Sync: only the group is removed (connections survive ungrouped),
+        // so a single group tombstone is enough.
+        self.record_tombstone(rustconn_core::sync::SyncEntityType::Group, id);
+        Ok(())
     }
 
     /// Deletes a group and all connections within it (cascade delete)
     pub fn delete_group_cascade(&mut self, id: Uuid) -> Result<(), String> {
+        use rustconn_core::sync::SyncEntityType;
+
+        // Snapshot IDs before the cascade so we can tombstone everything it
+        // removes (the group, its descendant groups, and their connections).
+        // Only needed when Simple Sync is on.
+        let track = self.settings.sync.simple_sync_enabled;
+        let (before_conns, before_groups) = if track {
+            (
+                self.connection_manager
+                    .list_connections()
+                    .iter()
+                    .map(|c| c.id)
+                    .collect::<std::collections::HashSet<Uuid>>(),
+                self.connection_manager
+                    .list_groups()
+                    .iter()
+                    .map(|g| g.id)
+                    .collect::<std::collections::HashSet<Uuid>>(),
+            )
+        } else {
+            (
+                std::collections::HashSet::new(),
+                std::collections::HashSet::new(),
+            )
+        };
+
         self.connection_manager
             .delete_group_cascade(id)
-            .map_err(|e| format!("Failed to delete group: {e}"))
+            .map_err(|e| format!("Failed to delete group: {e}"))?;
+
+        if track {
+            let after_conns: std::collections::HashSet<Uuid> = self
+                .connection_manager
+                .list_connections()
+                .iter()
+                .map(|c| c.id)
+                .collect();
+            let after_groups: std::collections::HashSet<Uuid> = self
+                .connection_manager
+                .list_groups()
+                .iter()
+                .map(|g| g.id)
+                .collect();
+
+            let removed = before_conns
+                .difference(&after_conns)
+                .map(|id| (SyncEntityType::Connection, *id))
+                .chain(
+                    before_groups
+                        .difference(&after_groups)
+                        .map(|id| (SyncEntityType::Group, *id)),
+                )
+                .collect::<Vec<_>>();
+            self.record_tombstones(removed);
+        }
+
+        Ok(())
     }
 
     /// Moves a group to a new parent group
@@ -261,6 +350,9 @@ impl AppState {
         self.connection_manager
             .move_group(group_id, new_parent_id)
             .map_err(|e| format!("Failed to move group: {e}"))?;
+        // Reparenting bumps the group's `updated_at` in the manager; flag a
+        // Simple Sync re-export so the move propagates.
+        self.mark_simple_sync_dirty();
 
         // Migrate vault entries if parent changed (KeePass paths affected)
         if parent_changed {
@@ -328,6 +420,9 @@ impl AppState {
         self.connection_manager
             .move_connection_to_group(connection_id, group_id)
             .map_err(|e| format!("Failed to move connection: {e}"))?;
+        // The manager bumps the connection's `updated_at`; flag a Simple Sync
+        // re-export so the regrouping propagates.
+        self.mark_simple_sync_dirty();
 
         // Migrate vault credential if the group changed and password source is Vault
         if let Some(old_conn) = old_conn

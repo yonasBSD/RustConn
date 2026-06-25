@@ -2,7 +2,7 @@
 //!
 //! Parses ~/.ssh/config and ~/.ssh/config.d/* files to import SSH connections.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -13,6 +13,10 @@ use crate::models::{Connection, ProtocolConfig, SshAuthMethod, SshConfig, SshKey
 use crate::tracing::span_names;
 
 use super::traits::{ImportResult, ImportSource, SkippedEntry, read_import_file};
+
+/// Maximum `Include` recursion depth. Matches OpenSSH's own limit and guards
+/// against include cycles (a glob that matches its own file).
+const MAX_INCLUDE_DEPTH: u8 = 16;
 
 /// Importer for SSH config files.
 ///
@@ -40,10 +44,45 @@ impl SshConfigImporter {
         }
     }
 
-    /// Parses SSH config content and returns an import result
+    /// Parses SSH config content and returns an import result.
+    ///
+    /// `Include` directives are expanded (glob patterns supported; relative
+    /// paths resolve against `~/.ssh`, matching OpenSSH), and each physical
+    /// file is parsed at most once.
     #[must_use]
     pub fn parse_config(&self, content: &str, source_path: &str) -> ImportResult {
         let mut result = ImportResult::new();
+        let mut visited = HashSet::new();
+        let base_dir = Self::user_ssh_dir();
+        self.parse_into(
+            content,
+            source_path,
+            &base_dir,
+            0,
+            &mut visited,
+            &mut result,
+        );
+        result
+    }
+
+    /// The directory relative `Include` paths resolve against (`~/.ssh`).
+    fn user_ssh_dir() -> PathBuf {
+        dirs::home_dir().map_or_else(|| PathBuf::from("."), |home| home.join(".ssh"))
+    }
+
+    /// Parses config `content` into `result`, recursing into `Include` files.
+    ///
+    /// `visited` holds canonical paths already parsed so that a file reachable
+    /// via several `Include`s (or also enumerated in `config.d`) is parsed once.
+    fn parse_into(
+        &self,
+        content: &str,
+        source_path: &str,
+        base_dir: &Path,
+        depth: u8,
+        visited: &mut HashSet<PathBuf>,
+        result: &mut ImportResult,
+    ) {
         let mut current_host: Option<String> = None;
         let mut current_options: HashMap<String, String> = HashMap::new();
         // Global defaults from `Host *` entries
@@ -69,6 +108,16 @@ impl SshConfigImporter {
 
             let key_lower = key.to_lowercase();
 
+            // `Include` is processed at the point it appears, regardless of
+            // whether it sits at top level or inside a Host block. Note: an
+            // Include nested inside a Host block does not inherit that host's
+            // accumulated options — included Host blocks are imported on their
+            // own, which is the dominant real-world usage.
+            if key_lower == "include" {
+                self.process_include(value, base_dir, depth, source_path, visited, result);
+                continue;
+            }
+
             if key_lower == "host" {
                 // Save previous host if any
                 if let Some(host_pattern) = current_host.take() {
@@ -81,7 +130,7 @@ impl SshConfigImporter {
                         }
                     } else {
                         let merged = Self::merge_with_defaults(&current_options, &global_defaults);
-                        self.process_host_entry(&host_pattern, &merged, source_path, &mut result);
+                        self.process_host_entry(&host_pattern, &merged, source_path, result);
                     }
                 }
 
@@ -104,11 +153,69 @@ impl SshConfigImporter {
                 }
             } else {
                 let merged = Self::merge_with_defaults(&current_options, &global_defaults);
-                self.process_host_entry(&host_pattern, &merged, source_path, &mut result);
+                self.process_host_entry(&host_pattern, &merged, source_path, result);
             }
         }
+    }
 
-        result
+    /// Expands an `Include` pattern and parses each matched file once.
+    fn process_include(
+        &self,
+        pattern: &str,
+        base_dir: &Path,
+        depth: u8,
+        source_path: &str,
+        visited: &mut HashSet<PathBuf>,
+        result: &mut ImportResult,
+    ) {
+        if depth >= MAX_INCLUDE_DEPTH {
+            result.add_skipped(SkippedEntry::with_location(
+                format!("Include {pattern}"),
+                "Maximum Include depth exceeded",
+                source_path,
+            ));
+            return;
+        }
+
+        for path in Self::expand_include(pattern, base_dir) {
+            // Canonicalize so the same file reached via different patterns is
+            // parsed once; fall back to the raw path if it cannot be resolved.
+            let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if !visited.insert(canonical) {
+                continue;
+            }
+            match read_import_file(&path, "SSH config") {
+                Ok(content) => self.parse_into(
+                    &content,
+                    &path.display().to_string(),
+                    base_dir,
+                    depth + 1,
+                    visited,
+                    result,
+                ),
+                Err(e) => result.add_error(e),
+            }
+        }
+    }
+
+    /// Resolves an `Include` pattern (possibly several whitespace-separated
+    /// globs) to a sorted list of existing files.
+    fn expand_include(pattern: &str, base_dir: &Path) -> Vec<PathBuf> {
+        let mut out = Vec::new();
+        for token in pattern.split_whitespace() {
+            let expanded = shellexpand::tilde(token).into_owned();
+            let full = if Path::new(&expanded).is_absolute() {
+                expanded
+            } else {
+                base_dir.join(&expanded).to_string_lossy().into_owned()
+            };
+            if let Ok(paths) = glob::glob(&full) {
+                let mut matched: Vec<PathBuf> = paths.flatten().filter(|p| p.is_file()).collect();
+                matched.sort();
+                out.extend(matched);
+            }
+        }
+        out
     }
 
     /// Merges host-specific options with global `Host *` defaults.
@@ -302,9 +409,35 @@ impl SshConfigImporter {
 
     /// Reads and parses a single SSH config file
     fn import_file(&self, path: &Path) -> Result<ImportResult, ImportError> {
-        let content = read_import_file(path, "SSH config")?;
+        let mut result = ImportResult::new();
+        let mut visited = HashSet::new();
+        self.import_file_into(path, &mut visited, &mut result)?;
+        Ok(result)
+    }
 
-        Ok(self.parse_config(&content, &path.display().to_string()))
+    /// Reads `path` and parses it into `result`, skipping files already in
+    /// `visited` and recording the file as visited.
+    fn import_file_into(
+        &self,
+        path: &Path,
+        visited: &mut HashSet<PathBuf>,
+        result: &mut ImportResult,
+    ) -> Result<(), ImportError> {
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        if !visited.insert(canonical) {
+            return Ok(());
+        }
+        let content = read_import_file(path, "SSH config")?;
+        let base_dir = Self::user_ssh_dir();
+        self.parse_into(
+            &content,
+            &path.display().to_string(),
+            &base_dir,
+            0,
+            visited,
+            result,
+        );
+        Ok(())
     }
 }
 
@@ -369,11 +502,14 @@ impl ImportSource for SshConfigImporter {
         debug!(path_count = paths.len(), "Importing from SSH config files");
 
         let mut combined_result = ImportResult::new();
+        // Shared across all default paths so a file pulled in by `Include` is
+        // not also imported a second time when enumerated directly (e.g.
+        // `config.d/*` that the main config also includes).
+        let mut visited = HashSet::new();
 
         for path in paths {
-            match self.import_file(&path) {
-                Ok(result) => combined_result.merge(result),
-                Err(e) => combined_result.add_error(e),
+            if let Err(e) = self.import_file_into(&path, &mut visited, &mut combined_result) {
+                combined_result.add_error(e);
             }
         }
 
@@ -554,6 +690,36 @@ Host bastion
         } else {
             panic!("Expected SSH config");
         }
+    }
+
+    #[test]
+    fn test_include_directive_expands_files() {
+        // Main config Includes another file via an absolute path; both the
+        // included host and the inline host must be imported.
+        let dir = std::env::temp_dir().join(format!("rc-ssh-inc-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let included = dir.join("extra_hosts");
+        std::fs::write(
+            &included,
+            "Host included-host\n    HostName 10.9.8.7\n    User inc\n",
+        )
+        .expect("write included file");
+
+        let main = format!(
+            "Include {}\n\nHost main-host\n    HostName 1.2.3.4\n",
+            included.display()
+        );
+        let importer = SshConfigImporter::new();
+        let result = importer.parse_config(&main, "test");
+
+        let names: Vec<&str> = result.connections.iter().map(|c| c.name.as_str()).collect();
+        assert!(
+            names.contains(&"included-host"),
+            "included host missing: {names:?}"
+        );
+        assert!(names.contains(&"main-host"), "main host missing: {names:?}");
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

@@ -25,6 +25,9 @@ pub struct WorkspaceEntry {
     /// Panel ID for split view placement
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub panel_id: Option<String>,
+    /// Named tab group this session belonged to (e.g. "Production"), if any
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tab_group: Option<String>,
 }
 
 impl WorkspaceEntry {
@@ -44,6 +47,7 @@ impl WorkspaceEntry {
             session_type,
             tab_index,
             panel_id: None,
+            tab_group: None,
         }
     }
 
@@ -51,6 +55,13 @@ impl WorkspaceEntry {
     #[must_use]
     pub fn with_panel_id(mut self, panel_id: impl Into<String>) -> Self {
         self.panel_id = Some(panel_id.into());
+        self
+    }
+
+    /// Sets the named tab group this session belongs to.
+    #[must_use]
+    pub fn with_tab_group(mut self, group: impl Into<String>) -> Self {
+        self.tab_group = Some(group.into());
         self
     }
 }

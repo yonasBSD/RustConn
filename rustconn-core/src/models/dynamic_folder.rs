@@ -9,7 +9,6 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// A dynamic folder configuration attached to a [`super::ConnectionGroup`].
 ///
@@ -128,15 +127,4 @@ pub struct DynamicFolderResult {
 
     /// Execution duration
     pub duration: Duration,
-}
-
-/// Unique identifier for a dynamic connection (group_id + entry index)
-/// to distinguish dynamic connections from user-created ones.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct DynamicConnectionId {
-    /// The group that owns this dynamic connection
-    pub group_id: Uuid,
-
-    /// Stable identifier derived from name+host+protocol
-    pub entry_hash: u64,
 }

@@ -16,6 +16,7 @@ use crate::models::{
     Connection, ConnectionGroup, ConnectionHistoryEntry, ConnectionTemplate, Snippet,
     WorkspaceProfile,
 };
+use crate::sync::tombstone::Tombstone;
 
 use super::settings::AppSettings;
 
@@ -28,6 +29,7 @@ const TEMPLATES_FILE: &str = "templates.toml";
 const HISTORY_FILE: &str = "history.toml";
 const TRASH_FILE: &str = "trash.toml";
 const WORKSPACE_PROFILES_FILE: &str = "workspace_profiles.toml";
+const TOMBSTONES_FILE: &str = "tombstones.toml";
 const CONFIG_FILE: &str = "config.toml";
 
 /// Wrapper for serializing a list of connections
@@ -70,6 +72,13 @@ struct TemplatesFile {
 struct HistoryFile {
     #[serde(default)]
     entries: Vec<ConnectionHistoryEntry>,
+}
+
+/// Wrapper for serializing Simple Sync tombstones
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+struct TombstonesFile {
+    #[serde(default)]
+    tombstones: Vec<Tombstone>,
 }
 
 /// Wrapper for serializing trash (deleted items)
@@ -474,6 +483,36 @@ impl ConfigManager {
         let path = self.config_dir.join(HISTORY_FILE);
         let file = HistoryFile {
             entries: entries.to_vec(),
+        };
+        self.save_toml_file(&path, &file)
+    }
+
+    // ========== Simple Sync Tombstones ==========
+
+    /// Loads Simple Sync tombstones from the configuration file.
+    ///
+    /// Returns an empty list if the file doesn't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file exists but cannot be parsed.
+    pub fn load_tombstones(&self) -> ConfigResult<Vec<Tombstone>> {
+        let path = self.config_dir.join(TOMBSTONES_FILE);
+        Self::load_toml_file::<TombstonesFile>(&path).map(|f| f.tombstones)
+    }
+
+    /// Saves Simple Sync tombstones to the configuration file.
+    ///
+    /// Creates the configuration directory if it doesn't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be written.
+    pub fn save_tombstones(&self, tombstones: &[Tombstone]) -> ConfigResult<()> {
+        self.ensure_config_dir()?;
+        let path = self.config_dir.join(TOMBSTONES_FILE);
+        let file = TombstonesFile {
+            tombstones: tombstones.to_vec(),
         };
         self.save_toml_file(&path, &file)
     }
@@ -1196,6 +1235,39 @@ mod tests {
         assert_eq!(loaded[0].id, cluster.id);
         assert_eq!(loaded[0].connection_ids.len(), 2);
         assert!(loaded[0].broadcast_enabled);
+    }
+
+    #[test]
+    fn test_save_and_load_tombstones() {
+        use crate::sync::tombstone::{SyncEntityType, Tombstone};
+        use uuid::Uuid;
+
+        let (manager, _temp) = create_test_manager();
+
+        // Empty when no file exists.
+        assert!(manager.load_tombstones().unwrap().is_empty());
+
+        let conn_id = Uuid::new_v4();
+        let group_id = Uuid::new_v4();
+        let tombstones = vec![
+            Tombstone::new(SyncEntityType::Connection, conn_id),
+            Tombstone::new(SyncEntityType::Group, group_id),
+        ];
+
+        manager.save_tombstones(&tombstones).unwrap();
+        let loaded = manager.load_tombstones().unwrap();
+
+        assert_eq!(loaded.len(), 2);
+        assert!(
+            loaded
+                .iter()
+                .any(|t| t.entity_type == SyncEntityType::Connection && t.id == conn_id)
+        );
+        assert!(
+            loaded
+                .iter()
+                .any(|t| t.entity_type == SyncEntityType::Group && t.id == group_id)
+        );
     }
 
     #[test]

@@ -23,9 +23,7 @@ pub use connection::{
 };
 pub use credentials::Credentials;
 pub use custom_property::{CustomProperty, PropertyType};
-pub use dynamic_folder::{
-    DynamicConnectionEntry, DynamicConnectionId, DynamicFolderConfig, DynamicFolderResult,
-};
+pub use dynamic_folder::{DynamicConnectionEntry, DynamicFolderConfig, DynamicFolderResult};
 pub use group::{ConnectionGroup, collect_descendant_group_ids};
 pub use highlight::HighlightRule;
 pub use history::{ConnectionHistoryEntry, ConnectionStatistics, HistorySettings};

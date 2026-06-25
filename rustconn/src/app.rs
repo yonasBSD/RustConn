@@ -360,6 +360,41 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
                     MainWindow::reload_sidebar_preserving_state(&state_for_sync, &sidebar_for_sync);
                 }
             }
+
+            // Simple Sync: import any changes another device wrote to
+            // full-sync.rcn, applying creates/updates/deletes (tombstones).
+            {
+                let outcome = if let Ok(mut state_mut) = state_for_sync.try_borrow_mut() {
+                    let device_id = state_mut.settings().sync.device_id;
+                    if state_mut.simple_sync_enabled()
+                        && state_mut
+                            .sync_manager()
+                            .should_import_simple_sync(device_id)
+                    {
+                        Some(state_mut.simple_sync_import_and_apply())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                match outcome {
+                    Some(Ok(report)) if !report.is_empty() => {
+                        tracing::info!(
+                            created = report.created,
+                            updated = report.updated,
+                            deleted = report.deleted,
+                            "Simple Sync startup import applied"
+                        );
+                        MainWindow::reload_sidebar_preserving_state(
+                            &state_for_sync,
+                            &sidebar_for_sync,
+                        );
+                    }
+                    Some(Err(e)) => tracing::warn!(%e, "Simple Sync startup import failed"),
+                    _ => {}
+                }
+            }
         });
     }
 
@@ -421,6 +456,25 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
                                          io.github.totoshko88.RustConn"
                                     );
                                 }
+                            }
+                        }
+                    }
+
+                    // Simple Sync: debounced whole-store export when local data
+                    // changed since the last tick.
+                    if state_mut.simple_sync_enabled() && state_mut.take_simple_sync_dirty() {
+                        match state_mut.simple_sync_export() {
+                            Ok(()) => {
+                                tracing::debug!("Simple Sync auto-exported");
+                                sync_banner.set_revealed(false);
+                            }
+                            Err(e) => {
+                                tracing::warn!(%e, "Simple Sync auto-export failed");
+                                crate::window::MainWindow::show_sync_error_banner(
+                                    &sync_banner,
+                                    "Simple Sync",
+                                    &e,
+                                );
                             }
                         }
                     }

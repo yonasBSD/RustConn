@@ -422,7 +422,10 @@ impl RdpLauncher {
         // Add shared folders for drive redirection
         for (share_name, local_path) in shared_folders {
             if local_path.exists() {
-                cmd.arg(format!("/drive:{},{}", share_name, local_path.display()));
+                // FreeRDP `/drive:<name>,<path>` is comma-delimited; a comma in
+                // the share name would split the argument and corrupt the path.
+                let safe_name = share_name.replace(',', "_");
+                cmd.arg(format!("/drive:{safe_name},{}", local_path.display()));
             }
         }
 

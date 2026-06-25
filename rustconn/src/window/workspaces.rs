@@ -55,13 +55,23 @@ pub fn show_workspace_manager(
         };
         if let Some(profile) = profile {
             for entry in &profile.entries {
-                let _ = super::MainWindow::start_connection(
+                let result = super::MainWindow::start_connection(
                     &state_for_open,
                     &notebook_for_open,
                     &sidebar_for_open,
                     &monitoring_for_open,
                     entry.connection_id,
                 );
+                // Re-apply the saved tab group. Only synchronously-started
+                // sessions expose their id here; port-checked connections start
+                // asynchronously (Pending) and are not regrouped on restore.
+                // ponytail: covers the common embedded case; thread the group
+                // through the async completion path if Pending restore is needed.
+                if let Some(ref group) = entry.tab_group
+                    && let super::types::ConnectionStartResult::Started(session_id) = result
+                {
+                    notebook_for_open.set_tab_group(session_id, group);
+                }
             }
             if let Some(win) = window_for_open.upgrade() {
                 crate::split_view::apply_layout(&win, &profile.split_layout);
@@ -132,21 +142,26 @@ fn save_current_workspace(
     let entries: Vec<WorkspaceEntry> = notebook
         .ordered_session_ids()
         .iter()
-        .filter_map(|id| notebook.get_session_info(*id))
+        .filter_map(|id| notebook.get_session_info(*id).map(|s| (*id, s)))
         .enumerate()
-        .map(|(i, session)| {
+        .map(|(i, (id, session))| {
             let session_type = if session.is_embedded {
                 SessionType::Embedded
             } else {
                 SessionType::External
             };
-            WorkspaceEntry::new(
+            let mut entry = WorkspaceEntry::new(
                 session.connection_id,
                 session.name.clone(),
                 session.protocol.clone(),
                 session_type,
                 i,
-            )
+            );
+            // Preserve the tab group so it is restored when the workspace reopens.
+            if let Some(group) = notebook.get_tab_group(id) {
+                entry = entry.with_tab_group(group);
+            }
+            entry
         })
         .collect();
 

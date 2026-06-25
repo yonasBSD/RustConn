@@ -320,6 +320,33 @@ flatpak run --env=RUST_LOG=trace io.github.totoshko88.RustConn
 
 ---
 
+## Smart Cards / PKCS#11 (YubiKey) in Sandboxed Builds
+
+RustConn's `PKCS11Provider` option just passes `-o PKCS11Provider=<path>` to the
+external `ssh` binary. OpenSSH then `dlopen()`s that module and talks to the
+`pcscd` smart-card daemon. Inside a Flatpak/Snap sandbox neither the host module
+(e.g. `/usr/lib64/libykcs11.so.2`) nor the `pcscd` socket is available, and the
+GNOME runtime ships no `libpcsclite`, so loading the host module fails. Bundling
+a PKCS#11 stack into the package is heavy for a rare use case, so the
+recommended approach is to let the **host** `ssh-agent` do the smart-card work:
+
+```bash
+# On the HOST (not in the sandbox), load the YubiKey/PIV keys into the agent:
+ssh-add -s /usr/lib64/libykcs11.so.2   # or your distro's opensc-pkcs11.so
+ssh-add -L                             # verify the token key is listed
+```
+
+The Flatpak manifest already grants `--socket=ssh-auth`, so the sandboxed app
+authenticates through the host agent — no `PKCS11Provider`, no bundled modules,
+no overrides needed. Leave the connection's PKCS#11 provider field empty and
+enable agent-based auth.
+
+> Snap (strict confinement) cannot reach the host agent the same way and would
+> require a packaged `pcscd` plug plus a bundled module; use the Flatpak or a
+> native (`.deb`/AppImage/OBS) build for smart-card auth instead.
+
+---
+
 ## Installing the Desktop File (From Source)
 
 ```bash

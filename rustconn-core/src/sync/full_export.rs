@@ -109,6 +109,7 @@ impl FullSyncExport {
     ) -> Self {
         let filtered_variables = filter_secret_variables(variables);
         let cleaned_connections = strip_local_only_connection_fields(connections);
+        let cleaned_groups = strip_local_only_group_fields(groups);
 
         Self {
             sync_version: SYNC_VERSION,
@@ -118,7 +119,7 @@ impl FullSyncExport {
             device_id,
             device_name,
             connections: cleaned_connections,
-            groups,
+            groups: cleaned_groups,
             templates,
             snippets,
             clusters,
@@ -212,6 +213,31 @@ fn strip_local_only_connection_fields(connections: Vec<Connection>) -> Vec<Conne
         .collect()
 }
 
+/// Strips local-only and sync-bookkeeping fields from groups before export.
+///
+/// Clears UI/order state (`expanded`, `sort_order`), device-specific SSH
+/// fields (`ssh_key_path`, `ssh_jump_host_id`, `ssh_agent_socket`), and
+/// Group-Sync bookkeeping (`sync_mode`, `sync_file`, `last_synced_at`) to their
+/// defaults. The importing device preserves its own copies of these fields, so
+/// they must never travel in the shared file. `updated_at` is left intact — it
+/// is the merge clock.
+fn strip_local_only_group_fields(groups: Vec<ConnectionGroup>) -> Vec<ConnectionGroup> {
+    groups
+        .into_iter()
+        .map(|mut g| {
+            g.expanded = true;
+            g.sort_order = 0;
+            g.ssh_key_path = None;
+            g.ssh_jump_host_id = None;
+            g.ssh_agent_socket = None;
+            g.sync_mode = crate::sync::SyncMode::default();
+            g.sync_file = None;
+            g.last_synced_at = None;
+            g
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,6 +276,45 @@ mod tests {
         assert_eq!(export.sync_type, "full");
         assert_eq!(export.device_id, device_id);
         assert_eq!(export.device_name, "laptop");
+    }
+
+    #[test]
+    fn build_strips_local_only_group_fields() {
+        use crate::sync::SyncMode;
+
+        let mut group = ConnectionGroup::new("prod".to_owned());
+        let edited_at = group.updated_at;
+        group.ssh_key_path = Some(std::path::PathBuf::from("/home/me/.ssh/id_ed25519"));
+        group.ssh_jump_host_id = Some(Uuid::new_v4());
+        group.ssh_agent_socket = Some("/run/agent.sock".to_owned());
+        group.sync_mode = SyncMode::Master;
+        group.sync_file = Some("prod.rcn".to_owned());
+        group.sort_order = 7;
+
+        let export = FullSyncExport::build(
+            "0.12.0".to_owned(),
+            Uuid::new_v4(),
+            "laptop".to_owned(),
+            Vec::new(),
+            vec![group],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            &[],
+            Vec::new(),
+        );
+
+        let g = &export.groups[0];
+        // Device-specific / Group-Sync fields are stripped.
+        assert!(g.ssh_key_path.is_none());
+        assert!(g.ssh_jump_host_id.is_none());
+        assert!(g.ssh_agent_socket.is_none());
+        assert_eq!(g.sync_mode, SyncMode::None);
+        assert!(g.sync_file.is_none());
+        assert_eq!(g.sort_order, 0);
+        // Synced content and the merge clock are preserved.
+        assert_eq!(g.name, "prod");
+        assert_eq!(g.updated_at, edited_at);
     }
 
     #[test]

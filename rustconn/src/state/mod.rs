@@ -193,6 +193,11 @@ pub struct AppState {
     secret_backend_available: Option<bool>,
     /// Cloud Sync manager for export/import operations
     sync_manager: SyncManager,
+    /// Simple Sync deletion tombstones (only populated when Simple Sync is on)
+    tombstones: Vec<rustconn_core::sync::Tombstone>,
+    /// Set when local data changed and Simple Sync should re-export (debounced
+    /// by the poll loop in `app.rs`). Ignored when Simple Sync is disabled.
+    simple_sync_dirty: std::cell::Cell<bool>,
     /// Workspace profile manager for named session sets
     workspace_manager: WorkspaceProfileManager,
     /// Shared folder connection tracker for conditional task execution
@@ -492,6 +497,9 @@ impl AppState {
         // Initialize Cloud Sync manager
         let sync_manager = SyncManager::new(settings.sync.clone());
 
+        // Load Simple Sync tombstones
+        let tombstones = config_manager.load_tombstones().unwrap_or_default();
+
         // Initialize Workspace Profile manager
         let workspace_manager = WorkspaceProfileManager::new(config_manager.clone())
             .unwrap_or_else(|e| {
@@ -517,6 +525,8 @@ impl AppState {
             history_dirty_tx: None,
             secret_backend_available: None,
             sync_manager,
+            tombstones,
+            simple_sync_dirty: std::cell::Cell::new(false),
             workspace_manager,
             folder_tracker: Arc::new(std::sync::Mutex::new(FolderConnectionTracker::new())),
             kdbx_keyring_failed,
@@ -1174,6 +1184,19 @@ impl AppState {
             self.secret_manager.rebuild_from_settings(&settings.secrets);
             // Invalidate cache so next check re-evaluates availability
             self.secret_backend_available = None;
+        }
+
+        // Keep the sync manager's settings copy in step (sync_dir, device
+        // identity, retention, simple_sync toggle) so Simple/Group Sync use
+        // the current configuration without an app restart.
+        if self.settings.sync != settings.sync {
+            self.sync_manager.set_settings(settings.sync.clone());
+        }
+
+        // Simple Sync: a change to the (non-secret) global variables must be
+        // republished. Compared against the still-current `self.settings`.
+        if self.settings.global_variables != settings.global_variables {
+            self.mark_simple_sync_dirty();
         }
 
         self.settings = settings;

@@ -54,6 +54,7 @@ fn create_test_groups(count: usize) -> Vec<ConnectionGroup> {
             sort_order: i as i32,
             expanded: true,
             created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
             username: None,
             domain: None,
             password_source: None,

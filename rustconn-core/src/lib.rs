@@ -151,16 +151,15 @@ pub use import::{
 };
 pub use models::{
     Connection, ConnectionGroup, ConnectionHistoryEntry, ConnectionStatistics, ConnectionTemplate,
-    Credentials, CustomProperty, DynamicConnectionEntry, DynamicConnectionId, DynamicFolderConfig,
-    DynamicFolderResult, HighlightRule, HistorySettings, KubernetesConfig, MoshConfig,
-    MoshPredictMode, PasswordSource, PortForward, PortForwardDirection, PropertyType,
-    ProtocolConfig, ProtocolType, RdpConfig, RdpGateway, Resolution, ScaleOverride, SerialBaudRate,
-    SerialConfig, SerialDataBits, SerialFlowControl, SerialParity, SerialStopBits, Snippet,
-    SnippetTarget, SnippetVariable, SpiceConfig, SpiceImageCompression, SshAuthMethod, SshConfig,
-    SshKeySource, StandaloneTunnel, TelnetBackspaceSends, TelnetConfig, TelnetDeleteSends,
-    TemplateError, TunnelStatus, VncConfig, WindowGeometry, WindowMode, WorkspaceEntry,
-    WorkspaceProfile, WorkspaceSplitLayout, collect_descendant_group_ids,
-    group_templates_by_protocol,
+    Credentials, CustomProperty, DynamicConnectionEntry, DynamicFolderConfig, DynamicFolderResult,
+    HighlightRule, HistorySettings, KubernetesConfig, MoshConfig, MoshPredictMode, PasswordSource,
+    PortForward, PortForwardDirection, PropertyType, ProtocolConfig, ProtocolType, RdpConfig,
+    RdpGateway, Resolution, ScaleOverride, SerialBaudRate, SerialConfig, SerialDataBits,
+    SerialFlowControl, SerialParity, SerialStopBits, Snippet, SnippetTarget, SnippetVariable,
+    SpiceConfig, SpiceImageCompression, SshAuthMethod, SshConfig, SshKeySource, StandaloneTunnel,
+    TelnetBackspaceSends, TelnetConfig, TelnetDeleteSends, TemplateError, TunnelStatus, VncConfig,
+    WindowGeometry, WindowMode, WorkspaceEntry, WorkspaceProfile, WorkspaceSplitLayout,
+    collect_descendant_group_ids, group_templates_by_protocol,
 };
 pub use password_generator::{
     CharacterSet, PasswordGenerator, PasswordGeneratorConfig, PasswordGeneratorError,

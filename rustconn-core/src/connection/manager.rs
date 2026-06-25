@@ -507,6 +507,26 @@ impl ConnectionManager {
         Ok(id)
     }
 
+    /// Creates a group from an existing [`ConnectionGroup`], preserving its ID.
+    ///
+    /// Used by Simple Sync, which matches entities by UUID and therefore must
+    /// keep the remote group's identifier intact (unlike [`create_group`],
+    /// which mints a fresh ID).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if validation fails or persistence fails.
+    pub fn create_group_from(&mut self, group: ConnectionGroup) -> ConfigResult<Uuid> {
+        ConfigManager::validate_group(&group)?;
+
+        let id = group.id;
+        self.groups.insert(id, group);
+        self.is_sorted = false;
+        self.persist_groups()?;
+
+        Ok(id)
+    }
+
     /// Updates an existing group
     ///
     /// Preserves the original ID and creation timestamp.
@@ -775,6 +795,8 @@ impl ConnectionManager {
         // Perform the move
         if let Some(group) = self.groups.get_mut(&group_id) {
             group.parent_id = new_parent_id;
+            // Reparenting is synced content — bump the merge clock.
+            group.touch();
         }
 
         self.persist_groups()?;

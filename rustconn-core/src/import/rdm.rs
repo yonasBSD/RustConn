@@ -228,6 +228,7 @@ impl RdmImporter {
             parent_id,
             expanded: true,
             created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
             sort_order: 0,
             username: None,
             domain: None,

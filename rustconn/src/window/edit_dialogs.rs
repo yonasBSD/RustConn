@@ -309,8 +309,8 @@ pub fn rename_selected_item(
                             state_mut.list_groups().into_iter().cloned().collect()
                         };
 
-                    if let Err(e) = state_mut.connection_manager().update_group(id, updated) {
-                        alert::show_error(&window_clone, &i18n("Error"), &format!("{e}"));
+                    if let Err(e) = state_mut.update_group(id, updated) {
+                        alert::show_error(&window_clone, &i18n("Error"), &e.clone());
                         return;
                     }
 
@@ -497,6 +497,7 @@ fn start_quick_ssh(
         None,
         &[],
         false,
+        None,
         None,
         None,
     );

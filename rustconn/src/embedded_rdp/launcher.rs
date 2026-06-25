@@ -4,7 +4,7 @@
 //! with environment variables set to suppress Qt/Wayland warnings.
 
 use super::types::{EmbeddedRdpError, RdpConfig};
-use secrecy::ExposeSecret;
+use secrecy::{ExposeSecret, SecretString};
 use std::process::{Child, Command, Stdio};
 
 /// Safe FreeRDP launcher with Qt error suppression
@@ -147,27 +147,54 @@ impl SafeFreeRdpLauncher {
             }
         }
 
-        // For RemoteApp, write the password into a single-use args file
-        // in $XDG_RUNTIME_DIR (mode 0600) instead of `/p:` on the
-        // command line. The guard removes the file when this function
-        // returns, even on the error path.
-        let _password_guard = if is_remote_app
-            && let Some(ref password) = config.password
-            && !password.expose_secret().is_empty()
-        {
-            match super::ephemeral_args::EphemeralRdpArgs::write(password) {
+        // Secrets that must never appear on argv (`/proc/<pid>/cmdline`) are
+        // written into a single-use args file in $XDG_RUNTIME_DIR (mode 0600)
+        // and consumed via `/args-from:file:`. Two secrets can need this:
+        //   * the RemoteApp session password (`/p:`) — `/from-stdin` does not
+        //     work for RAIL sessions, and
+        //   * the RD Gateway password (`/gp:`) when a distinct gateway user is
+        //     configured. Option A: reuse the session password for the gateway,
+        //     covering the common case where the gateway authenticates against
+        //     the same account. A fully separate gateway credential is future
+        //     work. When no gateway user is set, FreeRDP already reuses the
+        //     session credentials for the gateway, so nothing is needed here.
+        // The guard removes the file when this function returns, even on the
+        // error path.
+        let session_password = config
+            .password
+            .as_ref()
+            .filter(|p| !p.expose_secret().is_empty());
+        let gateway_needs_password = config
+            .gateway_hostname
+            .as_ref()
+            .is_some_and(|h| !h.is_empty())
+            && config
+                .gateway_username
+                .as_ref()
+                .is_some_and(|u| !u.is_empty());
+
+        let mut secret_args: Vec<(&str, &SecretString)> = Vec::new();
+        if is_remote_app && let Some(p) = session_password {
+            secret_args.push(("p", p));
+        }
+        if gateway_needs_password && let Some(p) = session_password {
+            secret_args.push(("gp", p));
+        }
+
+        let _password_guard = if secret_args.is_empty() {
+            None
+        } else {
+            match super::ephemeral_args::EphemeralRdpArgs::write_args(&secret_args) {
                 Ok(guard) => {
                     cmd.arg(format!("/args-from:file:{}", guard.path().display()));
                     Some(guard)
                 }
                 Err(e) => {
                     return Err(EmbeddedRdpError::FreeRdpInit(format!(
-                        "could not prepare RemoteApp credentials file: {e}"
+                        "could not prepare RDP credentials file: {e}"
                     )));
                 }
             }
-        } else {
-            None
         };
 
         // Build connection arguments
@@ -314,7 +341,10 @@ impl SafeFreeRdpLauncher {
         // Add shared folders for drive redirection
         for folder in &config.shared_folders {
             let path = folder.local_path.display();
-            cmd.arg(format!("/drive:{},{}", folder.share_name, path));
+            // FreeRDP `/drive:<name>,<path>` is comma-delimited; a comma in the
+            // share name would split the argument and corrupt the path.
+            let safe_name = folder.share_name.replace(',', "_");
+            cmd.arg(format!("/drive:{safe_name},{path}"));
         }
 
         for arg in &config.extra_args {

@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.17.1
+Version:        0.17.2
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -259,6 +259,17 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Thu Jun 25 2026 Anton Isaiev <totoshko88@gmail.com> - 0.17.2-0
+- Security: the password generator's Copy now auto-clears the clipboard after 30 seconds (only if it still holds that password)
+- Security: the auto-login SSH password is wrapped in Zeroizing so plaintext is wiped right after it is handed to VTE
+- Security: fixed an SSH tunnel askpass file race by adding a per-tunnel UUID to the helper script filename
+- Fixed SSH jump host authenticating with the target's password instead of its own; the bastion now uses its own saved password (#191)
+- Fixed RDP dynamic resize requesting sub-640x480 desktops; RD Gateway password now sent (/gp:) for same-account gateways via a single-use 0600 args file; shared-folder names with commas no longer corrupt drive redirection; multilingual SSH password-prompt detection on reconnect
+- Added Simple Sync — bidirectional multi-device sync of connections, groups (full create/update/delete), templates, snippets, and non-secret variables via full-sync.rcn with UUID merge and deletion tombstones
+- Added SSH config import following Include directives (globs, ~/.ssh relative paths, 16-level recursion cap, each file parsed once)
+- Changed: tab groups persist in workspaces; jump-host / SSH-args resolution deduplicated; dynamic-connection IDs now use stable UUID v5
+- Updated uuid 1.23.3->1.23.4 and the wasm-bindgen/js-sys/web-sys ecosystem
+
 * Wed Jun 24 2026 Anton Isaiev <totoshko88@gmail.com> - 0.17.1-0
 - Added a WinBox connection preset (Remote Desktop category) for MikroTik RouterOS management (#190)
 - Added native PKCS#11 / YubiKey SSH authentication via a "PKCS#11 Provider" field, also imported from ~/.ssh/config and injected into ProxyJump hops (#189)

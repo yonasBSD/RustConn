@@ -2352,9 +2352,37 @@ impl MainWindow {
                 monitoring.apply_settings_to_all(&settings.monitoring);
 
                 if let Ok(mut state_mut) = state.try_borrow_mut() {
+                    let simple_sync_was = state_mut.simple_sync_enabled();
+                    let simple_sync_now = settings.sync.simple_sync_enabled;
                     if let Err(e) = state_mut.update_settings(settings) {
                         tracing::error!(%e, "Failed to save settings");
                     } else {
+                        // Simple Sync just turned on: publish the current store,
+                        // then pull any existing remote data on idle so the
+                        // device converges immediately.
+                        if simple_sync_now && !simple_sync_was {
+                            if let Err(e) = state_mut.simple_sync_export() {
+                                tracing::warn!(%e, "Initial Simple Sync export failed");
+                            }
+                            let state_idle = state.clone();
+                            let sidebar_idle = sidebar.clone();
+                            glib::idle_add_local_once(move || {
+                                let outcome = state_idle.try_borrow_mut().ok().and_then(|mut s| {
+                                    let device_id = s.settings().sync.device_id;
+                                    s.sync_manager()
+                                        .should_import_simple_sync(device_id)
+                                        .then(|| s.simple_sync_import_and_apply())
+                                });
+                                if let Some(Ok(report)) = outcome
+                                    && !report.is_empty()
+                                {
+                                    Self::reload_sidebar_preserving_state(
+                                        &state_idle,
+                                        &sidebar_idle,
+                                    );
+                                }
+                            });
+                        }
                         // Update open-keepass action enabled state based on backend
                         if let Some(action) = window_clone.lookup_action("open-keepass")
                             && let Some(simple_action) = action.downcast_ref::<gio::SimpleAction>()

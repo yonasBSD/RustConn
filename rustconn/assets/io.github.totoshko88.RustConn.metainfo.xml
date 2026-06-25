@@ -140,6 +140,19 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.17.2" date="2026-06-25">
+      <description>
+        <p>Version 0.17.2 — a hardening release plus multi-device sync:</p>
+        <ul>
+          <li>Added Simple Sync — bidirectional multi-device sync of connections, groups, templates, snippets, and non-secret variables with UUID merge and deletion tombstones</li>
+          <li>Added SSH config import that follows Include directives</li>
+          <li>Security: password generator clipboard auto-clear, Zeroizing the auto-login SSH password, and an SSH tunnel askpass file-race fix</li>
+          <li>Fixed RDP dynamic resize, RD Gateway password, comma-in-share drive redirection, and multilingual SSH prompt detection on reconnect</li>
+          <li>Fixed an SSH jump host using the target's password instead of its own</li>
+          <li>Tab groups persist in workspaces; stable UUID v5 dynamic-connection IDs</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.17.1" date="2026-06-24">
       <description>
         <p>Version 0.17.1 — WinBox preset, YubiKey SSH, and a Flatpak Generic-command fix:</p>

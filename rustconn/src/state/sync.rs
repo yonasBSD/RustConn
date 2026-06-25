@@ -4,10 +4,31 @@
 
 use rustconn_core::import::ImportResult;
 use rustconn_core::models::{Connection, ConnectionGroup};
-use rustconn_core::sync::{SyncManager, SyncReport};
+use rustconn_core::sync::{
+    FullMergeResult, FullSyncExport, LocalState, SyncEntityType, SyncManager, SyncReport, Tombstone,
+};
 use uuid::Uuid;
 
 use super::AppState;
+
+/// Summary of a Simple Sync import: how many entities changed locally.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct SimpleSyncReport {
+    /// Entities created from the remote export.
+    pub created: usize,
+    /// Entities updated from the remote export.
+    pub updated: usize,
+    /// Entities deleted via remote tombstones.
+    pub deleted: usize,
+}
+
+impl SimpleSyncReport {
+    /// Returns `true` if the import changed nothing locally.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.created == 0 && self.updated == 0 && self.deleted == 0
+    }
+}
 
 impl AppState {
     /// Gets the sync manager
@@ -221,6 +242,410 @@ impl AppState {
         }
 
         reports
+    }
+
+    // ========== Simple Sync (bidirectional full sync) ==========
+
+    /// Records a deletion tombstone when Simple Sync is enabled, then persists.
+    ///
+    /// No-op when Simple Sync is disabled, so users who never enable it do not
+    /// accumulate tombstones. Call this from local user-initiated deletes only —
+    /// not when applying a remote deletion (that would re-broadcast it).
+    pub fn record_tombstone(&mut self, entity_type: SyncEntityType, id: Uuid) {
+        self.record_tombstones(std::iter::once((entity_type, id)));
+    }
+
+    /// Records several deletion tombstones at once (one disk write), when
+    /// Simple Sync is enabled. Used by cascade deletes.
+    pub fn record_tombstones(&mut self, items: impl IntoIterator<Item = (SyncEntityType, Uuid)>) {
+        if !self.settings.sync.simple_sync_enabled {
+            return;
+        }
+        let mut any = false;
+        for (entity_type, id) in items {
+            self.tombstones.push(Tombstone::new(entity_type, id));
+            any = true;
+        }
+        if any {
+            self.persist_tombstones();
+            self.simple_sync_dirty.set(true);
+        }
+    }
+
+    /// Persists tombstones to disk (best-effort; logs on failure).
+    fn persist_tombstones(&self) {
+        if let Err(e) = self.config_manager.save_tombstones(&self.tombstones) {
+            tracing::warn!(error = %e, "Failed to save Simple Sync tombstones");
+        }
+    }
+
+    /// Returns `true` if Simple Sync is enabled in settings.
+    #[must_use]
+    pub fn simple_sync_enabled(&self) -> bool {
+        self.settings.sync.simple_sync_enabled
+    }
+
+    /// Marks local data as changed so the poll loop re-exports. No-op when
+    /// Simple Sync is disabled.
+    pub fn mark_simple_sync_dirty(&self) {
+        if self.settings.sync.simple_sync_enabled {
+            self.simple_sync_dirty.set(true);
+        }
+    }
+
+    /// Returns whether a Simple Sync export is pending, clearing the flag.
+    pub fn take_simple_sync_dirty(&self) -> bool {
+        self.simple_sync_dirty.replace(false)
+    }
+
+    /// Writes the full Simple Sync export (`full-sync.rcn`) from current state.
+    ///
+    /// Clusters are intentionally excluded: the [`Cluster`](rustconn_core::cluster::Cluster)
+    /// model has no `updated_at`, so the UUID merge cannot resolve cluster
+    /// conflicts reliably. Connections, groups, templates, snippets, and
+    /// non-secret variables are synced.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error string if the export fails (sync directory missing or
+    /// not writable).
+    pub fn simple_sync_export(&self) -> Result<(), String> {
+        let connections: Vec<Connection> = self
+            .connection_manager
+            .list_connections()
+            .into_iter()
+            .cloned()
+            .collect();
+        let groups: Vec<ConnectionGroup> = self
+            .connection_manager
+            .list_groups()
+            .into_iter()
+            .cloned()
+            .collect();
+        let templates: Vec<_> = self
+            .template_manager
+            .list_templates()
+            .into_iter()
+            .cloned()
+            .collect();
+        let snippets: Vec<_> = self
+            .snippet_manager
+            .list_snippets()
+            .into_iter()
+            .cloned()
+            .collect();
+        let variables = self.settings.global_variables.clone();
+        let app_version = env!("CARGO_PKG_VERSION");
+
+        self.sync_manager
+            .export_simple_sync(
+                connections,
+                groups,
+                templates,
+                snippets,
+                Vec::new(), // clusters excluded (no updated_at)
+                &variables,
+                self.tombstones.clone(),
+                app_version,
+            )
+            .map_err(|e| format!("Simple Sync export failed: {e}"))
+    }
+
+    /// Builds the [`LocalState`] snapshot used as merge input.
+    fn build_simple_sync_local_state(&self) -> LocalState {
+        let connections = self
+            .connection_manager
+            .list_connections()
+            .into_iter()
+            .map(|c| (c.id, c.updated_at))
+            .collect();
+        let groups = self
+            .connection_manager
+            .list_groups()
+            .into_iter()
+            .map(|g| (g.id, g.updated_at))
+            .collect();
+        let templates = self
+            .template_manager
+            .list_templates()
+            .into_iter()
+            .map(|t| (t.id, t.updated_at))
+            .collect();
+        let snippets = self
+            .snippet_manager
+            .list_snippets()
+            .into_iter()
+            .map(|s| (s.id, s.updated_at))
+            .collect();
+
+        LocalState {
+            device_id: self.settings.sync.device_id,
+            connections,
+            groups,
+            templates,
+            snippets,
+            clusters: std::collections::HashMap::new(), // excluded
+            tombstones: self.tombstones.clone(),
+            retention_days: self.settings.sync.tombstone_retention_days,
+        }
+    }
+
+    /// Imports `full-sync.rcn`, merges it into local state, applies the result,
+    /// prunes expired tombstones, and re-exports so the merged state and our
+    /// tombstones are published back.
+    ///
+    /// Skips silently (returns an empty report) when the remote file was
+    /// written by this same device.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error string if reading/parsing the sync file fails.
+    pub fn simple_sync_import_and_apply(&mut self) -> Result<SimpleSyncReport, String> {
+        let local_state = self.build_simple_sync_local_state();
+
+        let (result, remote) = self
+            .sync_manager
+            .import_simple_sync(&local_state)
+            .map_err(|e| format!("Simple Sync import failed: {e}"))?;
+
+        let report = self.apply_simple_sync_result(&result, &remote);
+
+        // Adopt the remote tombstones into our own set. The Simple Sync file is
+        // a single shared `full-sync.rcn` (last-writer-wins): if we re-exported
+        // without the deletions another device recorded, a third device would
+        // never learn of them. Carrying the union forward guarantees
+        // propagation; retention cleanup bounds the set.
+        let tomb_before = self.tombstones.len();
+        self.merge_remote_tombstones(&remote.tombstones);
+        let added_tombstones = self.tombstones.len() != tomb_before;
+
+        let pruned = rustconn_core::sync::cleanup_tombstones(
+            &self.tombstones,
+            self.retention_days_for_sync(),
+        );
+        let pruned_tombstones = pruned.len() != self.tombstones.len();
+        self.tombstones = pruned;
+
+        let tombstones_changed = added_tombstones || pruned_tombstones;
+        if tombstones_changed {
+            self.persist_tombstones();
+        }
+
+        // Re-export only when this import actually changed something locally —
+        // otherwise two devices would ping-pong import↔export forever. Once the
+        // data and tombstone sets converge, the import is a no-op and we stop.
+        if (!report.is_empty() || tombstones_changed)
+            && let Err(e) = self.simple_sync_export()
+        {
+            tracing::warn!(error = %e, "Simple Sync re-export after import failed");
+        }
+
+        Ok(report)
+    }
+
+    /// Tombstone retention window (days) from sync settings.
+    fn retention_days_for_sync(&self) -> u32 {
+        self.settings.sync.tombstone_retention_days
+    }
+
+    /// Merges remote tombstones into the local set, de-duplicating by
+    /// `(entity_type, id)` and keeping the latest `deleted_at`.
+    fn merge_remote_tombstones(&mut self, remote: &[Tombstone]) {
+        for rt in remote {
+            if let Some(existing) = self
+                .tombstones
+                .iter_mut()
+                .find(|t| t.entity_type == rt.entity_type && t.id == rt.id)
+            {
+                if rt.deleted_at > existing.deleted_at {
+                    existing.deleted_at = rt.deleted_at;
+                }
+            } else {
+                self.tombstones.push(rt.clone());
+            }
+        }
+    }
+
+    /// Applies a [`FullMergeResult`] to local data using `remote` as the source
+    /// of entity content. Uses the managers directly (not the tombstone-aware
+    /// wrappers) so remote-driven deletes do not generate new tombstones.
+    fn apply_simple_sync_result(
+        &mut self,
+        result: &FullMergeResult,
+        remote: &FullSyncExport,
+    ) -> SimpleSyncReport {
+        let mut report = SimpleSyncReport::default();
+
+        // Creates: groups first (so connections have their parent present),
+        // then connections, templates, snippets.
+        for action in &result.to_create {
+            match action.entity_type {
+                SyncEntityType::Group => {
+                    if let Some(g) = remote.groups.iter().find(|g| g.id == action.id) {
+                        match self.connection_manager.create_group_from(g.clone()) {
+                            Ok(_) => report.created += 1,
+                            Err(e) => {
+                                tracing::warn!(id = %action.id, error = %e, "Simple Sync: create group failed");
+                            }
+                        }
+                    }
+                }
+                SyncEntityType::Connection => {
+                    if let Some(c) = remote.connections.iter().find(|c| c.id == action.id) {
+                        match self.connection_manager.create_connection_from(c.clone()) {
+                            Ok(_) => report.created += 1,
+                            Err(e) => {
+                                tracing::warn!(id = %action.id, error = %e, "Simple Sync: create connection failed");
+                            }
+                        }
+                    }
+                }
+                SyncEntityType::Template => {
+                    if let Some(t) = remote.templates.iter().find(|t| t.id == action.id) {
+                        match self.template_manager.create_template(t.clone()) {
+                            Ok(_) => report.created += 1,
+                            Err(e) => {
+                                tracing::warn!(id = %action.id, error = %e, "Simple Sync: create template failed");
+                            }
+                        }
+                    }
+                }
+                SyncEntityType::Snippet => {
+                    if let Some(s) = remote.snippets.iter().find(|s| s.id == action.id) {
+                        match self.snippet_manager.create_snippet_from(s.clone()) {
+                            Ok(_) => report.created += 1,
+                            Err(e) => {
+                                tracing::warn!(id = %action.id, error = %e, "Simple Sync: create snippet failed");
+                            }
+                        }
+                    }
+                }
+                SyncEntityType::Cluster | SyncEntityType::Variable => {}
+            }
+        }
+
+        // Updates: replace local entity with the newer remote version.
+        for action in &result.to_update {
+            match action.entity_type {
+                SyncEntityType::Group => {
+                    if let Some(g) = remote.groups.iter().find(|g| g.id == action.id) {
+                        // The remote copy has local-only and Group-Sync fields
+                        // stripped. Preserve this device's own values for them
+                        // so a remote content edit never clobbers our SSH paths,
+                        // UI state, or Master/Import configuration.
+                        let mut merged = g.clone();
+                        if let Some(local) = self.connection_manager.get_group(action.id) {
+                            merged.expanded = local.expanded;
+                            merged.sort_order = local.sort_order;
+                            merged.ssh_key_path = local.ssh_key_path.clone();
+                            merged.ssh_jump_host_id = local.ssh_jump_host_id;
+                            merged.ssh_agent_socket = local.ssh_agent_socket.clone();
+                            merged.sync_mode = local.sync_mode;
+                            merged.sync_file = local.sync_file.clone();
+                            merged.last_synced_at = local.last_synced_at;
+                        }
+                        match self.connection_manager.update_group(action.id, merged) {
+                            Ok(()) => report.updated += 1,
+                            Err(e) => {
+                                tracing::warn!(id = %action.id, error = %e, "Simple Sync: update group failed");
+                            }
+                        }
+                    }
+                }
+                SyncEntityType::Connection => {
+                    if let Some(c) = remote.connections.iter().find(|c| c.id == action.id) {
+                        match self
+                            .connection_manager
+                            .update_connection(action.id, c.clone())
+                        {
+                            Ok(()) => report.updated += 1,
+                            Err(e) => {
+                                tracing::warn!(id = %action.id, error = %e, "Simple Sync: update connection failed");
+                            }
+                        }
+                    }
+                }
+                SyncEntityType::Template => {
+                    if let Some(t) = remote.templates.iter().find(|t| t.id == action.id) {
+                        match self.template_manager.update_template(action.id, t.clone()) {
+                            Ok(()) => report.updated += 1,
+                            Err(e) => {
+                                tracing::warn!(id = %action.id, error = %e, "Simple Sync: update template failed");
+                            }
+                        }
+                    }
+                }
+                SyncEntityType::Snippet => {
+                    if let Some(s) = remote.snippets.iter().find(|s| s.id == action.id) {
+                        match self.snippet_manager.update_snippet(action.id, s.clone()) {
+                            Ok(()) => report.updated += 1,
+                            Err(e) => {
+                                tracing::warn!(id = %action.id, error = %e, "Simple Sync: update snippet failed");
+                            }
+                        }
+                    }
+                }
+                SyncEntityType::Cluster | SyncEntityType::Variable => {}
+            }
+        }
+
+        // Deletes: remote tombstone wins. Use managers directly so no new local
+        // tombstone is created for a deletion that originated elsewhere.
+        for action in &result.to_delete {
+            let deleted = match action.entity_type {
+                SyncEntityType::Connection => {
+                    self.connection_manager.delete_connection(action.id).is_ok()
+                }
+                SyncEntityType::Group => self.connection_manager.delete_group(action.id).is_ok(),
+                SyncEntityType::Template => {
+                    self.template_manager.delete_template(action.id).is_ok()
+                }
+                SyncEntityType::Snippet => self.snippet_manager.delete_snippet(action.id).is_ok(),
+                SyncEntityType::Cluster | SyncEntityType::Variable => false,
+            };
+            if deleted {
+                report.deleted += 1;
+            }
+        }
+
+        // Variables: name-keyed union. Variables carry no UUID or timestamp, so
+        // the UUID merge engine cannot resolve them; instead we additively adopt
+        // any non-secret remote variable we do not already have by name. Edits
+        // and deletions of variables do not propagate (no per-variable clock).
+        report.created += self.merge_remote_variables(remote);
+
+        report
+    }
+
+    /// Adds non-secret remote variables not already present locally (by name).
+    ///
+    /// Returns the number of variables added; persists settings when it changed.
+    /// Existing local variables — including a secret sharing a name — are never
+    /// overwritten, as there is no per-variable timestamp to resolve conflicts.
+    fn merge_remote_variables(&mut self, remote: &FullSyncExport) -> usize {
+        let mut added = 0usize;
+        for rv in &remote.variables {
+            // Never adopt secret values from the shared file (defensive — the
+            // exporter already strips them).
+            if rv.is_secret {
+                continue;
+            }
+            let exists = self
+                .settings
+                .global_variables
+                .iter()
+                .any(|v| v.name == rv.name);
+            if !exists {
+                self.settings.global_variables.push(rv.clone());
+                added += 1;
+            }
+        }
+        if added > 0
+            && let Err(e) = self.save_settings()
+        {
+            tracing::warn!(error = %e, "Failed to persist variables after Simple Sync import");
+        }
+        added
     }
 
     // ========== Import Operations ==========

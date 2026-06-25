@@ -1671,11 +1671,8 @@ pub fn show_edit_group_dialog(
                         Vec::new()
                     };
 
-                if let Err(e) = state_mut
-                    .connection_manager()
-                    .update_group(group_id, updated)
-                {
-                    alert::show_error(&window_clone, &i18n("Error"), &format!("{e}"));
+                if let Err(e) = state_mut.update_group(group_id, updated) {
+                    alert::show_error(&window_clone, &i18n("Error"), &e.clone());
                     return;
                 }
 

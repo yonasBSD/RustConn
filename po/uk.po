@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-24 06:34+0300\n"
+"POT-Creation-Date: 2026-06-25 07:19+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: Mykola Zubkov <zubkov139@ukr.net>\n"
 "Language-Team: Ukrainian\n"
@@ -24,7 +24,7 @@ msgstr ""
 "Generated-By: Babel 2.10.3\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
-#: rustconn/src/app.rs:1172 rustconn/src/toast.rs:246
+#: rustconn/src/app.rs:1226 rustconn/src/toast.rs:246
 msgid "OK"
 msgstr "Гаразд"
 
@@ -46,12 +46,12 @@ msgstr "Гаразд"
 #: rustconn/src/embedded_rdp/autotype.rs:160
 #: rustconn/src/terminal/tab_menu.rs:154 rustconn/src/terminal/tab_menu.rs:357
 #: rustconn/src/window/batch_edit.rs:62
-#: rustconn/src/window/connection_dialogs.rs:1027
-#: rustconn/src/window/edit_group.rs:1752
-#: rustconn/src/window/edit_group.rs:1800 rustconn/src/window/mod.rs:2502
+#: rustconn/src/window/connection_dialogs.rs:1024
+#: rustconn/src/window/edit_group.rs:1749
+#: rustconn/src/window/edit_group.rs:1797 rustconn/src/window/mod.rs:2530
 #: rustconn/src/window/operations.rs:81 rustconn/src/window/operations.rs:414
 #: rustconn/src/window/operations.rs:582 rustconn/src/window/sessions.rs:325
-#: rustconn/src/window/workspaces.rs:182
+#: rustconn/src/window/workspaces.rs:197
 msgid "Cancel"
 msgstr "Скасуй"
 
@@ -74,7 +74,7 @@ msgstr "Не зберігай"
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:178
 #: rustconn/src/dialogs/variables.rs:121 rustconn/src/dialogs/widgets.rs:460
 #: rustconn/src/window/edit_group.rs:47 rustconn/src/window/edit_group.rs:48
-#: rustconn/src/window/workspaces.rs:183
+#: rustconn/src/window/workspaces.rs:198
 msgid "Save"
 msgstr "Збережи"
 
@@ -82,21 +82,21 @@ msgstr "Збережи"
 msgid "Initialization Error"
 msgstr "Помилка ініціялізації"
 
-#: rustconn/src/app.rs:476
+#: rustconn/src/app.rs:530
 msgid "KeePass password not loaded from keyring — re-enter it in Settings"
 msgstr ""
 "Пароль KeePass не завантажено з в'язки ключів — введи його повторно в Уставах"
 
-#: rustconn/src/app.rs:481 rustconn/src/embedded_rdp/mod.rs:281
+#: rustconn/src/app.rs:535 rustconn/src/embedded_rdp/mod.rs:270
 #: rustconn/src/split_view/bridge.rs:1744 rustconn/src/window/ui.rs:112
 msgid "Settings"
 msgstr "Устави"
 
-#: rustconn/src/app.rs:919
+#: rustconn/src/app.rs:973
 msgid "{} backend unavailable. Using fallback."
 msgstr "Бекенд {} недоступний. Використано резервний."
 
-#: rustconn/src/app.rs:1068
+#: rustconn/src/app.rs:1122
 msgid ""
 "Modern connection manager for Linux with a GTK4/Wayland-native interface. "
 "Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust "
@@ -107,35 +107,35 @@ msgstr ""
 "однієї програми."
 
 #. Translators: Replace this with your name and language, e.g. "John Doe (German)"
-#: rustconn/src/app.rs:1104
+#: rustconn/src/app.rs:1158
 msgid "translator-credits"
 msgstr "Микола Зубков (Українська)"
 
-#: rustconn/src/app.rs:1111
+#: rustconn/src/app.rs:1165
 msgid "User Guide"
 msgstr "Посібник користувача"
 
-#: rustconn/src/app.rs:1115
+#: rustconn/src/app.rs:1169
 msgid "Installation"
 msgstr "Установлення"
 
-#: rustconn/src/app.rs:1119
+#: rustconn/src/app.rs:1173
 msgid "Releases"
 msgstr "Випуски"
 
-#: rustconn/src/app.rs:1123
+#: rustconn/src/app.rs:1177
 msgid "Changelog"
 msgstr "Журнал змін"
 
-#: rustconn/src/app.rs:1133
+#: rustconn/src/app.rs:1187
 msgid "Special Thanks"
 msgstr "Подяки"
 
-#: rustconn/src/app.rs:1148
+#: rustconn/src/app.rs:1202
 msgid "Made in Ukraine"
 msgstr "Зроблено в Україні"
 
-#: rustconn/src/app.rs:1149
+#: rustconn/src/app.rs:1203
 msgid "All contributors and supporters"
 msgstr "Усім учасникам і прихильникам"
 
@@ -187,7 +187,7 @@ msgstr "Деталі кластера"
 #: rustconn/src/dialogs/connection/advanced_tab.rs:844
 #: rustconn/src/dialogs/connection/general_tab.rs:81
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:99
-#: rustconn/src/dialogs/export.rs:383 rustconn/src/dialogs/settings/mod.rs:1436
+#: rustconn/src/dialogs/export.rs:381 rustconn/src/dialogs/settings/mod.rs:1436
 #: rustconn/src/dialogs/smart_folder.rs:119 rustconn/src/dialogs/snippet.rs:176
 #: rustconn/src/dialogs/template.rs:510
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:77
@@ -675,8 +675,8 @@ msgstr "Увімкни правило"
 #: rustconn/src/dialogs/connection/dialog/rows.rs:284
 #: rustconn/src/dialogs/connection/dialog/rows.rs:286
 #: rustconn/src/dialogs/settings/mod.rs:1417
-#: rustconn/src/window/edit_group.rs:1918
-#: rustconn/src/window/edit_group.rs:1920
+#: rustconn/src/window/edit_group.rs:1915
+#: rustconn/src/window/edit_group.rs:1917
 msgid "Delete rule"
 msgstr "Вилучи правило"
 
@@ -918,7 +918,7 @@ msgstr "Керується хмарною синхронізацією"
 
 #: rustconn/src/dialogs/connection/dialog/agent_variables.rs:239
 msgid "Edit Connection (Synced)"
-msgstr "Редагуй з'єднок (синхронізоване)"
+msgstr "Редагуй з'єднок (синхронізований)"
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:76
 #: rustconn/src/dialogs/template.rs:181
@@ -1078,7 +1078,7 @@ msgid "Script Test Successful"
 msgstr "Тест скрипта успішний"
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:1260
-#: rustconn/src/dialogs/export.rs:325
+#: rustconn/src/dialogs/export.rs:323
 msgid "Output"
 msgstr "Виведення"
 
@@ -1106,7 +1106,7 @@ msgstr "Перевір з'єднок"
 #: rustconn/src/dialogs/connection/dialog/construction.rs:135
 #: rustconn/src/dialogs/connection/general_tab.rs:121
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:70
-#: rustconn/src/dialogs/export.rs:401 rustconn/src/dialogs/template.rs:192
+#: rustconn/src/dialogs/export.rs:399 rustconn/src/dialogs/template.rs:192
 #: rustconn/src/dialogs/template.rs:530 rustconn/src/split_view/bridge.rs:1328
 #: rustconn/src/window/edit_dialogs.rs:710
 msgid "Protocol"
@@ -1129,7 +1129,7 @@ msgstr "https://example.com"
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:103
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:740
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:746
-#: rustconn/src/dialogs/export.rs:389 rustconn/src/dialogs/template.rs:547
+#: rustconn/src/dialogs/export.rs:387 rustconn/src/dialogs/template.rs:547
 #: rustconn/src/dialogs/template.rs:1767 rustconn/src/split_view/bridge.rs:1335
 #: rustconn/src/window/edit_dialogs.rs:720
 msgid "Host"
@@ -1349,52 +1349,52 @@ msgid "Protected value (masked)"
 msgstr "Захищена значина (замаскована)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:271
-#: rustconn/src/window/edit_group.rs:1906
+#: rustconn/src/window/edit_group.rs:1903
 msgid "Move up (higher priority)"
 msgstr "Перемісти вгору (вищий пріоритет)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:273
-#: rustconn/src/window/edit_group.rs:1908
+#: rustconn/src/window/edit_group.rs:1905
 msgid "Move rule up"
 msgstr "Перемісти правило вгору"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:277
-#: rustconn/src/window/edit_group.rs:1912
+#: rustconn/src/window/edit_group.rs:1909
 msgid "Move down (lower priority)"
 msgstr "Перемісти вниз (нижчий пріоритет)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:280
-#: rustconn/src/window/edit_group.rs:1914
+#: rustconn/src/window/edit_group.rs:1911
 msgid "Move rule down"
 msgstr "Перемісти правило вниз"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:295
-#: rustconn/src/window/edit_group.rs:1929
+#: rustconn/src/window/edit_group.rs:1926
 msgid "Pattern:"
 msgstr "Шаблон:"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:301
-#: rustconn/src/window/edit_group.rs:1935
+#: rustconn/src/window/edit_group.rs:1932
 msgid "Regex pattern (e.g., password:\\s*$)"
 msgstr "Шаблон RegEx (напр., password:\\s*$)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:302
-#: rustconn/src/window/edit_group.rs:1936
+#: rustconn/src/window/edit_group.rs:1933
 msgid "Regular expression to match against terminal output"
 msgstr "Регулярний вираз для зіставлення з виводом термінала"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:311
-#: rustconn/src/window/edit_group.rs:1945
+#: rustconn/src/window/edit_group.rs:1942
 msgid "Response:"
 msgstr "Відповідь:"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:317
-#: rustconn/src/window/edit_group.rs:1951
+#: rustconn/src/window/edit_group.rs:1948
 msgid "Text to send (e.g., ${password}\\n)"
 msgstr "Текст для надсилання (напр., ${password}\\n)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:319
-#: rustconn/src/window/edit_group.rs:1953
+#: rustconn/src/window/edit_group.rs:1950
 msgid ""
 "Response to send when pattern matches. Use ${password}, ${username}, or $"
 "{VAR_NAME} for variables."
@@ -1403,84 +1403,84 @@ msgstr ""
 "{username} або ${VAR_NAME} для змінниць."
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:327
-#: rustconn/src/window/edit_group.rs:1961
+#: rustconn/src/window/edit_group.rs:1958
 msgid "Insert a variable placeholder"
 msgstr "Встав заповнювач змінниці"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:330
-#: rustconn/src/window/edit_group.rs:1963
+#: rustconn/src/window/edit_group.rs:1960
 msgid "Insert variable"
 msgstr "Встав змінницю"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:341
-#: rustconn/src/window/edit_group.rs:1975
+#: rustconn/src/window/edit_group.rs:1972
 msgid "Built-in"
 msgstr "Вбудований"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:348
-#: rustconn/src/window/edit_group.rs:1982
+#: rustconn/src/window/edit_group.rs:1979
 msgid "Connection password"
 msgstr "Пароль з'єднанка"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:349
-#: rustconn/src/window/edit_group.rs:1983
+#: rustconn/src/window/edit_group.rs:1980
 msgid "Connection username"
 msgstr "Ім'я користувача з'єднанка"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:350
-#: rustconn/src/window/edit_group.rs:1984
+#: rustconn/src/window/edit_group.rs:1981
 msgid "Connection host"
 msgstr "Гост з'єднанка"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:351
-#: rustconn/src/window/edit_group.rs:1985
+#: rustconn/src/window/edit_group.rs:1982
 msgid "Connection port"
 msgstr "Порт з'єднанка"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:379
 #: rustconn/src/dialogs/password_generator.rs:222
-#: rustconn/src/window/edit_group.rs:2015
+#: rustconn/src/window/edit_group.rs:2012
 msgid "Special"
 msgstr "Спеціяльні"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:389
-#: rustconn/src/window/edit_group.rs:2025
+#: rustconn/src/window/edit_group.rs:2022
 msgid "Newline (Enter key)"
 msgstr "Новий рядок (клавіша Enter)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:420
-#: rustconn/src/window/edit_group.rs:2056
+#: rustconn/src/window/edit_group.rs:2053
 msgid "Priority:"
 msgstr "Пріоритет:"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:429
-#: rustconn/src/window/edit_group.rs:2065
+#: rustconn/src/window/edit_group.rs:2062
 msgid "Higher priority rules are checked first"
 msgstr "Правила вищого пріоритету перевіряються першими"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:433
-#: rustconn/src/window/edit_group.rs:2069
+#: rustconn/src/window/edit_group.rs:2066
 msgid "Timeout:"
 msgstr "Тайм-аут:"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:442
-#: rustconn/src/window/edit_group.rs:2078
+#: rustconn/src/window/edit_group.rs:2075
 msgid "Timeout in milliseconds (0 = no timeout)"
 msgstr "Тайм-аут у мілісекундах (0 = без тайм-ауту)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:446
 #: rustconn/src/dialogs/settings/ui_tab.rs:268
-#: rustconn/src/window/edit_group.rs:2082
+#: rustconn/src/window/edit_group.rs:2079
 msgid "Enabled"
 msgstr "Увімкнено"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:451
-#: rustconn/src/window/edit_group.rs:2086
+#: rustconn/src/window/edit_group.rs:2083
 msgid "One-shot"
 msgstr "Одноразове"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:453
-#: rustconn/src/window/edit_group.rs:2088
+#: rustconn/src/window/edit_group.rs:2085
 msgid "Fire only once, then remove the rule"
 msgstr "Спрацювати лише раз, потім вилучити правило"
 
@@ -1595,7 +1595,7 @@ msgstr "З'єднування"
 #: rustconn/src/dialogs/connection/general_tab.rs:160
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:76
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:108
-#: rustconn/src/dialogs/export.rs:395 rustconn/src/dialogs/template.rs:556
+#: rustconn/src/dialogs/export.rs:393 rustconn/src/dialogs/template.rs:556
 #: rustconn/src/dialogs/wol.rs:90 rustconn/src/window/edit_dialogs.rs:732
 msgid "Port"
 msgstr "Порт"
@@ -1618,7 +1618,7 @@ msgstr "Автентифікація"
 #: rustconn/src/dialogs/connection/general_tab.rs:191
 #: rustconn/src/dialogs/connection/general_tab.rs:208
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:116
-#: rustconn/src/dialogs/export.rs:407 rustconn/src/dialogs/template.rs:563
+#: rustconn/src/dialogs/export.rs:405 rustconn/src/dialogs/template.rs:563
 #: rustconn/src/split_view/bridge.rs:1343
 #: rustconn/src/window/connection_dialogs.rs:485
 #: rustconn/src/window/edit_dialogs.rs:742
@@ -1633,7 +1633,7 @@ msgstr "Завантаж із вибраної групи"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:206
 msgid "Load username from selected group"
-msgstr "Завантаж ім’я користувача з вибраної групи"
+msgstr "Завантаж ім'я користувача з вибраної групи"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:214
 #: rustconn/src/dialogs/connection/general_tab.rs:232
@@ -1777,7 +1777,7 @@ msgstr "Організація"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:371
 #: rustconn/src/dialogs/connection/general_tab.rs:379
-#: rustconn/src/dialogs/export.rs:419 rustconn/src/dialogs/snippet.rs:197
+#: rustconn/src/dialogs/export.rs:417 rustconn/src/dialogs/snippet.rs:197
 #: rustconn/src/dialogs/template.rs:571
 msgid "Tags"
 msgstr "Познаки"
@@ -1788,13 +1788,13 @@ msgid "tag1, tag2, ..."
 msgstr "познака1, познака2, ..."
 
 #: rustconn/src/dialogs/connection/general_tab.rs:390
-#: rustconn/src/dialogs/export.rs:295 rustconn/src/dialogs/export.rs:413
+#: rustconn/src/dialogs/export.rs:293 rustconn/src/dialogs/export.rs:411
 #: rustconn/src/window/batch_edit.rs:108
 msgid "Group"
 msgstr "Група"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:411
-#: rustconn/src/dialogs/export.rs:425 rustconn/src/dialogs/snippet.rs:183
+#: rustconn/src/dialogs/export.rs:423 rustconn/src/dialogs/snippet.rs:183
 #: rustconn/src/dialogs/template.rs:514
 #: rustconn/src/window/connection_dialogs.rs:795
 #: rustconn/src/window/edit_group.rs:1345
@@ -2673,7 +2673,7 @@ msgstr "Перенаправ USB-пристрої на віддалений"
 #: rustconn/src/dialogs/connection/spice.rs:151
 #: rustconn/src/dialogs/connection/vnc.rs:106
 #: rustconn/src/dialogs/snippet.rs:220 rustconn/src/dialogs/template.rs:1243
-#: rustconn/src/embedded_rdp/mod.rs:290
+#: rustconn/src/embedded_rdp/mod.rs:279
 msgid "Auto"
 msgstr "Авто"
 
@@ -3198,7 +3198,7 @@ msgstr ""
 "копіювання в буфер обміну через контекстне меню бічної панелі."
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:66
-#: rustconn/src/dialogs/export.rs:777
+#: rustconn/src/dialogs/export.rs:775
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:73
 msgid "Summary"
 msgstr "Підсумок"
@@ -3250,7 +3250,7 @@ msgstr "Збережи без з'єднування"
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:182
 #: rustconn/src/dialogs/variable_setup.rs:86
 msgid "Save & Connect"
-msgstr "Збережи й з’єднайся"
+msgstr "Збережи й з'єднайся"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:184
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:186
@@ -3722,97 +3722,97 @@ msgstr "Новий пароль"
 msgid "Use a strong password that you can remember."
 msgstr "Застосуй надійний пароль, який здатний запам'ятати."
 
-#: rustconn/src/dialogs/export.rs:93
+#: rustconn/src/dialogs/export.rs:91
 msgid "Export Connections"
 msgstr "Експортування з'єднків"
 
-#: rustconn/src/dialogs/export.rs:101 rustconn/src/dialogs/export.rs:102
+#: rustconn/src/dialogs/export.rs:99 rustconn/src/dialogs/export.rs:100
 #: rustconn/src/dialogs/widgets.rs:462
 msgid "Export"
 msgstr "Експорт"
 
-#: rustconn/src/dialogs/export.rs:196 rustconn/src/dialogs/export.rs:289
-#: rustconn/src/dialogs/export.rs:565
+#: rustconn/src/dialogs/export.rs:194 rustconn/src/dialogs/export.rs:287
+#: rustconn/src/dialogs/export.rs:563
 msgid "All connections"
 msgstr "Усі з'єднки"
 
-#: rustconn/src/dialogs/export.rs:253
+#: rustconn/src/dialogs/export.rs:251
 msgid "Export Format"
 msgstr "Формат експортування"
 
-#: rustconn/src/dialogs/export.rs:254
+#: rustconn/src/dialogs/export.rs:252
 msgid "Select the format to export your connections to"
 msgstr "Обери формат для експортування з'єднків"
 
-#: rustconn/src/dialogs/export.rs:260 rustconn/src/dialogs/import/sources.rs:52
+#: rustconn/src/dialogs/export.rs:258 rustconn/src/dialogs/import/sources.rs:52
 msgid "RustConn Native (.rcn)"
 msgstr "RustConn Native (.rcn)"
 
-#: rustconn/src/dialogs/export.rs:261 rustconn/src/dialogs/import/sources.rs:58
+#: rustconn/src/dialogs/export.rs:259 rustconn/src/dialogs/import/sources.rs:58
 #: rustconn/src/dialogs/import/sources.rs:507
 msgid "Ansible Inventory"
 msgstr "Ansible Inventory"
 
-#: rustconn/src/dialogs/export.rs:262 rustconn/src/dialogs/import/sources.rs:70
+#: rustconn/src/dialogs/export.rs:260 rustconn/src/dialogs/import/sources.rs:70
 #: rustconn/src/dialogs/import/sources.rs:239
 msgid "Asbru-CM"
 msgstr "Asbru-CM"
 
-#: rustconn/src/dialogs/export.rs:263 rustconn/src/dialogs/export.rs:896
+#: rustconn/src/dialogs/export.rs:261 rustconn/src/dialogs/export.rs:894
 msgid "CSV (*.csv)"
 msgstr "CSV (*.csv)"
 
-#: rustconn/src/dialogs/export.rs:264
+#: rustconn/src/dialogs/export.rs:262
 #: rustconn/src/dialogs/import/sources.rs:106
 msgid "MobaXterm (.mxtsessions)"
 msgstr "MobaXterm (.mxtsessions)"
 
-#: rustconn/src/dialogs/export.rs:265
+#: rustconn/src/dialogs/export.rs:263
 #: rustconn/src/dialogs/import/sources.rs:124
 #: rustconn/src/dialogs/import/sources.rs:241
 msgid "Remmina"
 msgstr "Remmina"
 
-#: rustconn/src/dialogs/export.rs:266
+#: rustconn/src/dialogs/export.rs:264
 #: rustconn/src/dialogs/import/sources.rs:130
 msgid "Royal TS (.rtsz)"
 msgstr "Royal TS (.rtsz)"
 
-#: rustconn/src/dialogs/export.rs:267
+#: rustconn/src/dialogs/export.rs:265
 msgid "SecureCRT (.ini)"
 msgstr "SecureCRT (.ini)"
 
-#: rustconn/src/dialogs/export.rs:268 rustconn/src/dialogs/export.rs:870
+#: rustconn/src/dialogs/export.rs:266 rustconn/src/dialogs/export.rs:868
 #: rustconn/src/dialogs/import/sources.rs:136
 #: rustconn/src/dialogs/import/sources.rs:237
 msgid "SSH Config"
 msgstr "SSH Config"
 
-#: rustconn/src/dialogs/export.rs:275
+#: rustconn/src/dialogs/export.rs:273
 msgid "Format"
 msgstr "Формат"
 
-#: rustconn/src/dialogs/export.rs:276
+#: rustconn/src/dialogs/export.rs:274
 msgid "Target export format"
 msgstr "Цільовий формат експортування"
 
-#: rustconn/src/dialogs/export.rs:285
+#: rustconn/src/dialogs/export.rs:283
 msgid "Export Scope"
 msgstr "Обсяг експорту"
 
-#: rustconn/src/dialogs/export.rs:286
+#: rustconn/src/dialogs/export.rs:284
 msgid "Choose which connections to export"
 msgstr "Обери, які з'єднки експортувати"
 
-#: rustconn/src/dialogs/export.rs:296
+#: rustconn/src/dialogs/export.rs:294
 msgid "Export all or a specific group"
 msgstr "Експортуй всі або конкретну групу"
 
-#: rustconn/src/dialogs/export.rs:305
+#: rustconn/src/dialogs/export.rs:303
 msgid "Output Location"
 msgstr "Місце виведення"
 
-#: rustconn/src/dialogs/export.rs:307
+#: rustconn/src/dialogs/export.rs:305
 msgid ""
 "Remmina exports to a directory (one file per connection).\n"
 "                 Other formats export to a single file."
@@ -3820,37 +3820,37 @@ msgstr ""
 "Remmina експортує до каталогу (один файл на з'єднок).\n"
 "                 Инші формати експортують до одного файла."
 
-#: rustconn/src/dialogs/export.rs:314
+#: rustconn/src/dialogs/export.rs:312
 msgid "Select output file or directory..."
 msgstr "Обери файла або теку виведення..."
 
-#: rustconn/src/dialogs/export.rs:320
+#: rustconn/src/dialogs/export.rs:318
 msgid "Browse..."
 msgstr "Огляд..."
 
-#: rustconn/src/dialogs/export.rs:326
+#: rustconn/src/dialogs/export.rs:324
 msgid "Destination path"
 msgstr "Шлях до мети"
 
-#: rustconn/src/dialogs/export.rs:336
+#: rustconn/src/dialogs/export.rs:334
 #: rustconn/src/dialogs/password_generator.rs:240
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:163
 msgid "Options"
 msgstr "Параметри"
 
-#: rustconn/src/dialogs/export.rs:341
+#: rustconn/src/dialogs/export.rs:339
 msgid "Include group hierarchy"
 msgstr "Увімкни єрархію груп"
 
-#: rustconn/src/dialogs/export.rs:342
+#: rustconn/src/dialogs/export.rs:340
 msgid "Preserve folder structure"
 msgstr "Збережи структуру тек"
 
-#: rustconn/src/dialogs/export.rs:349
+#: rustconn/src/dialogs/export.rs:347
 msgid "ℹ Credentials Storage"
 msgstr "ℹ Зберігай облікові відомости"
 
-#: rustconn/src/dialogs/export.rs:350
+#: rustconn/src/dialogs/export.rs:348
 msgid ""
 "Passwords are stored in your password manager and not included in exports. "
 "Export your credential structure separately if needed."
@@ -3858,168 +3858,168 @@ msgstr ""
 "Паролі зберігаються у менеджері паролів і не включаються до експорту. За "
 "потреби експортуй структуру облікових даних окремо."
 
-#: rustconn/src/dialogs/export.rs:361
+#: rustconn/src/dialogs/export.rs:359
 msgid "CSV Options"
 msgstr "Параметри CSV"
 
-#: rustconn/src/dialogs/export.rs:362
+#: rustconn/src/dialogs/export.rs:360
 msgid "Configure CSV export settings"
 msgstr "Налаштуй параметри експорту CSV"
 
-#: rustconn/src/dialogs/export.rs:368
+#: rustconn/src/dialogs/export.rs:366
 msgid "Comma"
 msgstr "Кома"
 
-#: rustconn/src/dialogs/export.rs:368
+#: rustconn/src/dialogs/export.rs:366
 msgid "Semicolon"
 msgstr "Крапка з комою"
 
-#: rustconn/src/dialogs/export.rs:368
+#: rustconn/src/dialogs/export.rs:366
 msgid "Tab"
 msgstr "Табуляція"
 
-#: rustconn/src/dialogs/export.rs:375
+#: rustconn/src/dialogs/export.rs:373
 msgid "Delimiter"
 msgstr "Роздільник"
 
-#: rustconn/src/dialogs/export.rs:376
+#: rustconn/src/dialogs/export.rs:374
 msgid "Field separator character"
 msgstr "Символ-розділювач полів"
 
-#: rustconn/src/dialogs/export.rs:462
+#: rustconn/src/dialogs/export.rs:460
 msgid "Exporting..."
 msgstr "Експортування..."
 
-#: rustconn/src/dialogs/export.rs:476
+#: rustconn/src/dialogs/export.rs:474
 msgid "Preparing export..."
 msgstr "Підготовка (до) експортування..."
 
-#: rustconn/src/dialogs/export.rs:489 rustconn/src/window/mod.rs:3107
+#: rustconn/src/dialogs/export.rs:487 rustconn/src/window/mod.rs:3133
 msgid "Export Complete"
 msgstr "Експортування завершено"
 
-#: rustconn/src/dialogs/export.rs:504 rustconn/src/dialogs/import/mod.rs:202
+#: rustconn/src/dialogs/export.rs:502 rustconn/src/dialogs/import/mod.rs:202
 msgid "Details"
 msgstr "Деталі"
 
-#: rustconn/src/dialogs/export.rs:739
+#: rustconn/src/dialogs/export.rs:737
 msgid "Successfully exported {} connection(s) to {} format."
 msgstr "Успішно експортовано {} з'єднок(ів) у формат {}."
 
-#: rustconn/src/dialogs/export.rs:751
+#: rustconn/src/dialogs/export.rs:749
 msgid "{} connection(s) were skipped (unsupported protocol)."
 msgstr "{} з'єднок(ів) пропущено (непідтримуваний протокол)."
 
-#: rustconn/src/dialogs/export.rs:768
+#: rustconn/src/dialogs/export.rs:766
 msgid "Output files:"
 msgstr "Файли виведення:"
 
-#: rustconn/src/dialogs/export.rs:781
+#: rustconn/src/dialogs/export.rs:779
 msgid "Exported"
 msgstr "Експортовано"
 
-#: rustconn/src/dialogs/export.rs:784
+#: rustconn/src/dialogs/export.rs:782
 msgid "Skipped"
 msgstr "Пропущено"
 
-#: rustconn/src/dialogs/export.rs:789
+#: rustconn/src/dialogs/export.rs:787
 msgid "Warnings"
 msgstr "Попередження"
 
-#: rustconn/src/dialogs/export.rs:796
+#: rustconn/src/dialogs/export.rs:794
 msgid "No connections were exported."
 msgstr "Жодного з'єднка не експортовано."
 
-#: rustconn/src/dialogs/export.rs:833
+#: rustconn/src/dialogs/export.rs:831
 msgid "Select Export Directory"
 msgstr "Обери теку експортування"
 
-#: rustconn/src/dialogs/export.rs:851
+#: rustconn/src/dialogs/export.rs:849
 msgid "Select Export File"
 msgstr "Обери файла експортування"
 
-#: rustconn/src/dialogs/export.rs:866
+#: rustconn/src/dialogs/export.rs:864
 msgid "Ansible Inventory (*.ini, *.yml)"
 msgstr "Ansible Inventory (*.ini, *.yml)"
 
-#: rustconn/src/dialogs/export.rs:875
+#: rustconn/src/dialogs/export.rs:873
 msgid "Asbru-CM YAML (*.yml)"
 msgstr "Asbru-CM YAML (*.yml)"
 
-#: rustconn/src/dialogs/export.rs:880
+#: rustconn/src/dialogs/export.rs:878
 msgid "Remmina (*.remmina)"
 msgstr "Remmina (*.remmina)"
 
-#: rustconn/src/dialogs/export.rs:884
-#: rustconn/src/dialogs/import/sources.rs:570
+#: rustconn/src/dialogs/export.rs:882
+#: rustconn/src/dialogs/import/sources.rs:568
 msgid "RustConn Native (*.rcn)"
 msgstr "RustConn Native (*.rcn)"
 
-#: rustconn/src/dialogs/export.rs:888
+#: rustconn/src/dialogs/export.rs:886
 msgid "Royal TS (*.rtsz)"
 msgstr "Royal TS (*.rtsz)"
 
-#: rustconn/src/dialogs/export.rs:892
-#: rustconn/src/dialogs/import/sources.rs:918
+#: rustconn/src/dialogs/export.rs:890
+#: rustconn/src/dialogs/import/sources.rs:916
 msgid "MobaXterm Sessions (*.mxtsessions)"
 msgstr "Сеанси MobaXterm (*.mxtsessions)"
 
-#: rustconn/src/dialogs/export.rs:901
+#: rustconn/src/dialogs/export.rs:899
 msgid "SecureCRT Sessions (*.ini)"
 msgstr "Сеанси SecureCRT (*.ini)"
 
-#: rustconn/src/dialogs/export.rs:939
+#: rustconn/src/dialogs/export.rs:937
 msgid "Select output directory..."
 msgstr "Обери теку виведення..."
 
-#: rustconn/src/dialogs/export.rs:941
+#: rustconn/src/dialogs/export.rs:939
 msgid "Select output file..."
 msgstr "Обери файла виведення..."
 
-#: rustconn/src/dialogs/export.rs:1004
+#: rustconn/src/dialogs/export.rs:1002
 msgid "Select an output file or directory"
 msgstr "Обери файл або теку призначення"
 
-#: rustconn/src/dialogs/export.rs:1062
+#: rustconn/src/dialogs/export.rs:1060
 msgid "Exporting to {}..."
 msgstr "Експортування до {}..."
 
-#: rustconn/src/dialogs/export.rs:1117
+#: rustconn/src/dialogs/export.rs:1115
 msgid "Writing output files..."
 msgstr "Записування файлів виведення..."
 
-#: rustconn/src/dialogs/export.rs:1151
+#: rustconn/src/dialogs/export.rs:1149
 msgid "Export complete"
 msgstr "Експортування завершено"
 
-#: rustconn/src/dialogs/export.rs:1162 rustconn/src/dialogs/import/mod.rs:454
+#: rustconn/src/dialogs/export.rs:1160 rustconn/src/dialogs/import/mod.rs:454
 #: rustconn/src/dialogs/import/mod.rs:733
 #: rustconn/src/dialogs/import/sources.rs:339
 #: rustconn/src/dialogs/import/sources.rs:431
 #: rustconn/src/dialogs/import/sources.rs:527
-#: rustconn/src/dialogs/import/sources.rs:634
-#: rustconn/src/dialogs/import/sources.rs:689
-#: rustconn/src/dialogs/import/sources.rs:792
-#: rustconn/src/dialogs/import/sources.rs:883
-#: rustconn/src/dialogs/import/sources.rs:974
-#: rustconn/src/dialogs/import/sources.rs:1065
-#: rustconn/src/dialogs/import/sources.rs:1153
-#: rustconn/src/dialogs/import/sources.rs:1239
-#: rustconn/src/dialogs/import/sources.rs:1357
-#: rustconn/src/dialogs/import/sources.rs:1510
+#: rustconn/src/dialogs/import/sources.rs:632
+#: rustconn/src/dialogs/import/sources.rs:687
+#: rustconn/src/dialogs/import/sources.rs:790
+#: rustconn/src/dialogs/import/sources.rs:881
+#: rustconn/src/dialogs/import/sources.rs:972
+#: rustconn/src/dialogs/import/sources.rs:1063
+#: rustconn/src/dialogs/import/sources.rs:1151
+#: rustconn/src/dialogs/import/sources.rs:1237
+#: rustconn/src/dialogs/import/sources.rs:1353
+#: rustconn/src/dialogs/import/sources.rs:1506
 #: rustconn/src/dialogs/widgets.rs:468
 msgid "Done"
 msgstr "Готово"
 
-#: rustconn/src/dialogs/export.rs:1167 rustconn/src/dialogs/recording.rs:669
+#: rustconn/src/dialogs/export.rs:1165 rustconn/src/dialogs/recording.rs:669
 msgid "Export failed"
 msgstr "Помилка експортування"
 
-#: rustconn/src/dialogs/export.rs:1168
+#: rustconn/src/dialogs/export.rs:1166
 msgid "Export Failed"
 msgstr "Помилка експортування"
 
-#: rustconn/src/dialogs/export.rs:1170
+#: rustconn/src/dialogs/export.rs:1168
 msgid ""
 "Could not write the export file: {}. Check destination permissions and free "
 "disk space."
@@ -4027,13 +4027,13 @@ msgstr ""
 "Не вдалося записати файл експорту: {}. Перевір права доступу та вільне місце "
 "на диску."
 
-#: rustconn/src/dialogs/export.rs:1175 rustconn/src/dialogs/history.rs:338
-#: rustconn/src/dialogs/import/sources.rs:698
+#: rustconn/src/dialogs/export.rs:1173 rustconn/src/dialogs/history.rs:338
+#: rustconn/src/dialogs/import/sources.rs:696
 #: rustconn/src/dialogs/recording.rs:802 rustconn/src/dialogs/recording.rs:814
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:586
 #: rustconn/src/dialogs/widgets.rs:459 rustconn/src/terminal/tab_menu.rs:358
-#: rustconn/src/window/mod.rs:2503
+#: rustconn/src/window/mod.rs:2531
 msgid "Close"
 msgstr "Закрий"
 
@@ -4232,14 +4232,14 @@ msgstr "Успішно імпортовано {} з'єднків та {} гру�
 #: rustconn/src/dialogs/import/sources.rs:329
 #: rustconn/src/dialogs/import/sources.rs:421
 #: rustconn/src/dialogs/import/sources.rs:517
-#: rustconn/src/dialogs/import/sources.rs:624
-#: rustconn/src/dialogs/import/sources.rs:782
-#: rustconn/src/dialogs/import/sources.rs:873
-#: rustconn/src/dialogs/import/sources.rs:964
-#: rustconn/src/dialogs/import/sources.rs:1055
-#: rustconn/src/dialogs/import/sources.rs:1143
-#: rustconn/src/dialogs/import/sources.rs:1229
-#: rustconn/src/dialogs/import/sources.rs:1347
+#: rustconn/src/dialogs/import/sources.rs:622
+#: rustconn/src/dialogs/import/sources.rs:780
+#: rustconn/src/dialogs/import/sources.rs:871
+#: rustconn/src/dialogs/import/sources.rs:962
+#: rustconn/src/dialogs/import/sources.rs:1053
+#: rustconn/src/dialogs/import/sources.rs:1141
+#: rustconn/src/dialogs/import/sources.rs:1227
+#: rustconn/src/dialogs/import/sources.rs:1343
 msgid ""
 "Successfully imported {} connection(s) and {} group(s).\n"
 "Connections will be added to '{} Import' group."
@@ -4273,14 +4273,14 @@ msgstr "У вибраному джерелі з'єднків не знайден
 #: rustconn/src/dialogs/import/sources.rs:308
 #: rustconn/src/dialogs/import/sources.rs:401
 #: rustconn/src/dialogs/import/sources.rs:497
-#: rustconn/src/dialogs/import/sources.rs:594
-#: rustconn/src/dialogs/import/sources.rs:762
-#: rustconn/src/dialogs/import/sources.rs:851
-#: rustconn/src/dialogs/import/sources.rs:942
-#: rustconn/src/dialogs/import/sources.rs:1037
-#: rustconn/src/dialogs/import/sources.rs:1123
-#: rustconn/src/dialogs/import/sources.rs:1211
-#: rustconn/src/dialogs/import/sources.rs:1304
+#: rustconn/src/dialogs/import/sources.rs:592
+#: rustconn/src/dialogs/import/sources.rs:760
+#: rustconn/src/dialogs/import/sources.rs:849
+#: rustconn/src/dialogs/import/sources.rs:940
+#: rustconn/src/dialogs/import/sources.rs:1035
+#: rustconn/src/dialogs/import/sources.rs:1121
+#: rustconn/src/dialogs/import/sources.rs:1209
+#: rustconn/src/dialogs/import/sources.rs:1300
 msgid "Importing from {}..."
 msgstr "Імпорт з {}..."
 
@@ -4336,7 +4336,7 @@ msgstr "Імпортуй із конкретного файлу YAML Asbru-CM"
 
 #: rustconn/src/dialogs/import/sources.rs:82
 #: rustconn/src/dialogs/import/sources.rs:254
-#: rustconn/src/dialogs/import/sources.rs:1338
+#: rustconn/src/dialogs/import/sources.rs:1334
 msgid "CSV"
 msgstr "CSV"
 
@@ -4449,12 +4449,12 @@ msgid "Ansible File"
 msgstr "Файл Ansible"
 
 #: rustconn/src/dialogs/import/sources.rs:244
-#: rustconn/src/dialogs/import/sources.rs:612
+#: rustconn/src/dialogs/import/sources.rs:610
 msgid "RustConn Native"
 msgstr "Нативний RustConn"
 
 #: rustconn/src/dialogs/import/sources.rs:245
-#: rustconn/src/dialogs/import/sources.rs:771
+#: rustconn/src/dialogs/import/sources.rs:769
 msgid "Royal TS"
 msgstr "Royal TS"
 
@@ -4463,22 +4463,22 @@ msgid "Remote Desktop Manager"
 msgstr "Remote Desktop Manager"
 
 #: rustconn/src/dialogs/import/sources.rs:247
-#: rustconn/src/dialogs/import/sources.rs:952
+#: rustconn/src/dialogs/import/sources.rs:950
 msgid "MobaXterm"
 msgstr "MobaXterm"
 
 #: rustconn/src/dialogs/import/sources.rs:248
-#: rustconn/src/dialogs/import/sources.rs:1132
+#: rustconn/src/dialogs/import/sources.rs:1130
 msgid "Virt-Viewer"
 msgstr "Virt-Viewer"
 
 #: rustconn/src/dialogs/import/sources.rs:249
-#: rustconn/src/dialogs/import/sources.rs:1476
+#: rustconn/src/dialogs/import/sources.rs:1472
 msgid "Multiple Files"
 msgstr "Кілька файлів"
 
 #: rustconn/src/dialogs/import/sources.rs:251
-#: rustconn/src/dialogs/import/sources.rs:1044
+#: rustconn/src/dialogs/import/sources.rs:1042
 msgid "Libvirt XML"
 msgstr "Libvirt XML"
 
@@ -4487,7 +4487,7 @@ msgid "Libvirt Daemon"
 msgstr "Демон Libvirt"
 
 #: rustconn/src/dialogs/import/sources.rs:253
-#: rustconn/src/dialogs/import/sources.rs:1218
+#: rustconn/src/dialogs/import/sources.rs:1216
 msgid "RDP File"
 msgstr "Файл RDP"
 
@@ -4520,25 +4520,25 @@ msgstr "Обери файла інвентарю Ansible"
 msgid "Ansible inventory files"
 msgstr "Файли інвентарю Ansible"
 
-#: rustconn/src/dialogs/import/sources.rs:563
+#: rustconn/src/dialogs/import/sources.rs:561
 msgid "Select RustConn Native File"
 msgstr "Обери файла RustConn"
 
-#: rustconn/src/dialogs/import/sources.rs:663
+#: rustconn/src/dialogs/import/sources.rs:661
 msgid ""
 "Imported as Cloud Sync group (Import mode). Use Sync Now to keep it updated."
 msgstr ""
 "Імпортовано як групу хмарної синхронізації (режим імпорту). Використовуй "
 "«Синхронізувати зараз» для оновлення."
 
-#: rustconn/src/dialogs/import/sources.rs:668
+#: rustconn/src/dialogs/import/sources.rs:666
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:38
 #: rustconn/src/window/edit_group.rs:814 rustconn/src/window/edit_group.rs:865
 #: rustconn/src/window/edit_group.rs:905
 msgid "Cloud Sync"
 msgstr "Хмарна синхронізація"
 
-#: rustconn/src/dialogs/import/sources.rs:679
+#: rustconn/src/dialogs/import/sources.rs:677
 msgid ""
 "Imported {} connection(s) from Cloud Sync file '{}'\n"
 "Group '{}' will be created in Import mode."
@@ -4546,92 +4546,92 @@ msgstr ""
 "Імпортовано {} з'єднків із файлу хмарної синхронізації '{}'\n"
 "Групу '{}' буде створено в режимі імпорту."
 
-#: rustconn/src/dialogs/import/sources.rs:694
-#: rustconn/src/window/connection_dialogs.rs:1108
+#: rustconn/src/dialogs/import/sources.rs:692
+#: rustconn/src/window/connection_dialogs.rs:1105
 msgid "Import Failed"
 msgstr "Помилка імпортування"
 
-#: rustconn/src/dialogs/import/sources.rs:695
+#: rustconn/src/dialogs/import/sources.rs:693
 msgid "Error: {}"
 msgstr "Помилка: {}"
 
-#: rustconn/src/dialogs/import/sources.rs:731
+#: rustconn/src/dialogs/import/sources.rs:729
 msgid "Select Royal TS File"
 msgstr "Обери файла Royal TS"
 
-#: rustconn/src/dialogs/import/sources.rs:738
+#: rustconn/src/dialogs/import/sources.rs:736
 msgid "Royal TS files (*.rtsz, *.json)"
 msgstr "Файли Royal TS (*.rtsz, *.json)"
 
-#: rustconn/src/dialogs/import/sources.rs:821
+#: rustconn/src/dialogs/import/sources.rs:819
 msgid "Select RDM JSON File"
 msgstr "Обери JSON-файла RDM"
 
-#: rustconn/src/dialogs/import/sources.rs:827
+#: rustconn/src/dialogs/import/sources.rs:825
 msgid "JSON files"
 msgstr "Файли JSON"
 
-#: rustconn/src/dialogs/import/sources.rs:861
+#: rustconn/src/dialogs/import/sources.rs:859
 msgid "RDM JSON"
 msgstr "RDM JSON"
 
-#: rustconn/src/dialogs/import/sources.rs:912
+#: rustconn/src/dialogs/import/sources.rs:910
 msgid "Select MobaXterm Session File"
 msgstr "Обери файла сеансу MobaXterm"
 
-#: rustconn/src/dialogs/import/sources.rs:1003
+#: rustconn/src/dialogs/import/sources.rs:1001
 msgid "Select Libvirt Domain XML File"
 msgstr "Обери XML-файл домену Libvirt"
 
-#: rustconn/src/dialogs/import/sources.rs:1009
+#: rustconn/src/dialogs/import/sources.rs:1007
 msgid "XML files (*.xml)"
 msgstr "XML-файли (*.xml)"
 
-#: rustconn/src/dialogs/import/sources.rs:1012
+#: rustconn/src/dialogs/import/sources.rs:1010
 msgid "All files"
 msgstr "Усі файли"
 
-#: rustconn/src/dialogs/import/sources.rs:1093
+#: rustconn/src/dialogs/import/sources.rs:1091
 msgid "Select Virt-Viewer File"
 msgstr "Обери файла Virt-Viewer"
 
-#: rustconn/src/dialogs/import/sources.rs:1099
+#: rustconn/src/dialogs/import/sources.rs:1097
 msgid "Virt-Viewer files (*.vv)"
 msgstr "Файли Virt-Viewer (*.vv)"
 
-#: rustconn/src/dialogs/import/sources.rs:1181
+#: rustconn/src/dialogs/import/sources.rs:1179
 msgid "Select RDP File"
 msgstr "Обери файл RDP"
 
-#: rustconn/src/dialogs/import/sources.rs:1187
+#: rustconn/src/dialogs/import/sources.rs:1185
 msgid "RDP Files (*.rdp)"
 msgstr "Файли RDP (*.rdp)"
 
-#: rustconn/src/dialogs/import/sources.rs:1273
+#: rustconn/src/dialogs/import/sources.rs:1269
 msgid "Select CSV File"
 msgstr "Обери CSV файл"
 
-#: rustconn/src/dialogs/import/sources.rs:1280
+#: rustconn/src/dialogs/import/sources.rs:1276
 msgid "CSV files (*.csv, *.tsv)"
 msgstr "Файли CSV (*.csv, *.tsv)"
 
-#: rustconn/src/dialogs/import/sources.rs:1389
+#: rustconn/src/dialogs/import/sources.rs:1385
 msgid "Select Files to Import"
 msgstr "Обери файли для імпорту"
 
-#: rustconn/src/dialogs/import/sources.rs:1407
+#: rustconn/src/dialogs/import/sources.rs:1403
 msgid "All supported formats"
 msgstr "Усі підтримувані формати"
 
-#: rustconn/src/dialogs/import/sources.rs:1446
+#: rustconn/src/dialogs/import/sources.rs:1442
 msgid "Importing from {} files..."
 msgstr "Імпорт із {} файлів…"
 
-#: rustconn/src/dialogs/import/sources.rs:1464
+#: rustconn/src/dialogs/import/sources.rs:1460
 msgid "Importing {}..."
 msgstr "Імпорт {}…"
 
-#: rustconn/src/dialogs/import/sources.rs:1485
+#: rustconn/src/dialogs/import/sources.rs:1481
 msgid ""
 "Imported {} connection(s) and {} group(s) from {} files ({} errors).\n"
 "Connections will be added to 'Multiple Files Import' group."
@@ -4639,7 +4639,7 @@ msgstr ""
 "Імпортовано {} з'єднок та {} груп із {} файлів ({} помилок).\n"
 "З'єднки буде додано до групи «Multiple Files Import»."
 
-#: rustconn/src/dialogs/import/sources.rs:1495
+#: rustconn/src/dialogs/import/sources.rs:1491
 msgid ""
 "Imported {} connection(s) and {} group(s) from {} files.\n"
 "Connections will be added to 'Multiple Files Import' group."
@@ -4669,7 +4669,7 @@ msgid "Log Content"
 msgstr "Уміст журналу"
 
 #: rustconn/src/dialogs/log_viewer.rs:318
-#: rustconn/src/split_view/adapter.rs:1192
+#: rustconn/src/split_view/adapter.rs:1170
 msgid "Loading..."
 msgstr "Завантажування..."
 
@@ -4819,8 +4819,9 @@ msgid "{} bits"
 msgstr "{} біт"
 
 #: rustconn/src/dialogs/password_generator.rs:393
-msgid "Password copied to clipboard"
-msgstr "Пароль скопійовано до буфера обміну"
+#: rustconn/src/window/edit_actions.rs:173
+msgid "Password copied (auto-clears in 30s)"
+msgstr "Пароль скопійовано (автоочищення через 30 с)"
 
 #: rustconn/src/dialogs/password.rs:59
 msgid "Authentication Required"
@@ -4830,7 +4831,7 @@ msgstr "Автентифікуйся"
 msgid "Enter credentials for this connection:"
 msgstr "Уведи облікові відомости для цього з'єднка:"
 
-#: rustconn/src/dialogs/password.rs:101 rustconn/src/dialogs/password.rs:369
+#: rustconn/src/dialogs/password.rs:101 rustconn/src/dialogs/password.rs:360
 msgid "Resolving credentials..."
 msgstr "Отримання облікових відомостей..."
 
@@ -4986,10 +4987,10 @@ msgstr "Помилка імпорту"
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:303 rustconn/src/toast.rs:73
 #: rustconn/src/toast.rs:299 rustconn/src/toast.rs:329
 #: rustconn/src/window/clusters.rs:428
-#: rustconn/src/window/connection_dialogs.rs:973
+#: rustconn/src/window/connection_dialogs.rs:970
 #: rustconn/src/window/edit_dialogs.rs:313
 #: rustconn/src/window/edit_dialogs.rs:408
-#: rustconn/src/window/edit_group.rs:1678 rustconn/src/window/groups.rs:211
+#: rustconn/src/window/edit_group.rs:1675 rustconn/src/window/groups.rs:211
 msgid "Error"
 msgstr "Помилка"
 
@@ -5045,7 +5046,7 @@ msgid "Choose sync directory"
 msgstr "Обери теку синхронізації"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:69
-#: rustconn/src/window/edit_group.rs:1819
+#: rustconn/src/window/edit_group.rs:1816
 msgid "Select Sync Directory"
 msgstr "Обери теку синхронізації"
 
@@ -5071,7 +5072,7 @@ msgstr "Проста синхронізація"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:136
 msgid "Sync everything between your devices"
-msgstr "Синхронізувати все між вашими пристроями"
+msgstr "Синхронізувати все між твоїми пристроями"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:158
 msgid "Master · synced"
@@ -5895,9 +5896,8 @@ msgid "No database selected"
 msgstr "Базу даних не вибрано"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1275
-#: rustconn/src/embedded_rdp/ui.rs:164 rustconn/src/embedded_spice.rs:475
-#: rustconn/src/embedded_trait.rs:322 rustconn/src/session/vnc.rs:202
-#: rustconn/src/sidebar/view.rs:561
+#: rustconn/src/embedded_rdp/ui.rs:164 rustconn/src/embedded_spice.rs:468
+#: rustconn/src/embedded_trait.rs:322 rustconn/src/sidebar/view.rs:561
 msgid "Connected"
 msgstr "З'єднано"
 
@@ -6782,11 +6782,11 @@ msgstr "Ціль"
 msgid "Where this snippet can be executed"
 msgstr "Де цей сніпет може бути виконаний"
 
-#: rustconn/src/dialogs/snippet.rs:221 rustconn/src/embedded_rdp/mod.rs:291
+#: rustconn/src/dialogs/snippet.rs:221 rustconn/src/embedded_rdp/mod.rs:280
 msgid "Clipboard (fast)"
 msgstr "Буфер обміну (швидко)"
 
-#: rustconn/src/dialogs/snippet.rs:222 rustconn/src/embedded_rdp/mod.rs:292
+#: rustconn/src/dialogs/snippet.rs:222 rustconn/src/embedded_rdp/mod.rs:281
 msgid "Autotype (reliable)"
 msgstr "Автонабір (надійно)"
 
@@ -7598,12 +7598,12 @@ msgid ""
 "Connection \\u{2018}{}\\u{2019} requires variable \\u{2018}{}\\u{2019}\n"
 "({})"
 msgstr ""
-"З’єднок \\u{2018}{}\\u{2019} потребує змінницю \\u{2018}{}\\u{2019}\n"
+"З'єднок \\u{2018}{}\\u{2019} потребує змінницю \\u{2018}{}\\u{2019}\n"
 "({})"
 
 #: rustconn/src/dialogs/variable_setup.rs:62
 msgid "Connection \\u{2018}{}\\u{2019} requires variable \\u{2018}{}\\u{2019}"
-msgstr "З’єднок \\u{2018}{}\\u{2019} потребує змінницю \\u{2018}{}\\u{2019}"
+msgstr "З'єднок \\u{2018}{}\\u{2019} потребує змінницю \\u{2018}{}\\u{2019}"
 
 #: rustconn/src/dialogs/variable_setup.rs:78
 msgid "Store in"
@@ -7676,8 +7676,8 @@ msgstr "Не вдалося завантажити секрет. Перевір 
 msgid "Fetched from vault at connect time"
 msgstr "Отримується зі сховища під час з'єднування"
 
-#: rustconn/src/dialogs/widgets.rs:464 rustconn/src/embedded_rdp/mod.rs:461
-#: rustconn/src/embedded_spice.rs:244 rustconn/src/embedded_trait.rs:203
+#: rustconn/src/dialogs/widgets.rs:464 rustconn/src/embedded_rdp/mod.rs:450
+#: rustconn/src/embedded_spice.rs:237 rustconn/src/embedded_trait.rs:203
 #: rustconn/src/embedded_vnc/ui.rs:51 rustconn/src/terminal/config.rs:161
 msgid "Copy"
 msgstr "Копіюй"
@@ -7840,36 +7840,36 @@ msgstr ""
 "Зовнішній клієнт RDP несподівано закрився ({}). Переконайся, що FreeRDP "
 "встановлено та сервер доступний; для подробиць запусти з RUST_LOG=debug."
 
-#: rustconn/src/embedded_rdp/connection.rs:885
+#: rustconn/src/embedded_rdp/connection.rs:875
 msgid "Copy remote clipboard to local"
 msgstr "Копіюй віддалений буфер до локального"
 
-#: rustconn/src/embedded_rdp/connection.rs:1099
-#: rustconn/src/embedded_rdp/connection.rs:1178
+#: rustconn/src/embedded_rdp/connection.rs:1089
+#: rustconn/src/embedded_rdp/connection.rs:1168
 msgid "Save {} Files"
 msgstr "Збережи {} файлів"
 
-#: rustconn/src/embedded_rdp/connection.rs:1103
+#: rustconn/src/embedded_rdp/connection.rs:1093
 msgid "Save {} files from remote clipboard"
 msgstr "Збережи {} файлів з віддаленого буфера обміну"
 
-#: rustconn/src/embedded_rdp/connection.rs:1141
+#: rustconn/src/embedded_rdp/connection.rs:1131
 msgid "Downloaded {}/{} files"
 msgstr "Завантажено {}/{} файлів"
 
-#: rustconn/src/embedded_rdp/connection.rs:1183
+#: rustconn/src/embedded_rdp/connection.rs:1173
 msgid "Saved {} files"
 msgstr "Збережено {} файлів"
 
-#: rustconn/src/embedded_rdp/connection.rs:1249
+#: rustconn/src/embedded_rdp/connection.rs:1239
 msgid "RTT: {} ms"
 msgstr "RTT: {} мс"
 
-#: rustconn/src/embedded_rdp/connection.rs:1423
+#: rustconn/src/embedded_rdp/connection.rs:1413
 msgid "Using external RDP client (server incompatible)"
 msgstr "Використовується зовнішній RDP-клієнт (сервер несумісний)"
 
-#: rustconn/src/embedded_rdp/connection.rs:1440
+#: rustconn/src/embedded_rdp/connection.rs:1430
 msgid ""
 "RDP server sent unsupported data. Install FreeRDP (xfreerdp3) for "
 "compatibility."
@@ -7877,45 +7877,45 @@ msgstr ""
 "RDP-сервер надіслав непідтримувані дані. Встанови FreeRDP (xfreerdp3) для "
 "сумісности."
 
-#: rustconn/src/embedded_rdp/connection.rs:1478
+#: rustconn/src/embedded_rdp/connection.rs:1468
 msgid "Authentication failed: invalid username or password."
 msgstr "Автентифікація не вдалася: хибне ім'я користувача або пароль."
 
-#: rustconn/src/embedded_rdp/connection.rs:1482
+#: rustconn/src/embedded_rdp/connection.rs:1472
 msgid "Authentication failed: account is disabled."
 msgstr "Автентифікація не вдалася: обліковий запис вимкнено."
 
-#: rustconn/src/embedded_rdp/connection.rs:1486
+#: rustconn/src/embedded_rdp/connection.rs:1476
 msgid "Authentication failed: account is locked out."
 msgstr "Автентифікація не вдалася: обліковий запис заблоковано."
 
-#: rustconn/src/embedded_rdp/connection.rs:1490
+#: rustconn/src/embedded_rdp/connection.rs:1480
 msgid "Authentication failed: password has expired."
 msgstr "Автентифікація не вдалася: термін дії пароля минув."
 
-#: rustconn/src/embedded_rdp/connection.rs:1494
+#: rustconn/src/embedded_rdp/connection.rs:1484
 msgid "Authentication failed: account has expired."
 msgstr "Автентифікація не вдалася: термін дії облікового запису минув."
 
-#: rustconn/src/embedded_rdp/connection.rs:1498
+#: rustconn/src/embedded_rdp/connection.rs:1488
 msgid "Authentication failed: user is not allowed to log on to this computer."
 msgstr ""
 "Автентифікація не вдалася: користувачу заборонено входити на цей комп'ютер."
 
-#: rustconn/src/embedded_rdp/connection.rs:1502
+#: rustconn/src/embedded_rdp/connection.rs:1492
 msgid "NLA authentication failed. Check username and password."
 msgstr "Автентифікація NLA не вдалася. Перевір ім'я користувача та пароль."
 
-#: rustconn/src/embedded_rdp/connection.rs:1506
+#: rustconn/src/embedded_rdp/connection.rs:1496
 msgid "TLS connection failed. The server may not support this security level."
 msgstr ""
 "З'єднування TLS не вдалося. Сервер може не підтримувати цей рівень безпеки."
 
-#: rustconn/src/embedded_rdp/connection.rs:1510
+#: rustconn/src/embedded_rdp/connection.rs:1500
 msgid "Connection refused. Check host and port."
 msgstr "З'єднування відхилено. Перевір гост і порт."
 
-#: rustconn/src/embedded_rdp/connection.rs:1513
+#: rustconn/src/embedded_rdp/connection.rs:1503
 msgid "Connection timed out. Check that the host is reachable."
 msgstr "Час з'єднування вичерпано. Перевір, чи гост доступний."
 
@@ -7927,182 +7927,182 @@ msgstr "Перетягування файлів вимкнено: {}"
 msgid "Try Again"
 msgstr "Спробуй знову"
 
-#: rustconn/src/embedded_rdp/mod.rs:280
+#: rustconn/src/embedded_rdp/mod.rs:269
 msgid "Task Manager"
 msgstr "Диспетчер завдань"
 
-#: rustconn/src/embedded_rdp/mod.rs:282
+#: rustconn/src/embedded_rdp/mod.rs:271
 msgid "Registry Editor"
 msgstr "Редактор реєстру"
 
-#: rustconn/src/embedded_rdp/mod.rs:283
+#: rustconn/src/embedded_rdp/mod.rs:272
 msgid "Device Manager"
 msgstr "Диспетчер пристроїв"
 
-#: rustconn/src/embedded_rdp/mod.rs:284
+#: rustconn/src/embedded_rdp/mod.rs:273
 msgid "Event Viewer"
 msgstr "Перегляд подій"
 
-#: rustconn/src/embedded_rdp/mod.rs:285
+#: rustconn/src/embedded_rdp/mod.rs:274
 msgid "Services"
 msgstr "Служби"
 
-#: rustconn/src/embedded_rdp/mod.rs:286
+#: rustconn/src/embedded_rdp/mod.rs:275
 msgid "Disk Management"
 msgstr "Керування дисками"
 
-#: rustconn/src/embedded_rdp/mod.rs:287
+#: rustconn/src/embedded_rdp/mod.rs:276
 msgid "Resource Monitor"
 msgstr "Монітор ресурсів"
 
-#: rustconn/src/embedded_rdp/mod.rs:288
+#: rustconn/src/embedded_rdp/mod.rs:277
 msgid "Computer Management"
 msgstr "Керування комп'ютером"
 
-#: rustconn/src/embedded_rdp/mod.rs:294 rustconn/src/embedded_rdp/mod.rs:831
+#: rustconn/src/embedded_rdp/mod.rs:283 rustconn/src/embedded_rdp/mod.rs:820
 msgid "Shell Launchers"
 msgstr "Запуск оболонок"
 
-#: rustconn/src/embedded_rdp/mod.rs:296 rustconn/src/embedded_rdp/mod.rs:848
+#: rustconn/src/embedded_rdp/mod.rs:285 rustconn/src/embedded_rdp/mod.rs:837
 msgid "Scripts"
 msgstr "Скрипти"
 
-#: rustconn/src/embedded_rdp/mod.rs:298 rustconn/src/embedded_rdp/mod.rs:826
+#: rustconn/src/embedded_rdp/mod.rs:287 rustconn/src/embedded_rdp/mod.rs:815
 msgid "PowerShell (Admin)"
 msgstr "PowerShell (Адмін)"
 
-#: rustconn/src/embedded_rdp/mod.rs:299 rustconn/src/embedded_rdp/mod.rs:830
+#: rustconn/src/embedded_rdp/mod.rs:288 rustconn/src/embedded_rdp/mod.rs:819
 msgid "CMD (Admin)"
 msgstr "CMD (Адмін)"
 
-#: rustconn/src/embedded_rdp/mod.rs:442 rustconn/src/embedded_rdp/mod.rs:444
+#: rustconn/src/embedded_rdp/mod.rs:431 rustconn/src/embedded_rdp/mod.rs:433
 msgid "Fit resolution to window"
 msgstr "Припасуй роздільну здатність до вікна"
 
-#: rustconn/src/embedded_rdp/mod.rs:463
+#: rustconn/src/embedded_rdp/mod.rs:452
 msgid "Copy remote clipboard to local (waiting for remote data...)"
 msgstr "Копіюй віддалений буфер до локального (чекання відомостей...)"
 
-#: rustconn/src/embedded_rdp/mod.rs:469 rustconn/src/embedded_spice.rs:249
+#: rustconn/src/embedded_rdp/mod.rs:458 rustconn/src/embedded_spice.rs:242
 #: rustconn/src/embedded_trait.rs:211 rustconn/src/embedded_vnc/ui.rs:56
 #: rustconn/src/terminal/config.rs:162
 msgid "Paste"
 msgstr "Устав"
 
-#: rustconn/src/embedded_rdp/mod.rs:470 rustconn/src/embedded_spice.rs:250
+#: rustconn/src/embedded_rdp/mod.rs:459 rustconn/src/embedded_spice.rs:243
 #: rustconn/src/embedded_trait.rs:212 rustconn/src/embedded_vnc/ui.rs:57
 msgid "Paste from local clipboard to remote session"
 msgstr "Устав із локального буфера до віддаленої сеансу"
 
-#: rustconn/src/embedded_rdp/mod.rs:475 rustconn/src/embedded_rdp/mod.rs:480
+#: rustconn/src/embedded_rdp/mod.rs:464 rustconn/src/embedded_rdp/mod.rs:469
 msgid "Autotype"
 msgstr "Автонабір"
 
-#: rustconn/src/embedded_rdp/mod.rs:477
+#: rustconn/src/embedded_rdp/mod.rs:466
 msgid "Send text as keystrokes (bypasses paste restrictions)"
 msgstr "Надішли текст як натискання клавіш (обходить обмеження вставлення)"
 
-#: rustconn/src/embedded_rdp/mod.rs:484
+#: rustconn/src/embedded_rdp/mod.rs:473
 msgid "Type Clipboard"
 msgstr "Набери буфер"
 
-#: rustconn/src/embedded_rdp/mod.rs:487
+#: rustconn/src/embedded_rdp/mod.rs:476
 msgid "Type Text…"
 msgstr "Набери текст…"
 
-#: rustconn/src/embedded_rdp/mod.rs:501
+#: rustconn/src/embedded_rdp/mod.rs:490
 msgid "Run PowerShell script on remote"
 msgstr "Виконай скрипт PowerShell на віддаленому"
 
-#: rustconn/src/embedded_rdp/mod.rs:504
+#: rustconn/src/embedded_rdp/mod.rs:493
 msgid "Run script on remote"
 msgstr "Виконай скрипт на віддаленому"
 
-#: rustconn/src/embedded_rdp/mod.rs:519 rustconn/src/embedded_spice.rs:260
+#: rustconn/src/embedded_rdp/mod.rs:508 rustconn/src/embedded_spice.rs:253
 #: rustconn/src/embedded_trait.rs:225 rustconn/src/embedded_vnc/ui.rs:67
 msgid "Ctrl+Alt+Del"
 msgstr "Ctrl+Alt+Del"
 
-#: rustconn/src/embedded_rdp/mod.rs:521 rustconn/src/embedded_spice.rs:262
+#: rustconn/src/embedded_rdp/mod.rs:510 rustconn/src/embedded_spice.rs:255
 #: rustconn/src/embedded_trait.rs:227 rustconn/src/embedded_trait.rs:229
 #: rustconn/src/embedded_vnc/ui.rs:69
 msgid "Send Ctrl+Alt+Del to remote session"
 msgstr "Надішли Ctrl+Alt+Del до віддаленої сеансу"
 
-#: rustconn/src/embedded_rdp/mod.rs:527 rustconn/src/embedded_rdp/mod.rs:530
+#: rustconn/src/embedded_rdp/mod.rs:516 rustconn/src/embedded_rdp/mod.rs:519
 msgid "Windows admin tools"
 msgstr "Інструменти адміністрування Windows"
 
-#: rustconn/src/embedded_rdp/mod.rs:554
+#: rustconn/src/embedded_rdp/mod.rs:543
 msgid "Save Files"
 msgstr "Збережи файли"
 
-#: rustconn/src/embedded_rdp/mod.rs:557
+#: rustconn/src/embedded_rdp/mod.rs:546
 msgid "Save files from remote clipboard"
 msgstr "Збережи файли з віддаленого буфера"
 
-#: rustconn/src/embedded_rdp/mod.rs:593 rustconn/src/embedded_spice.rs:288
+#: rustconn/src/embedded_rdp/mod.rs:582 rustconn/src/embedded_spice.rs:281
 #: rustconn/src/embedded_vnc/ui.rs:102 rustconn/src/terminal/mod.rs:1777
 msgid "Session disconnected"
 msgstr "Сеанс від'єднано"
 
-#: rustconn/src/embedded_rdp/mod.rs:596 rustconn/src/embedded_spice.rs:291
+#: rustconn/src/embedded_rdp/mod.rs:585 rustconn/src/embedded_spice.rs:284
 #: rustconn/src/embedded_trait.rs:234 rustconn/src/embedded_vnc/ui.rs:105
 #: rustconn/src/terminal/mod.rs:1294 rustconn/src/terminal/mod.rs:1383
 #: rustconn/src/terminal/mod.rs:1790
 msgid "Reconnect"
 msgstr "Перепід'єднай"
 
-#: rustconn/src/embedded_rdp/mod.rs:598 rustconn/src/embedded_spice.rs:293
+#: rustconn/src/embedded_rdp/mod.rs:587 rustconn/src/embedded_spice.rs:286
 #: rustconn/src/embedded_vnc/ui.rs:107 rustconn/src/terminal/mod.rs:1296
 #: rustconn/src/terminal/mod.rs:1385 rustconn/src/terminal/mod.rs:1792
 msgid "Reconnect to this session"
 msgstr "Перез'єднайся із цим сеансом"
 
-#: rustconn/src/embedded_rdp/mod.rs:765
+#: rustconn/src/embedded_rdp/mod.rs:754
 msgid "{} file(s) ready to paste on remote"
 msgstr "{} файл(ів) готово до вставлення на віддалений"
 
-#: rustconn/src/embedded_rdp/mod.rs:824
+#: rustconn/src/embedded_rdp/mod.rs:813
 msgid "PowerShell"
 msgstr "PowerShell"
 
-#: rustconn/src/embedded_rdp/mod.rs:829
+#: rustconn/src/embedded_rdp/mod.rs:818
 msgid "CMD"
 msgstr "CMD"
 
-#: rustconn/src/embedded_rdp/mod.rs:905 rustconn/src/embedded_rdp/mod.rs:976
-#: rustconn/src/embedded_rdp/mod.rs:1179
+#: rustconn/src/embedded_rdp/mod.rs:894 rustconn/src/embedded_rdp/mod.rs:965
+#: rustconn/src/embedded_rdp/mod.rs:1168
 msgid "Channel not ready"
 msgstr "Канал не готовий"
 
-#: rustconn/src/embedded_rdp/mod.rs:950 rustconn/src/embedded_rdp/mod.rs:1003
+#: rustconn/src/embedded_rdp/mod.rs:939 rustconn/src/embedded_rdp/mod.rs:992
 msgid "Script sent"
 msgstr "Скрипт надіслано"
 
-#: rustconn/src/embedded_rdp/mod.rs:1224
+#: rustconn/src/embedded_rdp/mod.rs:1213
 msgid "Select folder to save files"
 msgstr "Обери теку, де зберігатимеш файли"
 
-#: rustconn/src/embedded_rdp/mod.rs:1253
+#: rustconn/src/embedded_rdp/mod.rs:1242
 msgid "Downloading..."
 msgstr "Завантаження..."
 
-#: rustconn/src/embedded_rdp/mod.rs:1286
+#: rustconn/src/embedded_rdp/mod.rs:1275
 msgid "Downloading files..."
 msgstr "Завантаження файлів..."
 
-#: rustconn/src/embedded_rdp/resize.rs:179
-#: rustconn/src/embedded_rdp/resize.rs:371
+#: rustconn/src/embedded_rdp/resize.rs:182
+#: rustconn/src/embedded_rdp/resize.rs:374
 msgid "Resizing…"
 msgstr "Зміна розміру…"
 
-#: rustconn/src/embedded_rdp/resize.rs:207
-#: rustconn/src/embedded_rdp/resize.rs:389
+#: rustconn/src/embedded_rdp/resize.rs:210
+#: rustconn/src/embedded_rdp/resize.rs:392
 msgid "Reconnecting..."
 msgstr "Перез'єднування..."
 
-#: rustconn/src/embedded_rdp/ui.rs:150 rustconn/src/embedded_spice.rs:470
+#: rustconn/src/embedded_rdp/ui.rs:150 rustconn/src/embedded_spice.rs:463
 msgid "Session ended"
 msgstr "Сеанс завершено"
 
@@ -8122,8 +8122,8 @@ msgstr "Запуск FreeRDP..."
 msgid "RDP session running in FreeRDP window"
 msgstr "RDP-сеанс працює у вікні FreeRDP"
 
-#: rustconn/src/embedded_rdp/ui.rs:172 rustconn/src/session/vnc.rs:424
-#: rustconn/src/session/vnc.rs:558 rustconn/src/sidebar/view.rs:572
+#: rustconn/src/embedded_rdp/ui.rs:172 rustconn/src/session/vnc.rs:352
+#: rustconn/src/sidebar/view.rs:572
 msgid "Connection failed"
 msgstr "З'єднування не вдалося"
 
@@ -8131,9 +8131,9 @@ msgstr "З'єднування не вдалося"
 msgid "Switch to the FreeRDP window to interact with the session"
 msgstr "Перейди до вікна FreeRDP для взаємодії з сеансом"
 
-#: rustconn/src/embedded.rs:64 rustconn/src/embedded_spice.rs:471
-#: rustconn/src/embedded_trait.rs:318 rustconn/src/session/vnc.rs:293
-#: rustconn/src/session/vnc.rs:367 rustconn/src/session/vnc.rs:466
+#: rustconn/src/embedded.rs:64 rustconn/src/embedded_spice.rs:464
+#: rustconn/src/embedded_trait.rs:318 rustconn/src/session/vnc.rs:188
+#: rustconn/src/session/vnc.rs:260
 msgid "Connecting..."
 msgstr "Під'єднування..."
 
@@ -8161,34 +8161,34 @@ msgstr "Ця вкладка закриється автоматично післ
 msgid "Session running in separate window"
 msgstr "Сеанс працює в окремому вікні"
 
-#: rustconn/src/embedded.rs:445
+#: rustconn/src/embedded.rs:448
 msgid "Connecting to {}…"
 msgstr "З'єднування з {}…"
 
-#: rustconn/src/embedded.rs:512
+#: rustconn/src/embedded.rs:515
 msgid "Connected to {}"
 msgstr "З'єднано з {}"
 
-#: rustconn/src/embedded_spice.rs:245 rustconn/src/embedded_trait.rs:204
+#: rustconn/src/embedded_spice.rs:238 rustconn/src/embedded_trait.rs:204
 #: rustconn/src/embedded_vnc/ui.rs:52
 msgid "Copy from remote session to local clipboard"
 msgstr "Копіюй із віддаленої сеансу до локального буфера"
 
-#: rustconn/src/embedded_spice.rs:473 rustconn/src/embedded_trait.rs:320
-#: rustconn/src/session/vnc.rs:410 rustconn/src/session/vnc.rs:544
+#: rustconn/src/embedded_spice.rs:466 rustconn/src/embedded_trait.rs:320
+#: rustconn/src/session/vnc.rs:338
 msgid "Session running in external window"
 msgstr "Сеанс працює у зовнішньому вікні"
 
-#: rustconn/src/embedded_spice.rs:476 rustconn/src/embedded_trait.rs:323
-#: rustconn/src/session/vnc.rs:295 rustconn/src/session/vnc.rs:324
+#: rustconn/src/embedded_spice.rs:469 rustconn/src/embedded_trait.rs:323
+#: rustconn/src/session/vnc.rs:190 rustconn/src/session/vnc.rs:219
 msgid "Connection error"
 msgstr "Помилка з'єднування"
 
-#: rustconn/src/embedded_spice.rs:794
+#: rustconn/src/embedded_spice.rs:787
 msgid "Pasted to remote"
 msgstr "Вставлено на віддалений"
 
-#: rustconn/src/embedded_spice.rs:807
+#: rustconn/src/embedded_spice.rs:800
 msgid "Copy requested"
 msgstr "Запит на копіювання"
 
@@ -8204,13 +8204,12 @@ msgstr "Встав до віддаленого сеансу"
 msgid "Reconnect to the remote session"
 msgstr "Перепід'єднай до віддаленої сеансу"
 
-#: rustconn/src/embedded_trait.rs:317 rustconn/src/session/vnc.rs:135
-#: rustconn/src/session/vnc.rs:219 rustconn/src/session/vnc.rs:292
-#: rustconn/src/session/vnc.rs:769
+#: rustconn/src/embedded_trait.rs:317 rustconn/src/session/vnc.rs:112
+#: rustconn/src/session/vnc.rs:187 rustconn/src/session/vnc.rs:495
 msgid "Disconnected"
 msgstr "Від'єднано"
 
-#: rustconn/src/embedded_vnc/mod.rs:551
+#: rustconn/src/embedded_vnc/mod.rs:544
 msgid ""
 "VNC encryption not supported. Install TigerVNC and enable 'Accept "
 "Certificate'."
@@ -8218,7 +8217,7 @@ msgstr ""
 "Шифрування VNC не підтримується. Установи TigerVNC і увімкни «Прийми "
 "сертифікат»."
 
-#: rustconn/src/embedded_vnc/mod.rs:605
+#: rustconn/src/embedded_vnc/mod.rs:598
 msgid "Using external viewer (unsupported encryption)"
 msgstr "Задіяно зовнішнього переглядача (непідтримуване шифрування)"
 
@@ -8349,14 +8348,6 @@ msgstr "Час роботи"
 #: rustconn/src/monitoring.rs:383
 msgid "⚠ Monitoring stopped — metrics may be stale"
 msgstr "⚠ Моніторинг зупинено — метрики можуть бути застарілими"
-
-#: rustconn/src/session/vnc.rs:236
-msgid "Authenticating..."
-msgstr "Автентифікація..."
-
-#: rustconn/src/session/vnc.rs:255
-msgid "Authentication failed. Check your credentials."
-msgstr "Автентифікація не вдалася. Перевір облікові дані."
 
 #: rustconn/src/sidebar/filter.rs:26
 msgid "Filter by {} protocol"
@@ -8650,43 +8641,43 @@ msgstr "Створи нову розумну теку"
 msgid "No smart folders"
 msgstr "Нема розумних тек"
 
-#: rustconn/src/split_view/adapter.rs:870
+#: rustconn/src/split_view/adapter.rs:860
 msgid "Terminal panel"
 msgstr "Панель термінала"
 
-#: rustconn/src/split_view/adapter.rs:963
+#: rustconn/src/split_view/adapter.rs:949
 msgid "Drag to move this session to another panel or tab"
 msgstr "Перетягни, щоб перемістити цей сеанс на иншу панель або вкладку"
 
-#: rustconn/src/split_view/adapter.rs:1064
+#: rustconn/src/split_view/adapter.rs:1047
 msgid "Close Connection"
 msgstr "Закрий з'єднок"
 
-#: rustconn/src/split_view/adapter.rs:1065
+#: rustconn/src/split_view/adapter.rs:1048
 msgid "Move to New Tab"
 msgstr "Перемісти до нової вкладки"
 
-#: rustconn/src/split_view/adapter.rs:1113
+#: rustconn/src/split_view/adapter.rs:1091
 msgid "Empty Panel"
 msgstr "Порожня панель"
 
-#: rustconn/src/split_view/adapter.rs:1114
+#: rustconn/src/split_view/adapter.rs:1092
 msgid "Select an existing tab to display in this panel"
 msgstr "Обери робочу вкладку, щоб відобразити на цій панелі"
 
-#: rustconn/src/split_view/adapter.rs:1124
+#: rustconn/src/split_view/adapter.rs:1102
 msgid "Select Tab..."
 msgstr "Обери вкладку..."
 
-#: rustconn/src/split_view/adapter.rs:1125
+#: rustconn/src/split_view/adapter.rs:1103
 msgid "Choose an open tab to display in this panel"
 msgstr "Обери відкриту вкладку, щоб відобразити на цій панелі"
 
-#: rustconn/src/split_view/adapter.rs:1150
+#: rustconn/src/split_view/adapter.rs:1128
 msgid "Close panel"
 msgstr "Закрий панель"
 
-#: rustconn/src/split_view/adapter.rs:1161
+#: rustconn/src/split_view/adapter.rs:1139
 msgid "Close split view panel"
 msgstr "Закрий панель розділеного вигляду"
 
@@ -8872,11 +8863,11 @@ msgstr "Відтворення…"
 msgid "Playback complete"
 msgstr "Відтворення завершено"
 
-#: rustconn/src/terminal/recording.rs:313
+#: rustconn/src/terminal/recording.rs:309
 msgid "Playback: {}"
 msgstr "Відтворення: {}"
 
-#: rustconn/src/terminal/recording.rs:356
+#: rustconn/src/terminal/recording.rs:352
 msgid "●REC"
 msgstr "●ЗАП"
 
@@ -9104,7 +9095,7 @@ msgstr "Не вдалося вилучити кластер: {}"
 
 #: rustconn/src/window/connection_actions.rs:173
 msgid "Synced '{}': +{} connections, ~{} updated, -{} removed"
-msgstr "Синхронізовано '{}': +{} з’єднань, ~{} оновлено, -{} вилучено"
+msgstr "Синхронізовано '{}': +{} з'єднків, ~{} оновлено, -{} вилучено"
 
 #: rustconn/src/window/connection_actions.rs:194
 msgid ""
@@ -9218,15 +9209,15 @@ msgstr "Нотатки, контакти, інформація про проєк
 msgid "Group name cannot be empty"
 msgstr "Назва групи не може бути порожня"
 
-#: rustconn/src/window/connection_dialogs.rs:928
+#: rustconn/src/window/connection_dialogs.rs:925
 msgid "Error Updating Group"
 msgstr "Помилка оновлення групи"
 
-#: rustconn/src/window/connection_dialogs.rs:1018
+#: rustconn/src/window/connection_dialogs.rs:1015
 msgid "Import Duplicates?"
 msgstr "Імпортувати дублікати?"
 
-#: rustconn/src/window/connection_dialogs.rs:1020
+#: rustconn/src/window/connection_dialogs.rs:1017
 msgid ""
 "{} of {} connections have the same name as existing ones. Imported copies "
 "are kept alongside the existing connections under a numbered name."
@@ -9234,23 +9225,23 @@ msgstr ""
 "{} з {} з'єднків мають ті самі назви, що й наявні. Імпортовані копії буде "
 "збережено поруч із наявними з'єднками під нумерованою назвою."
 
-#: rustconn/src/window/connection_dialogs.rs:1028
+#: rustconn/src/window/connection_dialogs.rs:1025
 msgid "Skip Duplicates"
 msgstr "Пропусти дублікати"
 
-#: rustconn/src/window/connection_dialogs.rs:1029
+#: rustconn/src/window/connection_dialogs.rs:1026
 msgid "Import All"
 msgstr "Імпортуй усі"
 
-#: rustconn/src/window/connection_dialogs.rs:1095
+#: rustconn/src/window/connection_dialogs.rs:1092
 msgid "Imported {} connections and {} snippets to '{}' group"
 msgstr "Імпортовано {} з'єднків та {} фрагментів до групи «{}»"
 
-#: rustconn/src/window/connection_dialogs.rs:1100
+#: rustconn/src/window/connection_dialogs.rs:1097
 msgid "Imported {} connections to '{}' group"
 msgstr "Імпортовано {} з'єднків до групи «{}»"
 
-#: rustconn/src/window/connection_dialogs.rs:1104
+#: rustconn/src/window/connection_dialogs.rs:1101
 msgid "Import Successful"
 msgstr "Імпорт успішний"
 
@@ -9310,10 +9301,6 @@ msgstr "Ім'я користувача не налаштовано"
 #: rustconn/src/window/edit_actions.rs:134
 msgid "Username copied"
 msgstr "Ім'я користувача скопійовано"
-
-#: rustconn/src/window/edit_actions.rs:173
-msgid "Password copied (auto-clears in 30s)"
-msgstr "Пароль скопійовано (автоочищення через 30 с)"
 
 #: rustconn/src/window/edit_actions.rs:195
 msgid "Cached password is empty"
@@ -9622,7 +9609,7 @@ msgstr "Обери змінницю"
 msgid "Dynamic Folder script cannot be empty"
 msgstr "Скрипт динамічної теки не може бути порожнім"
 
-#: rustconn/src/window/edit_group.rs:1747
+#: rustconn/src/window/edit_group.rs:1744
 msgid ""
 "This group will be exported to {}. Other team members with read access can "
 "import it."
@@ -9630,23 +9617,23 @@ msgstr ""
 "Цю групу буде експортовано до {}. Інші учасники команди з доступом на "
 "читання зможуть її імпортувати."
 
-#: rustconn/src/window/edit_group.rs:1751
+#: rustconn/src/window/edit_group.rs:1748
 msgid "Enable Cloud Sync?"
 msgstr "Увімкнути хмарну синхронізацію?"
 
-#: rustconn/src/window/edit_group.rs:1753
+#: rustconn/src/window/edit_group.rs:1750
 msgid "Enable"
 msgstr "Увімкни"
 
-#: rustconn/src/window/edit_group.rs:1784
+#: rustconn/src/window/edit_group.rs:1781
 msgid "Choose Directory"
 msgstr "Обери теку"
 
-#: rustconn/src/window/edit_group.rs:1791
+#: rustconn/src/window/edit_group.rs:1788
 msgid "Set Up Cloud Sync"
 msgstr "Налаштуй хмарну синхронізацію"
 
-#: rustconn/src/window/edit_group.rs:1793
+#: rustconn/src/window/edit_group.rs:1790
 msgid ""
 "Choose a directory synced with your cloud service (Google Drive, Nextcloud, "
 "Syncthing, etc.)"
@@ -9654,16 +9641,16 @@ msgstr ""
 "Обери теку, синхронізовану з твоїм хмарним сервісом (Google Drive, "
 "Nextcloud, Syncthing тощо)"
 
-#: rustconn/src/window/edit_group.rs:2308
+#: rustconn/src/window/edit_group.rs:2305
 msgid "Shell command (e.g., export TERM=xterm-256color)"
 msgstr "Команда оболонки (напр., export TERM=xterm-256color)"
 
-#: rustconn/src/window/edit_group.rs:2309
+#: rustconn/src/window/edit_group.rs:2306
 msgid "Command to execute after login"
 msgstr "Команда для виконання після входу"
 
+#: rustconn/src/window/edit_group.rs:2316
 #: rustconn/src/window/edit_group.rs:2319
-#: rustconn/src/window/edit_group.rs:2322
 msgid "Delete script"
 msgstr "Вилучи скрипт"
 
@@ -9712,31 +9699,31 @@ msgstr "Помилка SPA: {}"
 msgid "Connection \\u{201c}{}\\u{201d} created"
 msgstr "З'єднок «{}» створено"
 
-#: rustconn/src/window/mod.rs:2496
+#: rustconn/src/window/mod.rs:2524
 msgid "Close RustConn?"
 msgstr "Закрити RustConn?"
 
-#: rustconn/src/window/mod.rs:2498
+#: rustconn/src/window/mod.rs:2526
 msgid "{} session tab(s) are open. Active connections will be disconnected."
 msgstr "Відкрито вкладок сеансів: {}. Активні з'єднки буде розірвано."
 
-#: rustconn/src/window/mod.rs:2525
+#: rustconn/src/window/mod.rs:2553
 msgid "Cloud sync failed for '{}': {}"
 msgstr "Хмарна синхронізація «{}» не вдалася: {}"
 
-#: rustconn/src/window/mod.rs:2651
+#: rustconn/src/window/mod.rs:2679
 msgid "Startup connection not found"
 msgstr "З'єднок для запуску не знайдено"
 
-#: rustconn/src/window/mod.rs:2687
+#: rustconn/src/window/mod.rs:2715
 msgid "Failed to open .rdp file"
 msgstr "Не вдалося відкрити .rdp файл"
 
-#: rustconn/src/window/mod.rs:2723
+#: rustconn/src/window/mod.rs:2751
 msgid "Failed to open .vv file"
 msgstr "Не вдалося відкрити .vv файл"
 
-#: rustconn/src/window/mod.rs:3109
+#: rustconn/src/window/mod.rs:3135
 msgid "Successfully exported {} connection(s). {} skipped."
 msgstr "Успішно експортовано {} з'єднків. {} пропущено."
 
@@ -9919,19 +9906,19 @@ msgstr "Переміщено {} складників."
 msgid "Failed to move {} item(s):"
 msgstr "Не вдалося перемістити {} складників:"
 
-#: rustconn/src/window/protocols.rs:1390
+#: rustconn/src/window/protocols.rs:1401
 msgid "Install picocom for Serial connections"
 msgstr "Встанови picocom для Serial-з'єднків"
 
-#: rustconn/src/window/protocols.rs:1553
+#: rustconn/src/window/protocols.rs:1564
 msgid "Install kubectl for Kubernetes connections"
 msgstr "Встанови kubectl для Kubernetes-з'єднків"
 
-#: rustconn/src/window/protocols.rs:1571
+#: rustconn/src/window/protocols.rs:1582
 msgid "Configure pod and container for Kubernetes"
 msgstr "Налаштуй pod і контейнер для Kubernetes"
 
-#: rustconn/src/window/protocols.rs:1815
+#: rustconn/src/window/protocols.rs:1826
 msgid "Install mosh for MOSH connections"
 msgstr "Встанови mosh для MOSH-з'єднків"
 
@@ -10310,27 +10297,27 @@ msgstr "Передача клавіятури"
 msgid "Keyboard Shortcuts..."
 msgstr "Комбінації клавіш..."
 
-#: rustconn/src/window/workspaces.rs:154
+#: rustconn/src/window/workspaces.rs:169
 msgid "No active sessions to save"
 msgstr "Нема активних сесій для збереження"
 
-#: rustconn/src/window/workspaces.rs:179
+#: rustconn/src/window/workspaces.rs:194
 msgid "Save Workspace"
 msgstr "Збережи робочий простір"
 
-#: rustconn/src/window/workspaces.rs:180
+#: rustconn/src/window/workspaces.rs:195
 msgid "Enter a name for this workspace profile:"
-msgstr "Введи назву для цього профілю робочого простору:"
+msgstr "Уведи назву для цього профілю робочого простору:"
 
-#: rustconn/src/window/workspaces.rs:189
+#: rustconn/src/window/workspaces.rs:204
 msgid "Workspace name"
 msgstr "Назва робочого простору"
 
-#: rustconn/src/window/workspaces.rs:221
+#: rustconn/src/window/workspaces.rs:236
 msgid "Workspace '{}' saved"
 msgstr "Робочий простір «{}» збережено"
 
-#: rustconn/src/window/workspaces.rs:231
+#: rustconn/src/window/workspaces.rs:246
 msgid "Failed to save workspace"
 msgstr "Не вдалося зберегти робочий простір"
 
@@ -10341,6 +10328,15 @@ msgstr "RustConn"
 #: rustconn/assets/io.github.totoshko88.RustConn.desktop:15
 msgid "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
 msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;з'єднок;термінал;віддалений;kubernetes;k8s;послідовний;sftp;"
+
+#~ msgid "Password copied to clipboard"
+#~ msgstr "Пароль скопійовано до буфера обміну"
+
+#~ msgid "Authenticating..."
+#~ msgstr "Автентифікація..."
+
+#~ msgid "Authentication failed. Check your credentials."
+#~ msgstr "Автентифікація не вдалася. Перевір облікові дані."
 
 #~ msgid "{} credentials migrated from legacy encryption to AES-256-GCM"
 #~ msgstr ""

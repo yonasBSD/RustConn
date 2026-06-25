@@ -5,6 +5,39 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-06-25
+
+A hardening release following a deep, per-feature codebase audit (15 actionable findings).
+
+### Security
+
+- **Generated passwords now auto-clear from the clipboard** — the password generator's "Copy" left the password on the clipboard indefinitely, unlike the connection "Copy Password" action (30 s auto-clear). It now clears after 30 seconds, but only if the clipboard still holds that password (so it never clobbers something you copied since)
+- **SSH password no longer lingers in memory after auto-login** — the injected password (initial connect and in-place reconnect) is now wrapped in `Zeroizing` so the plaintext is wiped immediately after it is handed to VTE, instead of remaining in a `String` until garbage collection
+- **SSH tunnel askpass file race fixed** — the temporary `SSH_ASKPASS` helper script used a PID-only filename, so concurrent tunnels shared one path and a second `File::create` could truncate the script while the first `ssh` was still reading it. The filename now includes a per-tunnel UUID
+
+### Fixed
+
+- **SSH jump host uses its own password** — connecting through a jump host fed the *target's* password to the bastion prompt, so a bastion with a different password failed (issue #191). The bastion now authenticates with its own saved password, delivered out-of-band so the terminal still prompts for the target password as before. Covers a single jump host with a saved/vault password; chained hops and prompt-only bastions remain future work
+- **RDP dynamic resize no longer requests degenerate resolutions** — the debounced resize path sent the new desktop size without the minimum-size guard that the manual "Fit resolution to window" path already had, so a widget caught mid-layout or collapsed could ask the server for a sub-640×480 desktop. The debounced path now applies the same 640×480 floor
+- **RD Gateway password is now sent (same-account gateways)** — when a separate RD Gateway *username* is configured, FreeRDP received `/gu:` but no password, so it fell back to an interactive prompt that hangs in the spawned client. The session password is now passed as the gateway password (`/gp:`) through the same single-use, mode-0600 args file used for RemoteApp credentials, so it never appears on the command line. This covers gateways that authenticate against the same account as the session; a fully independent gateway credential remains future work. When no gateway username is set, FreeRDP keeps reusing the session credentials as before
+- **RDP shared-folder names with commas no longer corrupt drive redirection** — FreeRDP's `/drive:<name>,<path>` switch is comma-delimited, so a comma in the share name split the argument and broke the mapped path. Share names are now sanitized (commas replaced with `_`) on both external-client paths
+- **Multilingual SSH auto-login on reconnect** — in-place reconnect only matched a handful of English password prompts, so auto-login failed on non-English systems after a reconnect. Prompt detection (initial connect and reconnect) is now a single shared `detect_password_prompt()` covering all supported languages
+
+### Added
+
+- **Simple Sync — bidirectional multi-device sync** — the "Sync everything between your devices" toggle (Settings → Cloud Sync) is now fully wired. Enabling it publishes connections, groups, templates, snippets, and non-secret variables to `full-sync.rcn` in the configured sync directory; on startup and after local changes the app merges remote changes by UUID (`updated_at` wins) and applies creates, updates, and deletions. Groups carry their own modification timestamp, so renames, icon/inheritance edits, and re-parenting propagate (not just create/delete); device-specific group fields (SSH key path, jump-host, agent socket, UI/order state) and Group-Sync bookkeeping are stripped from the shared file and preserved per device on import. Deletions propagate via tombstones (default 30-day retention), and tombstones from other devices are carried forward so a deletion reaches a third device through the shared file. Notes: passwords are never written to the sync file (they stay in your per-device keyring); non-secret variables are merged additively by name (a new variable on one device appears on the others — secret variables, variable edits, and variable deletions do not propagate, since variables have no per-item timestamp); clusters are not synced yet (their model lacks the modification timestamp the merge needs); connections that start asynchronously after a port check are regrouped on the next sync rather than instantly
+- **SSH config import follows `Include` directives** — the importer ignored OpenSSH `Include` lines, so hosts defined in included files (common in modern split configs) were missed. `Include` is now expanded — glob patterns supported, relative paths resolved against `~/.ssh`, recursion capped at OpenSSH's 16 levels — and each physical file is parsed only once (no duplicates when a `config.d` glob is both auto-enumerated and included)
+
+### Changed
+
+- **Tab groups persist in workspaces** — assigning a tab to a named group (e.g. "Production") was in-memory only and lost on restart. A workspace now stores each session's group and restores it when reopened. (Port-checked connections that start asynchronously are not regrouped on restore yet.)
+- **Jump-host / SSH-args resolution deduplicated** (internal) — initial connect and in-place reconnect each carried ~150 near-identical lines building the identity file, jump-host `ProxyCommand`/`-J` chain (with Flatpak known_hosts and first-hop PKCS#11), and waypipe detection, so a fix to one path could silently miss the other. Both now call a single `build_ssh_command_args()`; reconnect also gains the waypipe-fallback logging it previously lacked
+- **Dynamic-connection IDs are now stable across Rust versions** — IDs were derived from `std::collections::hash_map::DefaultHasher`, whose output is not guaranteed stable between toolchain releases, so a compiler upgrade could silently change every dynamic connection's UUID. They now use spec-defined UUID v5 (SHA-1, group as namespace, name+host+protocol as key). Upgrading to 0.17.2 regenerates dynamic-connection IDs once; they stay stable afterwards. Removed the now-unused `DynamicConnectionId` type
+
+### Dependencies
+
+- **Updated**: uuid 1.23.3→1.23.4, wasm-bindgen/js-sys/web-sys ecosystem (wasm-bindgen 0.2.125→0.2.126, js-sys 0.3.102→0.3.103, web-sys 0.3.102→0.3.103, wasm-bindgen-futures 0.4.75→0.4.76)
+
 ## [0.17.1] - 2026-06-24
 
 ### Added
