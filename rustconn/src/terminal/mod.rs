@@ -1424,6 +1424,7 @@ impl TerminalNotebook {
         use_waypipe: bool,
         ssh_agent_socket: Option<&str>,
         startup_command: Option<&str>,
+        extra_env: Option<&[&str]>,
     ) -> bool {
         let mut argv = if use_waypipe {
             vec!["waypipe", "ssh"]
@@ -1505,7 +1506,7 @@ impl TerminalNotebook {
             argv.push(&startup_wrapped);
         }
 
-        self.spawn_command(session_id, &argv, None, None, ssh_agent_socket)
+        self.spawn_command(session_id, &argv, extra_env, None, ssh_agent_socket)
     }
 
     /// Spawns a Telnet command in the terminal

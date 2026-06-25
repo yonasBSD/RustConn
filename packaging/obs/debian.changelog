@@ -6,6 +6,8 @@ rustconn (0.17.2-1) unstable; urgency=medium
     is wiped right after it is handed to VTE
   * Security: fixed an SSH tunnel askpass file race by adding a per-tunnel UUID
     to the helper script filename
+  * Fixed SSH jump host authenticating with the target's password instead of
+    its own; the bastion now uses its own saved password (#191)
   * Fixed RDP dynamic resize requesting sub-640x480 desktops; RD Gateway
     password now sent (/gp:) for same-account gateways via a single-use 0600
     args file; shared-folder names with commas no longer corrupt drive

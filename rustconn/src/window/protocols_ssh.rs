@@ -88,13 +88,66 @@ fn detect_password_prompt(text: &str) -> bool {
         })
 }
 
+/// Environment variable carrying the jump host (bastion) password to the
+/// `SSH_ASKPASS` helper. Intentionally obscure to reduce exposure in
+/// `/proc/<pid>/environ`, matching the SSH tunnel askpass convention.
+const JUMP_HOST_PW_ENV: &str = "_RC_JH_PW";
+
+/// Returns the path to a reusable `SSH_ASKPASS` helper that echoes the jump
+/// host password from [`JUMP_HOST_PW_ENV`].
+///
+/// The script holds NO secret — only the env var name — so it is safe to keep
+/// for the process lifetime and share across sessions. The password itself
+/// lives solely in the spawned ssh process's environment. The script is placed
+/// in `$XDG_RUNTIME_DIR` (tmpfs, mode 0700, user-private) to avoid `/tmp`
+/// symlink races on a fixed filename, falling back to a randomized temp path.
+/// Created once (mode 0700) and cached; returns `None` if creation fails.
+fn jump_host_askpass_script() -> Option<std::path::PathBuf> {
+    use std::sync::OnceLock;
+    static SCRIPT: OnceLock<Option<std::path::PathBuf>> = OnceLock::new();
+    SCRIPT
+        .get_or_init(|| {
+            let path = match std::env::var_os("XDG_RUNTIME_DIR") {
+                Some(dir) if !dir.is_empty() => {
+                    std::path::PathBuf::from(dir).join("rustconn-jh-askpass.sh")
+                }
+                // No user-private runtime dir — randomize the name so a hostile
+                // local user cannot pre-create/symlink a predictable /tmp path.
+                _ => std::env::temp_dir().join(format!("rc-jh-askpass-{}.sh", Uuid::new_v4())),
+            };
+
+            let script = format!("#!/bin/sh\nprintf '%s\\n' \"${JUMP_HOST_PW_ENV}\"\n");
+            if let Err(e) = std::fs::write(&path, script.as_bytes()) {
+                tracing::error!(error = %e, "Failed to create jump host askpass script");
+                return None;
+            }
+
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Err(e) =
+                    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
+                {
+                    tracing::error!(error = %e, "Failed to chmod jump host askpass script");
+                    return None;
+                }
+            }
+
+            Some(path)
+        })
+        .clone()
+}
+
 /// Builds the SSH command pieces shared by initial connect and in-place
 /// reconnect: the resolved identity file, the extra CLI args (including the
 /// jump-host `ProxyCommand`/`-J` wiring and Flatpak known_hosts), whether
 /// waypipe is used, and the resolved jump-host chain string (for monitoring).
 ///
-/// Returns `(identity_file, extra_args, use_waypipe, jump_host_chain)`. For
-/// non-SSH protocols it returns empty defaults.
+/// Returns `(identity_file, extra_args, use_waypipe, jump_host_chain,
+/// jump_host_password)`. The last element is the immediate jump hop's own
+/// password (issue #191), set only when an `SSH_ASKPASS` helper was wired into
+/// the `ProxyCommand`; the caller must expose it via [`JUMP_HOST_PW_ENV`] in
+/// the spawned ssh environment. For non-SSH protocols it returns empty defaults.
 ///
 /// Extracted from `start_ssh_connection` and `reconnect_ssh_in_place`, which
 /// previously carried ~150 near-identical lines each — a fix to one path could
@@ -104,9 +157,15 @@ fn build_ssh_command_args(
     connection_id: Uuid,
     state: &SharedAppState,
     groups: &[rustconn_core::ConnectionGroup],
-) -> (Option<String>, Vec<String>, bool, Option<String>) {
+) -> (
+    Option<String>,
+    Vec<String>,
+    bool,
+    Option<String>,
+    Option<SecretString>,
+) {
     let rustconn_core::ProtocolConfig::Ssh(ssh_config) = &conn.protocol_config else {
-        return (None, Vec::new(), false, None);
+        return (None, Vec::new(), false, None, None);
     };
 
     // Resolve key path via inheritance (connection → group → parent group → root)
@@ -142,6 +201,11 @@ fn build_ssh_command_args(
     // `-o PKCS11Provider` is NOT inherited by ProxyJump child connections,
     // so it must be injected into the first hop's ProxyCommand explicitly.
     let mut first_hop_pkcs11: Option<String> = None;
+    // Password of the immediate jump hop, resolved from its OWN cached
+    // credentials. Without this the target connection's password is fed to the
+    // bastion prompt (issue #191). Delivered to the bastion via SSH_ASKPASS on
+    // the nested ProxyCommand ssh, NOT via the VTE prompt.
+    let mut first_hop_password: Option<SecretString> = None;
 
     // Handle string-based proxy jump (legacy/manual or inherited from group)
     if let Some(proxy) = ssh_inheritance::resolve_ssh_proxy_jump(conn, groups) {
@@ -187,6 +251,15 @@ fn build_ssh_command_args(
                                 .pkcs11_provider
                                 .clone()
                                 .filter(|p| !p.trim().is_empty());
+                            // Resolve the bastion's OWN password (issue #191).
+                            // Mirrors the RDP/VNC tunnel path in rdp_vnc.rs.
+                            first_hop_password = state_ref
+                                .get_cached_credentials(jid)
+                                .filter(|c| {
+                                    use secrecy::ExposeSecret;
+                                    !c.password.expose_secret().is_empty()
+                                })
+                                .map(|c| c.password.clone());
                         }
                         // Prepend manual proxy if exists on jump host (unlikely but possible)
                         if let Some(p) = &jump_config.proxy_jump {
@@ -237,6 +310,10 @@ fn build_ssh_command_args(
     // SSH tries to write to ~/.ssh/known_hosts (read-only) and cannot find
     // identity files. Fix: replace -J with -o ProxyCommand that passes
     // UserKnownHostsFile and identity to the jump host SSH process.
+    // Password to deliver to the first jump hop via SSH_ASKPASS (issue #191).
+    // Set only when an askpass helper was successfully wired into ProxyCommand.
+    let mut jump_host_password: Option<SecretString> = None;
+
     let jump_host_str = if jump_hosts.is_empty() {
         None
     } else {
@@ -255,10 +332,36 @@ fn build_ssh_command_args(
         // from the outer command. When the jump host needs Flatpak
         // known_hosts/identity OR a PKCS#11 token, switch to an explicit
         // ProxyCommand that passes those to the first hop.
-        if flatpak_known_hosts.is_some() || first_hop_pkcs11.is_some() {
+        //
+        // The first hop's own password (issue #191) is also delivered here:
+        // the nested ProxyCommand ssh has no controlling TTY, so SSH_ASKPASS
+        // with SSH_ASKPASS_REQUIRE=force — scoped to it via the shell
+        // env-assignment prefix — authenticates the bastion with ITS password.
+        // The OUTER ssh keeps its VTE TTY and prompts for the TARGET password,
+        // which the VTE auto-fill handles. The password rides in the obscure
+        // JUMP_HOST_PW_ENV env var of the outer ssh; only the var NAME appears
+        // in the command line.
+        let askpass_script = if first_hop_password.is_some() {
+            jump_host_askpass_script()
+        } else {
+            None
+        };
+
+        if flatpak_known_hosts.is_some() || first_hop_pkcs11.is_some() || askpass_script.is_some() {
             // Build a ProxyCommand for the first hop;
             // if there are multiple hops, nest them via -J within ProxyCommand.
-            let mut proxy_parts = vec!["ssh".to_string(), "-W".to_string(), "%h:%p".to_string()];
+            let mut proxy_parts: Vec<String> = Vec::new();
+
+            // Env assignments scoped to the nested ssh only (issue #191).
+            if let Some(ref script) = askpass_script {
+                proxy_parts.push(format!("SSH_ASKPASS={}", script.display()));
+                proxy_parts.push("SSH_ASKPASS_REQUIRE=force".to_string());
+                jump_host_password = first_hop_password.clone();
+            }
+
+            proxy_parts.push("ssh".to_string());
+            proxy_parts.push("-W".to_string());
+            proxy_parts.push("%h:%p".to_string());
 
             // Pass identity file to jump host if we have one
             if let Some(pos) = args.iter().position(|a| a == "-i")
@@ -328,7 +431,7 @@ fn build_ssh_command_args(
         );
     }
 
-    (key, args, waypipe, jump_host_str)
+    (key, args, waypipe, jump_host_str, jump_host_password)
 }
 
 /// Creates a terminal tab and spawns the SSH process with the given configuration.
@@ -529,7 +632,7 @@ fn start_ssh_connection_internal(
         .map(|u| substitute_variables(u, &global_variables));
 
     // Get SSH-specific options
-    let (identity_file, extra_args, use_waypipe, jump_host_chain) =
+    let (identity_file, extra_args, use_waypipe, jump_host_chain, jump_host_password) =
         build_ssh_command_args(conn, connection_id, state, &groups);
 
     // Update last_connected timestamp
@@ -600,6 +703,14 @@ fn start_ssh_connection_internal(
             rustconn_core::ProtocolConfig::Ssh(cfg) => cfg.startup_command.as_deref(),
             _ => None,
         };
+        // Jump host password (issue #191) travels in an obscure env var read by
+        // the SSH_ASKPASS helper wired into ProxyCommand. Zeroized once the VTE
+        // spawn has consumed the environment.
+        let jump_host_env = jump_host_password.as_ref().map(|pw| {
+            use secrecy::ExposeSecret;
+            zeroize::Zeroizing::new(format!("{JUMP_HOST_PW_ENV}={}", pw.expose_secret()))
+        });
+        let extra_env = jump_host_env.as_ref().map(|e| [e.as_str()]);
         notebook.spawn_ssh(
             session_id,
             &host,
@@ -610,6 +721,7 @@ fn start_ssh_connection_internal(
             use_waypipe,
             agent_socket.as_deref(),
             startup_cmd,
+            extra_env.as_ref().map(<[&str; 1]>::as_slice),
         );
     }
 
@@ -890,7 +1002,7 @@ pub fn reconnect_ssh_in_place(
     ) || ssh_inheritance::resolve_ssh_proxy_jump(&conn, &groups).is_some();
 
     // Build SSH args (shared with start_ssh_connection).
-    let (identity_file, extra_args, use_waypipe, jump_host_chain) =
+    let (identity_file, extra_args, use_waypipe, jump_host_chain, jump_host_password) =
         build_ssh_command_args(&conn, connection_id, state, &groups);
 
     // Re-wire child-exited handler for the new process
@@ -949,6 +1061,12 @@ pub fn reconnect_ssh_in_place(
             rustconn_core::ProtocolConfig::Ssh(cfg) => cfg.startup_command.as_deref(),
             _ => None,
         };
+        // Jump host password (issue #191) — see start_ssh_connection_internal.
+        let jump_host_env = jump_host_password.as_ref().map(|pw| {
+            use secrecy::ExposeSecret;
+            zeroize::Zeroizing::new(format!("{JUMP_HOST_PW_ENV}={}", pw.expose_secret()))
+        });
+        let extra_env = jump_host_env.as_ref().map(|e| [e.as_str()]);
         notebook.spawn_ssh(
             session_id,
             &host,
@@ -959,6 +1077,7 @@ pub fn reconnect_ssh_in_place(
             use_waypipe,
             agent_socket.as_deref(),
             startup_cmd,
+            extra_env.as_ref().map(<[&str; 1]>::as_slice),
         );
     }
 
