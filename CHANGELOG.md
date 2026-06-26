@@ -5,6 +5,16 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.4] - Unreleased
+
+### Fixed
+
+- **RDP vault login sends the correct domain** ([#188](https://github.com/totoshko88/RustConn/issues/188)) — when credentials came from the secret vault (Tresor), the domain field was passed as an empty string instead of the configured value, causing NLA/CredSSP to reject `DOMAIN\user` logins with `STATUS_LOGON_FAILURE`. The vault path now falls back to the connection's saved domain, matching the manual-prompt flow
+
+### Changed
+
+- **CUPS printer redirection forwards all local queues** ([#192](https://github.com/totoshko88/RustConn/issues/192)) — the embedded IronRDP printer channel previously announced a single dummy "RustConn" printer. It now enumerates all local CUPS queues (or a configured subset via `RdpClientConfig::with_printers`) and registers each as its own redirected printer, routing print jobs back to the correct local queue. The CUPS default printer is announced last so it wins the IronRDP `DEFAULTPRINTER` flag
+
 ## [0.17.3] - 2026-06-26
 
 ### Fixed
