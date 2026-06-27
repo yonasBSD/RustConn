@@ -89,10 +89,7 @@ impl RustConnRdpdrBackend {
     /// Creates a new RDPDR backend with drive paths and printer queues mapped
     /// by device ID.
     #[must_use]
-    pub fn new(
-        drive_paths: HashMap<u32, String>,
-        printer_queues: HashMap<u32, String>,
-    ) -> Self {
+    pub fn new(drive_paths: HashMap<u32, String>, printer_queues: HashMap<u32, String>) -> Self {
         // Ensure all paths end with /
         let drive_paths: HashMap<u32, String> = drive_paths
             .into_iter()

@@ -271,35 +271,32 @@ fn build_ssh_command_args(
                                 let manual_proxy = jump_config.proxy_jump.clone();
                                 let backend_type =
                                     crate::vault_ops::select_backend_for_load(&secret_settings);
-                                let lookup_key =
-                                    crate::vault_ops::generate_store_key(
-                                        &jump_name,
-                                        &jump_host,
-                                        "ssh",
-                                        backend_type,
-                                    );
+                                let lookup_key = crate::vault_ops::generate_store_key(
+                                    &jump_name,
+                                    &jump_host,
+                                    "ssh",
+                                    backend_type,
+                                );
                                 // Must drop state borrow before blocking vault call
                                 drop(state_ref);
                                 if let Ok(Some(creds)) = crate::vault_ops::dispatch_vault_op(
                                     &secret_settings,
                                     &lookup_key,
                                     crate::vault_ops::VaultOp::Retrieve,
-                                ) {
-                                    if let Some(pw) = creds.expose_password() {
-                                        if !pw.is_empty() {
-                                            let pw_secret = SecretString::from(pw.to_string());
-                                            // Cache for future use
-                                            if let Ok(mut state_mut) = state.try_borrow_mut() {
-                                                state_mut.cache_credentials(
-                                                    jid,
-                                                    creds.username.as_deref().unwrap_or(""),
-                                                    pw,
-                                                    "",
-                                                );
-                                            }
-                                            first_hop_password = Some(pw_secret);
-                                        }
+                                ) && let Some(pw) = creds.expose_password()
+                                    && !pw.is_empty()
+                                {
+                                    let pw_secret = SecretString::from(pw.to_string());
+                                    // Cache for future use
+                                    if let Ok(mut state_mut) = state.try_borrow_mut() {
+                                        state_mut.cache_credentials(
+                                            jid,
+                                            creds.username.as_deref().unwrap_or(""),
+                                            pw,
+                                            "",
+                                        );
                                     }
+                                    first_hop_password = Some(pw_secret);
                                 }
                                 // Prepend manual proxy from first hop (saved before drop)
                                 if let Some(p) = manual_proxy {
@@ -327,7 +324,9 @@ fn build_ssh_command_args(
                                                 }
                                                 jump_hosts.push(hs);
                                                 cid = match &jc.protocol_config {
-                                                    rustconn_core::ProtocolConfig::Ssh(c) => c.jump_host_id,
+                                                    rustconn_core::ProtocolConfig::Ssh(c) => {
+                                                        c.jump_host_id
+                                                    }
                                                     _ => None,
                                                 };
                                             } else {
@@ -881,13 +880,13 @@ fn start_ssh_connection_internal(
         };
 
         // contents-changed: fires for most terminal output
-        let check_cc = check_and_inject.clone();
-        notebook.connect_contents_changed(session_id, move || check_cc());
+        let on_contents_changed = check_and_inject.clone();
+        notebook.connect_contents_changed(session_id, move || on_contents_changed());
 
         // cursor-moved: fires reliably for prompts using cursor positioning
         // escapes without a trailing newline (SSH password prompt, issue #194)
-        let check_cm = check_and_inject;
-        notebook.connect_cursor_moved(session_id, move || check_cm());
+        let on_cursor_moved = check_and_inject;
+        notebook.connect_cursor_moved(session_id, move || on_cursor_moved());
     }
 
     // --- SSH status detection: mark sidebar "connected" once terminal output appears ---
@@ -1233,11 +1232,11 @@ pub fn reconnect_ssh_in_place(
             })
         };
 
-        let check_cc = check_and_inject.clone();
-        notebook.connect_contents_changed(session_id, move || check_cc());
+        let on_contents_changed = check_and_inject.clone();
+        notebook.connect_contents_changed(session_id, move || on_contents_changed());
 
-        let check_cm = check_and_inject;
-        notebook.connect_cursor_moved(session_id, move || check_cm());
+        let on_cursor_moved = check_and_inject;
+        notebook.connect_cursor_moved(session_id, move || on_cursor_moved());
     }
 
     // SSH status detection

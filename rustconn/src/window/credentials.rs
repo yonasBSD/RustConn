@@ -656,11 +656,11 @@ impl MainWindow {
             let domain = creds
                 .domain
                 .clone()
-                .or_else(|| match state.try_borrow() {
-                    Ok(s) => s
-                        .get_connection(connection_id)
-                        .and_then(|c| c.domain.clone()),
-                    Err(_) => {
+                .or_else(|| {
+                    if let Ok(s) = state.try_borrow() {
+                        s.get_connection(connection_id)
+                            .and_then(|c| c.domain.clone())
+                    } else {
                         tracing::warn!(
                             "Cannot borrow state for domain lookup; \
                              NLA may fail if the connection requires DOMAIN\\user"
