@@ -9,6 +9,7 @@ use super::protocols::{
 };
 use crate::state::SharedAppState;
 use crate::utils::spawn_blocking_with_callback;
+use gtk4::glib;
 use gtk4::prelude::*;
 use rustconn_core::connection::check_port;
 use rustconn_core::connection::ssh_inheritance;
@@ -16,76 +17,26 @@ use secrecy::SecretString;
 use std::rc::Rc;
 use uuid::Uuid;
 
-/// Returns `true` if `text` ends with an SSH password prompt, in any of the
-/// supported UI languages.
+/// Returns `true` if the session's cursor line is an SSH password prompt, in any
+/// of the supported UI languages.
 ///
-/// Returns `false` for key-passphrase prompts: those require `key_passphrase`,
-/// not the account password. Shared by initial connect and in-place reconnect so
-/// multilingual auto-login behaves identically on both paths.
-fn detect_password_prompt(text: &str) -> bool {
-    let lower = text.to_lowercase();
-
-    // Reject passphrase prompts — these need key_passphrase, not the password.
-    let last_line = lower.lines().last().unwrap_or("").trim();
-    if last_line.contains("passphrase for key") || last_line.contains("passphrase for") {
-        return false;
-    }
-
-    lower.ends_with("password: ")
-        || lower.ends_with("password:")
-        || lower.contains("password: \n")
-        || lower.lines().last().is_some_and(|line| {
-            let l = line.trim().to_lowercase();
-            l.ends_with("password:")
-                || l.ends_with("password: ")
-                || l.contains("'s password:")
-                // German
-                || l.ends_with("passwort:")
-                || l.ends_with("passwort: ")
-                || l.ends_with("kennwort:")
-                || l.ends_with("kennwort: ")
-                // French
-                || l.ends_with("mot de passe:")
-                || l.ends_with("mot de passe :")
-                || l.ends_with("mot de passe : ")
-                // Spanish
-                || l.ends_with("contraseña:")
-                || l.ends_with("contraseña: ")
-                // Portuguese
-                || l.ends_with("senha:")
-                || l.ends_with("senha: ")
-                // Ukrainian / Belarusian
-                || l.ends_with("пароль:")
-                || l.ends_with("пароль: ")
-                // Polish
-                || l.ends_with("hasło:")
-                || l.ends_with("hasło: ")
-                // Czech/Slovak
-                || l.ends_with("heslo:")
-                || l.ends_with("heslo: ")
-                // Dutch
-                || l.ends_with("wachtwoord:")
-                || l.ends_with("wachtwoord: ")
-                // Swedish/Danish/Norwegian
-                || l.ends_with("lösenord:")
-                || l.ends_with("lösenord: ")
-                || l.ends_with("adgangskode:")
-                || l.ends_with("adgangskode: ")
-                // Chinese
-                || l.ends_with("密码:")
-                || l.ends_with("密码：")
-                || l.ends_with("密碼:")
-                || l.ends_with("密碼：")
-                // Japanese
-                || l.ends_with("パスワード:")
-                || l.ends_with("パスワード：")
-                // Korean
-                || l.ends_with("비밀번호:")
-                || l.ends_with("비밀번호：")
-                // Generic colon-terminated prompt (catch-all for PAM)
-                || l.ends_with("pass:")
-                || l.ends_with("pass: ")
-        })
+/// Network gear (OLT/router) emits the prompt in no-echo mode with cursor
+/// positioning escapes and no trailing `\n`, leaving ~20 blank rows below it — so
+/// `.lines().last()` of the full grid is empty and misses the prompt (issue #194).
+/// Instead we read the line under the cursor via
+/// [`TerminalNotebook::get_cursor_line_text`] (which falls back to the last
+/// non-empty grid line) and delegate matching to the GUI-free, testable
+/// `rustconn_core::connection::looks_like_password_prompt`.
+///
+/// Returns `false` for key-passphrase prompts (the core matcher already excludes
+/// `passphrase for key`) and when the session has no cursor line / no terminal,
+/// so the caller simply skips injection. Shared by initial connect and in-place
+/// reconnect so multilingual auto-login behaves identically on both paths.
+fn detect_password_prompt(notebook: &SharedNotebook, session_id: Uuid) -> bool {
+    notebook
+        .get_cursor_line_text(session_id)
+        .as_deref()
+        .is_some_and(rustconn_core::connection::looks_like_password_prompt)
 }
 
 /// Environment variable carrying the jump host (bastion) password to the
@@ -136,6 +87,119 @@ fn jump_host_askpass_script() -> Option<std::path::PathBuf> {
             Some(path)
         })
         .clone()
+}
+
+/// Resolves a connection's password honoring its [`PasswordSource`], for the
+/// bastion (first jump hop) in [`build_ssh_command_args`] (issue #191).
+///
+/// Mirrors the resolution paths of `AppState::resolve_credentials_blocking` but
+/// returns only the password — the bastion needs no username here (it is already
+/// encoded in the jump-host string). A `Variable`-source bastion is resolved via
+/// [`crate::vault_ops::load_variable_from_vault_with_path`]; any other source
+/// (`Vault`, etc.) falls back to the store-key + vault `Retrieve` path, which is
+/// identical to the original bastion lookup so the existing
+/// single-bastion-with-Vault behavior is preserved (no regression, Req 2.6).
+///
+/// Performs a blocking vault call (~100ms); the caller MUST NOT hold a `state`
+/// borrow across it. The secret never leaves as a plain `String` — intermediates
+/// are wrapped in [`zeroize::Zeroizing`] and the result is a [`SecretString`].
+///
+/// Returns `None` when no password is configured or resolution fails (logged
+/// without the secret); the caller then proceeds without an out-of-band bastion
+/// password.
+///
+/// [`PasswordSource`]: rustconn_core::models::PasswordSource
+fn resolve_connection_password_blocking(
+    conn: &rustconn_core::Connection,
+    secret_settings: &rustconn_core::config::SecretSettings,
+    global_variables: &[rustconn_core::Variable],
+) -> Option<SecretString> {
+    use rustconn_core::models::PasswordSource;
+
+    // Variable source: resolve via the vault backend honoring the variable's
+    // custom kdbx_entry_path / vault_entry_name (the path the narrow lookup
+    // missed, #191). Any other source (Vault, etc.) falls through to the
+    // store-key + vault `Retrieve` path below.
+    if let PasswordSource::Variable(var_name) = &conn.password_source {
+        let kdbx_entry_path = global_variables
+            .iter()
+            .find(|v| v.name == *var_name)
+            .and_then(|v| v.kdbx_entry_path.as_deref());
+        let vault_entry_name = global_variables
+            .iter()
+            .find(|v| v.name == *var_name)
+            .and_then(|v| v.vault_entry_name.as_deref());
+        return match crate::vault_ops::load_variable_from_vault_with_path(
+            secret_settings,
+            var_name,
+            kdbx_entry_path,
+            vault_entry_name,
+        ) {
+            Ok(Some(pw)) => {
+                let pw = zeroize::Zeroizing::new(pw);
+                if pw.is_empty() {
+                    None
+                } else {
+                    Some(SecretString::from(pw.as_str().to_string()))
+                }
+            }
+            Ok(None) => {
+                tracing::debug!(
+                    var_name = %var_name,
+                    "Bastion variable password not set on this device"
+                );
+                None
+            }
+            Err(e) => {
+                tracing::warn!(
+                    var_name = %var_name,
+                    error = %e,
+                    "Failed to resolve bastion variable password"
+                );
+                None
+            }
+        };
+    }
+
+    // Vault (and any other source): resolve via the store-key + vault
+    // `Retrieve` path — identical to the original bastion lookup, so the
+    // existing single-bastion-with-Vault behavior is preserved (Req 2.6).
+    let backend_type = crate::vault_ops::select_backend_for_load(secret_settings);
+    let lookup_key = crate::vault_ops::generate_store_key(
+        &conn.name,
+        &conn.host,
+        &conn.protocol_config.protocol_type().as_str().to_lowercase(),
+        backend_type,
+    );
+    match crate::vault_ops::dispatch_vault_op(
+        secret_settings,
+        &lookup_key,
+        crate::vault_ops::VaultOp::Retrieve,
+    ) {
+        Ok(Some(creds)) => creds.expose_password().and_then(|pw| {
+            if pw.is_empty() {
+                None
+            } else {
+                let pw = zeroize::Zeroizing::new(pw.to_string());
+                Some(SecretString::from(pw.as_str().to_string()))
+            }
+        }),
+        Ok(None) => {
+            tracing::debug!(
+                connection = %conn.name,
+                "No bastion password found in vault"
+            );
+            None
+        }
+        Err(e) => {
+            tracing::warn!(
+                connection = %conn.name,
+                error = %e,
+                "Bastion vault lookup failed"
+            );
+            None
+        }
+    }
 }
 
 /// Builds the SSH command pieces shared by initial connect and in-place
@@ -220,6 +284,14 @@ fn build_ssh_command_args(
         let mut visited = std::collections::HashSet::new();
         visited.insert(connection_id); // Avoid self-reference loop
 
+        // Track whether the first REFERENCE hop (the jump_host_id chain) has
+        // already had its own credentials resolved. We must NOT key this off
+        // `jump_hosts.is_empty()`: a string `proxy_jump` may already occupy
+        // `jump_hosts[0]`, which would make the heuristic think the first
+        // reference hop is not the first hop and skip its password/PKCS#11
+        // resolution entirely (issue #191, string+ref combo, Req 2.3).
+        let mut first_ref_hop_resolved = false;
+
         // Limit recursion depth to avoid infinite loops
         for _ in 0..10 {
             if let Some(jid) = current_id {
@@ -230,7 +302,9 @@ fn build_ssh_command_args(
 
                 if let Some(jump_conn) = state_ref.get_connection(jid) {
                     // The immediate hop is the one we ProxyCommand into.
-                    let is_first_hop = jump_hosts.is_empty();
+                    // First reference hop = the first iteration of this chain,
+                    // regardless of a pre-pushed string proxy_jump (Req 2.3).
+                    let is_first_hop = !first_ref_hop_resolved;
                     // Format: [user@]host[:port]
                     let mut host_str = jump_conn.host.clone();
                     if let Some(user) = &jump_conn.username {
@@ -247,6 +321,11 @@ fn build_ssh_command_args(
                     {
                         // Opt-in PKCS#11 for the first hop (token to reach the bastion)
                         if is_first_hop {
+                            // Mark the first reference hop as handled so later
+                            // iterations of this chain are treated as deeper
+                            // hops, independent of any string proxy in
+                            // jump_hosts[0] (Req 2.3).
+                            first_ref_hop_resolved = true;
                             first_hop_pkcs11 = jump_config
                                 .pkcs11_provider
                                 .clone()
@@ -260,39 +339,34 @@ fn build_ssh_command_args(
                                     !c.password.expose_secret().is_empty()
                                 })
                                 .map(|c| c.password.clone());
-                            // Fallback: resolve from vault if not cached (issue #191).
-                            // By this point the vault is already unlocked (target
-                            // credentials were resolved first), so this is fast (~100ms).
+                            // Fallback: resolve from vault/variable if not
+                            // cached (issue #191). By this point the vault is
+                            // already unlocked (target credentials were resolved
+                            // first), so this is fast (~100ms). Honor the
+                            // bastion's PasswordSource (Variable/Vault) via the
+                            // shared resolver so a Variable-source bastion
+                            // authenticates with ITS OWN password (Req 2.1).
                             if first_hop_password.is_none() {
                                 let secret_settings = state_ref.settings().secrets.clone();
-                                let jump_name = jump_conn.name.clone();
-                                let jump_host = jump_conn.host.clone();
+                                let global_variables =
+                                    state_ref.settings().global_variables.clone();
+                                let jump_conn_owned = jump_conn.clone();
                                 let next_jump_id = jump_config.jump_host_id;
                                 let manual_proxy = jump_config.proxy_jump.clone();
-                                let backend_type =
-                                    crate::vault_ops::select_backend_for_load(&secret_settings);
-                                let lookup_key = crate::vault_ops::generate_store_key(
-                                    &jump_name,
-                                    &jump_host,
-                                    "ssh",
-                                    backend_type,
-                                );
                                 // Must drop state borrow before blocking vault call
                                 drop(state_ref);
-                                if let Ok(Some(creds)) = crate::vault_ops::dispatch_vault_op(
+                                if let Some(pw_secret) = resolve_connection_password_blocking(
+                                    &jump_conn_owned,
                                     &secret_settings,
-                                    &lookup_key,
-                                    crate::vault_ops::VaultOp::Retrieve,
-                                ) && let Some(pw) = creds.expose_password()
-                                    && !pw.is_empty()
-                                {
-                                    let pw_secret = SecretString::from(pw.to_string());
-                                    // Cache for future use
+                                    &global_variables,
+                                ) {
+                                    // Cache for future fast-path use.
                                     if let Ok(mut state_mut) = state.try_borrow_mut() {
+                                        use secrecy::ExposeSecret;
                                         state_mut.cache_credentials(
                                             jid,
-                                            creds.username.as_deref().unwrap_or(""),
-                                            pw,
+                                            jump_conn_owned.username.as_deref().unwrap_or(""),
+                                            pw_secret.expose_secret(),
                                             "",
                                         );
                                     }
@@ -436,9 +510,7 @@ fn build_ssh_command_args(
             // and `exec VAR=val cmd` is not valid POSIX sh (the shell treats it
             // as a command path). `env VAR=val cmd` works in all shells.
             if let Some(ref script) = askpass_script {
-                proxy_parts.push("env".to_string());
-                proxy_parts.push(format!("SSH_ASKPASS={}", script.display()));
-                proxy_parts.push("SSH_ASKPASS_REQUIRE=force".to_string());
+                proxy_parts.extend(rustconn_core::ssh_tunnel::askpass_proxy_prefix(script));
                 jump_host_password = first_hop_password.clone();
             }
 
@@ -537,6 +609,45 @@ fn build_ssh_command_args(
     }
 
     (key, args, waypipe, jump_host_str, jump_host_password)
+}
+
+/// Returns `true` if the first reference jump hop may show an interactive
+/// password prompt in the VTE (any [`PasswordSource`] other than `None`).
+///
+/// A key/agent-only bastion (`PasswordSource::None`) authenticates
+/// non-interactively inside the `ProxyCommand`, so it never prompts in the
+/// terminal — the first VTE prompt is then the target's and target-password
+/// auto-fill is safe even with a jump host present. This narrows the issue #191
+/// suppression so the common key-auth-bastion + password-target case still
+/// auto-fills (instead of being suppressed alongside the leak-prone case).
+///
+/// Conservatively returns `true` when the first hop cannot be inspected — a
+/// string `proxy_jump`/`proxy_command` with no backing connection — so a bastion
+/// that might prompt keeps auto-fill suppressed. Returns `false` for non-SSH
+/// protocols (the guard's `has_jump_host` term already covers them).
+///
+/// [`PasswordSource`]: rustconn_core::models::PasswordSource
+fn bastion_may_prompt_for_password(
+    conn: &rustconn_core::Connection,
+    state: &SharedAppState,
+) -> bool {
+    use rustconn_core::models::PasswordSource;
+    let rustconn_core::ProtocolConfig::Ssh(ssh) = &conn.protocol_config else {
+        return false;
+    };
+    match ssh.jump_host_id {
+        // Reference hop: inspect its own password source.
+        Some(jid) => state
+            .try_borrow()
+            .ok()
+            .and_then(|s| {
+                s.get_connection(jid)
+                    .map(|c| c.password_source != PasswordSource::None)
+            })
+            .unwrap_or(true),
+        // String proxy_jump / proxy_command / inherited proxy: not inspectable.
+        None => true,
+    }
 }
 
 /// Creates a terminal tab and spawns the SSH process with the given configuration.
@@ -740,6 +851,12 @@ fn start_ssh_connection_internal(
     let (identity_file, extra_args, use_waypipe, jump_host_chain, jump_host_password) =
         build_ssh_command_args(conn, connection_id, state, &groups);
 
+    // The bastion is handled out-of-band exactly when an SSH_ASKPASS helper was
+    // wired into ProxyCommand, i.e. `jump_host_password.is_some()` (issue #191).
+    // Capture it as a bool now, before `jump_host_password` is consumed by the
+    // spawn env builder below, so the VTE auto-fill guard can read it.
+    let bastion_handled_out_of_band = jump_host_password.is_some();
+
     // Update last_connected timestamp
     if let Ok(mut state_mut) = state.try_borrow_mut()
         && let Err(e) = state_mut.update_last_connected(connection_id)
@@ -840,8 +957,20 @@ fn start_ssh_connection_internal(
     // We subscribe to BOTH `contents-changed` AND `cursor-moved` because
     // `contents-changed` alone does not fire reliably for SSH password prompts
     // output in no-echo mode with cursor positioning escapes (issue #194).
-    if let Some(vault_password) = cached_password.clone() {
+    //
+    // Guard (issue #191, Req 2.2/2.5): only ever inject the target password when
+    // there is no jump host at all, or the bastion was already authenticated
+    // out-of-band via SSH_ASKPASS, or the bastion uses key/agent auth and so
+    // never prompts in the VTE. Otherwise the VTE prompt we'd be answering is
+    // the bastion's, and injecting would leak the target password to it.
+    let allow_target_autofill = !has_jump_host
+        || bastion_handled_out_of_band
+        || !bastion_may_prompt_for_password(conn, state);
+    if allow_target_autofill && let Some(vault_password) = cached_password.clone() {
         let password_sent = std::rc::Rc::new(std::cell::Cell::new(false));
+        // Guards the deferred re-check so repeated signals don't pile up timers
+        // (issue #194). Scheduled at most once per session.
+        let recheck_scheduled = std::rc::Rc::new(std::cell::Cell::new(false));
 
         tracing::info!(
             protocol = "ssh",
@@ -849,9 +978,10 @@ fn start_ssh_connection_internal(
             "Vault password available; will auto-fill on prompt"
         );
 
-        // Shared closure logic extracted into an Rc to avoid duplicating
-        // the detection + injection code across two signal handlers.
-        let check_and_inject = {
+        // One detect+inject step (no scheduling), shared by the live signals and
+        // the deferred re-check. The one-shot `password_sent` guard is checked
+        // first, so it can never inject twice no matter who calls it.
+        let inject_once = {
             let notebook_clone = notebook.clone();
             let password_sent = password_sent.clone();
             let vault_password = vault_password.clone();
@@ -859,11 +989,7 @@ fn start_ssh_connection_internal(
                 if password_sent.get() {
                     return;
                 }
-                let Some(text) = notebook_clone.get_terminal_text(session_id) else {
-                    return;
-                };
-
-                if detect_password_prompt(&text) {
+                if detect_password_prompt(&notebook_clone, session_id) {
                     use secrecy::ExposeSecret;
                     // Wrap in Zeroizing so the plaintext password is wiped from memory
                     // immediately after it is handed to VTE, instead of lingering until GC.
@@ -879,6 +1005,31 @@ fn start_ssh_connection_internal(
             })
         };
 
+        // Shared closure logic extracted into an Rc to avoid duplicating
+        // the detection + injection code across two signal handlers.
+        let check_and_inject = {
+            let inject_once = inject_once.clone();
+            let password_sent = password_sent.clone();
+            let recheck_scheduled = recheck_scheduled.clone();
+            std::rc::Rc::new(move || {
+                inject_once();
+                // No match yet: the cursor-moved/contents-changed signal may have
+                // fired before the no-echo prompt glyphs were committed to the
+                // grid (issue #194 race). Schedule a single deferred re-check.
+                if !password_sent.get() && !recheck_scheduled.get() {
+                    recheck_scheduled.set(true);
+                    let inject_once = inject_once.clone();
+                    // 120ms: covers the gap between the signal firing and the
+                    // prompt glyphs actually landing in the VTE grid, without a
+                    // user-visible delay (M-DOCUMENTED-MAGIC).
+                    glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(120),
+                        move || inject_once(),
+                    );
+                }
+            })
+        };
+
         // contents-changed: fires for most terminal output
         let on_contents_changed = check_and_inject.clone();
         notebook.connect_contents_changed(session_id, move || on_contents_changed());
@@ -887,6 +1038,11 @@ fn start_ssh_connection_internal(
         // escapes without a trailing newline (SSH password prompt, issue #194)
         let on_cursor_moved = check_and_inject;
         notebook.connect_cursor_moved(session_id, move || on_cursor_moved());
+    } else if !allow_target_autofill && cached_password.is_some() {
+        tracing::info!(
+            protocol = "ssh",
+            "Jump host not handled out-of-band; target password auto-fill suppressed to avoid leaking to bastion"
+        );
     }
 
     // --- SSH status detection: mark sidebar "connected" once terminal output appears ---
@@ -1128,6 +1284,10 @@ pub fn reconnect_ssh_in_place(
     let (identity_file, extra_args, use_waypipe, jump_host_chain, jump_host_password) =
         build_ssh_command_args(&conn, connection_id, state, &groups);
 
+    // Bastion handled out-of-band when an SSH_ASKPASS helper was wired into
+    // ProxyCommand (issue #191). Capture before `jump_host_password` is consumed.
+    let bastion_handled_out_of_band = jump_host_password.is_some();
+
     // Re-wire child-exited handler for the new process
     MainWindow::setup_child_exited_handler(state, notebook, sidebar, session_id, connection_id);
 
@@ -1207,10 +1367,31 @@ pub fn reconnect_ssh_in_place(
     // VTE password injection (issue #194: also subscribe to cursor-moved)
     // NOTE: Passphrase prompts ("Enter passphrase for key") are explicitly
     // excluded to avoid sending the wrong secret when SSH auth is PublicKey.
-    if let Some(vault_password) = cached_password {
+    //
+    // Guard (issue #191, Req 2.2/2.5): inject the target password only when there
+    // is no jump host, the bastion was authenticated out-of-band via SSH_ASKPASS,
+    // or the bastion uses key/agent auth and never prompts in the VTE — otherwise
+    // we'd leak the target password to the bastion prompt.
+    let allow_target_autofill = !has_jump_host
+        || bastion_handled_out_of_band
+        || !bastion_may_prompt_for_password(&conn, state);
+    let have_cached_password = cached_password.is_some();
+    if allow_target_autofill && let Some(vault_password) = cached_password {
         let password_sent = std::rc::Rc::new(std::cell::Cell::new(false));
+        // Guards the deferred re-check so repeated signals don't pile up timers
+        // (issue #194). Scheduled at most once per session.
+        let recheck_scheduled = std::rc::Rc::new(std::cell::Cell::new(false));
 
-        let check_and_inject = {
+        tracing::info!(
+            protocol = "ssh",
+            host = %host,
+            "Vault password available; will auto-fill on prompt"
+        );
+
+        // One detect+inject step (no scheduling), shared by the live signals and
+        // the deferred re-check. The one-shot `password_sent` guard is checked
+        // first, so it can never inject twice no matter who calls it.
+        let inject_once = {
             let notebook_clone = notebook.clone();
             let password_sent = password_sent.clone();
             let vault_password = vault_password.clone();
@@ -1218,16 +1399,39 @@ pub fn reconnect_ssh_in_place(
                 if password_sent.get() {
                     return;
                 }
-                let Some(text) = notebook_clone.get_terminal_text(session_id) else {
-                    return;
-                };
-
-                if detect_password_prompt(&text) {
+                if detect_password_prompt(&notebook_clone, session_id) {
                     use secrecy::ExposeSecret;
                     let input =
                         zeroize::Zeroizing::new(format!("{}\n", vault_password.expose_secret()));
                     notebook_clone.send_text_to_session(session_id, &input);
                     password_sent.set(true);
+                    tracing::info!(
+                        protocol = "ssh",
+                        "Password prompt detected; credentials sent via VTE"
+                    );
+                }
+            })
+        };
+
+        let check_and_inject = {
+            let inject_once = inject_once.clone();
+            let password_sent = password_sent.clone();
+            let recheck_scheduled = recheck_scheduled.clone();
+            std::rc::Rc::new(move || {
+                inject_once();
+                // No match yet: the cursor-moved/contents-changed signal may have
+                // fired before the no-echo prompt glyphs were committed to the
+                // grid (issue #194 race). Schedule a single deferred re-check.
+                if !password_sent.get() && !recheck_scheduled.get() {
+                    recheck_scheduled.set(true);
+                    let inject_once = inject_once.clone();
+                    // 120ms: covers the gap between the signal firing and the
+                    // prompt glyphs actually landing in the VTE grid, without a
+                    // user-visible delay (M-DOCUMENTED-MAGIC).
+                    glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(120),
+                        move || inject_once(),
+                    );
                 }
             })
         };
@@ -1237,6 +1441,11 @@ pub fn reconnect_ssh_in_place(
 
         let on_cursor_moved = check_and_inject;
         notebook.connect_cursor_moved(session_id, move || on_cursor_moved());
+    } else if !allow_target_autofill && have_cached_password {
+        tracing::info!(
+            protocol = "ssh",
+            "Jump host not handled out-of-band; target password auto-fill suppressed to avoid leaking to bastion"
+        );
     }
 
     // SSH status detection

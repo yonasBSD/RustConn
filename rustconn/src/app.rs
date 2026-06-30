@@ -1058,6 +1058,19 @@ fn setup_app_actions(
     apply_keybindings(app, state);
 }
 
+/// Application actions whose single-`<Control>` accelerators collide with
+/// common terminal/readline chords and are suspended while a terminal or
+/// embedded viewer has focus (issue #197).
+const TERMINAL_CONFLICTING_ACTIONS: &[&str] = &[
+    "win.search",          // Ctrl+F
+    "win.command-palette", // Ctrl+P
+    "win.new-connection",  // Ctrl+N
+    "win.close-tab",       // Ctrl+W
+    "win.show-history",    // Ctrl+H
+    "win.move-to-group",   // Ctrl+M
+    "win.import",          // Ctrl+I
+];
+
 /// Applies keyboard shortcuts from settings, falling back to defaults.
 ///
 /// Reads the keybinding registry from `rustconn_core::default_keybindings()` and
@@ -1113,6 +1126,40 @@ pub fn set_passthrough(app: &adw::Application, state: &SharedAppState, enable: b
         }
     } else {
         apply_keybindings(app, state);
+    }
+}
+
+/// Suspends the single-`<Control>` accelerators that collide with the terminal.
+///
+/// Clears the application accelerators for every action in
+/// [`TERMINAL_CONFLICTING_ACTIONS`] so readline chords (Ctrl+F/P/N and
+/// relatives) reach the focused VTE terminal or embedded viewer instead of
+/// being intercepted by the application (issue #197).
+///
+/// This is stateless: it only removes the colliding accelerators. Restore them
+/// with [`restore_terminal_accels`] when focus leaves the terminal.
+pub fn suspend_terminal_accels(app: &adw::Application) {
+    for action in TERMINAL_CONFLICTING_ACTIONS {
+        app.set_accels_for_action(action, &[]);
+    }
+}
+
+/// Restores the terminal-conflicting accelerators from settings.
+///
+/// Re-applies the accelerators for only the actions in
+/// [`TERMINAL_CONFLICTING_ACTIONS`], resolving each from the live keybinding
+/// settings (mirroring [`apply_keybindings`]). Non-conflicting actions are left
+/// untouched. Called when focus leaves the terminal/viewer (issue #197).
+pub fn restore_terminal_accels(app: &adw::Application, state: &SharedAppState) {
+    let keybinding_settings = with_state(state, |s| s.settings().keybindings.clone());
+    let defaults = rustconn_core::default_keybindings();
+
+    for def in &defaults {
+        if TERMINAL_CONFLICTING_ACTIONS.contains(&def.action.as_str()) {
+            let accel_str = keybinding_settings.get_accel(def);
+            let accels: Vec<&str> = accel_str.split('|').collect();
+            app.set_accels_for_action(&def.action, &accels);
+        }
     }
 }
 

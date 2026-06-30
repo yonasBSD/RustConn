@@ -570,6 +570,15 @@ pub struct UiSettings {
     /// chrome looks taller than native Qt apps.
     #[serde(default)]
     pub compact_ui: bool,
+    /// Send single-Ctrl terminal control shortcuts (Ctrl+F/P/N/W/H/M/I) to the
+    /// focused terminal/viewer instead of the application accelerators.
+    ///
+    /// Default `true`: while the terminal or an embedded viewer has focus, the
+    /// colliding single-Ctrl accelerators are temporarily suspended so readline
+    /// chords reach the shell (issue #197). When `false`, accelerators stay active
+    /// (the old behavior).
+    #[serde(default = "default_true")]
+    pub terminal_passthrough_ctrl: bool,
 }
 
 impl UiSettings {
@@ -671,6 +680,7 @@ impl Default for UiSettings {
             show_protocol_filters: false,
             show_smart_folders: false,
             compact_ui: cfg!(target_os = "macos"),
+            terminal_passthrough_ctrl: true,
         }
     }
 }

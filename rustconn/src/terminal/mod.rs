@@ -126,6 +126,9 @@ pub struct TerminalNotebook {
     tab_group_manager: Rc<RefCell<TabGroupManager>>,
     /// Callback for reconnect button clicks (session_id, connection_id)
     on_reconnect: Rc<RefCell<Option<Box<dyn Fn(Uuid, Uuid)>>>>,
+    /// Callback fired when terminal focus changes (`true` = focus entered the
+    /// VTE, `false` = focus left). Drives focus-based accelerator suspend (#197).
+    on_terminal_focus: Rc<RefCell<Option<Box<dyn Fn(bool)>>>>,
     /// Sessions that already have a reconnect banner (prevents duplicates)
     reconnect_shown: Rc<RefCell<HashSet<Uuid>>>,
     /// Cluster terminal tracking: cluster_id → Vec<session_id>
@@ -241,6 +244,7 @@ impl TerminalNotebook {
             split_session_colors: Rc::new(RefCell::new(HashMap::new())),
             tab_group_manager: Rc::new(RefCell::new(TabGroupManager::new())),
             on_reconnect: Rc::new(RefCell::new(None)),
+            on_terminal_focus: Rc::new(RefCell::new(None)),
             reconnect_shown: Rc::new(RefCell::new(HashSet::new())),
             cluster_sessions: Rc::new(RefCell::new(HashMap::new())),
             session_to_cluster: Rc::new(RefCell::new(HashMap::new())),
@@ -523,6 +527,13 @@ impl TerminalNotebook {
         terminal.set_hexpand(true);
         terminal.set_vexpand(true);
 
+        // Focus-based accelerator suspend (#197): when the VTE gains focus,
+        // single-Ctrl chords (Ctrl+F/P/N…) must reach the shell instead of the
+        // app accelerators; restore them when focus leaves. The actual
+        // suspend/restore (and the `terminal_passthrough_ctrl` setting) is
+        // decided by the listener wired via `set_on_terminal_focus`.
+        self.attach_focus_passthrough(&terminal);
+
         // Build a VariableManager for substituting ${VAR} in Expect responses
         let var_manager = {
             let mut mgr = rustconn_core::variables::VariableManager::new();
@@ -685,6 +696,9 @@ impl TerminalNotebook {
 
         let vnc_widget = Rc::new(VncSessionWidget::new());
 
+        // #197: suspend single-Ctrl accelerators while the viewer has focus.
+        self.attach_focus_passthrough(vnc_widget.widget());
+
         let container = GtkBox::new(Orientation::Vertical, 0);
         container.set_hexpand(true);
         container.set_vexpand(true);
@@ -749,6 +763,9 @@ impl TerminalNotebook {
 
         let spice_widget = Rc::new(EmbeddedSpiceWidget::new());
 
+        // #197: suspend single-Ctrl accelerators while the viewer has focus.
+        self.attach_focus_passthrough(spice_widget.widget());
+
         let container = GtkBox::new(Orientation::Vertical, 0);
         container.set_hexpand(true);
         container.set_vexpand(true);
@@ -806,6 +823,9 @@ impl TerminalNotebook {
         widget: Rc<EmbeddedRdpWidget>,
     ) {
         self.remove_welcome_page();
+
+        // #197: suspend single-Ctrl accelerators while the viewer has focus.
+        self.attach_focus_passthrough(widget.widget());
 
         // Wrap in ToastOverlay for file DnD notifications
         let toast_overlay = libadwaita::ToastOverlay::new();
@@ -2543,6 +2563,18 @@ impl TerminalNotebook {
         })
     }
 
+    /// Returns the text of the line under the cursor, for password-prompt detection.
+    ///
+    /// Delegates to the session's VTE terminal: extracts the cursor's row via
+    /// `text_range_format`, falling back to the last non-empty grid line when the
+    /// cursor row is empty (e.g. prompt glyphs not yet committed). Returns `None`
+    /// only when the session has no terminal. Never panics. See issue #194.
+    #[must_use]
+    pub fn get_cursor_line_text(&self, session_id: Uuid) -> Option<String> {
+        let terminal = self.get_terminal(session_id)?;
+        cursor_line_text(&terminal)
+    }
+
     /// Applies terminal settings to all existing terminals
     pub fn apply_settings(&self, settings: &rustconn_core::config::TerminalSettings) {
         let terminals = self.terminals.borrow();
@@ -2783,6 +2815,44 @@ impl TerminalNotebook {
         *self.on_session_created.borrow_mut() = Some(Box::new(callback));
     }
 
+    /// Sets the callback invoked when terminal (VTE) focus changes.
+    ///
+    /// The callback receives `true` when focus enters the terminal and `false`
+    /// when it leaves. Wired from the window to suspend/restore the single-Ctrl
+    /// accelerators that collide with readline chords (issue #197).
+    pub fn set_on_terminal_focus<F>(&self, callback: F)
+    where
+        F: Fn(bool) + 'static,
+    {
+        *self.on_terminal_focus.borrow_mut() = Some(Box::new(callback));
+    }
+
+    /// Attaches a focus controller that drives the `on_terminal_focus` callback
+    /// (`true` on enter, `false` on leave).
+    ///
+    /// Used for the VTE terminal and the embedded RDP/VNC/SPICE viewers so the
+    /// single-Ctrl accelerators are suspended while any of them has focus,
+    /// keeping the behavior identical across protocols (issue #197).
+    /// `EventControllerFocus` reports focus for the widget and its descendants,
+    /// so attaching to the top-level viewer widget fires when any child gains
+    /// focus.
+    fn attach_focus_passthrough<W: IsA<gtk4::Widget>>(&self, widget: &W) {
+        let focus_ctrl = gtk4::EventControllerFocus::new();
+        let on_focus_enter = self.on_terminal_focus.clone();
+        focus_ctrl.connect_enter(move |_| {
+            if let Some(cb) = on_focus_enter.borrow().as_ref() {
+                cb(true);
+            }
+        });
+        let on_focus_leave = self.on_terminal_focus.clone();
+        focus_ctrl.connect_leave(move |_| {
+            if let Some(cb) = on_focus_leave.borrow().as_ref() {
+                cb(false);
+            }
+        });
+        widget.add_controller(focus_ctrl);
+    }
+
     /// Sets the callback invoked when session recording starts or stops.
     ///
     /// Receives the connection ID and the new recording state; used to
@@ -2961,4 +3031,38 @@ impl Default for TerminalNotebook {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Extracts the text of the line under the cursor of a VTE terminal.
+///
+/// Returns the cursor's row via `text_range_format`. When that row is empty
+/// (prompt glyphs not yet committed to the grid), falls back to the last
+/// non-empty line of the visible grid. Returns `None` when no non-empty text
+/// can be extracted. Never panics. Backs `TerminalNotebook::get_cursor_line_text`
+/// for cursor-position-based prompt detection (issue #194).
+fn cursor_line_text(terminal: &Terminal) -> Option<String> {
+    let col_count = terminal.column_count();
+    // `cursor_position()` returns `(column, row)` in visible-grid coordinates,
+    // matching the rows used by `text_range_format` in `get_terminal_text`.
+    let (_col, row) = terminal.cursor_position();
+    let (cursor_text, _len) =
+        terminal.text_range_format(vte4::Format::Text, row, 0, row, col_count);
+    if let Some(line) = cursor_text {
+        let line = line.to_string();
+        if !line.trim().is_empty() {
+            return Some(line);
+        }
+    }
+
+    // Fallback: last non-empty line of the visible grid.
+    let row_count = terminal.row_count();
+    let (grid_text, _len) =
+        terminal.text_range_format(vte4::Format::Text, 0, 0, row_count, col_count);
+    grid_text.and_then(|g| {
+        g.to_string()
+            .lines()
+            .rev()
+            .find(|l| !l.trim().is_empty())
+            .map(str::to_owned)
+    })
 }

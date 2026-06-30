@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.17.4
+Version:        0.17.5
 Release:        0
 Summary:        Modern connection manager for Linux (SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, Zero Trust)
 License:        GPL-3.0-or-later
@@ -259,6 +259,16 @@ done
 %{_datadir}/locale/*/LC_MESSAGES/rustconn.mo
 
 %changelog
+* Tue Jun 30 2026 Anton Isaiev <totoshko88@gmail.com> - 0.17.5-0
+- Fixed embedded RDP sessions aborting when resized — the reactivation handler now rebuilds a fresh decompressor for the negotiated compression type (RDP4/5/6/6.1), so compressed FastPath updates keep decoding after a Deactivation-Reactivation Sequence (#200)
+- Fixed RDP to GNOME Remote Desktop dead-ending — the protocol-incompatibility detector now matches the actual error wrapper and the IronRDP "invalid state" bug signature, so these servers transparently fall back to the external FreeRDP client (#199)
+- Fixed the native arm64 snap link step — the build now prepends the SDK arch-triplet lib dir to the rustc link search path so both halves of pango resolve from the SDK (#198)
+- Fixed Variable password auto-login on network equipment — detection now reads the line under the cursor and matches via a pure looks_like_password_prompt helper, with an idle re-check for the prompt-render race (#194)
+- Fixed jump host authenticating with its own Variable/Vault password, delivered out-of-band via SSH_ASKPASS so the target password never leaks to the bastion prompt (#191)
+- Added a "Send terminal control shortcuts to the session" setting so readline chords (Ctrl+F/P/N/W/H/M/I) reach the focused terminal or embedded RDP/VNC/SPICE viewer instead of the app accelerators (#197)
+- Added a native arm64 (aarch64) snap build alongside amd64
+- Changed: refreshed the gtk4-rs stack and other Cargo dependencies to their latest compatible patch releases; dropped the unused pathdiff
+
 * Fri Jun 27 2026 Anton Isaiev <totoshko88@gmail.com> - 0.17.4-0
 - Fixed RDP vault login sending the correct domain — when credentials came from the secret vault, the domain field was passed as an empty string instead of the configured value, causing NLA/CredSSP to reject DOMAIN\user logins with STATUS_LOGON_FAILURE; the vault path now falls back to the connection's saved domain (#188)
 - Fixed Variable password auto-login on network equipment — the password auto-fill relied solely on VTE's contents-changed signal, which does not fire reliably for SSH password prompts in no-echo mode with cursor-positioning escapes; detection now also subscribes to cursor-moved (#194)

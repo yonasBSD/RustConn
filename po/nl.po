@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-25 16:07+0300\n"
+"POT-Creation-Date: 2026-06-29 18:24+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Dutch\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Generated-By: Babel 2.10.3\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
-#: rustconn/src/app.rs:1226 rustconn/src/toast.rs:246
+#: rustconn/src/app.rs:1273 rustconn/src/toast.rs:246
 msgid "OK"
 msgstr "OK"
 
@@ -29,7 +29,7 @@ msgstr "OK"
 #: rustconn/src/dialogs/progress.rs:184 rustconn/src/dialogs/recording.rs:506
 #: rustconn/src/dialogs/recording.rs:576
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:172
-#: rustconn/src/dialogs/settings/mod.rs:514
+#: rustconn/src/dialogs/settings/mod.rs:517
 #: rustconn/src/dialogs/settings/terminal_tab.rs:745
 #: rustconn/src/dialogs/settings/terminal_tab.rs:795
 #: rustconn/src/dialogs/statistics.rs:84
@@ -42,7 +42,7 @@ msgstr "OK"
 #: rustconn/src/window/batch_edit.rs:62
 #: rustconn/src/window/connection_dialogs.rs:1024
 #: rustconn/src/window/edit_group.rs:1749
-#: rustconn/src/window/edit_group.rs:1797 rustconn/src/window/mod.rs:2530
+#: rustconn/src/window/edit_group.rs:1797 rustconn/src/window/mod.rs:2556
 #: rustconn/src/window/operations.rs:81 rustconn/src/window/operations.rs:414
 #: rustconn/src/window/operations.rs:582 rustconn/src/window/sessions.rs:325
 #: rustconn/src/window/workspaces.rs:197
@@ -91,7 +91,7 @@ msgstr "Instellingen"
 msgid "{} backend unavailable. Using fallback."
 msgstr "Backend {} niet beschikbaar. Terugvaloptie wordt gebruikt."
 
-#: rustconn/src/app.rs:1122
+#: rustconn/src/app.rs:1169
 msgid ""
 "Modern connection manager for Linux with a GTK4/Wayland-native interface. "
 "Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust "
@@ -102,35 +102,35 @@ msgstr ""
 "verbindingen vanuit één applicatie."
 
 #. Translators: Replace this with your name and language, e.g. "John Doe (German)"
-#: rustconn/src/app.rs:1158
+#: rustconn/src/app.rs:1205
 msgid "translator-credits"
 msgstr "RustConn-team (Nederlands)"
 
-#: rustconn/src/app.rs:1165
+#: rustconn/src/app.rs:1212
 msgid "User Guide"
 msgstr "Gebruikershandleiding"
 
-#: rustconn/src/app.rs:1169
+#: rustconn/src/app.rs:1216
 msgid "Installation"
 msgstr "Installatie"
 
-#: rustconn/src/app.rs:1173
+#: rustconn/src/app.rs:1220
 msgid "Releases"
 msgstr "Releases"
 
-#: rustconn/src/app.rs:1177
+#: rustconn/src/app.rs:1224
 msgid "Changelog"
 msgstr "Wijzigingslogboek"
 
-#: rustconn/src/app.rs:1187
+#: rustconn/src/app.rs:1234
 msgid "Special Thanks"
 msgstr "Speciale dank"
 
-#: rustconn/src/app.rs:1202
+#: rustconn/src/app.rs:1249
 msgid "Made in Ukraine"
 msgstr "Made in Ukraine"
 
-#: rustconn/src/app.rs:1203
+#: rustconn/src/app.rs:1250
 msgid "All contributors and supporters"
 msgstr "Alle bijdragers en ondersteuners"
 
@@ -182,7 +182,7 @@ msgstr "Clusterdetails"
 #: rustconn/src/dialogs/connection/advanced_tab.rs:844
 #: rustconn/src/dialogs/connection/general_tab.rs:81
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:99
-#: rustconn/src/dialogs/export.rs:381 rustconn/src/dialogs/settings/mod.rs:1436
+#: rustconn/src/dialogs/export.rs:381 rustconn/src/dialogs/settings/mod.rs:1443
 #: rustconn/src/dialogs/smart_folder.rs:119 rustconn/src/dialogs/snippet.rs:176
 #: rustconn/src/dialogs/template.rs:510
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:77
@@ -580,7 +580,7 @@ msgid "IP address to authorize in the SPA packet"
 msgstr "IP-adres dat in het SPA-pakket moet worden toegestaan"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:588
-#: rustconn/src/dialogs/settings/mod.rs:314
+#: rustconn/src/dialogs/settings/mod.rs:317
 msgid "Highlight Rules"
 msgstr "Markeringsregels"
 
@@ -589,13 +589,13 @@ msgid "Regex-based text highlighting for this connection"
 msgstr "Regex-gebaseerde tekstmarkering voor deze verbinding"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:603
-#: rustconn/src/dialogs/settings/mod.rs:329
+#: rustconn/src/dialogs/settings/mod.rs:332
 msgid "No highlight rules"
 msgstr "Geen markeringsregels"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:615
 #: rustconn/src/dialogs/connection/automation_tab.rs:139
-#: rustconn/src/dialogs/settings/mod.rs:319
+#: rustconn/src/dialogs/settings/mod.rs:322
 #: rustconn/src/window/edit_group.rs:1163
 msgid "Add Rule"
 msgstr "Regel toevoegen"
@@ -654,7 +654,7 @@ msgid "Rule name"
 msgstr "Regelnaam"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:853
-#: rustconn/src/dialogs/settings/mod.rs:1456
+#: rustconn/src/dialogs/settings/mod.rs:1463
 msgid "Pattern (regex)"
 msgstr "Patroon (regex)"
 
@@ -663,22 +663,22 @@ msgid "Regex pattern to match"
 msgstr "Regex-patroon voor overeenkomst"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:863
-#: rustconn/src/dialogs/settings/mod.rs:1400
-#: rustconn/src/dialogs/settings/mod.rs:1402
+#: rustconn/src/dialogs/settings/mod.rs:1407
+#: rustconn/src/dialogs/settings/mod.rs:1409
 msgid "Enable rule"
 msgstr "Regel inschakelen"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:870
 #: rustconn/src/dialogs/connection/dialog/rows.rs:284
 #: rustconn/src/dialogs/connection/dialog/rows.rs:286
-#: rustconn/src/dialogs/settings/mod.rs:1417
+#: rustconn/src/dialogs/settings/mod.rs:1424
 #: rustconn/src/window/edit_group.rs:1915
 #: rustconn/src/window/edit_group.rs:1917
 msgid "Delete rule"
 msgstr "Regel verwijderen"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:874
-#: rustconn/src/dialogs/settings/mod.rs:1421
+#: rustconn/src/dialogs/settings/mod.rs:1428
 msgid "Delete highlight rule"
 msgstr "Markeerregel verwijderen"
 
@@ -1469,7 +1469,7 @@ msgid "Timeout in milliseconds (0 = no timeout)"
 msgstr "Timeout in milliseconden (0 = geen timeout)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:446
-#: rustconn/src/dialogs/settings/ui_tab.rs:268
+#: rustconn/src/dialogs/settings/ui_tab.rs:281
 #: rustconn/src/window/edit_group.rs:2079
 msgid "Enabled"
 msgstr "Ingeschakeld"
@@ -1587,7 +1587,7 @@ msgstr "Zero Trust"
 #: rustconn/src/dialogs/connection/telnet.rs:36
 #: rustconn/src/dialogs/connection/vnc.rs:289
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:96
-#: rustconn/src/dialogs/settings/mod.rs:359
+#: rustconn/src/dialogs/settings/mod.rs:362
 #: rustconn/src/dialogs/template.rs:685
 #: rustconn/src/dialogs/tunnel_builder/step_connection.rs:86
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:83
@@ -1920,7 +1920,7 @@ msgid "Additional kubectl arguments"
 msgstr "Aanvullende kubectl-argumenten"
 
 #: rustconn/src/dialogs/connection/logging_tab.rs:59
-#: rustconn/src/dialogs/settings/mod.rs:280
+#: rustconn/src/dialogs/settings/mod.rs:283
 msgid "Session Logging"
 msgstr "Sessielogboek"
 
@@ -3238,7 +3238,7 @@ msgid "Choose key file"
 msgstr "Sleutelbestand kiezen"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:133
-#: rustconn/src/dialogs/settings/ui_tab.rs:40
+#: rustconn/src/dialogs/settings/ui_tab.rs:41
 msgid "Appearance"
 msgstr "Uiterlijk"
 
@@ -3919,7 +3919,7 @@ msgstr "Exporteren..."
 msgid "Preparing export..."
 msgstr "Export voorbereiden..."
 
-#: rustconn/src/dialogs/export.rs:487 rustconn/src/window/mod.rs:3133
+#: rustconn/src/dialogs/export.rs:487 rustconn/src/window/mod.rs:3159
 msgid "Export Complete"
 msgstr "Export voltooid"
 
@@ -4058,7 +4058,7 @@ msgstr ""
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:586
 #: rustconn/src/dialogs/widgets.rs:459 rustconn/src/terminal/tab_menu.rs:358
-#: rustconn/src/window/mod.rs:2531
+#: rustconn/src/window/mod.rs:2557
 msgid "Close"
 msgstr "Sluiten"
 
@@ -5254,126 +5254,126 @@ msgstr "Tijdstempels"
 msgid "Prepend [HH:MM:SS] to each line in session logs"
 msgstr "[HH:MM:SS] voor elke regel in sessielogboeken plaatsen"
 
-#: rustconn/src/dialogs/settings/mod.rs:281
+#: rustconn/src/dialogs/settings/mod.rs:284
 msgid "Configure session log persistence and content"
 msgstr "Sessielogboekopslag en -inhoud configureren"
 
-#: rustconn/src/dialogs/settings/mod.rs:288
+#: rustconn/src/dialogs/settings/mod.rs:291
 msgid "Directory"
 msgstr "Map"
 
-#: rustconn/src/dialogs/settings/mod.rs:294
+#: rustconn/src/dialogs/settings/mod.rs:297
 msgid "Retention"
 msgstr "Bewaring"
 
-#: rustconn/src/dialogs/settings/mod.rs:295
+#: rustconn/src/dialogs/settings/mod.rs:298
 msgid "Days to keep logs"
 msgstr "Dagen om logboeken te bewaren"
 
-#: rustconn/src/dialogs/settings/mod.rs:315
+#: rustconn/src/dialogs/settings/mod.rs:318
 msgid "Global regex-based text highlighting rules"
 msgstr "Globale op regex gebaseerde tekstmarkeringsregels"
 
-#: rustconn/src/dialogs/settings/mod.rs:387
+#: rustconn/src/dialogs/settings/mod.rs:390
 msgid "Backup & Restore"
 msgstr "Back-up en herstel"
 
-#: rustconn/src/dialogs/settings/mod.rs:388
+#: rustconn/src/dialogs/settings/mod.rs:391
 msgid "Export or import all settings as a ZIP archive"
 msgstr "Exporteer of importeer alle instellingen als ZIP-archief"
 
-#: rustconn/src/dialogs/settings/mod.rs:392
+#: rustconn/src/dialogs/settings/mod.rs:395
 msgid "Backup Settings…"
 msgstr "Instellingen back-uppen…"
 
-#: rustconn/src/dialogs/settings/mod.rs:393
+#: rustconn/src/dialogs/settings/mod.rs:396
 msgid "Save all configuration files to a ZIP archive"
 msgstr "Sla alle configuratiebestanden op in een ZIP-archief"
 
-#: rustconn/src/dialogs/settings/mod.rs:396
+#: rustconn/src/dialogs/settings/mod.rs:399
 msgid "Restore Settings…"
 msgstr "Instellingen herstellen…"
 
-#: rustconn/src/dialogs/settings/mod.rs:398
+#: rustconn/src/dialogs/settings/mod.rs:401
 msgid "Load configuration from a ZIP archive (restart required)"
 msgstr "Configuratie laden uit een ZIP-archief (herstart vereist)"
 
-#: rustconn/src/dialogs/settings/mod.rs:426
+#: rustconn/src/dialogs/settings/mod.rs:429
 msgid "Save Backup"
 msgstr "Back-up opslaan"
 
-#: rustconn/src/dialogs/settings/mod.rs:431
-#: rustconn/src/dialogs/settings/mod.rs:495
+#: rustconn/src/dialogs/settings/mod.rs:434
+#: rustconn/src/dialogs/settings/mod.rs:498
 msgid "ZIP archives"
 msgstr "ZIP-archieven"
 
-#: rustconn/src/dialogs/settings/mod.rs:444
+#: rustconn/src/dialogs/settings/mod.rs:447
 msgid "Backup saved ({} files)"
 msgstr "Back-up opgeslagen ({} bestanden)"
 
-#: rustconn/src/dialogs/settings/mod.rs:457
-#: rustconn/src/dialogs/settings/mod.rs:466
+#: rustconn/src/dialogs/settings/mod.rs:460
+#: rustconn/src/dialogs/settings/mod.rs:469
 msgid "Backup failed"
 msgstr "Back-up mislukt"
 
-#: rustconn/src/dialogs/settings/mod.rs:468
-#: rustconn/src/dialogs/settings/mod.rs:601
+#: rustconn/src/dialogs/settings/mod.rs:471
+#: rustconn/src/dialogs/settings/mod.rs:604
 msgid "Cannot access the configuration directory: {}"
 msgstr "Kan de configuratiemap niet openen: {}"
 
-#: rustconn/src/dialogs/settings/mod.rs:491
+#: rustconn/src/dialogs/settings/mod.rs:494
 msgid "Open Backup"
 msgstr "Back-up openen"
 
-#: rustconn/src/dialogs/settings/mod.rs:509
+#: rustconn/src/dialogs/settings/mod.rs:512
 msgid "Restore Settings?"
 msgstr "Instellingen herstellen?"
 
-#: rustconn/src/dialogs/settings/mod.rs:511
+#: rustconn/src/dialogs/settings/mod.rs:514
 msgid ""
 "This will overwrite current settings. A restart is required to apply changes."
 msgstr ""
 "Dit overschrijft de huidige instellingen. Een herstart is vereist om "
 "wijzigingen toe te passen."
 
-#: rustconn/src/dialogs/settings/mod.rs:515
+#: rustconn/src/dialogs/settings/mod.rs:518
 msgid "Restore"
 msgstr "Herstellen"
 
-#: rustconn/src/dialogs/settings/mod.rs:547
+#: rustconn/src/dialogs/settings/mod.rs:550
 msgid "Restored files but failed to reload settings. Please restart."
 msgstr ""
 "Bestanden hersteld maar instellingen konden niet opnieuw worden geladen. "
 "Herstart a.u.b."
 
-#: rustconn/src/dialogs/settings/mod.rs:562
+#: rustconn/src/dialogs/settings/mod.rs:565
 msgid "Settings restored"
 msgstr "Instellingen hersteld"
 
-#: rustconn/src/dialogs/settings/mod.rs:564
+#: rustconn/src/dialogs/settings/mod.rs:567
 msgid "Restored {} files. Restart RustConn to apply the restored settings."
 msgstr ""
 "{} bestanden hersteld. Herstart RustConn om de herstelde instellingen toe te "
 "passen."
 
-#: rustconn/src/dialogs/settings/mod.rs:568
+#: rustconn/src/dialogs/settings/mod.rs:571
 msgid "Restart later"
 msgstr "Later herstarten"
 
-#: rustconn/src/dialogs/settings/mod.rs:569
+#: rustconn/src/dialogs/settings/mod.rs:572
 msgid "Quit now"
 msgstr "Nu afsluiten"
 
-#: rustconn/src/dialogs/settings/mod.rs:590
-#: rustconn/src/dialogs/settings/mod.rs:599
+#: rustconn/src/dialogs/settings/mod.rs:593
+#: rustconn/src/dialogs/settings/mod.rs:602
 msgid "Restore failed"
 msgstr "Herstel mislukt"
 
-#: rustconn/src/dialogs/settings/mod.rs:910
+#: rustconn/src/dialogs/settings/mod.rs:914
 msgid "Failed to start"
 msgstr "Starten mislukt"
 
-#: rustconn/src/dialogs/settings/mod.rs:1383
+#: rustconn/src/dialogs/settings/mod.rs:1390
 msgid "Untitled rule"
 msgstr "Naamloze regel"
 
@@ -6116,8 +6116,8 @@ msgid "Colors"
 msgstr "Kleuren"
 
 #: rustconn/src/dialogs/settings/terminal_tab.rs:86
-#: rustconn/src/dialogs/settings/ui_tab.rs:71
-#: rustconn/src/dialogs/settings/ui_tab.rs:126
+#: rustconn/src/dialogs/settings/ui_tab.rs:72
+#: rustconn/src/dialogs/settings/ui_tab.rs:127
 msgid "Theme"
 msgstr "Thema"
 
@@ -6172,8 +6172,8 @@ msgstr "Aan"
 
 #: rustconn/src/dialogs/settings/terminal_tab.rs:278
 #: rustconn/src/dialogs/settings/terminal_tab.rs:315
-#: rustconn/src/dialogs/settings/ui_tab.rs:47
-#: rustconn/src/dialogs/settings/ui_tab.rs:88
+#: rustconn/src/dialogs/settings/ui_tab.rs:48
+#: rustconn/src/dialogs/settings/ui_tab.rs:89
 msgid "System"
 msgstr "Systeem"
 
@@ -6287,8 +6287,8 @@ msgstr ""
 "Escape-prefix verzenden in plaats van samengestelde tekens (voor vim/emacs)"
 
 #: rustconn/src/dialogs/settings/terminal_tab.rs:462
-#: rustconn/src/dialogs/settings/ui_tab.rs:213
-#: rustconn/src/dialogs/settings/ui_tab.rs:433 rustconn/src/tray.rs:225
+#: rustconn/src/dialogs/settings/ui_tab.rs:226
+#: rustconn/src/dialogs/settings/ui_tab.rs:450 rustconn/src/tray.rs:225
 #: rustconn/src/tray.rs:582 rustconn/src/window/ui.rs:240
 msgid "Local Shell"
 msgstr "Lokale shell"
@@ -6389,143 +6389,154 @@ msgstr "Helder cyaan"
 msgid "Bright White"
 msgstr "Helder wit"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:34
+#: rustconn/src/dialogs/settings/ui_tab.rs:35
 msgid "Interface"
 msgstr "Interface"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:48
-#: rustconn/src/dialogs/settings/ui_tab.rs:93
+#: rustconn/src/dialogs/settings/ui_tab.rs:49
+#: rustconn/src/dialogs/settings/ui_tab.rs:94
 msgid "Light"
 msgstr "Licht"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:49
-#: rustconn/src/dialogs/settings/ui_tab.rs:98
+#: rustconn/src/dialogs/settings/ui_tab.rs:50
+#: rustconn/src/dialogs/settings/ui_tab.rs:99
 msgid "Dark"
 msgstr "Donker"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:143
+#: rustconn/src/dialogs/settings/ui_tab.rs:144
 msgid "Language"
 msgstr "Taal"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:144
+#: rustconn/src/dialogs/settings/ui_tab.rs:145
 msgid "Restart required to apply"
 msgstr "Herstart vereist om toe te passen"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:152
+#: rustconn/src/dialogs/settings/ui_tab.rs:153
 msgid "Color tabs by protocol"
 msgstr "Tabbladen kleuren op protocol"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:154
+#: rustconn/src/dialogs/settings/ui_tab.rs:155
 msgid "Show colored indicator on tabs based on protocol type"
 msgstr "Gekleurde indicator op tabbladen tonen op basis van protocoltype"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:161
+#: rustconn/src/dialogs/settings/ui_tab.rs:162
 msgid "Show protocol filters"
 msgstr "Protocolfilters weergeven"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:162
+#: rustconn/src/dialogs/settings/ui_tab.rs:163
 msgid "Display protocol filter bar in sidebar"
 msgstr "Protocolfilterbalk in zijbalk weergeven"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:168
+#: rustconn/src/dialogs/settings/ui_tab.rs:169
 msgid "Sidebar width"
 msgstr "Zijbalkbreedte"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:169
+#: rustconn/src/dialogs/settings/ui_tab.rs:170
 msgid "Width of the connection sidebar in pixels"
 msgstr "Breedte van de verbindingszijbalk in pixels"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:178
+#: rustconn/src/dialogs/settings/ui_tab.rs:179
 msgid "Compact interface"
 msgstr "Compacte interface"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:180
+#: rustconn/src/dialogs/settings/ui_tab.rs:181
 msgid "Reduce header bar and tab bar height (useful on small screens and KDE)"
 msgstr ""
 "Hoogte van kopbalk en tabbalk verminderen (handig op kleine schermen en KDE)"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:192
+#: rustconn/src/dialogs/settings/ui_tab.rs:194
+#, fuzzy
+msgid "Send terminal control shortcuts to the session"
+msgstr "Terminalkleuren voor deze verbinding overschrijven"
+
+#: rustconn/src/dialogs/settings/ui_tab.rs:196
+msgid ""
+"While a terminal or remote viewer is focused, let Ctrl+F/P/N and similar "
+"chords reach the session instead of the app"
+msgstr ""
+
+#: rustconn/src/dialogs/settings/ui_tab.rs:205
 msgid "Window"
 msgstr "Venster"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:196
+#: rustconn/src/dialogs/settings/ui_tab.rs:209
 msgid "Remember size"
 msgstr "Grootte onthouden"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:197
+#: rustconn/src/dialogs/settings/ui_tab.rs:210
 msgid "Restore window geometry on startup"
 msgstr "Venstergeometrie herstellen bij het opstarten"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:205
+#: rustconn/src/dialogs/settings/ui_tab.rs:218
 msgid "Startup"
 msgstr "Opstarten"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:206
+#: rustconn/src/dialogs/settings/ui_tab.rs:219
 msgid "Action to perform when the application starts"
 msgstr "Actie bij het starten van de applicatie"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:212
-#: rustconn/src/dialogs/settings/ui_tab.rs:433
+#: rustconn/src/dialogs/settings/ui_tab.rs:225
+#: rustconn/src/dialogs/settings/ui_tab.rs:450
 msgid "Do nothing"
 msgstr "Niets doen"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:219
+#: rustconn/src/dialogs/settings/ui_tab.rs:232
 msgid "On startup"
 msgstr "Bij opstarten"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:220
+#: rustconn/src/dialogs/settings/ui_tab.rs:233
 msgid "Open session automatically"
 msgstr "Sessie automatisch openen"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:232
+#: rustconn/src/dialogs/settings/ui_tab.rs:245
 msgid "System Tray"
 msgstr "Systeemvak"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:233
+#: rustconn/src/dialogs/settings/ui_tab.rs:246
 msgid "Requires desktop environment with tray support"
 msgstr "Vereist een desktopomgeving met systeemvakondersteuning"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:238
+#: rustconn/src/dialogs/settings/ui_tab.rs:251
 msgid "Show icon"
 msgstr "Pictogram weergeven"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:239
+#: rustconn/src/dialogs/settings/ui_tab.rs:252
 msgid "Display icon in system tray"
 msgstr "Pictogram in systeemvak weergeven"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:244
+#: rustconn/src/dialogs/settings/ui_tab.rs:257
 msgid "Minimize to tray"
 msgstr "Minimaliseren naar systeemvak"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:245
+#: rustconn/src/dialogs/settings/ui_tab.rs:258
 msgid "Hide window instead of closing"
 msgstr "Venster verbergen in plaats van sluiten"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:262
+#: rustconn/src/dialogs/settings/ui_tab.rs:275
 msgid "Session Restore"
 msgstr "Sessieherstel"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:263
+#: rustconn/src/dialogs/settings/ui_tab.rs:276
 msgid "Restore previous connections on startup"
 msgstr "Vorige verbindingen herstellen bij het opstarten"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:269
+#: rustconn/src/dialogs/settings/ui_tab.rs:282
 msgid "Reconnect to previous sessions on startup"
 msgstr "Bij het opstarten opnieuw verbinden met vorige sessies"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:274
+#: rustconn/src/dialogs/settings/ui_tab.rs:287
 msgid "Ask first"
 msgstr "Eerst vragen"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:275
+#: rustconn/src/dialogs/settings/ui_tab.rs:288
 msgid "Prompt before restoring sessions"
 msgstr "Vragen voor het herstellen van sessies"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:280
+#: rustconn/src/dialogs/settings/ui_tab.rs:293
 msgid "Max age"
 msgstr "Max. leeftijd"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:281
+#: rustconn/src/dialogs/settings/ui_tab.rs:294
 msgid "Hours before sessions expire"
 msgstr "Uren voordat sessies verlopen"
 
@@ -8086,20 +8097,20 @@ msgid "Save files from remote clipboard"
 msgstr "Bestanden opslaan van extern klembord"
 
 #: rustconn/src/embedded_rdp/mod.rs:582 rustconn/src/embedded_spice.rs:281
-#: rustconn/src/embedded_vnc/ui.rs:102 rustconn/src/terminal/mod.rs:1778
+#: rustconn/src/embedded_vnc/ui.rs:102 rustconn/src/terminal/mod.rs:1798
 msgid "Session disconnected"
 msgstr "Sessie verbroken"
 
 #: rustconn/src/embedded_rdp/mod.rs:585 rustconn/src/embedded_spice.rs:284
 #: rustconn/src/embedded_trait.rs:234 rustconn/src/embedded_vnc/ui.rs:105
-#: rustconn/src/terminal/mod.rs:1294 rustconn/src/terminal/mod.rs:1383
-#: rustconn/src/terminal/mod.rs:1791
+#: rustconn/src/terminal/mod.rs:1314 rustconn/src/terminal/mod.rs:1403
+#: rustconn/src/terminal/mod.rs:1811
 msgid "Reconnect"
 msgstr "Opnieuw verbinden"
 
 #: rustconn/src/embedded_rdp/mod.rs:587 rustconn/src/embedded_spice.rs:286
-#: rustconn/src/embedded_vnc/ui.rs:107 rustconn/src/terminal/mod.rs:1296
-#: rustconn/src/terminal/mod.rs:1385 rustconn/src/terminal/mod.rs:1793
+#: rustconn/src/embedded_vnc/ui.rs:107 rustconn/src/terminal/mod.rs:1316
+#: rustconn/src/terminal/mod.rs:1405 rustconn/src/terminal/mod.rs:1813
 msgid "Reconnect to this session"
 msgstr "Opnieuw verbinden met deze sessie"
 
@@ -8822,55 +8833,55 @@ msgstr "Selecteer een tabblad om weer te geven"
 msgid "Execute Snippet…"
 msgstr "Fragment uitvoeren…"
 
-#: rustconn/src/terminal/mod.rs:207
+#: rustconn/src/terminal/mod.rs:210
 msgid "Tab Overview (Ctrl+Shift+O)"
 msgstr "Tabbladoverzicht (Ctrl+Shift+O)"
 
-#: rustconn/src/terminal/mod.rs:211
+#: rustconn/src/terminal/mod.rs:214
 msgid "Tab Overview"
 msgstr "Tabbladoverzicht"
 
-#: rustconn/src/terminal/mod.rs:223 rustconn/src/terminal/mod.rs:436
-#: rustconn/src/terminal/mod.rs:467
+#: rustconn/src/terminal/mod.rs:226 rustconn/src/terminal/mod.rs:440
+#: rustconn/src/terminal/mod.rs:471
 msgid "Welcome"
 msgstr "Welkom"
 
-#: rustconn/src/terminal/mod.rs:1258 rustconn/src/terminal/mod.rs:1379
+#: rustconn/src/terminal/mod.rs:1278 rustconn/src/terminal/mod.rs:1399
 msgid "Command not found: {}"
 msgstr "Opdracht niet gevonden: {}"
 
-#: rustconn/src/terminal/mod.rs:1260
+#: rustconn/src/terminal/mod.rs:1280
 msgid "Failed to start '{}'"
 msgstr "Kan “{}” niet starten"
 
-#: rustconn/src/terminal/mod.rs:1313 rustconn/src/terminal/mod.rs:1401
+#: rustconn/src/terminal/mod.rs:1333 rustconn/src/terminal/mod.rs:1421
 msgid "'{}' is not installed"
 msgstr "“{}” is niet geïnstalleerd"
 
-#: rustconn/src/terminal/mod.rs:1315
+#: rustconn/src/terminal/mod.rs:1335
 msgid "Failed to start '{}': {}"
 msgstr "Kan “{}” niet starten: {}"
 
-#: rustconn/src/terminal/mod.rs:1785 rustconn/src/terminal/mod.rs:1850
+#: rustconn/src/terminal/mod.rs:1805 rustconn/src/terminal/mod.rs:1870
 msgid "Auto-reconnecting…"
 msgstr "Automatisch opnieuw verbinden…"
 
-#: rustconn/src/terminal/mod.rs:1900 rustconn/src/terminal/mod.rs:1910
+#: rustconn/src/terminal/mod.rs:1920 rustconn/src/terminal/mod.rs:1930
 msgid "Auto-reconnecting (attempt {}/{})"
 msgstr "Automatisch opnieuw verbinden (poging {}/{})"
 
-#: rustconn/src/terminal/mod.rs:2355
+#: rustconn/src/terminal/mod.rs:2375
 msgid "Displayed in Split View"
 msgstr "Weergegeven in gesplitste weergave"
 
-#: rustconn/src/terminal/mod.rs:2356
+#: rustconn/src/terminal/mod.rs:2376
 msgid "This session is shown in another tab's split layout"
 msgstr ""
 "Deze sessie wordt weergegeven in de gesplitste indeling van een ander "
 "tabbladDeze sessie wordt weergegeven in de gesplitste indeling van een ander "
 "tabblad"
 
-#: rustconn/src/terminal/mod.rs:2361
+#: rustconn/src/terminal/mod.rs:2381
 msgid "Go to Split View"
 msgstr "Ga naar gesplitste weergave"
 
@@ -9307,7 +9318,7 @@ msgstr ""
 "Kluisvermelding niet gevonden voor '{}'. U wordt om een wachtwoord gevraagd."
 
 #: rustconn/src/window/credentials.rs:614
-#: rustconn/src/window/credentials.rs:807
+#: rustconn/src/window/credentials.rs:829
 #: rustconn/src/window/edit_actions.rs:1120
 msgid "Connection failed. Host unreachable."
 msgstr "Verbinding mislukt. Host onbereikbaar."
@@ -9728,56 +9739,56 @@ msgstr "(Ongegroepeerd)"
 msgid "Error Moving Item"
 msgstr "Fout bij het verplaatsen van item"
 
-#: rustconn/src/window/mod.rs:480
+#: rustconn/src/window/mod.rs:506
 msgid "Dismiss"
 msgstr "Negeren"
 
-#: rustconn/src/window/mod.rs:1450
+#: rustconn/src/window/mod.rs:1476
 msgid "Connection to \\u{2018}{}\\u{2019} failed"
 msgstr "Verbinding met \\u{2018}{}\\u{2019} mislukt"
 
-#: rustconn/src/window/mod.rs:1639 rustconn/src/window/mod.rs:1653
+#: rustconn/src/window/mod.rs:1665 rustconn/src/window/mod.rs:1679
 msgid "Pre-connect task failed: {}"
 msgstr "Taak vóór verbinding mislukt: {}"
 
-#: rustconn/src/window/mod.rs:1687
+#: rustconn/src/window/mod.rs:1713
 msgid "Port knock failed: {}"
 msgstr "Port knock mislukt: {}"
 
-#: rustconn/src/window/mod.rs:1736
+#: rustconn/src/window/mod.rs:1762
 msgid "SPA failed: {}"
 msgstr "SPA mislukt: {}"
 
-#: rustconn/src/window/mod.rs:1921 rustconn/src/window/mod.rs:2096
+#: rustconn/src/window/mod.rs:1947 rustconn/src/window/mod.rs:2122
 msgid "Connection \\u{201c}{}\\u{201d} created"
 msgstr "Verbinding \\u{201c}{}\\u{201d} aangemaakt"
 
-#: rustconn/src/window/mod.rs:2524
+#: rustconn/src/window/mod.rs:2550
 msgid "Close RustConn?"
 msgstr "RustConn sluiten?"
 
-#: rustconn/src/window/mod.rs:2526
+#: rustconn/src/window/mod.rs:2552
 msgid "{} session tab(s) are open. Active connections will be disconnected."
 msgstr ""
 "{} sessietabblad(en) zijn geopend. Actieve verbindingen worden verbroken."
 
-#: rustconn/src/window/mod.rs:2553
+#: rustconn/src/window/mod.rs:2579
 msgid "Cloud sync failed for '{}': {}"
 msgstr "Cloudsynchronisatie mislukt voor ‘{}’: {}"
 
-#: rustconn/src/window/mod.rs:2679
+#: rustconn/src/window/mod.rs:2705
 msgid "Startup connection not found"
 msgstr "Opstartverbinding niet gevonden"
 
-#: rustconn/src/window/mod.rs:2715
+#: rustconn/src/window/mod.rs:2741
 msgid "Failed to open .rdp file"
 msgstr "Kan .rdp-bestand niet openen"
 
-#: rustconn/src/window/mod.rs:2751
+#: rustconn/src/window/mod.rs:2777
 msgid "Failed to open .vv file"
 msgstr "Kan .vv-bestand niet openen"
 
-#: rustconn/src/window/mod.rs:3135
+#: rustconn/src/window/mod.rs:3161
 msgid "Successfully exported {} connection(s). {} skipped."
 msgstr "{} verbinding(en) succesvol geëxporteerd. {} overgeslagen."
 
@@ -9960,19 +9971,19 @@ msgstr "{} item(s) verplaatst."
 msgid "Failed to move {} item(s):"
 msgstr "Kan {} item(s) niet verplaatsen:"
 
-#: rustconn/src/window/protocols.rs:1401
+#: rustconn/src/window/protocols.rs:1416
 msgid "Install picocom for Serial connections"
 msgstr "Installeer picocom voor seriële verbindingen"
 
-#: rustconn/src/window/protocols.rs:1564
+#: rustconn/src/window/protocols.rs:1579
 msgid "Install kubectl for Kubernetes connections"
 msgstr "Installeer kubectl voor Kubernetes-verbindingen"
 
-#: rustconn/src/window/protocols.rs:1582
+#: rustconn/src/window/protocols.rs:1597
 msgid "Configure pod and container for Kubernetes"
 msgstr "Configureer pod en container voor Kubernetes"
 
-#: rustconn/src/window/protocols.rs:1826
+#: rustconn/src/window/protocols.rs:1841
 msgid "Install mosh for MOSH connections"
 msgstr "Installeer mosh voor MOSH-verbindingen"
 

@@ -83,16 +83,26 @@ graph TD
 
     Release --> UpdateOBS[Update OBS Package]
     Release --> Brew[Update Homebrew Tap]
-    Release --> BuildSnap[Build & Publish Snap]
-    BuildSnap --> |LXD + snapcraft| SnapStore[Snap Store candidate]
-    BuildSnap --> |best-effort attach| SnapAsset[.snap on GitHub Release]
+    Release --> SnapAmd64[Build Snap amd64]
+    Release --> SnapArm64[Build Snap arm64]
+    SnapAmd64 --> |LXD + snapcraft| SnapStore[Snap Store candidate]
+    SnapArm64 --> |LXD + snapcraft, native arm runner| SnapStore
+    SnapAmd64 --> |best-effort attach| SnapAsset[.snap files on GitHub Release]
+    SnapArm64 --> |best-effort attach| SnapAsset
 ```
 
 > **Snap runs *after* the release** (like `update-obs` / `update-homebrew`).
 > snapcraft + LXD are slow and occasionally flaky, so the GitHub Release must
 > not be gated on it. The release is created from `.deb`/`.rpm`/`.AppImage`/`.flatpak`
-> first; the `.snap` is then built, published to the store, and attached to the
-> existing release on a best-effort basis.
+> first; the `.snap` files are then built, published to the store, and attached
+> to the existing release on a best-effort basis.
+>
+> **Dual-architecture:** `build-snap` is a `fail-fast: false` matrix of
+> `ubuntu-24.04` (amd64) and `ubuntu-24.04-arm` (arm64). Both arches build in
+> parallel on native runners (no QEMU emulation) and publish to `candidate`.
+> Because the publish/attach steps are `continue-on-error`, a failure of
+> *either* architecture does not gate the release or block the other arch.
+> arm64 is best-effort.
 
 ### Build Jobs
 
@@ -101,7 +111,7 @@ graph TD
 | `build-deb` | ubuntu-24.04 | `rustconn_X.Y.Z_amd64.deb` |
 | `build-rpm` | fedora:44 container | `rustconn-X.Y.Z-1.fc44.x86_64.rpm` |
 | `build-appimage` | ubuntu-24.04 + linuxdeploy | `RustConn-X.Y.Z-x86_64.AppImage` |
-| `build-snap` | ubuntu-latest + LXD + snapcraft | `rustconn_X.Y.Z_amd64.snap` |
+| `build-snap` | matrix: ubuntu-24.04 (amd64) + ubuntu-24.04-arm (arm64), each with LXD + snapcraft | `rustconn_X.Y.Z_amd64.snap` + `rustconn_X.Y.Z_arm64.snap` |
 | `build-flatpak` | GNOME 50 Flatpak container | `RustConn-X.Y.Z.flatpak` |
 
 ### Snap Store Channels
@@ -111,7 +121,7 @@ Two publishers feed the Snap Store, each owning its own channel:
 | Channel | Source | Contents |
 |---------|--------|----------|
 | `edge` | snapcraft.io Builds (Launchpad), triggered by every push to `main` | Rolling builds of `main` HEAD |
-| `candidate` | `release.yml` `build-snap` job, triggered by version tags | Exact released code, CI provenance |
+| `candidate` | `release.yml` `build-snap` job, triggered by version tags | Exact released code, CI provenance — both `amd64` and `arm64` revisions are uploaded |
 | `stable` | Manual promote of a tested `candidate` revision | What `snap install rustconn` delivers |
 
 Promote with `snapcraft release rustconn <revision> latest/stable` (or
@@ -281,7 +291,7 @@ These workflows are triggered only via `workflow_dispatch` for manual testing:
 | Workflow | Purpose |
 |----------|---------|
 | `flatpak.yml` | Test Flatpak build without creating a release |
-| `snap.yml` | Test Snap build without publishing |
+| `snap.yml` | Test Snap build without publishing (dual-arch matrix: amd64 + arm64) |
 
 ## CLI Version Check (`check-cli-versions.yml`)
 

@@ -1,3 +1,31 @@
+rustconn (0.17.5-1) unstable; urgency=medium
+
+  * Fixed embedded RDP sessions aborting when resized — the reactivation
+    handler now rebuilds a fresh decompressor for the negotiated compression
+    type (RDP4/5/6/6.1), so compressed FastPath updates keep decoding after a
+    Deactivation-Reactivation Sequence (#200)
+  * Fixed RDP to GNOME Remote Desktop dead-ending — the protocol-
+    incompatibility detector now matches the actual error wrapper and the
+    IronRDP "invalid state" bug signature, so these servers transparently fall
+    back to the external FreeRDP client (#199)
+  * Fixed the native arm64 snap link step — the build now prepends the SDK
+    arch-triplet lib dir to the rustc link search path so both halves of pango
+    resolve from the SDK (#198)
+  * Fixed Variable password auto-login on network equipment — detection now
+    reads the line under the cursor and matches via a pure looks_like_password_
+    prompt helper, with an idle re-check for the prompt-render race (#194)
+  * Fixed jump host authenticating with its own Variable/Vault password,
+    delivered out-of-band via SSH_ASKPASS so the target password never leaks to
+    the bastion prompt (#191)
+  * Added a "Send terminal control shortcuts to the session" setting so
+    readline chords (Ctrl+F/P/N/W/H/M/I) reach the focused terminal or embedded
+    RDP/VNC/SPICE viewer instead of the app accelerators (#197)
+  * Added a native arm64 (aarch64) snap build alongside amd64
+  * Changed: refreshed the gtk4-rs stack and other Cargo dependencies to their
+    latest compatible patch releases; dropped the unused pathdiff
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Tue, 30 Jun 2026 00:00:00 +0000
+
 rustconn (0.17.4-1) unstable; urgency=medium
 
   * Fixed RDP vault login sending the correct domain — when credentials came

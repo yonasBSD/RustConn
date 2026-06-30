@@ -326,6 +326,33 @@ impl MainWindow {
             });
         }
 
+        // Focus-based accelerator suspend (#197): when the VTE gains focus,
+        // suspend the single-Ctrl accelerators that collide with readline
+        // chords; restore them from settings when focus leaves. Honors the
+        // `terminal_passthrough_ctrl` setting live (off → leave accels as-is,
+        // composing with the global passthrough). A weak `app` ref avoids a
+        // reference cycle (the application owns the window).
+        {
+            let state_for_focus = state.clone();
+            let app_weak = app.downgrade();
+            terminal_notebook.set_on_terminal_focus(move |focused| {
+                let passthrough = with_state(&state_for_focus, |s| {
+                    s.settings().ui.terminal_passthrough_ctrl
+                });
+                if !passthrough {
+                    return;
+                }
+                let Some(app) = app_weak.upgrade() else {
+                    return;
+                };
+                if focused {
+                    crate::app::suspend_terminal_accels(&app);
+                } else {
+                    crate::app::restore_terminal_accels(&app, &state_for_focus);
+                }
+            });
+        }
+
         // Set up reconnect callback for VTE sessions
         // When user clicks "Reconnect" in a disconnected tab, reuse the
         // existing terminal tab instead of closing and creating a new one.

@@ -641,6 +641,32 @@ pub fn build_nested_proxy_command(
     parts.join(" ")
 }
 
+/// Builds the `env`-assignment prefix for a bastion's `SSH_ASKPASS` helper.
+///
+/// Scopes the helper to a single nested bastion `ProxyCommand` (issue #191 —
+/// the bastion authenticates with its OWN password out-of-band, never via the
+/// target's VTE prompt).
+///
+/// OpenSSH ≥10 prepends `exec` to a `ProxyCommand`, and `exec VAR=val cmd` is
+/// not valid POSIX `sh` (the shell treats `VAR=val` as a command path), so the
+/// assignments ride on the `env` command (`env VAR=val cmd`), which works in
+/// every shell. `SSH_ASKPASS_REQUIRE=force` makes OpenSSH call the helper even
+/// without a controlling TTY.
+///
+/// Returns the prefix tokens (`["env", "SSH_ASKPASS=<script>",
+/// "SSH_ASKPASS_REQUIRE=force"]`) to prepend to the bastion `ssh -W %h:%p`
+/// invocation. The password VALUE itself is delivered through a separate
+/// out-of-band environment variable read by the helper script; it never appears
+/// on the command line.
+#[must_use]
+pub fn askpass_proxy_prefix(askpass_script: &std::path::Path) -> Vec<String> {
+    vec![
+        "env".to_string(),
+        format!("SSH_ASKPASS={}", askpass_script.display()),
+        "SSH_ASKPASS_REQUIRE=force".to_string(),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -791,5 +817,56 @@ mod tests {
     fn test_proxy_jump_arg_trims_and_drops_empty() {
         assert_eq!(proxy_jump_arg(" a , , b "), "b,a");
         assert_eq!(proxy_jump_arg(""), "");
+    }
+
+    #[test]
+    fn test_askpass_proxy_prefix_shape() {
+        // Issue #191: the env-assignment prefix carries the askpass wiring, not
+        // the password. Lock in the exact tokens and order OpenSSH needs.
+        let prefix = askpass_proxy_prefix(std::path::Path::new(
+            "/run/user/1000/rustconn-jh-askpass.sh",
+        ));
+        assert_eq!(
+            prefix,
+            vec![
+                "env".to_string(),
+                "SSH_ASKPASS=/run/user/1000/rustconn-jh-askpass.sh".to_string(),
+                "SSH_ASKPASS_REQUIRE=force".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_variable_bastion_proxy_command_uses_askpass() {
+        // Issue #191, Req 2.1/2.3: a bastion whose password comes from a Variable
+        // (or Vault) source is authenticated OUT-OF-BAND. The assembled first-hop
+        // ProxyCommand is prefixed with `env SSH_ASKPASS=... SSH_ASKPASS_REQUIRE=
+        // force` and reaches the bastion via `ssh -W %h:%p`, so the target's
+        // password is never fed to the bastion prompt. This mirrors the
+        // assembly in `protocols_ssh.rs::build_ssh_command_args`.
+        let script = std::path::Path::new("/run/user/1000/rustconn-jh-askpass.sh");
+        let mut proxy_parts = askpass_proxy_prefix(script);
+        proxy_parts.push("ssh".to_string());
+        proxy_parts.push("-W".to_string());
+        proxy_parts.push("%h:%p".to_string());
+        append_proxy_command_destination(&mut proxy_parts, "admin@bastion.example.com:2222");
+        let proxy_cmd = proxy_parts.join(" ");
+
+        assert_eq!(
+            proxy_cmd,
+            "env SSH_ASKPASS=/run/user/1000/rustconn-jh-askpass.sh \
+             SSH_ASKPASS_REQUIRE=force ssh -W %h:%p -p 2222 admin@bastion.example.com"
+        );
+        // The askpass prefix must precede the `ssh` invocation it scopes.
+        let askpass_pos = proxy_cmd
+            .find("SSH_ASKPASS=")
+            .expect("ProxyCommand must carry SSH_ASKPASS");
+        let ssh_pos = proxy_cmd
+            .find("ssh -W")
+            .expect("ProxyCommand must run ssh -W");
+        assert!(
+            askpass_pos < ssh_pos,
+            "askpass env prefix must come before `ssh -W`"
+        );
     }
 }

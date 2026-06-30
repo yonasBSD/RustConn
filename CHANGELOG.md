@@ -5,6 +5,27 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.17.5] - 2026-06-30
+
+### Fixed
+
+- **RDP session aborts when resized** ([#200](https://github.com/totoshko88/RustConn/issues/200)) — resizing an embedded IronRDP session (e.g. toggling the sidebar with F9) triggers a Deactivation-Reactivation Sequence; the reactivation handler rebuilt the FastPath processor with `bulk_decompressor: None`, but the server keeps bulk compression enabled across the resize. The next compressed FastPath update then logged `Received compressed FastPath data but no decompressor is configured` and the undecodable payload aborted the session with `Protocol error: Session error: [Fast-Path …] custom error`, dropping the connection. The handler now rebuilds a fresh decompressor for the negotiated compression type (RDP4/5/6/6.1) — mirroring `ActiveStage::new` — so compressed updates keep decoding after a resize
+- **RDP to GNOME Remote Desktop falls back to FreeRDP instead of dead-ending** ([#199](https://github.com/totoshko88/RustConn/issues/199)) — connecting to a GNOME Remote Desktop (grd) server completed NLA/CredSSP, then IronRDP's connector tripped its own state machine in the capabilities/finalization phase and returned `general_err!("invalid state (this is a bug)")`, surfaced as `Connection finalize failed: … general error`. The in-session error handler's protocol-incompatibility detector only matched the literal `connect_finalize` (which never appears in the message — core wraps it as "Connection finalize failed" and IronRDP renders "invalid state (this is a bug)"), so no FreeRDP fallback fired and the user saw a hard failure even though Remmina/FreeRDP connects fine. The detector now matches the actual wrapper prefix and the upstream bug signature, so these servers transparently fall back to the external FreeRDP client
+- **arm64 snap build links against a single pango** ([#198](https://github.com/totoshko88/RustConn/issues/198)) — the native arm64 snap leg failed at the link step with `undefined reference to pango_font_description_{get,set}_features` because ld mixed noble's `libpango-1.0` (from `/usr/lib`) with the gnome-46-2404 SDK's newer `libpangoft2-1.0`. The `snap/snapcraft.yaml` build now prepends the SDK arch-triplet lib dir to the rustc link search path (`RUSTFLAGS -L native=…`), so both halves of pango resolve from the SDK — the same copy used at runtime. amd64 already aligned, so this is a no-op there
+- **Variable password auto-login on network equipment** ([#194](https://github.com/totoshko88/RustConn/issues/194)) — the 0.17.4 fix subscribed to VTE `cursor-moved` but still read `.lines().last()` of the full grid, which is empty when the prompt sits above ~20 blank rows (no-echo prompts on OLT/router gear). Detection now reads the line under the cursor (`get_cursor_line_text`, cursor position + `text_range_format`, falling back to the last non-empty grid line) and delegates matching to a pure, testable `looks_like_password_prompt` in `rustconn-core`. An idle re-check (~120 ms, scheduled at most once) covers the race where the signal fires before the prompt glyphs land in the grid. The one-shot injection guard is preserved
+- **Jump host authenticates with its own Variable/Vault password** ([#191](https://github.com/totoshko88/RustConn/issues/191)) — the 0.17.2 fix resolved the bastion password only from the vault store key, missing a bastion whose password comes from a Variable source, and skipped the first reference hop entirely when a string `proxy_jump` was also present. The bastion password now resolves via the same `PasswordSource`-aware path as the target (Variable/Vault/cache) and is delivered out-of-band via `SSH_ASKPASS` on the ProxyCommand. A guard ensures the target password is injected into the VTE prompt only when there is no jump host or the bastion was handled out-of-band, so the target password can never leak to the bastion prompt
+
+### Added
+
+- **Terminal control shortcuts reach the session** ([#197](https://github.com/totoshko88/RustConn/issues/197)) — readline chords (Ctrl+F/P/N/W/H/M/I) were intercepted by the application accelerators before reaching the focused terminal. A new setting "Send terminal control shortcuts to the session" (enabled by default) temporarily suspends those single-Ctrl accelerators while the VTE terminal or an embedded RDP/VNC/SPICE viewer has focus, and restores them when focus leaves. `<Control><Shift>` chords and function keys stay active throughout; disabling the setting restores the old always-active behavior
+- **Native arm64 snap build** — the Snap package now builds for arm64 (aarch64) alongside amd64 via a parallel CI matrix on native runners (`ubuntu-24.04` + `ubuntu-24.04-arm`, no QEMU). `snap/snapcraft.yaml` declares both platforms and uses architecture-independent `prime:` exclusions so the GTK/GLib deduplication works on arm64. The snap build stays best-effort: a failure of either architecture does not gate the release
+
+### Changed
+
+- **Dependency refresh** — bumped the gtk4-rs stack to the latest compatible patch releases: `gtk4`/`gtk4-sys`/`gtk4-macros` 0.11.4, `gdk4`/`gdk4-sys` 0.11.4, `gdk4-wayland` 0.11.4, `gsk4`/`gsk4-sys` 0.11.4, `graphene-rs`/`graphene-sys` 0.22.8, `gio`/`gio-sys` 0.22.8, `glib`/`glib-sys` 0.22.8, and `pango` 0.22.8. Also updated `hybrid-array` 0.4.13 and `open` 5.3.6, and dropped the now-unused `pathdiff`
+
 ## [0.17.4] - 2026-06-27
 
 ### Fixed
@@ -37,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 A hardening release following a deep, per-feature codebase audit (15 actionable findings).
 
-### Securityпше 
+### Security
 
 - **Generated passwords now auto-clear from the clipboard** — the password generator's "Copy" left the password on the clipboard indefinitely, unlike the connection "Copy Password" action (30 s auto-clear). It now clears after 30 seconds, but only if the clipboard still holds that password (so it never clobbers something you copied since)
 - **SSH password no longer lingers in memory after auto-login** — the injected password (initial connect and in-place reconnect) is now wrapped in `Zeroizing` so the plaintext is wiped immediately after it is handed to VTE, instead of remaining in a `String` until garbage collection

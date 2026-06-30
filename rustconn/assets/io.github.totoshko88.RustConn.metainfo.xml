@@ -140,6 +140,20 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.17.5" date="2026-06-30">
+      <description>
+        <p>Version 0.17.5 — RDP resize/fallback fixes, SSH auto-login, and arm64 snap:</p>
+        <ul>
+          <li>Embedded RDP sessions no longer abort when resized — the decompressor is rebuilt for the negotiated compression type after a Deactivation-Reactivation Sequence (issue #200)</li>
+          <li>RDP to GNOME Remote Desktop now transparently falls back to the external FreeRDP client instead of dead-ending (issue #199)</li>
+          <li>Fixed the native arm64 snap link step by resolving both halves of pango from the SDK (issue #198)</li>
+          <li>Variable password auto-login now works on network equipment via cursor-position prompt detection (issue #194)</li>
+          <li>Jump host authenticates with its own Variable/Vault password, never leaking the target password to the bastion (issue #191)</li>
+          <li>Terminal control shortcuts (Ctrl+F/P/N…) reach the focused terminal/viewer instead of the app (issue #197)</li>
+          <li>Native arm64 snap package build alongside amd64</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.17.4" date="2026-06-27">
       <description>
         <p>Version 0.17.4 — vault domain fix, SSH prompt detection, and multi-printer CUPS:</p>

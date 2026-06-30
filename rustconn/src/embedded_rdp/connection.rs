@@ -1340,9 +1340,19 @@ impl super::EmbeddedRdpWidget {
         // some other servers send this PDU before ServerDemandActive, causing
         // "unexpected Share Control Pdu (expected ServerDemandActive)" error.
         // See: https://github.com/Devolutions/IronRDP — upstream limitation.
+        //
+        // GNOME Remote Desktop also trips the connector's internal state machine
+        // during connect_finalize: NLA/CredSSP succeeds, then the capabilities /
+        // finalization phase returns `general_err!("invalid state (this is a bug)")`
+        // (ironrdp-connector connection.rs). Our core wraps this as
+        // "Connection finalize failed: …". Match both the wrapper prefix and the
+        // upstream signature so the connection falls back to FreeRDP instead of
+        // surfacing a dead-end error. See https://github.com/totoshko88/RustConn/issues/199.
         let is_protocol_error = msg.contains("ServerDemandActive")
             || msg.contains("ServerDeactivateAll")
             || msg.contains("connect_finalize")
+            || msg.contains("Connection finalize failed")
+            || msg.contains("invalid state (this is a bug)")
             || msg.contains("unexpected Share Control Pdu")
             || msg.contains("Unsupported PDU")
             || msg.contains("Unsupported security protocol")

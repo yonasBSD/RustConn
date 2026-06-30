@@ -29,6 +29,7 @@ pub fn create_ui_page() -> (
     adw::SwitchRow,
     adw::SpinRow,
     adw::SwitchRow,
+    adw::SwitchRow,
 ) {
     let page = adw::PreferencesPage::builder()
         .title(i18n("Interface"))
@@ -185,6 +186,18 @@ pub fn create_ui_page() -> (
     });
     appearance_group.add(&compact_ui);
 
+    // Send terminal control shortcuts to the session toggle — when on, the
+    // focus-based accelerator suspend is active (single-Ctrl chords reach the
+    // focused terminal/viewer instead of the app); when off, accelerators stay
+    // always-active (the old behavior). Independent of the global passthrough.
+    let terminal_passthrough_ctrl = adw::SwitchRow::builder()
+        .title(i18n("Send terminal control shortcuts to the session"))
+        .subtitle(i18n(
+            "While a terminal or remote viewer is focused, let Ctrl+F/P/N and similar chords reach the session instead of the app",
+        ))
+        .build();
+    appearance_group.add(&terminal_passthrough_ctrl);
+
     page.add(&appearance_group);
 
     // === Window Group ===
@@ -310,6 +323,7 @@ pub fn create_ui_page() -> (
         show_protocol_filters,
         sidebar_width_row,
         compact_ui,
+        terminal_passthrough_ctrl,
     )
 }
 
@@ -358,6 +372,7 @@ pub fn load_ui_settings(
     show_protocol_filters: &adw::SwitchRow,
     sidebar_width_row: &adw::SpinRow,
     compact_ui: &adw::SwitchRow,
+    terminal_passthrough_ctrl: &adw::SwitchRow,
     settings: &UiSettings,
     connections: &[&Connection],
 ) {
@@ -428,6 +443,8 @@ pub fn load_ui_settings(
     compact_ui.set_active(settings.compact_ui);
     crate::app::apply_compact_ui(settings.compact_ui);
 
+    terminal_passthrough_ctrl.set_active(settings.terminal_passthrough_ctrl);
+
     // Populate startup action dropdown with connections
     let entries = build_startup_entries(connections);
     let mut labels: Vec<String> = vec![i18n("Do nothing"), i18n("Local Shell")];
@@ -472,6 +489,7 @@ pub fn collect_ui_settings(
     show_protocol_filters: &adw::SwitchRow,
     sidebar_width_row: &adw::SpinRow,
     compact_ui: &adw::SwitchRow,
+    terminal_passthrough_ctrl: &adw::SwitchRow,
     connections: &[&Connection],
 ) -> UiSettings {
     let mut selected_scheme = ColorScheme::System;
@@ -528,5 +546,6 @@ pub fn collect_ui_settings(
         show_protocol_filters: show_protocol_filters.is_active(),
         show_smart_folders: false, // Preserved via toggle button, not settings dialog
         compact_ui: compact_ui.is_active(),
+        terminal_passthrough_ctrl: terminal_passthrough_ctrl.is_active(),
     }
 }
